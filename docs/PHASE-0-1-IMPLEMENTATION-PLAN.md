@@ -135,7 +135,8 @@ implementer, locked before implementation, mounted read-only as a gate test
 pack, independently re-run by the conductor, and mapped back to acceptance
 criteria.
 6. Establish the **`AgentRunner` adapter** so Pi can later be swapped for Cursor
-   CLI, Codex, Claude Code, OpenCode, OpenHands, Aider, Goose, or other agents
+   CLI, Codex, Claude Code, OpenCode/OpenCode-compatible CLIs, OpenHands, Aider,
+   Goose, or other agents
    without changing the conductor's core state machine.
 7. Make **requirement-to-Slice traceability** real in miniature: every Slice
    maps back to a plan requirement or explicit human decision, and every
@@ -164,17 +165,25 @@ criteria.
 
 ### Definition of done for Phase 1
 
-A human seeds one Plan with one Epic, one Slice, one Agent Brief, and failing
-pytest cases; `mix conveyor.plan_audit` reports the plan as handoff-ready; one
-run action drives the Slice through every station in hermetic CI using a
-deterministic fake/patch runner; the live Pi adapter passes the same flow behind
-a tagged/manual test; the conductor independently re-runs pytest and
-code-quality checks; `RunCheck` validates the manifest/dossier; a separate
-reviewer judges the recorded dossier; the deterministic gate passes; the
-gate-canary rejects a labeled injected-bug set; LiveView and a generated report
-show the full timeline; a PR-body draft and evidence packet are written to disk;
-the human records external integration manually; and the run supports R0/R1
-replay.
+A human seeds one Plan with one Epic, one Slice, one Agent Brief, baseline
+regression tests, and locked acceptance tests. `mix conveyor.plan_audit` reports
+the normalized contract as handoff-ready. Baseline regression passes on the base
+commit. Locked acceptance tests calibrate red on the base commit for expected
+reasons. `mix conveyor.demo` drives one `RunAttempt` through every station in
+hermetic CI using a deterministic fake/patch runner, with no live provider
+credential and no optional CodeScent dependency. The live Pi adapter passes the
+same flow behind a tagged/manual test.
+
+The conductor applies the produced `PatchSet` to a clean gate workspace,
+independently reruns verification suites from structured test results, validates
+acceptance mapping, validates policy, validates artifact schemas, validates the
+run bundle root digest, and runs reviewer-on-dossier with fresh reviewer
+calibration. The deterministic gate passes only if all required stages pass. The
+canary harness proves one known-good fixture passes and every enabled bad mutant
+fails. Static report and LiveView show the same timeline. A PR-body draft and
+evidence bundle are written to `.conveyor/runs/<run_attempt_id>/`. The human
+records external integration manually; Conveyor computes patch equivalence and
+reruns post-integration checks. The run supports R0/R1 replay.
 
 ---
 
@@ -182,26 +191,29 @@ replay.
 
 | Concern                   | Phase 0/1 choice                                                                      | Why                                                                                          |
 | ------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Language / runtime        | Elixir ~1.17+, Erlang/OTP 26+                                                         | Best fit for durable supervision, concurrent orchestration, and self-healing later.          |
+| Language / runtime        | Tested matrix: Elixir 1.20.x on Erlang/OTP 27+ for new development; record exact versions in every RunSpec | Best fit for durable supervision, concurrent orchestration, stronger compile-time checks, and self-healing later. |
 | Web / dashboard           | Phoenix 1.8.x + LiveView                                                              | Minimal real-time run viewer, parked/rework triage later.                                    |
 | Domain & persistence      | Ash 3.x + AshPostgres, `ash_state_machine`, Postgres 16                               | One coherent source of truth; policies and state transitions are enforceable.                |
 | Background / durable jobs | Oban                                                                                  | Durable stations; crash/reboot resumes from last persisted state.                            |
 | Operator CLI              | Mix tasks in Phase 0/1 (`mix conveyor.*`)                                             | Fastest way to ship doctor/audit/run/report without a second CLI project.                    |
-| Agent isolation           | Docker container per run                                                              | Blast-radius control, reproducible agent and gate environments, clean teardown.              |
+| Agent isolation           | Docker container per run (rootless mode preferred)                                    | Blast-radius control, reproducible agent and gate environments, clean teardown.              |
+| Sandbox abstraction       | `SandboxRunner` behaviour, Docker adapter first                                       | Keeps Docker from becoming the conductor API; leaves room for Podman, Firecracker, Kubernetes, or remote sandboxes later. |
 | Workspace model           | Materialized repo checkout inside the container, from a known base commit             | Equivalent to a one-task workspace; future phases can use worktrees plus containers.         |
+| Toolchain identity        | `ToolchainProfile` with image digest, dependency lock digest, and cache policy        | Reproducibility first; performance via safe caches, not mutable ambient state.               |
 | First implementer         | **Pi** (`pi.dev`) over RPC/JSON via a BEAM Port                                       | Structured seam, no TUI scraping, minimal orchestration overlap.                             |
 | Future agent seam         | `AgentRunner` behaviour + `AgentProfile` capabilities                                 | Keeps Claude/Codex/OpenHands/OpenCode/etc. interchangeable.                                  |
 | Code intelligence         | `CodeQualityAdapter` invoked by the conductor; CodeScent/CodeScene can be one adapter | Read-only context/risk/gate signal; no source mutation; OSS fallback remains possible.       |
 | Safety                    | `ExecPolicy` + Docker + environment allowlist + command denylist                      | Docker is necessary but not sufficient; policy is explicit from day one.                     |
 | Project instructions      | Generated/linted `AGENTS.md`                                                          | Predictable agent-readable contract for repo commands, rules, and done criteria.             |
 | Sample testbed            | Tiny FastAPI "tasks" service with pytest                                              | Small enough to reason about; rich enough for API behavior, persistence, tests, and mutants. |
-| Artifact projection       | `.conveyor/runs/<run_id>/`                                                            | Reviewable OSS-friendly artifacts while Postgres remains truth.                              |
+| Artifact projection       | `.conveyor/runs/<run_attempt_id>/`                                                    | Reviewable OSS-friendly artifacts while Postgres remains truth.                              |
 
-**Assumptions:** Docker is installed and reachable; the Pi image contains Pi and
-the Python toolchain; an OpenAI/Codex provider credential is available in a
-scoped way; CodeScent is installed and runnable in the conductor/gate
-environment; the sample repo starts from a known committed base; no production
-secrets or network-only dependencies are required.
+**Assumptions:** Docker is installed and reachable; the selected runner image
+contains the sample project toolchain; a live provider credential is available
+only for tagged/manual agent tests; the default hermetic tracer does not require
+a live provider; CodeScent is optional unless selected as a gate-blocking
+adapter by project policy; the sample repo starts from a known committed base;
+no production secrets or network-only dependencies are required.
 
 Portability rule: Conveyor core must not special-case Python, FastAPI, or
 pytest. The Phase-1 sample uses them, but language-specific behavior belongs in:
@@ -261,13 +273,14 @@ Plan Audit / Traceability Gate
 Ash Work Graph + Contracts
         │
         ▼
-RunSlice Oban Job
+RunAttempt (RunSlice Oban Job, one attempt per Slice in Phase 1)
         │
         ├── Readiness
-        ├── Baseline Health
+        ├── Baseline Health (baseline_regression suites)
+        ├── Acceptance Calibration (locked suite red on base)
         ├── Context Scout (rg + CodeScent + optional read-only agent pass)
         ├── Prompt Builder (Brief + Pack + AGENTS.md + Policy + output schema)
-        ├── AgentRunner.Pi (Docker + RPC + heartbeat + streamed events)
+        ├── AgentSession via AgentRunner.Pi (Docker + RPC + heartbeat + streamed events)
         ├── Evidence Recorder (independent tests + CodeScent + diff + logs)
         ├── RunCheck (manifest/dossier/schema consistency)
         ├── Reviewer-on-Dossier (separate actor/model)
@@ -277,7 +290,7 @@ RunSlice Oban Job
         └── Retrospective / Failure Taxonomy
         │
         ▼
-LiveView + `.conveyor/runs/<run_id>/` dossier + PR-body draft
+LiveView + `.conveyor/runs/<run_attempt_id>/` dossier + PR-body draft
 ```
 
 Phase 0/1 is deliberately not a swarm. It is the smallest real factory loop with
@@ -350,11 +363,51 @@ The `RunSpec` freezes:
 - budget limits;
 - code-quality adapter/profile;
 - canary suite version required for this gate;
-- schema versions for all emitted artifacts.
+- schema versions for all emitted artifacts;
+- station plan digest.
+
+`StationPlan` is a versioned, immutable station DAG generated into the `RunSpec`.
+Phase 1 uses a linear DAG; future phases may use the same schema for parallel
+scout/gate/review execution without building a new scheduler model.
+
+```json
+{
+  "schema_version": "conveyor.station_plan@1",
+  "stations": [
+    {
+      "key": "baseline",
+      "worker": "Conveyor.Jobs.BaselineHealth",
+      "depends_on": [],
+      "input_refs": ["run_spec", "project", "verification_suite:baseline"],
+      "allowed_effects": ["container_start", "process_exec", "artifact_write"],
+      "sandbox_profile": "verify",
+      "output_schema": "conveyor.baseline_result@1",
+      "retry_policy": { "max_attempts": 1 }
+    },
+    {
+      "key": "acceptance_calibration",
+      "worker": "Conveyor.Jobs.AcceptanceCalibration",
+      "depends_on": ["baseline"],
+      "output_schema": "conveyor.test_pack_calibration@1"
+    }
+  ]
+}
+```
 
 Every station input and output must include `run_spec_sha256`. If a mutable
-upstream resource changes, Conveyor creates a new `RunSpec` and a new attempt
-rather than silently reusing prior evidence.
+upstream resource changes, Conveyor creates a new `RunSpec` and a new
+`RunAttempt` rather than silently reusing prior evidence.
+
+Contract evolution rule:
+
+```text
+Any change to AgentBrief, acceptance criteria, required tests, TestPack,
+verification commands, AGENTS.md, policy, DiffPolicy, autonomy ceiling, or
+project command specs invalidates the prior ContractLock for future attempts.
+The old lock remains valid for interpreting old evidence. A new lock requires a
+new RunSpec and a new RunAttempt, plus an explicit HumanDecision or
+HumanApproval record explaining the change.
+```
 
 ### 6.1 Active Phase 0/1 resources
 
@@ -365,7 +418,11 @@ tables until a workflow needs independent lifecycle, permissions, querying, or
 retention.
 
 - **`Project`** —
-  `id, name, repo_url?, local_path, default_branch, dev_branch?, command_specs[], code_quality_profile, default_autonomy_level, status`
+  `id, name, repo_url?, local_path, default_branch, dev_branch?, command_specs[], toolchain_profile_id?, code_quality_profile, default_autonomy_level, status`
+- **`ToolchainProfile`** —
+  `id, project_id?, key, image_ref, image_digest, dependency_lock_refs[], dependency_lock_sha256?, cache_policy, sbom_ref?, created_at`
+- **`CacheMount`** —
+  `id, run_spec_id, station_run_id?, cache_key, mount_path, mode∈read_only/read_write, content_digest?, hit, created_at`
 - **`Plan`** —
   `id, project_id, title, intent, source_document, normalized_contract, schema_version, contract_sha256, status, readiness_score, imported_at`
 - **`Requirement`** —
@@ -373,9 +430,11 @@ retention.
 - **`HumanDecision`** —
   `id, plan_id, stable_key, decision, rationale, status, supersedes?`
 - **`HumanApproval`** —
-  `id, project_id, slice_id?, agent_run_id?, approval_type, decision∈approved/rejected/recorded_external_action, actor, rationale?, artifact_sha256_refs[], external_commit?, external_tree_sha256?, equivalence_decision?, created_at`
+  `id, project_id, slice_id?, run_attempt_id?, approval_type, decision∈approved/rejected/recorded_external_action, actor, rationale?, artifact_sha256_refs[], external_commit?, external_tree_sha256?, equivalence_decision?, created_at`
 - **`ExternalChange`** —
-  `id, human_approval_id, agent_run_id, external_commit, external_patch_sha256, equivalence∈exact/equivalent_with_human_edits/divergent/partial/unknown, human_edit_summary?, verification_status, created_at`
+  `id, human_approval_id, run_attempt_id, external_commit, external_patch_sha256, equivalence∈exact/equivalent_with_human_edits/divergent/partial/unknown, human_edit_summary?, verification_status, created_at`
+- **`PatchEquivalence`** —
+  `id, external_change_id, accepted_patch_sha256, external_patch_sha256, normalized_patch_id?, accepted_hunks_present, extra_files_changed[], protected_paths_changed[], equivalence, rationale, created_at`
 - **`PlanAudit`** —
   `id, plan_id, score, decision∈ready/needs_clarification/blocked, findings[], coverage_summary, created_at`
 - **`Epic`** — `id, plan_id, title, description, risk, approval_status, status`
@@ -383,113 +442,134 @@ retention.
   `id, epic_id, title, position, risk, state, autonomy_level, source_refs[], likely_files[], conflict_domains[], diff_policy_id?`
 - **`DiffPolicy`** —
   `id, slice_id?, allowed_path_globs[], protected_path_globs[], max_files_changed?, max_lines_added?, max_lines_deleted?, dependency_changes_allowed, migrations_allowed, generated_files_allowed, public_api_changes_allowed, notes`
+- **`ReviewPolicy`** —
+  `id, project_id, name, risk_rules[], default_required_review_kinds[], escalation_policy∈fail_closed/require_human/allow_with_warning`
 - **`AgentBrief`** (the contract) —
   `id, slice_id, version, current_behavior, desired_behavior, key_interfaces, out_of_scope, risk, acceptance_criteria[], required_tests[], verification_commands[], non_goals[], locked_at, locked_by, contract_sha256`
 - **`ContractLock`** —
   `id, slice_id, agent_brief_id, plan_contract_sha256, brief_sha256, acceptance_criteria_sha256, required_tests_sha256, test_pack_sha256, verification_commands_sha256, agents_md_sha256, policy_sha256, protected_path_globs[], locked_at, locked_by`
 - **`TestPack`** —
-  `id, slice_id, version, source_ref, test_pack_ref, test_pack_sha256, required_test_refs[], acceptance_criteria_refs[], mount_path, runner_command_specs[], locked_at, locked_by`
+  `id, slice_id, version, source_ref, test_pack_ref, test_pack_sha256, required_test_refs[], acceptance_criteria_refs[], mount_path, runner_command_specs[], test_result_adapter, locked_at, locked_by`
+- **`VerificationSuite`** —
+  `id, project_id, slice_id?, key, suite_kind∈baseline_regression/acceptance_locked/quality/security/mutation/post_integration, command_specs[], expected_on_base∈pass/fail/not_run, expected_on_patch∈pass/fail/not_run, required, result_format∈junit/tap/json/custom/stdout, result_adapter, notes`
+- **`TestPackCalibration`** —
+  `id, test_pack_id, run_spec_id, base_commit, result_ref, expected_failures[], unexpected_passes[], unexpected_failures[], calibrated_at, status∈valid/invalid`
 - **`ContextPack`** —
   `id, slice_id, scout_version, confidence, relevant_files[], key_interfaces[], existing_tests[], risks[], suggested_validation[], code_quality_refs[]`
 - **`InstructionSource`** —
   `id, run_prompt_id?, source_kind∈system/project/plan/brief/agents_md/repo_file/tool_output, trust_level∈trusted/bounded/untrusted, source_ref, digest, included_in_prompt`
 - **`CodeQualityRun`** —
-  `id, project_id, agent_run_id?, adapter, profile, baseline_ref?, result_ref, findings_summary, new_high_risk_findings, status, created_at`
+  `id, project_id, run_attempt_id?, adapter, profile, baseline_ref?, result_ref, findings_summary, new_high_risk_findings, status, created_at`
 - **`RunPrompt`** —
   `id, slice_id, brief_id, context_pack_id, template_version, body, policy_refs[], memory_refs[], output_schema_version`
 - **`RunSpec`** —
-  `id, slice_id, attempt_no, run_spec_json_ref, run_spec_sha256, base_commit, contract_lock_sha256, prompt_template_version, agent_profile_snapshot, policy_sha256, diff_policy_sha256, test_pack_sha256, container_image_ref, container_image_digest, sandbox_profile, budget_sha256, code_quality_profile, canary_suite_version, created_at`
+  `id, slice_id, attempt_no, run_spec_json_ref, run_spec_sha256, base_commit, contract_lock_sha256, prompt_template_version, agent_profile_snapshot, policy_sha256, diff_policy_sha256, test_pack_sha256, station_plan_sha256, toolchain_profile_id?, container_image_ref, container_image_digest, sandbox_profile, budget_sha256, code_quality_profile, canary_suite_version, created_at`
 - **`WorkspaceMaterialization`** —
-  `id, run_spec_id, station_run_id?, purpose∈baseline/implement/gate/canary/post_integration, base_commit, applied_patch_sha256?, path, container_id?, mount_mode∈read_only/read_write/mixed, head_tree_sha256?, cleanup_policy∈delete/preserve_on_failure/preserve_always, cleanup_status∈pending/deleted/preserved/failed, created_at, cleaned_at?`
+  `id, run_spec_id, station_run_id?, purpose∈baseline/acceptance_calibration/implement/gate/canary/post_integration, base_commit, applied_patch_sha256?, path, container_id?, mount_mode∈read_only/read_write/mixed, head_tree_sha256?, cleanup_policy∈delete/preserve_on_failure/preserve_always, cleanup_status∈pending/deleted/preserved/failed, created_at, cleaned_at?`
 - **`AgentProfile`** —
   `id, adapter, provider, model, capabilities, policy_profile, enabled, notes`
-- **`AgentRun`** —
-  `id, slice_id, run_spec_id, run_prompt_id, agent_profile_id, base_commit, patch_set_id?, head_tree_sha256?, integration_commit?, workspace_state, started_at, completed_at, status∈running/succeeded/failed/cancelled, outcome∈none/needs_rework/accepted, cost_estimate, tokens?`
+- **`RunAttempt`** —
+  `id, slice_id, run_spec_id, attempt_no, base_commit, head_tree_sha256?, patch_set_id?, status∈planned/running/succeeded/failed/cancelled/stale, outcome∈none/needs_rework/accepted/rejected/policy_blocked, failure_category?, started_at?, completed_at?, orchestrator_version, trace_id`
+
+  `RunAttempt` is the parent identity for one Slice execution attempt. Baseline,
+  acceptance calibration, scout, prompt, implementer session, evidence
+  recording, review, gate, canary, report projection, and post-integration
+  checks all belong to the attempt — not to the agent session.
+- **`AgentSession`** —
+  `id, run_attempt_id, run_prompt_id, agent_profile_id, adapter_session_id?, role∈implementer/reviewer/scout, base_commit, started_at?, completed_at?, status∈running/succeeded/failed/cancelled, raw_result_ref?, cost_estimate?, tokens?`
+
+  `AgentSession` is adapter output, not the run itself. It is trusted only as a
+  recorded transcript/input to later deterministic stations.
 - **`PatchSet`** —
-  `id, agent_run_id, base_commit, patch_ref, patch_sha256, changed_files[], added_files[], deleted_files[], renamed_files[], lines_added, lines_deleted, touches_locked_paths, applies_cleanly, generated_at`
+  `id, run_attempt_id, agent_session_id?, base_commit, patch_ref, patch_sha256, changed_files[], added_files[], deleted_files[], renamed_files[], lines_added, lines_deleted, touches_locked_paths, applies_cleanly, generated_at`
 - **`RiskAssessment`** —
-  `id, agent_run_id, patch_set_id, planned_risk, observed_risk, reasons[], touched_risk_domains[], required_review_kinds[], required_gate_stages[], created_at`
+  `id, run_attempt_id, patch_set_id, planned_risk, observed_risk, reasons[], touched_risk_domains[], required_review_kinds[], required_gate_stages[], created_at`
 - **`StationRun`** —
-  `id, agent_run_id?, slice_id, station, attempt_no, idempotency_key, input_sha256, output_sha256?, status∈queued/running/succeeded/failed/cancelled/stale, lease_owner?, lease_expires_at?, heartbeat_at?, started_at?, completed_at?, error_category?, error_message?, artifact_refs[]`
+  `id, run_attempt_id, agent_session_id?, slice_id, station, attempt_no, station_spec_sha256, idempotency_key, input_sha256, output_sha256?, status∈queued/running/succeeded/failed/cancelled/stale, lease_owner?, lease_expires_at?, heartbeat_at?, started_at?, completed_at?, error_category?, error_message?, artifact_refs[]`
 - **`Evidence`** —
-  `id, agent_run_id, patch_set_id, changed_files[], diff_ref, tool_invocation_refs[], acceptance_results[], code_quality_result_ref, risks[], summary, pr_body_ref`
+  `id, run_attempt_id, patch_set_id, changed_files[], diff_ref, tool_invocation_refs[], acceptance_results[], code_quality_result_ref, risks[], summary, pr_body_ref`
 - **`ToolInvocation`** —
-  `id, agent_run_id?, station_run_id?, tool_name, invocation_kind, command_spec, policy_profile, cwd, env_keys[], network_mode, started_at, completed_at, exit_code, duration_ms, stdout_ref, stderr_ref, output_sha256, policy_decision, status`
+  `id, run_attempt_id?, agent_session_id?, station_run_id?, tool_name, invocation_kind, command_spec, policy_profile, cwd, env_keys[], network_mode, started_at, completed_at, exit_code, duration_ms, stdout_ref, stderr_ref, output_sha256, policy_decision, status`
 - **`Review`** —
-  `id, agent_run_id, reviewer_profile_id, review_kind∈general/security/test/architecture, rubric_version, dossier_sha256, reviewed_at, decision∈accepted/needs_rework/rejected, recommendation∈merge/rework/ask_human/archive, summary, findings[], checks[]`
+  `id, run_attempt_id, reviewer_session_id?, reviewer_profile_id, review_kind∈general/security/test/architecture, rubric_version, dossier_sha256, reviewed_at, decision∈accepted/needs_rework/rejected, recommendation∈merge/rework/ask_human/archive, summary, findings[], checks[]`
 - **`GateResult`** —
-  `id, agent_run_id, level∈slice, passed, stages[], false_negative?, gate_version, gate_code_sha256, policy_sha256, contract_lock_sha256, canary_suite_version`
-- **`CanaryMutant`** —
-  `id, project_id, name, description, patch_ref, expected_failure, enabled`
-- **`CanaryRun`** —
-  `id, gate_result_id?, mutant_id, gate_version, gate_code_sha256, policy_sha256, canary_suite_version, passed_when_should_fail, stage_that_caught_it?, notes`
-- **`EvalCase`** —
-  `id, project_id?, suite, name, description, fixture_ref, expected_decision, expected_failure_category?, enabled, tags[]`
-- **`EvalRun`** —
-  `id, eval_case_id, subject_kind, subject_ref, decision, passed, observed_failure_category?, artifact_refs[], created_at`
+  `id, run_attempt_id, level∈slice, passed, stages[], false_negative?, gate_version, gate_code_sha256, policy_sha256, contract_lock_sha256, canary_suite_version`
 - **`Artifact`** —
-  `id, agent_run_id?, station_run_id?, kind, media_type, projection_path, blob_ref, sha256, size_bytes, subject_kind, producer, schema_version, sensitivity∈public/internal/sensitive/redacted/quarantined, created_at`
-- **`Attestation`** —
-  `id, agent_run_id, subject_refs[], predicate_type, predicate_ref, predicate_sha256, created_at, signed_by?, signature_ref?`
+  `id, run_attempt_id?, station_run_id?, kind, media_type, projection_path, blob_ref, sha256, size_bytes, subject_kind, producer, schema_version, sensitivity∈public/internal/sensitive/redacted/quarantined, created_at`
+- **`RunBundle`** —
+  `id, run_attempt_id, manifest_ref, manifest_sha256, bundle_root_sha256, schema_version, projection_path, projection_status∈pending/projected/failed, created_at`
+- **`ReviewerHealth`** —
+  `id, reviewer_profile_id, rubric_version, fixture_suite_version, passed, failures[], checked_at`
+- **`GateHealth`** —
+  `id, project_id, freshness_key_sha256, gate_version, gate_code_sha256, policy_sha256, test_pack_sha256, container_image_digest, code_quality_profile_sha256, canary_suite_version, runcheck_schema_version, last_run_ref, passed, false_negative_count, checked_at`
 
-  Phase 1 attestations should be standards-shaped even if unsigned:
+  Detailed canary cases and runs, eval cases and eval runs, and attestations are
+  versioned fixture files and content-addressed artifacts in Phase 1, not active
+  tables. `GateHealth` is the single queryable summary the deterministic gate
+  needs to answer "is the gate currently fresh and honest for this freshness
+  key?"
+- **`LedgerEvent`** —
+  `id, project_id, slice_id?, run_attempt_id?, agent_session_id?, station_run_id?, trace_id?, span_id?, idempotency_key, type, payload, occurred_at`
+- **`Policy`** —
+  `id, name, profile∈explore/implement/verify/release/dangerous_maintenance, allowlist, denylist, env_policy, network_policy, budget_policy, autonomy_ceiling`
+- **`RetentionPolicy`** —
+  `id, project_id?, artifact_sensitivity, retain_raw_for_days?, retain_redacted_for_days?, allow_delete, require_human_approval_for_delete`
+- **`RunBudget`** —
+  `id, run_attempt_id, max_wall_clock_ms, max_idle_ms, max_tool_calls, max_command_count, max_output_bytes, max_repeated_command_count, max_same_file_rewrites, max_no_diff_progress_ms, max_tokens?, max_cost_cents?, consumed_tool_calls, consumed_command_count, consumed_output_bytes, consumed_tokens?, consumed_cost_cents?, status`
+- **`Incident`** —
+  `id, project_id, slice_id?, run_attempt_id?, severity, category, description, evidence_refs[], status`
 
-  ```json
-  {
-    "_type": "https://in-toto.io/Statement/v1",
-    "subject": [
-      { "name": "diff.patch", "digest": { "sha256": "..." } },
-      { "name": "evidence.json", "digest": { "sha256": "..." } }
+### 6.1.1 Phase-1 fixtures, artifacts, and embedded/value-object records
+
+These are versioned fixture files, content-addressed artifacts, or typed
+embedded schemas in Phase 1. They are validated with JSON Schema but do not
+require independent tables yet:
+
+- `EvalCase` / `EvalRun` — eval suite fixtures + recorded artifact results.
+- `CanaryMutant` / `CanaryRun` — labeled mutant fixtures + gate-only artifact
+  results, summarized into `GateHealth`.
+- `Attestation` — standards-shaped provenance artifact (see below); not a row.
+- low-volume metric samples — emitted as telemetry/artifact projections.
+- Code-quality raw findings.
+- reviewer rubric details.
+
+Phase-1 attestations should be standards-shaped even if unsigned, and are
+written as the `provenance.intoto.json` artifact rather than a relational row:
+
+```json
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    { "name": "diff.patch", "digest": { "sha256": "..." } },
+    { "name": "evidence.json", "digest": { "sha256": "..." } }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "builder": { "id": "conveyor/phase1-local" },
+    "buildType": "conveyor.slice.gate@1",
+    "materials": [
+      { "uri": "git+file://sample_tasks", "digest": { "gitCommit": "..." } },
+      { "uri": "container-image", "digest": { "sha256": "..." } },
+      { "uri": "test-pack", "digest": { "sha256": "..." } }
     ],
-    "predicateType": "https://slsa.dev/provenance/v1",
-    "predicate": {
-      "builder": { "id": "conveyor/phase1-local" },
-      "buildType": "conveyor.slice.gate@1",
-      "materials": [
-        { "uri": "git+file://sample_tasks", "digest": { "gitCommit": "..." } },
-        { "uri": "container-image", "digest": { "sha256": "..." } },
-        { "uri": "test-pack", "digest": { "sha256": "..." } }
-      ],
-      "invocation": {
-        "parameters": {
-          "run_spec_sha256": "...",
-          "policy_sha256": "...",
-          "prompt_sha256": "..."
-        }
+    "invocation": {
+      "parameters": {
+        "run_spec_sha256": "...",
+        "policy_sha256": "...",
+        "prompt_sha256": "..."
       }
     }
   }
-  ```
+}
+```
 
-  Unsigned local attestations are acceptable in Phase 1. The schema should leave
-  a clear path to signed attestations later.
-- **`LedgerEvent`** —
-  `id, project_id, slice_id?, agent_run_id?, station_run_id?, trace_id?, span_id?, type, payload, occurred_at`
-- **`RunMetric`** —
-  `id, project_id, slice_id?, agent_run_id?, station_run_id?, name, value, unit, dimensions, recorded_at`
-- **`Policy`** —
-  `id, name, profile∈explore/implement/verify/release/dangerous_maintenance, allowlist, denylist, env_policy, network_policy, budget_policy, autonomy_ceiling`
-- **`RunBudget`** —
-  `id, agent_run_id, max_wall_clock_ms, max_idle_ms, max_tool_calls, max_command_count, max_output_bytes, max_repeated_command_count, max_same_file_rewrites, max_no_diff_progress_ms, max_tokens?, max_cost_cents?, consumed_tool_calls, consumed_command_count, consumed_output_bytes, consumed_tokens?, consumed_cost_cents?, status`
-- **`Incident`** —
-  `id, project_id, slice_id?, agent_run_id?, severity, category, description, evidence_refs[], status`
+Unsigned local attestations are acceptable in Phase 1; SLSA provenance and a
+CycloneDX SBOM are optional artifact schemas, while the local `RunBundle` root
+digest (see §6.4) is Conveyor's own first trust anchor.
 
-### 6.1.1 Phase-1 embedded/value-object records
-
-These are validated with JSON Schema or typed embedded schemas in Phase 1, but
-do not require independent tables yet:
-
-- `EvalCase`
-- `EvalRun`
-- `CanaryMutant`
-- `CanaryRun`
-- `Attestation`
-- low-volume `RunMetric` samples
-- Code-quality raw findings
-- reviewer rubric details
-
-Promote any of these to active Ash resources only when they need independent
-querying, retention policy, permissions, or lifecycle transitions.
+Promotion rule: a fixture or artifact becomes an active Ash resource only when
+Phase 1 must query it for a state transition, retention policy, authorization
+decision, or operator workflow. Otherwise it remains a versioned artifact.
 
 ### 6.2 Deferred resource specs, not active tables yet
 
@@ -541,6 +621,9 @@ types, but no migrations until they are part of an executable workflow.
   repeat: 1,
   flake_policy: :fail_closed | :quarantine | :allow_with_warning,
   infra_retry_policy: %{max_retries: 1, retry_on: [:container_start_failed]},
+  result_format: :junit | :tap | :json | :stdout,
+  result_ref: "artifacts/test-results/pytest.xml",
+  result_adapter: "Conveyor.TestResultAdapter.JUnit",
   exit_code: 0,
   duration_ms: 1382,
   stdout_ref: "artifacts/stdout.log",
@@ -563,6 +646,17 @@ types, but no migrations until they are part of an executable workflow.
       command: "mix conveyor.plan_audit PLAN.md"
     }
   ]
+}
+```
+
+`ReviewPolicy.risk_rules[]`:
+
+```elixir
+%{
+  when: %{path_globs: ["app/auth/**", "infra/**"], dependency_changes: true},
+  observed_risk: :high,
+  required_review_kinds: [:security, :architecture],
+  require_human_approval: true
 }
 ```
 
@@ -589,7 +683,7 @@ human-friendly run directories.
         abcd...json
         abcd...log
   runs/
-    run_<id>/
+    run_attempt_<id>/
       manifest.json
       dossier.md
       evidence.json
@@ -606,7 +700,7 @@ audit log and timeline, not the sole state store. Replay has three levels:
 | Level | Phase   | Meaning                                                                                                |
 | ----- | ------- | ------------------------------------------------------------------------------------------------------ |
 | R0    | Phase 1 | Rebuild the human timeline from `LedgerEvent`.                                                         |
-| R1    | Phase 1 | Regenerate `.conveyor/runs/<run_id>/` artifacts from database records and content-addressed artifacts. |
+| R1    | Phase 1 | Regenerate `.conveyor/runs/<run_attempt_id>/` artifacts from database records and content-addressed artifacts. |
 | R2    | Later   | Reconstruct domain resource state from event reducers.                                                 |
 
 When this plan says a run is replayable in Phase 1, it means R0/R1 replay.
@@ -621,7 +715,7 @@ When this plan says a run is replayable in Phase 1, it means R0/R1 replay.
     implementation-prompt@1.md
     reviewer@1.md
   runs/
-    run_<id>/
+    run_attempt_<id>/
       manifest.json
       dossier.md
       evidence.json
@@ -647,6 +741,59 @@ Projection regeneration must never treat a projection path as trusted input; it
 must verify content-addressed blobs first and then rebuild the human-friendly
 tree.
 
+The run directory is represented by a canonical `RunBundle` manifest that gives
+every PR body, reviewer dossier, gate result, and human approval a single
+canonical artifact identity (`bundle_root_sha256`):
+
+```json
+{
+  "schema_version": "conveyor.run_bundle@1",
+  "run_attempt_id": "run_attempt_123",
+  "entries": [
+    {
+      "path": "evidence.json",
+      "kind": "evidence",
+      "sha256": "...",
+      "size_bytes": 12042,
+      "sensitivity": "public",
+      "schema_version": "conveyor.evidence@1"
+    }
+  ],
+  "bundle_root_sha256": "sha256(canonical entries)"
+}
+```
+
+Generated timestamps, host paths, and non-deterministic ordering are excluded
+from `bundle_root_sha256`. Human-readable files may contain timestamps, but the
+machine manifest must identify which fields are excluded from deterministic
+replay.
+
+### 6.5 Database invariants
+
+Phase 1 relies on application guards and database constraints. Idempotency and
+evidence integrity deserve database backing, not just Ash validations. Minimum
+required constraints:
+
+```text
+Requirement: unique(plan_id, stable_key)
+HumanDecision: unique(plan_id, stable_key)
+Slice: unique(epic_id, position)
+AgentBrief: unique(slice_id, version)
+TestPack: unique(slice_id, version)
+RunSpec: unique(run_spec_sha256)
+RunAttempt: unique(slice_id, attempt_no)
+RunAttempt: at most one status in planned/running per slice_id in Phase 1
+StationRun: unique(idempotency_key)
+StationEffect: unique(idempotency_key)
+Artifact: unique(sha256, size_bytes)
+LedgerEvent: unique(idempotency_key)
+GateHealth: unique(project_id, freshness_key_sha256)
+```
+
+Immutable fields such as digests, base commits, locked contracts, and artifact
+blob references must not be updated in place. Corrections create new records and
+ledger events.
+
 ---
 
 ## 7. State machines
@@ -666,34 +813,27 @@ automatically executable.
 
 ### 7.2 Slice state
 
+`Slice` tracks the product/work-item lifecycle, not every internal station of an
+execution attempt. Station-level progress belongs to `RunAttempt` and
+`StationRun` (see §7.3). A Slice should never have to move backward and forward
+through implementation internals just because a second attempt, a rerun gate, or
+a re-review is needed.
+
 ```text
-drafted ─▶ approved ─▶ ready ─▶ scouting ─▶ scouted ─▶ prompt_built
-   ▲                                                        │
-   │                                                        ▼
-   │                                                  implementing
-   │                                                        │
-   │                                                        ▼
-   │                                                evidence_recorded
-   │                                                        │
-   │                                                        ▼
-   │                                                     reviewed
-   │                                                        │
-   │                                                        ▼
-   │                                                     gated
-   │                                                        │
-   │                                                        ▼
-   │                                                  integrated
-   │                                                        │
-   │                                                        ▼
-   └────────────────────────────────────────────────────── done
+drafted ─▶ approved ─▶ ready ─▶ in_progress ─▶ gated ─▶ integrated ─▶ done
+   ▲                         │             │
+   │                         │             └──▶ needs_rework
+   │                         └────────────────▶ parked
+   └──────────────────────────────────────────▶ archived
 
 Off-ramps from agent/gate stations:
 needs_rework · parked · failed · policy_blocked
 ```
 
-The original state machine is extended with `reviewed` and `policy_blocked`
-because Phase 1 now treats reviewer schema/actor separation and policy
-enforcement as first-class states, not merely stage details.
+The product-level truth is intentionally simple. Reviewer schema/actor
+separation, baseline/acceptance calibration, and policy enforcement are still
+first-class, but they are recorded on the attempt/station layer rather than as
+distinct Slice states.
 
 ```elixir
 defmodule Conveyor.Work.Slice do
@@ -709,22 +849,15 @@ defmodule Conveyor.Work.Slice do
     transitions do
       transition :approve,        from: :drafted,            to: :approved
       transition :mark_ready,     from: :approved,           to: :ready
-      transition :baseline,       from: :ready,              to: :baseline_checked
-      transition :start_scout,    from: :baseline_checked,   to: :scouting
-      transition :scouted,        from: :scouting,           to: :scouted
-      transition :build_prompt,   from: :scouted,            to: :prompt_built
-      transition :implement,      from: :prompt_built,       to: :implementing
-      transition :record,         from: :implementing,       to: :evidence_recorded
-      transition :review,         from: :evidence_recorded,  to: :reviewed
-      transition :gate,           from: :reviewed,           to: :gated
+      transition :start_attempt,  from: :ready,              to: :in_progress
+      transition :gate_passed,    from: :in_progress,        to: :gated
       transition :integrate,      from: :gated,              to: :integrated
-      transition :post_integrate, from: :integrated,         to: :post_integration_checked
-      transition :complete,       from: :post_integration_checked, to: :done
+      transition :complete,       from: :integrated,         to: :done
 
-      transition :rework, from: [:reviewed, :gated, :evidence_recorded, :implementing], to: :needs_rework
+      transition :rework, from: [:in_progress, :gated], to: :needs_rework
       transition :park,   from: :*, to: :parked
       transition :fail,   from: :*, to: :failed
-      transition :policy_block, from: [:prompt_built, :implementing, :evidence_recorded], to: :policy_blocked
+      transition :policy_block, from: [:ready, :in_progress], to: :policy_blocked
     end
   end
 end
@@ -733,6 +866,25 @@ end
 Every transition writes a `LedgerEvent`; guards validate plan readiness, Brief
 lock status, actor separation, required artifacts, gate stage completeness, and
 autonomy policy.
+
+### 7.3 RunAttempt state
+
+`RunAttempt` owns station-level progression. A Slice may have multiple
+RunAttempts, but only one active attempt per Slice is allowed in Phase 1. Later
+phases may allow concurrent speculative attempts only behind explicit policy.
+
+```text
+planned ─▶ running ─▶ evidence_recorded ─▶ reviewed ─▶ gated ─▶ reported
+             │                │              │          │
+             ├───────────────▶ failed        ├─────────▶ needs_rework
+             ├───────────────▶ cancelled     └─────────▶ rejected
+             └───────────────▶ stale
+```
+
+A failed implementation creates `RunAttempt #2` against a fresh `RunSpec`
+without mutating the Slice through every internal station state again. The Slice
+records `needs_rework`/`in_progress`; the attempt records exactly where it
+failed.
 
 ---
 
@@ -750,15 +902,21 @@ Conveyor.Application
     ├── Conveyor.Policy.Engine                    (ExecPolicy decisions + incident creation)
     ├── Conveyor.Security.Redactor                (secret scanning + artifact redaction)
     ├── Conveyor.Artifacts.Projector              (Postgres → pluggable backend; local `.conveyor/runs/*` now, S3/R2 deferred)
+    ├── Conveyor.EventOutbox                       (committed event publication)
+    ├── Conveyor.Effects.Reconciler               (stale leases + unknown effects)
+    ├── Conveyor.Sandbox.Reaper                    (orphan container/workspace cleanup)
     └── Oban workers
         ├── Conveyor.Jobs.RunSlice                (station orchestrator)
-        ├── Conveyor.Jobs.BaselineHealth          (clean checkout test/build/code-quality baseline)
+        ├── Conveyor.Jobs.BaselineHealth          (clean checkout baseline_regression suites)
+        ├── Conveyor.Jobs.AcceptanceCalibration   (locked acceptance suite red/green calibration)
         ├── Conveyor.Jobs.ContextScout            (rg + CodeScent + optional read-only pass)
         ├── Conveyor.Jobs.RunImplementer          (AgentRunner.Pi in Docker)
         ├── Conveyor.Jobs.RecordEvidence          (independent gate command execution)
         ├── Conveyor.Jobs.RunReviewer             (reviewer-on-dossier)
         ├── Conveyor.Jobs.RunGate                 (deterministic gate composition)
         ├── Conveyor.Jobs.RunGateCanary           (mutant gate-only checks)
+        ├── Conveyor.Jobs.ReconcileStaleEffects   (periodic effect reconciliation)
+        ├── Conveyor.Jobs.ReapSandboxes           (periodic cleanup)
         └── Conveyor.Jobs.ProjectArtifacts        (manifest/report regeneration)
 ```
 
@@ -771,8 +929,11 @@ Each station creates or resumes a `StationRun` by idempotency key:
 
 ```text
 station idempotency key =
-  slice_id + station_name + run_spec_sha256 + attempt_no
+  run_attempt_id + station_key + station_spec_sha256 + attempt_no
 ```
+
+The uniqueness key is the domain idempotency key above. Oban's own uniqueness
+and cancellation options are layered on top of it, not used as a substitute.
 
 Station jobs must:
 
@@ -797,6 +958,24 @@ Station retry rule:
 If a retry sees a prior `StationEffect` in `unknown`, it must reconcile the
 external world first: inspect container/process/artifact state, mark the effect
 reconciled or failed, and only then decide whether to resume, retry, or fail.
+```
+
+`StationEffect` records are not enough on their own. After crashes, node
+restarts, cancelled jobs, container daemon restarts, or network failures, a
+periodic `ReconcileStaleEffects` worker plus a `SandboxReaper` reconcile unknown
+or stale effects. In Phase 1 they inspect Docker containers, workspaces, leases,
+and artifact projections; later they can inspect Kubernetes jobs, Firecracker
+VMs, or remote executors. This prevents orphaned containers, leaked credentials,
+stale leases, duplicated station side effects, and confusing LiveView timelines.
+
+Periodic reconciliation rule:
+
+```text
+Any StationRun with an expired lease, missing heartbeat, or unknown effect is
+eligible for reconciliation. Reconciliation never assumes the database is the
+whole truth; it inspects the sandbox runtime, process table, credential lease
+state, artifact blobs, and projection outputs before deciding whether to resume,
+retry, cancel, or fail.
 ```
 
 ### 8.1 Trace and metric conventions
@@ -825,7 +1004,28 @@ Every `LedgerEvent`, `StationRun`, `ToolInvocation`, artifact manifest, and
 projected report includes the same `trace_id`. Adapter events should include
 `traceparent` when the adapter protocol supports it. Metrics should use stable
 names and dimensions so Phase 3 scheduling and Phase 6 cost observability do
-not require backfilling.
+not require backfilling. OpenTelemetry traces are the most mature signal for the
+Erlang/Elixir SDK, so Phase 1 prioritizes traces and a small set of bounded
+metrics over rich metrics/logs.
+
+Publication rule:
+
+```text
+LedgerEvent is committed before publication. LiveView, telemetry exporters, and
+webhooks consume from a transactional outbox so no observer sees a transition
+that failed to commit.
+```
+
+Metric cardinality rule:
+
+```text
+Allowed metric dimensions: project_id, station, adapter, profile, status,
+failure_category, policy_profile, suite_kind.
+
+Disallowed metric dimensions: raw command strings, file paths, prompt text,
+error messages, artifact paths, model-generated summaries. These belong in
+artifacts/logs, not metric labels.
+```
 
 ---
 
@@ -839,12 +1039,14 @@ mix conveyor.init SAMPLE_PROJECT_PATH
 mix conveyor.doctor
 mix conveyor.plan_audit PLAN.md
 mix conveyor.seed_sample
+mix conveyor.demo
 mix conveyor.show SLICE_ID
 mix conveyor.run_slice SLICE_ID
-mix conveyor.verify RUN_ID
+mix conveyor.verify RUN_ATTEMPT_ID
 mix conveyor.gate_canary PROJECT_ID
-mix conveyor.report RUN_ID
-mix conveyor.replay RUN_ID
+mix conveyor.report RUN_ATTEMPT_ID
+mix conveyor.replay RUN_ATTEMPT_ID
+mix conveyor.contract_diff OLD_RUN_ATTEMPT_ID NEW_PLAN_OR_BRIEF
 mix conveyor.ci SLICE_ID
 ```
 
@@ -866,13 +1068,14 @@ CLI exit codes:
 Checks:
 
 ```text
-Elixir/Erlang versions
+Elixir/Erlang versions match tested matrix
+Phoenix/Ash/Oban dependency versions match lockfile
 Postgres connectivity
 Oban configured
-Docker reachable
+Docker reachable (rootless mode preferred where prerequisites are met)
 Pi image available
-Provider credential present and scoped
-CodeScent executable available
+Provider credential present and scoped (only required for live agent runs)
+CodeScent executable available (only if selected as a gate-blocking adapter)
 Git available
 Sample repo clean at expected base commit
 AGENTS.md present and lint-clean
@@ -887,6 +1090,20 @@ warning. A missing Docker daemon, selected gate-blocking code-quality adapter,
 policy profile, or test command is a failure.
 Every blocking doctor/audit/gate finding must include at least one suggested
 `NextAction` and, where possible, the exact Mix command to rerun after fixing it.
+
+Every run records the runtime that produced its evidence:
+
+```text
+elixir_version
+otp_version
+phoenix_version
+ash_version
+oban_version
+docker_engine_version
+sandbox_runner_version
+agent_adapter_version
+toolchain_image_digest
+```
 
 ### 9.2 `mix conveyor.plan_audit PLAN.md`
 
@@ -910,13 +1127,13 @@ missing required tests
 unmeasurable wording
 unresolved architecture decision
 requirement with no Slice/Brief coverage
-Slice with no source requirement/decision
+Slice with no source requirement, human decision, bug reference, or explicit improvement rationale
 risk without review policy
 likely files missing for conflict prediction
 verification commands missing or non-reproducible
 ```
 
-### 9.3 `mix conveyor.report RUN_ID`
+### 9.3 `mix conveyor.report RUN_ATTEMPT_ID`
 
 Regenerates `dossier.md`, `manifest.json`, `evidence.json`, `review.json`,
 `gate.json`, `diff.patch`, and `pr_body.md`. The report should be useful even
@@ -927,6 +1144,46 @@ outside LiveView.
 Runs the hermetic tracer or configured runner in headless mode, writes the
 artifact projection, prints a short summary, emits machine-readable JSON, and
 exits with the stable Conveyor exit code.
+
+### 9.5 `mix conveyor.demo`
+
+Runs the full Phase-1 tracer bullet with:
+
+```text
+deterministic patch runner
+deterministic reviewer fixture
+LocalPython or Noop quality adapter
+no live provider credential
+no CodeScent requirement
+no network egress
+```
+
+`mix conveyor.demo` is the default OSS onboarding and CI smoke test. It is a
+reproducible onboarding, CI fixture, issue-reproduction path, and regression
+test for every future refactor. The live Pi path remains a tagged/manual test
+until adapter and credential posture are proven.
+
+### 9.6 `mix conveyor.contract_diff OLD_RUN_ATTEMPT_ID NEW_PLAN_OR_BRIEF`
+
+Renders a contract diff before a rerun so it is clear whether a second attempt
+retries the same contract or executes a changed one. The diff classifies each
+change as:
+
+```text
+clarification_only
+scope_added
+scope_removed
+acceptance_weakened
+acceptance_strengthened
+policy_weakened
+policy_strengthened
+test_pack_changed
+```
+
+`acceptance_weakened` and `policy_weakened` block automatic rerun and require a
+human approval reason. Any contract-affecting change creates a new
+`ContractLock`, a new `RunSpec`, and a new `RunAttempt`, and requires a
+`HumanDecision`.
 
 ---
 
@@ -1033,6 +1290,33 @@ Schema policy:
 - RunCheck validates exact schema versions recorded in `RunSpec`;
 - reports include schema versions for manifest, evidence, review, gate,
   provenance, and PR-body draft.
+
+Conveyor keeps a local schema registry of canonical JSON schemas, examples, and
+semantic compatibility notes:
+
+```text
+docs/schemas/
+  conveyor.plan@1.json
+  conveyor.run_spec@1.json
+  conveyor.station_plan@1.json
+  conveyor.evidence@1.json
+  conveyor.review@1.json
+  conveyor.gate@1.json
+  conveyor.run_bundle@1.json
+  examples/
+    evidence.valid.json
+    evidence.invalid.missing-ac-evidence.json
+```
+
+RunCheck never "best effort" parses unknown artifact versions. Rejecting
+old/unknown schemas is fine in Phase 1 as long as the error is explicit:
+
+```text
+unknown schema version      → fail with unsupported_schema_version
+missing required field      → fail with schema_validation_failed
+known future minor version  → fail in Phase 1 unless compatibility is declared
+known older major version   → fail unless an explicit migration exists
+```
 
 The plan audit is the smallest seed of the later plan-to-task compiler and swarm
 simulator: it begins collecting likely files, conflict domains, verification
@@ -1145,18 +1429,21 @@ maintenance future only; dangerous commands require human approval and incident 
 ### 12.2 Minimum denylist
 
 ```text
-rm -rf outside mounted workspace
+destructive filesystem operations outside declared write roots, including
+  rm -rf, recursive chmod/chown, mass delete, and symlink-mediated deletion
 git reset --hard
 git clean -fd / -fdx
 git push --force / --force-with-lease
 chmod/chown outside workspace
-curl | sh, wget | sh
+pipe-to-shell installers, remote script execution, and package lifecycle
+  scripts (e.g. curl | sh, wget | sh) unless explicitly approved by toolchain policy
 sudo commands inside worker
 access to ~/.ssh, cloud credentials, production env files
 production database URLs
 package installs outside the container image or project venv
 network calls except allowlisted package registries/provider APIs
-any deploy command at autonomy levels L0-L2
+any deploy, release, publish, package-upload, infrastructure-apply, or
+  production-data command at autonomy levels L0-L2
 ```
 
 A policy violation creates an `Incident`, stops the run, records evidence, and
@@ -1247,6 +1534,15 @@ The gate records the immutable image digest in `RunSpec`, `ToolInvocation`, and
 provenance. Mutable tags are allowed only as human-friendly labels; digest is
 the identity.
 
+Dependency/cache rule:
+
+```text
+Gate and canary stations may use only image-baked dependencies or read-only
+content-addressed caches unless a project policy explicitly approves network
+bootstrap. Any dependency lockfile change is a diff-scope event and updates the
+RunSpec freshness key.
+```
+
 Network policy is explicit per station:
 
 | Station | Default network | Allowed egress |
@@ -1262,7 +1558,11 @@ unreachable from the sandbox network so that a compromised or injected agent
 cannot probe or mutate the conductor's state. Approved egress (provider API,
 package mirror, code-quality endpoint) is brokered to external hosts only.
 
-Provider credentials are issued as short-lived `CredentialLease` records:
+Provider credentials are issued through a `CredentialBroker`. Raw provider
+secrets should not be injected into worker containers unless no safer adapter
+mode exists.
+
+Provider credentials are represented as short-lived `CredentialLease` records:
 
 - scoped to one run or station;
 - exposed only as named env keys allowed by policy;
@@ -1273,6 +1573,41 @@ Add active resource:
 
 - **`CredentialLease`** —
   `id, run_spec_id, station_run_id?, provider, env_keys[], scope, issued_at, expires_at, revoked_at?, status`
+
+### 12.5 Sandbox and tool-execution boundary
+
+Pi (and any agent adapter) is not the security boundary. Pi's RPC mode is a good
+fit for a BEAM Port because it streams JSONL events over stdin/stdout, but Pi
+itself provides no built-in permission controls for filesystem, process,
+network, or credentials. The safer boundary is layered:
+
+- Conveyor owns tool execution.
+- The sandbox owns filesystem/process/network limits.
+- The `CredentialBroker` owns provider access.
+- The agent adapter is just a reasoning loop and event stream.
+
+```elixir
+defmodule Conveyor.SandboxRunner do
+  @callback materialize(Conveyor.Work.RunSpec.t(), keyword()) ::
+              {:ok, Conveyor.Workspace.Materialized.t()} | {:error, term()}
+
+  @callback exec(Conveyor.Workspace.Materialized.t(), Conveyor.Policy.NormalizedCommand.t()) ::
+              {:ok, Conveyor.Tools.CommandResult.t()} | {:error, term()}
+
+  @callback destroy(Conveyor.Workspace.Materialized.t(), keyword()) :: :ok | {:error, term()}
+end
+```
+
+`ToolExecutor` is the only component allowed to execute commands for stations
+that require pre-exec policy. Adapter-reported command execution is not trusted
+unless it passed through `ToolExecutor`.
+
+Phase-1 Pi profiles:
+
+| Profile | Description | Autonomy ceiling |
+| ------- | ----------- | ---------------- |
+| `pi_host_controlled_tools` | Pi control loop outside the sandbox; tool calls routed through Conveyor `ToolExecutor` inside the sandbox. Preferred if integration permits. | L1/L2-shaped |
+| `pi_in_container_observe_only` | Whole Pi process inside Docker; no pre-exec interception; Conveyor observes the transcript and relies on stricter sandbox limits. | L1 only |
 
 ---
 
@@ -1326,13 +1661,28 @@ tests, validates the manifest, and requires reviewer acceptance.
 Phase 1 should ship with:
 
 ```text
-CodeQualityAdapter.Noop        usable in minimal local demos; never blocks gate
-CodeQualityAdapter.LocalPython sample-app fallback using configured local tools
+CodeQualityAdapter.Noop        usable in minimal local demos; advisory only
+CodeQualityAdapter.LocalPython default sample-app adapter using configured local tools
 CodeQualityAdapter.CodeScent   optional advanced adapter if available
 CodeQualityAdapter.Semgrep     optional security/static-analysis adapter later
 ```
 
+For an OSS-friendly Phase 1, the default demo must work without proprietary or
+optional tools: the Noop/local adapter is the default for the sterile sample,
+and CodeScent is an optional advanced adapter.
+
 Project policy decides which adapters are advisory and which are gate-blocking.
+A quality adapter may block the gate only if it declares:
+
+```yaml
+adapter_contract:
+  deterministic_output: true
+  version_command: ["tool", "--version"]
+  result_schema: conveyor.quality_result@1
+  fixture_suite: quality_adapter_conformance
+  threshold_policy:
+    new_high_risk_findings: 0
+```
 
 ---
 
@@ -1428,7 +1778,8 @@ Every adapter emits normalized events into the ledger:
 {
   "event_version": "conveyor.agent_event@1",
   "run_spec_sha256": "...",
-  "agent_run_id": "...",
+  "run_attempt_id": "...",
+  "agent_session_id": "...",
   "adapter": "pi",
   "session_id": "...",
   "sequence_no": 42,
@@ -1489,7 +1840,29 @@ The conductor maps capabilities to an autonomy ceiling. For example, an adapter
 without pre-exec command policy may be allowed for L1 experiments inside a
 hardened sandbox, but cannot qualify for higher autonomy without additional
 controls. Negative capabilities must be recorded in `RunSpec` so old evidence
-remains interpretable after an adapter improves.
+remains interpretable after an adapter improves. This mapping is explicit, not
+implicit, because Pi, Claude Code, Codex CLI, OpenHands, Aider, and similar
+tools differ on command interception, session resumability, structured output,
+and cost reporting.
+
+Minimum capability matrix:
+
+| Capability | L1 local implementation | L2 PR generation | L3 low-risk auto-merge |
+| ---------- | ----------------------- | ---------------- | ---------------------- |
+| Clean sandbox execution | required | required | required |
+| Independent gate rerun | required | required | required |
+| Diff captured from fresh base | required | required | required |
+| Structured final output | warning if absent | required | required |
+| Streaming events / heartbeat | required | required | required |
+| Cancellation | best-effort allowed | best-effort allowed | hard or externally enforced |
+| Pre-exec command policy | observe-only allowed with hardened sandbox | required | required |
+| Credential broker integration | preferred | required | required |
+| Cost/budget reporting | estimated allowed | required if provider supports it | required |
+| Reviewer actor separation | required for gate | required | required |
+| Canary health freshness | required | required | required |
+
+An adapter may run below its theoretical capability level if project policy,
+host sandbox support, or credential posture is weaker than the adapter itself.
 
 `mcp_support` and `slash_commands_enabled` describe how an adapter exposes tools
 and file handling; they do not relax the determinism boundary. Tools exposed
@@ -1508,8 +1881,10 @@ policy, the agent event envelope, or evidence capture.
 3. Mount only the workspace and allowed cache directories.
 4. Inject only scoped provider credentials and safe env vars.
 5. Launch Pi in RPC/JSON mode over stdin/stdout and connect via a BEAM Port.
-6. Route shell/tool execution through `AgentCommandProxy` when available;
-   otherwise mark command policy as observe-only and rely on sandbox limits.
+6. Prefer routing tool execution through Conveyor `ToolExecutor`. If the selected
+   Pi mode cannot provide pre-exec interception, mark command policy as
+   `observe_only`, lower the autonomy ceiling, and rely on stricter sandbox
+   limits plus clean-gate verification.
 7. Stream Pi events into the `Ledger` with heartbeats.
 8. Enforce max runtime, max idle time, output size limits, sandbox quotas, and
    policy decisions.
@@ -1541,7 +1916,7 @@ Redaction must preserve provenance semantics:
 
 - raw command output is first classified;
 - sensitive raw artifacts are marked `sensitive` or `quarantined` and never
-  included in `.conveyor/runs/<run_id>/`;
+  included in `.conveyor/runs/<run_attempt_id>/`;
 - exportable artifacts are separate redacted projections with their own digest;
 - manifests record `raw_sha256` when policy permits retaining it and
   `redacted_sha256` for exported bytes;
@@ -1551,11 +1926,21 @@ Redaction must preserve provenance semantics:
 The gate must never compare redacted artifact bytes against raw command-output
 digests without knowing which digest is being checked.
 
+Retention rule:
+
+```text
+Public and redacted projections are retained according to project policy.
+Sensitive or quarantined raw blobs are never projected and may be expired only
+through `RetentionPolicy`. Garbage collection never deletes a blob referenced by
+a DB record unless policy allows it; every deletion writes a LedgerEvent
+tombstone containing the artifact id, prior digest, deletion reason, and actor.
+```
+
 ### 16.1 Machine evidence schema
 
 ```json
 {
-  "run_id": "run_123",
+  "run_attempt_id": "run_attempt_123",
   "slice_id": "slice_123",
   "agent": { "adapter": "pi", "model": "...", "profile": "implementer" },
   "base_commit": "abc123",
@@ -1652,6 +2037,10 @@ Implements Slice `<id>` from requirement(s) `<REQ-...>`.
 ## Agent
 
 ## Evidence
+
+Run bundle: `<run_bundle_sha256>`
+Dossier digest: `<dossier_sha256>`
+Gate digest: `<gate_result_sha256>`
 ```
 
 ---
@@ -1672,15 +2061,17 @@ Gate stages:
    require human review or fail the gate according to risk policy.
 3. **Observed risk assessment:** actual diff, command behavior, adapter
    capabilities, dependency changes, code-quality deltas, and touched paths are
-   classified. If observed risk exceeds planned risk, the gate escalates review
-   requirements or fails according to policy.
+   classified through `ReviewPolicy.risk_rules`. If observed risk exceeds planned
+   risk, the gate deterministically escalates required reviews, requires human
+   approval, or fails closed according to policy.
 4. **Policy:** no blocked command classes, no forbidden env/network access, no
    policy file edits.
 5. **Secret safety:** prompt, logs, diff, manifest, dossier, and PR body contain
    no unredacted detected secrets.
 6. **Build/install:** environment can install and import the app.
-7. **Tests:** conductor re-runs required pytest cases and any baseline suite
-   required by the Brief.
+7. **Tests:** conductor re-runs required verification suites. Baseline
+   regression suites must remain green. Locked acceptance suites must have
+   previously calibrated red on the base commit and must pass after the patch.
    Verification commands may define `repeat`, `flake_policy`, and
    `infra_retry_policy`. Implementation retries are not automatic in Phase 1,
    but deterministic verification may rerun commands to classify failures.
@@ -1700,7 +2091,8 @@ Gate stages:
     digest, command invocations, and generated attestation metadata.
 13. **Reviewer aggregation:** every review required by the Slice risk, autonomy
     level, and policy exists; each review evaluated the same dossier digest, has
-    schema-valid output, and meets the gate's required decision.
+    schema-valid output, meets the gate's required decision, and comes from a
+    reviewer profile with fresh `ReviewerHealth`.
 14. **Canary health:** the latest enabled gate-canary run for the project is
     green and fresh for the current gate version, gate code digest, policy
     digest, contract lock digest, and canary suite version.
@@ -1747,13 +2139,18 @@ handling, artifact tampering, and adapter conformance.
 Phase-1 canary requirements:
 
 - Maintain a small labeled mutant set for the sample app.
+- Maintain a known-good solution patch for the same fixture.
+- Run the known-good solution through the gate-only path and require pass.
 - Each mutant is a patch against the known-good solution with one injected
   defect.
 - Run each mutant through the **gate only**; do not invoke the implementer.
 - Assert every mutant fails the gate for the expected reason or an equally valid
   stricter reason.
 - Track false negatives: mutants the gate wrongly passes.
+- Track false positives: known-good fixtures the gate wrongly rejects.
 - A passed mutant is a release-blocking Conveyor bug and should fail CI.
+- A rejected known-good fixture is also release-blocking if it prevents the
+  tracer bullet from proving a useful gate.
 - A stale green canary is not sufficient. Gate, policy, required-test, adapter,
   or canary-suite changes require rerunning the affected canary suite.
 
@@ -1781,7 +2178,7 @@ Additional Phase-1 eval suites:
 | `adapter_conformance` | AgentRunner implementations must stream required events, produce valid raw results, handle cancel, and preserve policy semantics. |
 
 Canary output appears in LiveView and
-`.conveyor/runs/<run_id>/canary/mutants.json`.
+`.conveyor/runs/<run_attempt_id>/canary/mutants.json`.
 
 ---
 
@@ -1796,6 +2193,22 @@ Phase 1 requires one `general` review. The schema is intentionally many-review
 ready: higher-risk Slices can later require security, test, or architecture
 reviews without changing the gate model. Each review records the dossier digest
 and rubric version it evaluated.
+
+An LLM reviewer can rubber-stamp, so reviewer trust is calibrated before it is
+gate-relevant. Phase 1 includes a small labeled reviewer fixture suite — the
+same principle as gate canaries, applied to the stochastic reviewer:
+
+| Fixture | Expected reviewer decision |
+| ------- | -------------------------- |
+| complete_green_dossier | accepted |
+| missing_acceptance_mapping | needs_rework |
+| protected_policy_edit | rejected |
+| malformed_evidence_refs | rejected |
+
+The Slice gate may use a reviewer decision only when `ReviewerHealth` is green
+for the reviewer profile and rubric version used by the run. Otherwise the gate
+fails with `stale_reviewer_health` or treats the review as advisory according to
+policy.
 
 Reviewer output schema:
 
@@ -1884,8 +2297,22 @@ The control should require either an external commit hash or an explicit
 `not_integrated` decision. When a commit hash is provided, Conveyor computes
 patch equivalence against the accepted `PatchSet` and records any human edits.
 
-Static report mirrors the above in `.conveyor/runs/<run_id>/dossier.md` so the
-system stays useful in headless/CI contexts.
+Equivalence is defined conservatively, not left to interpretation:
+
+```text
+1. Reconstruct accepted patch from content-addressed artifact.
+2. Compute external diff from accepted base commit to external commit.
+3. Compare normalized patch identity.
+4. If exact, record `exact`.
+5. If all accepted hunks are present and extra changes avoid protected paths,
+   require human summary and record `equivalent_with_human_edits`.
+6. If accepted hunks are missing, protected paths changed, or verification fails,
+   record `divergent` or `partial` and block `done`.
+7. Always rerun required post-integration verification at the external commit.
+```
+
+Static report mirrors the above in `.conveyor/runs/<run_attempt_id>/dossier.md`
+so the system stays useful in headless/CI contexts.
 
 ---
 
@@ -1981,7 +2408,7 @@ Required tests:
 
 Verification commands:
 
-- `pytest -q`
+- `pytest -q --junitxml=.conveyor-results/pytest.xml`
 
 Out of scope:
 
@@ -2010,33 +2437,39 @@ evidence.
    required tests, key interfaces, out-of-scope, risk, and `ContractLock`
    content hashes → `ready`.
 6. **Baseline health** — Conveyor materializes a clean base workspace and runs
-   required baseline build/test/code-quality commands. A red baseline blocks the
-   Slice unless the Slice explicitly targets baseline repair.
-7. **Scout** — `ContextScout` scans repo and CodeScent, producing a cited
-   `ContextPack` → `scouted`.
-8. **Prompt** — `PromptBuilder` emits a versioned prompt containing Brief, Pack,
-   AGENTS.md, policy, and output schema → `prompt_built`.
-9. **Implement** — `AgentRunner.Pi` runs inside Docker under `implement` policy;
-   events stream to the ledger; final diff is captured → `implementing`.
-10. **Record evidence** — `EvidenceRecorder` applies the recorded `PatchSet` to a
-    clean gate workspace, independently re-runs pytest + code-quality checks,
-    maps ACs to results, writes manifest/dossier/evidence/diff, and validates
-    idempotency → `evidence_recorded`.
-11. **Review** — separate reviewer profile reads the recorded dossier and
-    returns a structured verdict → `reviewed`.
-12. **Gate** — deterministic gate composes policy, build, tests, acceptance
-    mapping, CodeScent delta, RunCheck, reviewer, and canary health → `gated` if
-    all pass.
-13. **Report** — artifact projector writes `.conveyor/runs/<run_id>/` and
-    PR-body draft.
-14. **Integrate** — human inspects LiveView/dossier, merges or applies the patch
+   `baseline_regression` suites only. These must pass unless the Slice
+   explicitly targets baseline repair.
+7. **Acceptance calibration** — Conveyor runs the locked `acceptance_locked`
+   TestPack against the base commit and requires the expected red failures.
+   Unexpected green tests, missing test identities, or unrelated failures block
+   the Slice before implementation, recording a `TestPackCalibration`.
+8. **Scout** — `ContextScout` scans repo and CodeScent, producing a cited
+   `ContextPack`.
+9. **Prompt** — `PromptBuilder` emits a versioned prompt containing Brief, Pack,
+   AGENTS.md, policy, and output schema.
+10. **Implement** — an `AgentSession` (`AgentRunner.Pi`) runs inside Docker under
+    `implement` policy; events stream to the ledger; final diff is captured.
+11. **Record evidence** — `EvidenceRecorder` applies the recorded `PatchSet` to a
+    clean gate workspace, independently re-runs verification suites from
+    structured test results + code-quality checks, maps ACs to results, writes
+    manifest/dossier/evidence/diff, and validates idempotency →
+    `evidence_recorded` on the attempt.
+12. **Review** — a separate reviewer `AgentSession` reads the recorded dossier and
+    returns a structured verdict → `reviewed` on the attempt.
+13. **Gate** — deterministic gate composes policy, build, tests, acceptance
+    mapping, CodeScent delta, RunCheck, reviewer, and canary health; on success
+    the attempt is `gated` and the Slice transitions to `gated`.
+14. **Report** — artifact projector writes `.conveyor/runs/<run_attempt_id>/`,
+    the `RunBundle` manifest, and the PR-body draft.
+15. **Integrate** — human inspects LiveView/dossier, merges or applies the patch
     outside Conveyor, then records the external integration commit →
     `integrated`.
-15. **Post-integration check** — Conveyor checks that the external integration
-    commit contains the accepted patch or an explicitly approved equivalent,
-    reruns required verification commands at that commit, records the resulting
-    tree digest, and blocks `done` if the external commit diverges unexpectedly.
-16. **Retrospective** — run records failure taxonomy, timings, prompt version,
+16. **Post-integration check** — Conveyor computes patch equivalence, checks the
+    external integration commit contains the accepted patch or an explicitly
+    approved equivalent, reruns required verification commands at that commit,
+    records the resulting tree digest, and blocks `done` if the external commit
+    diverges unexpectedly.
+17. **Retrospective** — run records failure taxonomy, timings, prompt version,
     adapter friction, and lessons for Phase 2/3.
 
 ---
@@ -2147,6 +2580,23 @@ DEFER:
   multi-repo orchestration, autonomous retry/self-healing.
 ```
 
+Schedule-protection rule:
+
+```text
+Never cut:
+  RunAttempt/RunSpec identity, ContractLock, locked TestPack, baseline +
+  acceptance calibration, independent clean-gate verification, RunCheck,
+  artifact/RunBundle, deterministic fake runner, gate canaries.
+
+Cut first:
+  LiveView polish, advanced CodeScent integration, multiple reviewer kinds,
+  signed attestations, full SBOM generation, rich eval analytics, detailed cost
+  accounting, swarm-readiness visualizations.
+```
+
+The tracer bullet succeeds only if the trust loop is real. A prettier UI or
+broader adapter story is not a substitute for a clean red/green/gate path.
+
 ### Phase 0 — Foundations and factory kernel
 
 - **P0.0 Product contract docs.** Create `VISION.md`, `AUTONOMY_LEVELS.md`,
@@ -2180,7 +2630,7 @@ DEFER:
 - **P0.7 AGENTS.md generator/linter.** Generate starter file and lint for
   required commands/rules. _AC:_ generated file passes; intentionally incomplete
   file fails with useful findings.
-- **P0.8 Artifact projector.** Create `.conveyor/runs/<run_id>/` projection
+- **P0.8 Artifact projector.** Create `.conveyor/runs/<run_attempt_id>/` projection
   code. _AC:_ manifest/dossier/evidence/provenance paths regenerate idempotently
   from database records; every projected artifact has a recorded content digest.
 - **P0.9 LiveView skeleton.** Run viewer renders Project/Plan/Slice state and
