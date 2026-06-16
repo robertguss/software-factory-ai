@@ -571,6 +571,13 @@ types, but no migrations until they are part of an executable workflow.
 Postgres is the source of truth for current state, relationships, policy, and
 events. Disk is a read-only projection for inspectability and PR attachment.
 
+`Conveyor.Artifacts.Projector` is a behaviour with a pluggable storage backend.
+Phase 0/1 ships only the **local-disk** backend (`.conveyor/`), which keeps the
+OSS/headless story simple: clone the repo and read the run directory. The
+behaviour leaves a clean seam for future object-store backends (S3/R2) and
+downstream data-lake analytics (e.g., DuckDB over the evidence blobs), but those
+are deferred — not built in Phase 1.
+
 Artifact bytes are stored content-addressably before they are projected into
 human-friendly run directories.
 
@@ -742,7 +749,7 @@ Conveyor.Application
     ├── Conveyor.Config                           (runtime config + project config loader)
     ├── Conveyor.Policy.Engine                    (ExecPolicy decisions + incident creation)
     ├── Conveyor.Security.Redactor                (secret scanning + artifact redaction)
-    ├── Conveyor.Artifacts.Projector              (Postgres → `.conveyor/runs/*`)
+    ├── Conveyor.Artifacts.Projector              (Postgres → pluggable backend; local `.conveyor/runs/*` now, S3/R2 deferred)
     └── Oban workers
         ├── Conveyor.Jobs.RunSlice                (station orchestrator)
         ├── Conveyor.Jobs.BaselineHealth          (clean checkout test/build/code-quality baseline)
@@ -1109,6 +1116,7 @@ Phase 0 must document and test against the following threat classes:
 | Artifact tampering | Manifest points to changed or missing logs | Content-addressed artifacts, digest verification, RunCheck |
 | Reviewer rubber stamp | Reviewer accepts an inadequate dossier | Actor separation, rubric schema, reviewer evals, later bug correlation |
 | Gate false negative | Known-bad mutant passes | Gate canaries, stop-the-line policy |
+| Internal state corruption | Agent network probes the conductor's Postgres/ledger | Conductor DB and ledger are unreachable from the sandbox network; agent egress is segregated from the internal application database |
 | Host escape or overreach | Container gets host credentials or Docker socket | Rootless/no-privilege sandbox, no host home mount, no Docker socket |
 
 Each threat class must have at least one Phase-1 test, canary, or doctor check.
@@ -1247,6 +1255,12 @@ Network policy is explicit per station:
 | implement | none | provider API only when required by adapter |
 | verify/gate | none | none unless dependency bootstrap is explicitly approved |
 | canary | none | none |
+
+No station's allowed egress may include the conductor's own network. The
+AshPostgres database, ledger, and any internal Conveyor service must be
+unreachable from the sandbox network so that a compromised or injected agent
+cannot probe or mutate the conductor's state. Approved egress (provider API,
+package mirror, code-quality endpoint) is brokered to external hosts only.
 
 Provider credentials are issued as short-lived `CredentialLease` records:
 
@@ -1456,6 +1470,8 @@ what LiveView, RunCheck, replay, policy, and conformance tests consume.
   cancellation: :none | :best_effort | :hard,
   diff_capture: :git_diff | :patch_file | :adapter_reported,
   cost_reporting: :none | :estimated | :provider_reported,
+  mcp_support: true | false,
+  slash_commands_enabled: true | false,
   structured_output: true | false,
   session_resume: true | false,
   known_limitations: [
@@ -1474,6 +1490,14 @@ without pre-exec command policy may be allowed for L1 experiments inside a
 hardened sandbox, but cannot qualify for higher autonomy without additional
 controls. Negative capabilities must be recorded in `RunSpec` so old evidence
 remains interpretable after an adapter improves.
+
+`mcp_support` and `slash_commands_enabled` describe how an adapter exposes tools
+and file handling; they do not relax the determinism boundary. Tools exposed
+over MCP and any slash-command file handling must still be routed through the
+policy engine, normalized into the command grammar, and recorded as
+`ToolInvocation`s and normalized agent events. MCP and slash commands are an
+alternative transport for conductor-mediated tools, not a bypass of command
+policy, the agent event envelope, or evidence capture.
 
 `Conveyor.AgentRunner.Pi` implementation:
 
@@ -2247,6 +2271,8 @@ Do not build these now, but keep the data model and evidence fields ready.
 
 - Cost ledger, budget caps, rate-limit-aware credentials, runaway kill-switch.
 - LiveView adds cost meters, critical path, and parked queue.
+- Object-store artifact backend (S3/R2) behind the `Projector` behaviour, plus
+  cross-run analytics over the evidence blobs (e.g., DuckDB on the data lake).
 
 ### Phase 7 — Learning loop
 
