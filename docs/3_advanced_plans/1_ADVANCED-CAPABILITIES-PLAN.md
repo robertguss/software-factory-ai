@@ -8,11 +8,11 @@
 > KPIs it should move, and an effort + risk assessment.
 >
 > **Status:** design / pre-implementation. Companion to
-> `docs/PHASE-0-1-IMPLEMENTATION-PLAN.md` (the foundations and single-Slice loop)
-> and `docs/.../BRAINSTORM.md` (the living strategy doc and Phase 0–8 roadmap).
-> This document does **not** modify the Phase 0/1 plan; where a capability needs
-> a forward-compatible hook in Phase 0/1, it is described here as a recommended
-> **seam** so the change is additive, not a rewrite.
+> `docs/PHASE-0-1-IMPLEMENTATION-PLAN.md` (the foundations and single-Slice
+> loop) and `docs/.../BRAINSTORM.md` (the living strategy doc and Phase 0–8
+> roadmap). This document does **not** modify the Phase 0/1 plan; where a
+> capability needs a forward-compatible hook in Phase 0/1, it is described here
+> as a recommended **seam** so the change is additive, not a rewrite.
 
 ---
 
@@ -20,18 +20,18 @@
 
 The ten capabilities, with the stable IDs used throughout:
 
-| ID  | Capability                                       | Theme                          |
-| --- | ------------------------------------------------ | ------------------------------ |
-| C1  | Regression Mutants from Escaped Defects          | Antifragile gate               |
-| C2  | Mutation-Tested Contracts at Lock Time           | Contract quality, shift-left   |
-| C3  | Adversarial Gate Self-Play                       | Gate honesty, measured         |
-| C4  | Lessons That Graduate to Deterministic Rules     | Compounding learning           |
-| C5  | Plan Amendment Proposals                         | Living constitution            |
-| C6  | Expected-Value Human Attention Queue             | Human-bandwidth leverage       |
-| C7  | Behavior-Lock Differential Testing               | Refactor safety net            |
-| C8  | Auto-Bisect + Auto-Revert Trunk Guardian         | Unattended trunk health        |
-| C9  | Conveyor Gate as a Standalone PR Reviewer        | Adoption wedge / product track |
-| C10 | Best-of-N Speculative Execution                  | Gate-arbitrated quality        |
+| ID  | Capability                                   | Theme                          |
+| --- | -------------------------------------------- | ------------------------------ |
+| C1  | Regression Mutants from Escaped Defects      | Antifragile gate               |
+| C2  | Mutation-Tested Contracts at Lock Time       | Contract quality, shift-left   |
+| C3  | Adversarial Gate Self-Play                   | Gate honesty, measured         |
+| C4  | Lessons That Graduate to Deterministic Rules | Compounding learning           |
+| C5  | Plan Amendment Proposals                     | Living constitution            |
+| C6  | Expected-Value Human Attention Queue         | Human-bandwidth leverage       |
+| C7  | Behavior-Lock Differential Testing           | Refactor safety net            |
+| C8  | Auto-Bisect + Auto-Revert Trunk Guardian     | Unattended trunk health        |
+| C9  | Conveyor Gate as a Standalone PR Reviewer    | Adoption wedge / product track |
+| C10 | Best-of-N Speculative Execution              | Gate-arbitrated quality        |
 
 Each section §C*n* follows the same template:
 
@@ -56,32 +56,32 @@ content-addressed and projected under `.conveyor/` exactly like Phase 1.
 This is my honest answer to "when should each of these be built?" The default
 position is **most of these are later-phase work and should not bloat Phase
 0/1.** The Phase 0/1 plan is already large, and its discipline ("a factory
-kernel, not a giant platform") is correct. But three of the ten have *seam*
+kernel, not a giant platform") is correct. But three of the ten have _seam_
 implications that genuinely belong in Phase 0/1, because they are about the
-*shape of the evidence and contract schema*, and retrofitting schema after
+_shape of the evidence and contract schema_, and retrofitting schema after
 agents are running is the specific fragility the plan warns against (§0, design
-laws). Building the *feature* later is fine; not reserving the *field* now is
+laws). Building the _feature_ later is fine; not reserving the _field_ now is
 not.
 
-| ID  | Build phase (primary)            | Phase 0/1 seam now?         | Effort | Riskiest dependency                  |
-| --- | -------------------------------- | -------------------------- | ------ | ------------------------------------ |
-| C1  | Phase 5 (mechanism), Phase 4 hook | **Yes — small**            | M      | Stable PatchSet + canary identity    |
-| C2  | Phase 2 (contract authoring)     | **Yes — small**            | M      | Mutation tooling per language        |
-| C3  | Phase 5 (with shadow mode)       | No (reuse C1 schema)       | M      | C1 mutant corpus + red-team adapter  |
-| C4  | Phase 7 (learning loop)          | **Yes — tiny** (taxonomy keys) | L  | Stable failure/finding taxonomy      |
-| C5  | Phase 2 (decomposition/approval) | **Yes — small**            | M      | Plan/Requirement traceability (exists) |
-| C6  | Phase 6 (observability/governor) | No (reuse dispatcher score) | S     | Dispatcher scoring fn (Phase 3)      |
-| C7  | Phase 4 (verification pyramid)   | No (reuse VerificationSuite) | L     | Input-space generation per language  |
-| C8  | Phase 5 (self-healing)           | No (reuse merge queue + ledger) | M  | Merge queue + epic gate (Phase 3/4)  |
-| C9  | Parallel **Product Track G** post-Phase 4 | No (consumes gate) | M | Gate stability (Phase 4)             |
-| C10 | Phase 5–6 (governed)             | No (reuse isolation + gate) | S      | Economic governor (Phase 6)          |
+| ID  | Build phase (primary)                     | Phase 0/1 seam now?             | Effort | Riskiest dependency                    |
+| --- | ----------------------------------------- | ------------------------------- | ------ | -------------------------------------- |
+| C1  | Phase 5 (mechanism), Phase 4 hook         | **Yes — small**                 | M      | Stable PatchSet + canary identity      |
+| C2  | Phase 2 (contract authoring)              | **Yes — small**                 | M      | Mutation tooling per language          |
+| C3  | Phase 5 (with shadow mode)                | No (reuse C1 schema)            | M      | C1 mutant corpus + red-team adapter    |
+| C4  | Phase 7 (learning loop)                   | **Yes — tiny** (taxonomy keys)  | L      | Stable failure/finding taxonomy        |
+| C5  | Phase 2 (decomposition/approval)          | **Yes — small**                 | M      | Plan/Requirement traceability (exists) |
+| C6  | Phase 6 (observability/governor)          | No (reuse dispatcher score)     | S      | Dispatcher scoring fn (Phase 3)        |
+| C7  | Phase 4 (verification pyramid)            | No (reuse VerificationSuite)    | L      | Input-space generation per language    |
+| C8  | Phase 5 (self-healing)                    | No (reuse merge queue + ledger) | M      | Merge queue + epic gate (Phase 3/4)    |
+| C9  | Parallel **Product Track G** post-Phase 4 | No (consumes gate)              | M      | Gate stability (Phase 4)               |
+| C10 | Phase 5–6 (governed)                      | No (reuse isolation + gate)     | S      | Economic governor (Phase 6)            |
 
 Effort key: **S** ≈ 1 dev-week of focused work on top of prerequisites; **M** ≈
 2–4 weeks; **L** ≈ 5–8 weeks. These assume the prerequisite phase exists.
 
 **The headline recommendation:** add the four small seams (C1, C2, C4, C5) to
 the Phase 0/1 schema now — they total a handful of nullable columns and two
-embedded schema fields — and defer every *mechanism* to its mapped phase. The
+embedded schema fields — and defer every _mechanism_ to its mapped phase. The
 seams are detailed in §2 with the exact additions. Everything else stays out of
 Phase 0/1.
 
@@ -90,7 +90,7 @@ Phase 0/1.
 ## 2. What to pull into Phase 0/1 now (the seams) — and the pushback case
 
 Phase 0/1 should not implement any of the ten mechanisms. But four of them are
-only cheap *if* the evidence/contract schema reserves space for them on day one.
+only cheap _if_ the evidence/contract schema reserves space for them on day one.
 Adding these later means a data migration plus reinterpreting historical
 evidence under a new schema major — exactly the "retrofitting evidence, policy,
 traceability after agents are already running" failure the plan calls out (§0).
@@ -103,8 +103,8 @@ additive rather than structural later.
 ### 2.1 Seam for C1 (Regression Mutants) — stable mutant identity + provenance
 
 The gate-canary harness already exists in Phase 1 (§18). Today its mutants are
-hand-authored fixture files with no stable identity or origin. To let *escaped
-defects* become permanent mutants later, reserve a stable identity and an origin
+hand-authored fixture files with no stable identity or origin. To let _escaped
+defects_ become permanent mutants later, reserve a stable identity and an origin
 field now, so a mutant minted in Phase 5 is indistinguishable in shape from a
 hand-authored one.
 
@@ -115,8 +115,8 @@ versioned fixture, not a table — keep it a fixture):
 {
   "schema_version": "conveyor.canary_mutant@1",
   "mutant_id": "MUT-0001",
-  "origin": "authored",            // authored | escaped_defect | self_play | contract_mutation
-  "origin_ref": null,               // later: run_attempt_id or incident_id that produced it
+  "origin": "authored", // authored | escaped_defect | self_play | contract_mutation
+  "origin_ref": null, // later: run_attempt_id or incident_id that produced it
   "base_solution_ref": "blobs/sha256/...",
   "defect_patch_ref": "blobs/sha256/...",
   "expected_failure_stage": "tests",
@@ -133,7 +133,7 @@ entire seam. No code path consumes `origin` yet.
 
 `TestPackCalibration` already exists (§6.1) and records red-on-base /
 green-on-patch. Add two nullable fields so a later mutation pass can record
-contract *strength* without a new table or a schema major bump:
+contract _strength_ without a new table or a schema major bump:
 
 ```text
 TestPackCalibration (add nullable fields):
@@ -148,7 +148,7 @@ honoring it.
 ### 2.3 Seam for C4 (Lessons → Rules) — finding taxonomy keys are stable and countable
 
 C4's entire premise is "when the same finding recurs N times, propose a rule."
-That requires findings to be *countable by stable category* from the start. The
+That requires findings to be _countable by stable category_ from the start. The
 plan's `findings[]` embedded schema (§6.3) has `category` and `message` but no
 stable, machine-groupable key. Add one nullable field:
 
@@ -172,7 +172,7 @@ with no backfill.
 
 The Slice and RunAttempt state machines (§7) enumerate off-ramps:
 `needs_rework`, `parked`, `failed`, `policy_blocked`. C5 adds a distinct
-off-ramp meaning "the contract itself is wrong." Reserve the *name* now so
+off-ramp meaning "the contract itself is wrong." Reserve the _name_ now so
 historical runs and LiveView do not need re-coding when it lands:
 
 ```text
@@ -190,7 +190,7 @@ keeps old ledger events interpretable.
 
 - **C3 (gate self-play), C8 (auto-bisect), C10 (best-of-N)** need a fleet, a
   merge queue, and/or a governor that do not exist until Phases 3–6. There is no
-  schema they would corrupt by arriving late; they *consume* existing evidence
+  schema they would corrupt by arriving late; they _consume_ existing evidence
   shapes. Pulling them forward would mean building swarm machinery early — a
   direct violation of the Phase 1 "one Slice, no fleet" non-goal.
 - **C6 (attention queue)** is pure projection over the dispatcher score, which
@@ -236,7 +236,7 @@ Track G  ─ C9 (standalone PR reviewer)     ◄─ stable Phase 4 gate   (paral
 
 Critical-path reading: **C1 is the spine.** It is seeded in the Phase 1 schema,
 begins recording at the Phase 4 epic gate, fully activates in Phase 5, and then
-*feeds* C3 (self-play consumes the mutant corpus). C4 has the longest lead time
+_feeds_ C3 (self-play consumes the mutant corpus). C4 has the longest lead time
 because it needs accumulated `rule_key` history to be worth anything — which is
 exactly why its seam (cheap) must land first and its mechanism (Phase 7) must
 land last.
@@ -249,20 +249,21 @@ land last.
 
 **Primary phase: 5. Hook begins: Phase 4. Seam: Phase 1 (§2.1).**
 
-Why not Phase 0/1: the *value* of C1 depends on defects actually escaping the
+Why not Phase 0/1: the _value_ of C1 depends on defects actually escaping the
 gate into `dev`/`main`, which cannot happen until there is a trunk, a merge
 queue, and an epic/phase gate (Phases 3–4) plus a post-integration / bug-intake
 signal (Phase 5). In Phase 1 there is one Slice and a manual merge; "escaped
-defect" is not yet a well-defined event. Building the minting mechanism now would
-be a mechanism with no input.
+defect" is not yet a well-defined event. Building the minting mechanism now
+would be a mechanism with no input.
 
 Why the seam belongs in Phase 1 anyway: a minted mutant must be
-*indistinguishable in shape* from a hand-authored one so the existing canary
+_indistinguishable in shape_ from a hand-authored one so the existing canary
 harness consumes both with one code path. That requires `mutant_id`, `origin`,
 and `origin_ref` to exist in the fixture schema from the first canary fixture
-ever written, so the corpus is uniform and queryable without a schema major bump.
+ever written, so the corpus is uniform and queryable without a schema major
+bump.
 
-Why Phase 5 over Phase 4 for the full mechanism: minting needs a *trustworthy*
+Why Phase 5 over Phase 4 for the full mechanism: minting needs a _trustworthy_
 "this is a real defect" trigger. The cleanest trigger is the post-integration
 check and the incident/bug pathway, which mature in Phase 5 alongside shadow
 mode. Minting from noisy or premature signals would pollute the canary corpus —
@@ -271,14 +272,15 @@ depends on it.
 
 ### C1.2 Phase 0/1 seam
 
-Exactly §2.1: add `mutant_id`, `origin`, `origin_ref` to `conveyor.canary_mutant@1`.
-No table, no consumer, `origin: "authored"` only. That is the whole Phase 1 cost.
+Exactly §2.1: add `mutant_id`, `origin`, `origin_ref` to
+`conveyor.canary_mutant@1`. No table, no consumer, `origin: "authored"` only.
+That is the whole Phase 1 cost.
 
 ### C1.3 Schema
 
-C1 promotes canary mutants from pure fixtures to an active resource **in Phase 5**
-(they now have independent lifecycle, provenance, and retention), plus a minting
-record:
+C1 promotes canary mutants from pure fixtures to an active resource **in Phase
+5** (they now have independent lifecycle, provenance, and retention), plus a
+minting record:
 
 ```text
 CanaryMutant (Phase 5 active resource)
@@ -312,7 +314,7 @@ MutantMint (Phase 5 active resource — the audit trail of "how this mutant was 
 ```
 
 Mutant minting from an escaped defect uses **fix-diff inversion**: given the
-fixing commit `fix_commit` and its parent, the defect patch is the *reverse* of
+fixing commit `fix_commit` and its parent, the defect patch is the _reverse_ of
 the fix applied atop the known-good solution. The minted mutant asserts: "with
 the bug re-introduced, the gate must now fail." If the gate still passes, the
 gate has a proven false negative.
@@ -338,7 +340,7 @@ gate has a proven false negative.
 ```
 
 A mint is only committed to the corpus if `gate_rejected && applied_cleanly`. If
-the freshly minted mutant does *not* get rejected, that itself is a
+the freshly minted mutant does _not_ get rejected, that itself is a
 release-blocking finding (the gate cannot catch a bug it already shipped),
 escalated immediately rather than silently dropped.
 
@@ -361,7 +363,7 @@ Conveyor.Jobs.MintRegressionMutant   (Phase 5 Oban worker)
     7. on failure-to-reject: open a release-blocking Incident (gate false negative)
 ```
 
-Integration points: this worker *writes* into the same canary corpus that
+Integration points: this worker _writes_ into the same canary corpus that
 `Conveyor.Jobs.RunGateCanary` already reads (§8 topology, §18). Because adding a
 mutant bumps `canary_suite_version`, it correctly forces the next gate to
 re-establish freshness (§17 canary freshness keys) — the new mutant must be
@@ -380,7 +382,7 @@ proven catchable before the gate trusts itself again.
 - **Meta-canary:** a fixture "escaped defect" (known fix commit) must mint a
   mutant that the current gate rejects; assert the full mint→verify→commit path.
 - **Negative meta-canary:** an "escaped defect" whose class the gate genuinely
-  cannot yet catch must produce a release-blocking Incident, *not* a silently
+  cannot yet catch must produce a release-blocking Incident, _not_ a silently
   dropped mint.
 - **Idempotency:** re-closing the same incident must not create duplicate
   mutants (unique on `project_id, defect_patch_sha256`).
@@ -390,10 +392,10 @@ proven catchable before the gate trusts itself again.
 
 ### C1.7 Metrics / KPIs
 
-- Gate false-negative rate (the headline; should trend to 0 and *stay* there).
+- Gate false-negative rate (the headline; should trend to 0 and _stay_ there).
 - Escaped-defect → mutant conversion rate (target ~100% of eligible incidents).
 - Mutant corpus size and growth; % `origin: escaped_defect`.
-- "Recurrence prevented" count: mutants that later catch a *new* attempt at the
+- "Recurrence prevented" count: mutants that later catch a _new_ attempt at the
   same defect class (the antifragility payoff).
 
 ### C1.8 Effort & risks
@@ -401,12 +403,12 @@ proven catchable before the gate trusts itself again.
 **Effort: M.** The harness exists; the work is the minting worker, inversion
 logic, and promotion-to-resource.
 
-- *Risk:* corpus pollution from premature/noisy triggers → **mitigation:** mint
+- _Risk:_ corpus pollution from premature/noisy triggers → **mitigation:** mint
   only from confirmed incidents; require gate-rejection verification before
   commit; human confirmation for high-sensitivity mints.
-- *Risk:* base-solution drift makes old defect patches non-applicable →
+- _Risk:_ base-solution drift makes old defect patches non-applicable →
   **mitigation:** corpus hygiene eval + `retired` lifecycle, never delete.
-- *Risk:* canary suite growth slows the gate → **mitigation:** label-scoped
+- _Risk:_ canary suite growth slows the gate → **mitigation:** label-scoped
   canary selection (run mutants for touched conflict domains at slice gate; full
   corpus at epic/phase gate), mirroring the tiered-pyramid principle.
 
@@ -418,26 +420,27 @@ logic, and promotion-to-resource.
 
 **Primary phase: 2 (contract authoring). Seam: Phase 1 (§2.2).**
 
-Why not Phase 0/1: in Phase 1 the human *is* the Test Architect and hand-authors
+Why not Phase 0/1: in Phase 1 the human _is_ the Test Architect and hand-authors
 the locked tests (§22.3). Running mutation analysis on a human's four pytest
 cases for one Slice is possible but low-value — the human can eyeball them, and
-the tracer bullet's goal is to prove the *loop*, not to industrialize contract
+the tracer bullet's goal is to prove the _loop_, not to industrialize contract
 QA. C2 earns its keep in Phase 2, when a spec/test agent starts generating
-contracts at volume and "is this generated test actually strong?" becomes a real,
-recurring, un-eyeballable question.
+contracts at volume and "is this generated test actually strong?" becomes a
+real, recurring, un-eyeballable question.
 
 Why the seam belongs in Phase 1: `TestPackCalibration` is created in Phase 1
-(§22.4 step 7). Adding the two nullable strength fields now means the calibration
-record has always had a place to record strength, so Phase 2 flips a value
-instead of migrating a table and reinterpreting historical calibrations.
+(§22.4 step 7). Adding the two nullable strength fields now means the
+calibration record has always had a place to record strength, so Phase 2 flips a
+value instead of migrating a table and reinterpreting historical calibrations.
 
 Why this is high-leverage (the pushback, partial): your own design says "output
-quality is hard-capped by contract quality." Acceptance calibration only proves a
-test is *red on base / green on patch* — a test can satisfy that and still assert
-almost nothing. C2 is the missing proof that the contract has *teeth*, applied at
-the cheapest possible moment (before any implementer spend). I would argue C2 is
-the single most underrated idea of the ten *for cost control*, because it kills
-weak briefs before they consume a scout pass, a prompt, and an agent run.
+quality is hard-capped by contract quality." Acceptance calibration only proves
+a test is _red on base / green on patch_ — a test can satisfy that and still
+assert almost nothing. C2 is the missing proof that the contract has _teeth_,
+applied at the cheapest possible moment (before any implementer spend). I would
+argue C2 is the single most underrated idea of the ten _for cost control_,
+because it kills weak briefs before they consume a scout pass, a prompt, and an
+agent run.
 
 ### C2.2 Phase 0/1 seam
 
@@ -468,8 +471,8 @@ ContractMutationRun (Phase 2 active resource)
   created_at
 ```
 
-Survivor report shape (the actionable output — *which behaviors the contract
-fails to pin down*):
+Survivor report shape (the actionable output — _which behaviors the contract
+fails to pin down_):
 
 ```json
 {
@@ -534,7 +537,7 @@ unpinned.
 - **Requires:** Phase 1 seam (§2.2); contract authoring at volume (Phase 2);
   per-language mutation adapters.
 - **Relates to:** C7 (behavior-lock differential is the runtime cousin — C2
-  proves the *tests* are strong; C7 proves *behavior didn't drift* when tests
+  proves the _tests_ are strong; C7 proves _behavior didn't drift_ when tests
   can't anticipate everything). Together they bracket the contract-quality gap.
 
 ### C2.6 Test / eval / canary strategy
@@ -554,22 +557,24 @@ unpinned.
 - Correlation between contract mutation score and downstream first-pass success
   / escaped-defect rate (validates the "quality capped by contract" thesis with
   data).
-- Dollars saved: agent runs *not* spent on weak contracts (bounced at readiness).
+- Dollars saved: agent runs _not_ spent on weak contracts (bounced at
+  readiness).
 
 ### C2.8 Effort & risks
 
 **Effort: M.** Mostly the adapter behaviour + per-language adapters + readiness
 wiring.
 
-- *Risk:* mutation testing is slow → **mitigation:** scope to `target_globs`
+- _Risk:_ mutation testing is slow → **mitigation:** scope to `target_globs`
   only; cache by content digest; run at lock time (once per contract) not per
   attempt; allow async pre-warm.
-- *Risk:* language coverage gaps → **mitigation:** adapter capability declares
+- _Risk:_ language coverage gaps → **mitigation:** adapter capability declares
   `supported: false`; absent adapter degrades to advisory `not_assessed`, never
   blocks (parity with Noop quality adapter).
-- *Risk:* threshold gaming (author writes tests just to kill mutants) →
-  **mitigation:** survivors map to *behaviors*, and C7 + acceptance mapping still
-  independently verify behavior; mutation score is necessary, not sufficient.
+- _Risk:_ threshold gaming (author writes tests just to kill mutants) →
+  **mitigation:** survivors map to _behaviors_, and C7 + acceptance mapping
+  still independently verify behavior; mutation score is necessary, not
+  sufficient.
 
 ---
 
@@ -586,22 +591,22 @@ is still being defined; attacking a moving target produces noise, not signal.
 
 Why Phase 5: this is the natural sibling of shadow mode (the plan's Phase 5
 "measure gate false-negative rate"). Shadow mode measures the gate passively
-against real runs; self-play measures it *actively* against an adversary. They
+against real runs; self-play measures it _actively_ against an adversary. They
 share infrastructure (gate-only path, false-negative accounting) and the same
-"earned autonomy" purpose (§Design Law 4). Shipping them together is cheaper than
-either alone.
+"earned autonomy" purpose (§Design Law 4). Shipping them together is cheaper
+than either alone.
 
 Why it is radically valuable: hand-authored canaries (and even C1's escaped
-defects) test the *past*. Self-play is the only mechanism that pressure-tests the
-gate against *novel* attacks it has never seen, turning gate strength into a
-live, adversarially-driven metric rather than a static fixture count. It is
-"who watches the watchmen" — automated.
+defects) test the _past_. Self-play is the only mechanism that pressure-tests
+the gate against _novel_ attacks it has never seen, turning gate strength into a
+live, adversarially-driven metric rather than a static fixture count. It is "who
+watches the watchmen" — automated.
 
 ### C3.2 Phase 0/1 seam
 
 None. C3 deposits any successful attack into the C1 `CanaryMutant` corpus with
-`origin: "self_play"`, so it reuses C1's schema entirely. The only requirement is
-that the C1 seam (§2.1) shipped, which it did.
+`origin: "self_play"`, so it reuses C1's schema entirely. The only requirement
+is that the C1 seam (§2.1) shipped, which it did.
 
 ### C3.3 Schema
 
@@ -633,17 +638,17 @@ SelfPlayAttempt (Phase 5 active resource)
   created_at
 ```
 
-The adversary is an `AgentProfile` with `role: :gate_adversary`, separated by Ash
-policy from implementer/reviewer roles (same separation-of-duties machinery as
-§19). Its prompt template (`gate-adversary@1`) instructs it to produce a diff
-that satisfies the visible acceptance tests while violating an *unstated* correct
-behavior.
+The adversary is an `AgentProfile` with `role: :gate_adversary`, separated by
+Ash policy from implementer/reviewer roles (same separation-of-duties machinery
+as §19). Its prompt template (`gate-adversary@1`) instructs it to produce a diff
+that satisfies the visible acceptance tests while violating an _unstated_
+correct behavior.
 
 Crucial determinism-boundary detail: **the adversary's claim "this is broken" is
-not trusted.** A breach is only a breach if an *independent oracle* confirms the
-diff is genuinely defective (e.g., it fails the C7 differential check or a held-out
-reference test the adversary never saw) AND the gate passed it. This prevents the
-adversary from "winning" by submitting correct code and lying.
+not trusted.** A breach is only a breach if an _independent oracle_ confirms the
+diff is genuinely defective (e.g., it fails the C7 differential check or a
+held-out reference test the adversary never saw) AND the gate passed it. This
+prevents the adversary from "winning" by submitting correct code and lying.
 
 ### C3.4 Station / worker design
 
@@ -678,9 +683,9 @@ gate is provably beatable), tying directly into §Design Law 4.
 
 ### C3.6 Test / eval / canary strategy
 
-- **Self-test:** seed a *deliberately weak gate* fixture; self-play must find a
+- **Self-test:** seed a _deliberately weak gate_ fixture; self-play must find a
   breach within budget (proves the adversary actually works).
-- **Oracle integrity:** a fixture where the adversary submits *correct* code and
+- **Oracle integrity:** a fixture where the adversary submits _correct_ code and
   claims it is broken must be classified `not a breach` (proves claims aren't
   trusted).
 - **Budget safety:** session must terminate at `budget_exhausted` and never run
@@ -688,7 +693,8 @@ gate is provably beatable), tying directly into §Design Law 4.
 
 ### C3.7 Metrics / KPIs
 
-- Breaches found per 1000 self-play attempts (should trend down as gate hardens).
+- Breaches found per 1000 self-play attempts (should trend down as gate
+  hardens).
 - Time-to-first-breach for a new gate version (longer = stronger gate).
 - % of self-play breaches that later would have been real escapes (validates the
   proactive value vs C1's reactive value).
@@ -699,14 +705,14 @@ gate is provably beatable), tying directly into §Design Law 4.
 **Effort: M** (given C1 + gate-only path exist; the new work is the adversary
 role, the oracle, and breach accounting).
 
-- *Risk:* adversary "wins" by submitting correct code → **mitigation:**
+- _Risk:_ adversary "wins" by submitting correct code → **mitigation:**
   independent oracle is the breach arbiter, never the adversary's claim.
-- *Risk:* cost of continuous adversarial runs → **mitigation:** spare-capacity
+- _Risk:_ cost of continuous adversarial runs → **mitigation:** spare-capacity
   scheduling, Governor budget cap, cheap models for the adversary (the gate, not
   the adversary, is the expensive-quality component).
-- *Risk:* adversary overfits to current gate quirks → **mitigation:** rotate
-  adversary models/prompts; treat the corpus (C1) as the durable record so even a
-  one-off clever attack becomes a permanent regression test.
+- _Risk:_ adversary overfits to current gate quirks → **mitigation:** rotate
+  adversary models/prompts; treat the corpus (C1) as the durable record so even
+  a one-off clever attack becomes a permanent regression test.
 
 ---
 
@@ -714,21 +720,23 @@ role, the oracle, and breach accounting).
 
 ### C4.1 Phase placement & honest rationale
 
-**Primary phase: 7 (learning loop). Seam: Phase 1 (§2.3, the `rule_key` field).**
+**Primary phase: 7 (learning loop). Seam: Phase 1 (§2.3, the `rule_key`
+field).**
 
-Why not Phase 0/1: C4's premise is "when the same finding recurs N times, propose
-a deterministic rule." With one Slice and one run, nothing recurs. C4 has the
-longest *lead time* of all ten: it is worthless until a meaningful history of
-findings has accumulated, which is a Phase 7 reality. Building the promotion
-machinery earlier would be a machine waiting years for its first input.
+Why not Phase 0/1: C4's premise is "when the same finding recurs N times,
+propose a deterministic rule." With one Slice and one run, nothing recurs. C4
+has the longest _lead time_ of all ten: it is worthless until a meaningful
+history of findings has accumulated, which is a Phase 7 reality. Building the
+promotion machinery earlier would be a machine waiting years for its first
+input.
 
-Why the seam is nonetheless the *most* important to land in Phase 1: C4 mines
-*historical* evidence. If findings are not tagged with a stable, countable
+Why the seam is nonetheless the _most_ important to land in Phase 1: C4 mines
+_historical_ evidence. If findings are not tagged with a stable, countable
 `rule_key` from the first run, then when C4 finally ships it can only learn from
-findings created *after* the field was added — throwing away the entire historical
-corpus, which is precisely the asset C4 exists to exploit. A nullable enum-ish
-slug added now costs nothing and preserves years of learnable signal. This is the
-clearest "cheap seam, expensive retrofit" case in the document.
+findings created _after_ the field was added — throwing away the entire
+historical corpus, which is precisely the asset C4 exists to exploit. A nullable
+enum-ish slug added now costs nothing and preserves years of learnable signal.
+This is the clearest "cheap seam, expensive retrofit" case in the document.
 
 Why Phase 7 over earlier for the mechanism: rule promotion is only safe once the
 failure taxonomy and reviewer rubrics are stable (also Phase 7). Promoting a
@@ -738,14 +746,15 @@ knowledge.
 ### C4.2 Phase 0/1 seam
 
 Exactly §2.3: add nullable `rule_key` to the `findings[]` embedded schema.
-Reviewers and deterministic stages populate it from a small controlled vocabulary
-when applicable; `nil` always allowed; nothing consumes it in Phase 1.
+Reviewers and deterministic stages populate it from a small controlled
+vocabulary when applicable; `nil` always allowed; nothing consumes it in
+Phase 1.
 
 ### C4.3 Schema
 
-C4's core idea: knowledge migrates from *stochastic* (prompt memory a model may
-ignore) to *deterministic* (a gate/lint rule that mechanically cannot be ignored)
-— the literal expression of the determinism-boundary law.
+C4's core idea: knowledge migrates from _stochastic_ (prompt memory a model may
+ignore) to _deterministic_ (a gate/lint rule that mechanically cannot be
+ignored) — the literal expression of the determinism-boundary law.
 
 ```text
 LessonCandidate (Phase 7 active resource)
@@ -819,7 +828,7 @@ Conveyor.Jobs.ShadowRuleRollout   (Phase 7 Oban worker)
 
 Promoted `block` rules are added as a gate sub-stage (extends §17 stage 10 "code
 quality delta" / a new "learned rules" stage) and/or written into `AGENTS.md`
-(§11) so agents are warned *and* mechanically checked.
+(§11) so agents are warned _and_ mechanically checked.
 
 ### C4.5 Dependencies
 
@@ -833,8 +842,8 @@ quality delta" / a new "learned rules" stage) and/or written into `AGENTS.md`
 ### C4.6 Test / eval / canary strategy
 
 - **Promotion eval:** a fixture history with a clearly recurring finding must
-  produce a `LessonCandidate` at the threshold and synthesize a rule that catches
-  the exemplar.
+  produce a `LessonCandidate` at the threshold and synthesize a rule that
+  catches the exemplar.
 - **False-positive guard:** a synthesized rule that fires on known-good fixtures
   above `max_false_positive_rate` must be blocked from promotion.
 - **No-silent-promotion invariant:** every `block` promotion has a
@@ -843,22 +852,23 @@ quality delta" / a new "learned rules" stage) and/or written into `AGENTS.md`
 ### C4.7 Metrics / KPIs
 
 - Lessons promoted to deterministic rules per quarter.
-- Recurrence rate of a finding class *before vs after* promotion (should collapse).
+- Recurrence rate of a finding class _before vs after_ promotion (should
+  collapse).
 - Rule effectiveness ratio (catches / false positives).
 - % of reviewer findings that are now caught deterministically (the "review load
   shrinks as the gate learns" payoff).
 
 ### C4.8 Effort & risks
 
-**Effort: L.** Rule synthesis per kind is the hard part; the mining/accounting is
-straightforward over the seam.
+**Effort: L.** Rule synthesis per kind is the hard part; the mining/accounting
+is straightforward over the seam.
 
-- *Risk:* auto-synthesized rules are noisy → **mitigation:** mandatory advisory
+- _Risk:_ auto-synthesized rules are noisy → **mitigation:** mandatory advisory
   shadow rollout + false-positive ceiling + human approval before `block`.
-- *Risk:* over-rigidifying the codebase → **mitigation:** `scope_globs`,
+- _Risk:_ over-rigidifying the codebase → **mitigation:** `scope_globs`,
   `suspend`/`retire` lifecycle, effectiveness tracking; rules are revisable, not
   permanent.
-- *Risk:* taxonomy churn poisons candidates → **mitigation:** gate C4 on a
+- _Risk:_ taxonomy churn poisons candidates → **mitigation:** gate C4 on a
   frozen taxonomy version; re-mining on taxonomy change is explicit.
 
 ---
@@ -870,12 +880,12 @@ straightforward over the seam.
 **Primary phase: 2 (decomposition + approval gate). Seam: Phase 1 (§2.4 enum).**
 
 Why not Phase 0/1: Phase 1 deliberately has the human hand-author one perfect
-Plan/Epic/Slice/Brief and pass plan audit before anything runs (§22). There is no
-decomposition agent and no volume of contracts for "the plan was wrong" to be a
-common event. The manual `parked` off-ramp is adequate for one Slice.
+Plan/Epic/Slice/Brief and pass plan audit before anything runs (§22). There is
+no decomposition agent and no volume of contracts for "the plan was wrong" to be
+a common event. The manual `parked` off-ramp is adequate for one Slice.
 
-Why Phase 2: once a spec agent decomposes plans into many Slices and contracts at
-volume, imperfect contracts become the *norm*, not the exception. C5 is the
+Why Phase 2: once a spec agent decomposes plans into many Slices and contracts
+at volume, imperfect contracts become the _norm_, not the exception. C5 is the
 structured pathway for the single most common real-world failure of autonomous
 coding — the spec, not the implementation, is wrong. Phase 2 is where contract
 authoring and the human approval checkpoint live, so the amendment-review loop
@@ -891,13 +901,14 @@ Why it is powerful: today every off-ramp blames the implementation
 agent a first-class way to say "this contract is internally impossible /
 contradicts an interface / an AC cannot be satisfied as written" **with a
 concrete proposed redline to the plan**, preserving the prose plan as a living
-constitution amended through a controlled, traceable flow rather than silent drift
-(directly serving the plan's "no orphan requirements, no silent drift" laws).
+constitution amended through a controlled, traceable flow rather than silent
+drift (directly serving the plan's "no orphan requirements, no silent drift"
+laws).
 
 ### C5.2 Phase 0/1 seam
 
-Exactly §2.4: reserve the `contract_disputed` Slice off-ramp as a `parked` alias.
-No proposal artifact, no new flow in Phase 1.
+Exactly §2.4: reserve the `contract_disputed` Slice off-ramp as a `parked`
+alias. No proposal artifact, no new flow in Phase 1.
 
 ### C5.3 Schema
 
@@ -923,10 +934,10 @@ PlanAmendmentProposal (Phase 2 active resource)
 
 ```
 
-The redline is a diff against the **machine-readable** `conveyor.plan@1` contract
-(§10), not the prose — so it is validatable and, if accepted, flows through the
-existing contract-evolution rule (§6.0: new ContractLock → new RunSpec → new
-RunAttempt → required HumanDecision).
+The redline is a diff against the **machine-readable** `conveyor.plan@1`
+contract (§10), not the prose — so it is validatable and, if accepted, flows
+through the existing contract-evolution rule (§6.0: new ContractLock → new
+RunSpec → new RunAttempt → required HumanDecision).
 
 ```json
 {
@@ -944,7 +955,7 @@ RunAttempt → required HumanDecision).
 
 ### C5.4 Station / worker design
 
-C5 is mostly a new *off-ramp* plus a review loop, not a heavy compute station:
+C5 is mostly a new _off-ramp_ plus a review loop, not a heavy compute station:
 
 ```text
 Trigger: during Implement or Readiness, the agent emits a structured
@@ -967,9 +978,9 @@ Resolution (human or, later, higher-autonomy policy):
                 clarifying why the contract stands
 ```
 
-Determinism boundary respected: the agent *proposes*; the conductor records and
-validates; a human (or a trust-earned policy) *decides*. An accepted amendment is
-never silently applied — it always produces a `HumanDecision` and a new lock,
+Determinism boundary respected: the agent _proposes_; the conductor records and
+validates; a human (or a trust-earned policy) _decides_. An accepted amendment
+is never silently applied — it always produces a `HumanDecision` and a new lock,
 keeping plan↔work-graph traceability intact.
 
 ### C5.5 Dependencies
@@ -982,14 +993,14 @@ keeping plan↔work-graph traceability intact.
 
 ### C5.6 Test / eval / canary strategy
 
-- **Eval `plan_amendment`:** a fixture plan with a genuine internal contradiction
-  must produce a valid proposal and move the Slice to `contract_disputed` without
-  burning a rework retry.
-- **Abuse guard:** an agent disputing a *valid* contract (to dodge hard work)
+- **Eval `plan_amendment`:** a fixture plan with a genuine internal
+  contradiction must produce a valid proposal and move the Slice to
+  `contract_disputed` without burning a rework retry.
+- **Abuse guard:** an agent disputing a _valid_ contract (to dodge hard work)
   must be detectable — rejected disputes are recorded per agent profile and feed
   agent reputation (Phase 5/7); repeated false disputes lower autonomy.
-- **Traceability invariant:** accepted amendment ⇒ exactly one new ContractLock +
-  one HumanDecision; assert no contract change without both.
+- **Traceability invariant:** accepted amendment ⇒ exactly one new
+  ContractLock + one HumanDecision; assert no contract change without both.
 
 ### C5.7 Metrics / KPIs
 
@@ -1004,9 +1015,9 @@ keeping plan↔work-graph traceability intact.
 **Effort: M.** New resource + off-ramp + output-schema extension + review loop;
 reuses contract-evolution machinery.
 
-- *Risk:* agents weaponize disputes to avoid hard tasks → **mitigation:**
+- _Risk:_ agents weaponize disputes to avoid hard tasks → **mitigation:**
   rejected-dispute tracking feeds reputation/autonomy; abuse eval fixture.
-- *Risk:* amendment flow becomes a silent-drift backdoor → **mitigation:**
+- _Risk:_ amendment flow becomes a silent-drift backdoor → **mitigation:**
   mandatory HumanDecision + new ContractLock; `acceptance_weakened`/
   `policy_weakened` redlines require explicit human reason (reuse §9.6 rules).
 
@@ -1020,14 +1031,14 @@ reuses contract-evolution machinery.
 
 Why not Phase 0/1: there is no queue of competing human decisions when there is
 one Slice and a human in the loop for every step. The morning-digest concept
-itself is a Phase 6 deliverable in the roadmap. C6 is a ranking *projection* over
-data produced by the dispatcher (Phase 3) and governor (Phase 6); it cannot
+itself is a Phase 6 deliverable in the roadmap. C6 is a ranking _projection_
+over data produced by the dispatcher (Phase 3) and governor (Phase 6); it cannot
 predate them.
 
 Why Phase 6: this is the moment the system has (a) many parked items, disputes,
 and approvals competing for attention, and (b) a dispatcher scoring function and
 cost data to rank them by. C6 is the smallest, highest-ROI feature of the ten
-once those exist — it is mostly *reuse*.
+once those exist — it is mostly _reuse_.
 
 Why it is high-leverage: the real scaling limit of an autonomous factory is not
 compute, it is human cognitive bandwidth. "Tend the swarm" degrades as the swarm
@@ -1080,7 +1091,7 @@ ev_score =
 
 `estimated_decision_effort` keeps the queue from surfacing high-impact but
 genuinely hard calls above quick high-impact ones — it optimizes the human's
-*throughput of good decisions*, not just impact.
+_throughput of good decisions_, not just impact.
 
 ### C6.4 Station / worker design
 
@@ -1098,7 +1109,7 @@ LiveView surface (extends §21):
   - "if you only do one thing" highlight = argmax(ev_score)
 ```
 
-This is deliberately a *projection* — it never owns truth. Acting on an item
+This is deliberately a _projection_ — it never owns truth. Acting on an item
 dispatches into the existing flows (HumanApproval, PlanAmendment resolution,
 LessonCandidate promotion), so C6 adds ranking + UX, not new authority.
 
@@ -1112,13 +1123,13 @@ LessonCandidate promotion), so C6 adds ranking + UX, not new authority.
 
 ### C6.6 Test / eval / canary strategy
 
-- **Ranking eval:** a fixture set of competing items with known unblock/criticality
-  must rank in the expected order; assert argmax matches the hand-labeled "most
-  valuable."
+- **Ranking eval:** a fixture set of competing items with known
+  unblock/criticality must rank in the expected order; assert argmax matches the
+  hand-labeled "most valuable."
 - **Restart safety:** kill the GenServer mid-queue; assert the queue rebuilds
   identically from Postgres (no lost or duplicated items).
-- **Staleness behavior:** an aging low-impact item must eventually auto-resolve or
-  escalate per policy, never silently vanish.
+- **Staleness behavior:** an aging low-impact item must eventually auto-resolve
+  or escalate per policy, never silently vanish.
 
 ### C6.7 Metrics / KPIs
 
@@ -1129,12 +1140,12 @@ LessonCandidate promotion), so C6 adds ranking + UX, not new authority.
 
 ### C6.8 Effort & risks
 
-**Effort: S.** Mostly reuse: a GenServer projection + a LiveView panel + a scoring
-re-aim. The lowest-effort capability of the ten once Phase 3/6 exist.
+**Effort: S.** Mostly reuse: a GenServer projection + a LiveView panel + a
+scoring re-aim. The lowest-effort capability of the ten once Phase 3/6 exist.
 
-- *Risk:* gaming the score / starvation of low-ev items → **mitigation:**
+- _Risk:_ gaming the score / starvation of low-ev items → **mitigation:**
   staleness term guarantees eventual surfacing; cap max wait.
-- *Risk:* bad EV weights mislead the human → **mitigation:** weights are config;
+- _Risk:_ bad EV weights mislead the human → **mitigation:** weights are config;
   log decision outcomes to tune `w_*` empirically (a mini learning loop).
 
 ---
@@ -1143,18 +1154,19 @@ re-aim. The lowest-effort capability of the ten once Phase 3/6 exist.
 
 ### C7.1 Phase placement & honest rationale
 
-**Primary phase: 4 (verification pyramid). No schema seam (additive suite kind).**
+**Primary phase: 4 (verification pyramid). No schema seam (additive suite
+kind).**
 
-Why not Phase 0/1: Phase 1's sample Slice is a behavioral *addition* (mark a task
-complete) verified by hand-authored acceptance tests. Differential testing earns
-its keep on *refactor / no-behavior-change* slices, where the risk is silent
-behavioral drift — a class that does not appear in the tracer bullet and would add
-input-generation machinery the Phase 1 loop does not need.
+Why not Phase 0/1: Phase 1's sample Slice is a behavioral _addition_ (mark a
+task complete) verified by hand-authored acceptance tests. Differential testing
+earns its keep on _refactor / no-behavior-change_ slices, where the risk is
+silent behavioral drift — a class that does not appear in the tracer bullet and
+would add input-generation machinery the Phase 1 loop does not need.
 
-Why Phase 4: this is a verification *stage*, and the verification pyramid is built
-in Phase 4. It slots in beside mutation/property testing as the tool for the
-"prove you changed *nothing*" guarantee, which is fundamentally different from the
-acceptance suite's "prove you changed *this*" guarantee.
+Why Phase 4: this is a verification _stage_, and the verification pyramid is
+built in Phase 4. It slots in beside mutation/property testing as the tool for
+the "prove you changed _nothing_" guarantee, which is fundamentally different
+from the acceptance suite's "prove you changed _this_" guarantee.
 
 Why the suite-kind is additive (no seam needed): `VerificationSuite.suite_kind`
 (§6.1) is already an open enum designed to grow. Adding
@@ -1162,11 +1174,11 @@ Why the suite-kind is additive (no seam needed): `VerificationSuite.suite_kind`
 historical evidence, unlike the C1/C2/C4/C5 cases.
 
 Why it is powerful: acceptance tests can only catch regressions the author
-*anticipated*. For the autonomous case, the scariest failure is the unanticipated
-silent behavior change in a refactor. Differential / metamorphic testing —
-running old vs new code over generated inputs and asserting identical observable
-behavior — is the only stage that catches the *unknown unknowns* of refactors, and
-it requires no human to predict them.
+_anticipated_. For the autonomous case, the scariest failure is the
+unanticipated silent behavior change in a refactor. Differential / metamorphic
+testing — running old vs new code over generated inputs and asserting identical
+observable behavior — is the only stage that catches the _unknown unknowns_ of
+refactors, and it requires no human to predict them.
 
 ### C7.2 Phase 0/1 seam
 
@@ -1195,8 +1207,8 @@ BehaviorLockRun (Phase 4 active resource)
   created_at
 ```
 
-Divergence record (the actionable artifact — *what behavior changed that the diff
-claimed wouldn't*):
+Divergence record (the actionable artifact — _what behavior changed that the
+diff claimed wouldn't_):
 
 ```json
 {
@@ -1218,8 +1230,8 @@ claimed wouldn't*):
 
 The change-class is declared in the Slice/Brief (a refactor Slice asserts
 `behavior_preserving`); any divergence outside `allowed_divergence_globs` fails
-the gate. A `behavior_changing` slice simply skips the lock (the acceptance suite
-governs instead).
+the gate. A `behavior_changing` slice simply skips the lock (the acceptance
+suite governs instead).
 
 ### C7.4 Station / worker design
 
@@ -1241,15 +1253,15 @@ Conveyor.Jobs.BehaviorLockDifferential   (Phase 4 Oban worker; gate stage)
 
 Slots into the deterministic gate (§17) as an additional stage, gated on
 change-class so it only runs where meaningful. For pure functions this is cheap
-and high-confidence; for stateful services it uses recorded-traffic replay against
-the in-memory/SQLite store the sample app already uses.
+and high-confidence; for stateful services it uses recorded-traffic replay
+against the in-memory/SQLite store the sample app already uses.
 
 ### C7.5 Dependencies
 
 - **Requires:** verification pyramid (Phase 4); input generation (property
   generators from contracts, or recorded-traffic capture); deterministic
   execution sandbox (exists, §12).
-- **Complements:** C2 (C2 proves the *tests* are strong; C7 catches drift the
+- **Complements:** C2 (C2 proves the _tests_ are strong; C7 catches drift the
   tests don't cover — together they close the contract-quality gap from both
   sides).
 
@@ -1264,26 +1276,27 @@ the in-memory/SQLite store the sample app already uses.
 
 ### C7.7 Metrics / KPIs
 
-- Silent-drift catches on refactor slices (defects caught here that no acceptance
-  test would have caught).
+- Silent-drift catches on refactor slices (defects caught here that no
+  acceptance test would have caught).
 - Differential false-positive rate (must stay low or refactors get blocked
   spuriously).
 - % of refactor slices eligible for/covered by behavior-lock.
 
 ### C7.8 Effort & risks
 
-**Effort: L.** Input generation/capture per language and per interface kind is the
-real cost; the diffing and gate wiring are modest.
+**Effort: L.** Input generation/capture per language and per interface kind is
+the real cost; the diffing and gate wiring are modest.
 
-- *Risk:* non-determinism (timestamps, ordering, randomness) causes false
+- _Risk:_ non-determinism (timestamps, ordering, randomness) causes false
   divergences → **mitigation:** canonicalize outputs; declare/normalize known
   non-deterministic surfaces; seed RNG.
-- *Risk:* expensive for large input spaces → **mitigation:** scope to touched
+- _Risk:_ expensive for large input spaces → **mitigation:** scope to touched
   interfaces; budget input count; run at epic gate for breadth, slice gate for
   the touched surface only.
-- *Risk:* incomplete input coverage gives false confidence → **mitigation:** pair
-  with C2 (mutation) and property tests; report coverage of the input space, never
-  claim "behavior proven identical," only "no divergence found over corpus X."
+- _Risk:_ incomplete input coverage gives false confidence → **mitigation:**
+  pair with C2 (mutation) and property tests; report coverage of the input
+  space, never claim "behavior proven identical," only "no divergence found over
+  corpus X."
 
 ---
 
@@ -1291,24 +1304,25 @@ real cost; the diffing and gate wiring are modest.
 
 ### C8.1 Phase placement & honest rationale
 
-**Primary phase: 5 (self-healing). No schema seam (reuses merge queue + ledger).**
+**Primary phase: 5 (self-healing). No schema seam (reuses merge queue +
+ledger).**
 
-Why not Phase 0/1: there is no trunk to guard. Phase 1 is one Slice with a manual
-merge; "an epic gate went red after N merges" is not expressible until the merge
-queue (Phase 3) and epic gate (Phase 4) exist.
+Why not Phase 0/1: there is no trunk to guard. Phase 1 is one Slice with a
+manual merge; "an epic gate went red after N merges" is not expressible until
+the merge queue (Phase 3) and epic gate (Phase 4) exist.
 
-Why Phase 5: C8 *is* self-healing applied to trunk health. The plan's Phase 5
-already includes watchdog, circuit breakers, and stop-the-line. Today stop-the-line
-*halts* the line until a human intervenes; C8 upgrades that to *self-repair* —
-identify the culprit merge, revert it, re-park its Slice, and let the swarm keep
-moving. This is what makes 24/7 unattended operation real rather than "fast until
-the first regression, then frozen until morning."
+Why Phase 5: C8 _is_ self-healing applied to trunk health. The plan's Phase 5
+already includes watchdog, circuit breakers, and stop-the-line. Today
+stop-the-line _halts_ the line until a human intervenes; C8 upgrades that to
+_self-repair_ — identify the culprit merge, revert it, re-park its Slice, and
+let the swarm keep moving. This is what makes 24/7 unattended operation real
+rather than "fast until the first regression, then frozen until morning."
 
 Why it is natural here (and cheap given prerequisites): isolated per-Slice
-`PatchSet`s + a serialized merge queue + the event-sourced ledger give you clean,
-individually-attributable, individually-revertible units. Bisection over merges is
-nearly free because each merge is a discrete, reversible event with full evidence
-— the architecture was practically designed for it.
+`PatchSet`s + a serialized merge queue + the event-sourced ledger give you
+clean, individually-attributable, individually-revertible units. Bisection over
+merges is nearly free because each merge is a discrete, reversible event with
+full evidence — the architecture was practically designed for it.
 
 ### C8.2 Phase 0/1 seam
 
@@ -1371,9 +1385,9 @@ Conveyor.Jobs.GuardTrunk   (Phase 5 Oban worker; triggered by red epic/phase gat
     6. record BisectRun; LedgerEvent timeline throughout
 ```
 
-Safety: auto-revert is itself a merge and is **re-gated** by the merge queue — C8
-never force-pushes or bypasses the gate (respects §Design Law 6 and the git-safety
-posture). Revert is reversible and fully evidenced.
+Safety: auto-revert is itself a merge and is **re-gated** by the merge queue —
+C8 never force-pushes or bypasses the gate (respects §Design Law 6 and the
+git-safety posture). Revert is reversible and fully evidenced.
 
 ### C8.5 Dependencies
 
@@ -1388,13 +1402,15 @@ posture). Revert is reversible and fully evidenced.
 - **Bisect accuracy eval:** a fixture trunk with a known culprit merge among N
   must be identified correctly by each bisect_method.
 - **Revert safety eval:** auto-revert must pass back through the gate; a revert
-  that *itself* fails the gate must escalate, never land.
-- **No-cascade invariant:** reverting a culprit must not orphan dependent merges;
-  if dependents exist, escalate to stop-the-line rather than blind-revert.
+  that _itself_ fails the gate must escalate, never land.
+- **No-cascade invariant:** reverting a culprit must not orphan dependent
+  merges; if dependents exist, escalate to stop-the-line rather than
+  blind-revert.
 
 ### C8.7 Metrics / KPIs
 
-- Mean time to trunk-green after a regression (the headline; human-free recovery).
+- Mean time to trunk-green after a regression (the headline; human-free
+  recovery).
 - Bisect accuracy (culprit correct on first attribution).
 - % regressions auto-resolved vs escalated.
 - Trunk red-time per week (should approach near-zero for 24/7 credibility).
@@ -1405,11 +1421,11 @@ posture). Revert is reversible and fully evidenced.
 `parallel_replay` reuses the fleet. The work is orchestration + revert safety +
 dependency-aware escalation.
 
-- *Risk:* wrong culprit → bad revert → **mitigation:** require re-gate of the
+- _Risk:_ wrong culprit → bad revert → **mitigation:** require re-gate of the
   revert; `confidence` gating; ambiguous → human.
-- *Risk:* flaky gate misattributes → **mitigation:** reuse `flake_policy` /
+- _Risk:_ flaky gate misattributes → **mitigation:** reuse `flake_policy` /
   `repeat` (§6.3) to confirm red is real before bisecting.
-- *Risk:* dependent-merge cascades → **mitigation:** dependency-aware revert;
+- _Risk:_ dependent-merge cascades → **mitigation:** dependency-aware revert;
   escalate to stop-the-line when dependents would be orphaned.
 
 ---
@@ -1420,26 +1436,27 @@ dependency-aware escalation.
 
 **Primary phase: parallel Product Track G, starting after Phase 4. No seam.**
 
-Why not Phase 0/1, and why a *track* rather than a phase: C9 is a packaging /
-entry-point capability over the deterministic gate. It should not start until the
-gate is *stable* (Phase 4 verification pyramid), because shipping an unstable
-verifier as an external product surface would burn trust with the exact audience
-you most want. But it also should not *block* the core roadmap — it is orthogonal
-value (adoption) that can be built by a parallel effort once the gate is solid.
-Hence "Track G," running alongside Phases 5–7 rather than inside them.
+Why not Phase 0/1, and why a _track_ rather than a phase: C9 is a packaging /
+entry-point capability over the deterministic gate. It should not start until
+the gate is _stable_ (Phase 4 verification pyramid), because shipping an
+unstable verifier as an external product surface would burn trust with the exact
+audience you most want. But it also should not _block_ the core roadmap — it is
+orthogonal value (adoption) that can be built by a parallel effort once the gate
+is solid. Hence "Track G," running alongside Phases 5–7 rather than inside them.
 
-Why it is strategically powerful: the gate is Conveyor's crown jewel and its most
-defensible, most immediately useful component. C9 inverts the flow — instead of
-Conveyor *originating* the work, it *attaches to an existing PR* (human- or
-agent-authored) and runs the gate + produces the evidence dossier as a review.
-Because the gate already operates on "a PatchSet against a base commit," and a PR
-*is* exactly that, C9 is a thin adapter over existing machinery. It is the lowest
-effort, highest reach way to get teams to feel the gate's value before adopting
-the whole factory — a genuine OSS adoption flywheel and a standalone product.
+Why it is strategically powerful: the gate is Conveyor's crown jewel and its
+most defensible, most immediately useful component. C9 inverts the flow —
+instead of Conveyor _originating_ the work, it _attaches to an existing PR_
+(human- or agent-authored) and runs the gate + produces the evidence dossier as
+a review. Because the gate already operates on "a PatchSet against a base
+commit," and a PR _is_ exactly that, C9 is a thin adapter over existing
+machinery. It is the lowest effort, highest reach way to get teams to feel the
+gate's value before adopting the whole factory — a genuine OSS adoption flywheel
+and a standalone product.
 
-Why it strengthens the core, not just adoption: every external PR run through the
-gate is more eval data, more potential C1 mutants (escaped defects found in the
-wild), and real-world pressure on gate honesty — C9 *feeds* C1/C3/C4.
+Why it strengthens the core, not just adoption: every external PR run through
+the gate is more eval data, more potential C1 mutants (escaped defects found in
+the wild), and real-world pressure on gate honesty — C9 _feeds_ C1/C3/C4.
 
 ### C9.2 Phase 0/1 seam
 
@@ -1450,8 +1467,8 @@ seeds of this product surface.
 
 ### C9.3 Schema
 
-C9 introduces an *external review request* that wraps the existing gate without a
-Plan/Slice/Brief (the work originated outside Conveyor):
+C9 introduces an _external review request_ that wraps the existing gate without
+a Plan/Slice/Brief (the work originated outside Conveyor):
 
 ```text
 ExternalReviewRequest (Track G active resource)
@@ -1481,13 +1498,14 @@ ExternalReviewBinding (maps an external repo to Conveyor config)
 ```
 
 The key design subtlety: a standalone PR has **no locked contract**, so the
-contract-dependent stages (acceptance mapping against a locked TestPack, contract
-lock) cannot run as-is. C9 runs the **contract-independent** gate stages by default
-(workspace integrity, diff scope, policy, secret safety, build/install, tests as
-they exist in the PR, code-quality delta, RunCheck, provenance) and clearly labels
-which stages were skipped for lack of a contract. Optionally, `contract_mode:
-inferred` lets a scout infer acceptance criteria from the PR description/tests for
-a richer review — explicitly marked as inferred, never as a locked contract.
+contract-dependent stages (acceptance mapping against a locked TestPack,
+contract lock) cannot run as-is. C9 runs the **contract-independent** gate
+stages by default (workspace integrity, diff scope, policy, secret safety,
+build/install, tests as they exist in the PR, code-quality delta, RunCheck,
+provenance) and clearly labels which stages were skipped for lack of a contract.
+Optionally, `contract_mode: inferred` lets a scout infer acceptance criteria
+from the PR description/tests for a richer review — explicitly marked as
+inferred, never as a locked contract.
 
 ### C9.4 Station / worker design
 
@@ -1510,11 +1528,11 @@ Conveyor.GitHubApp / Conveyor.Jobs.RunExternalReview   (Track G)
 
 Reuse is the whole point: the gate, evidence projector, redactor, RunCheck, and
 artifact bundle are unchanged. C9 is an **ingress + a no-contract gate profile +
-an egress poster**. The determinism boundary holds — the gate verdict is computed
-by the same deterministic stages; the GitHub App is just transport.
+an egress poster**. The determinism boundary holds — the gate verdict is
+computed by the same deterministic stages; the GitHub App is just transport.
 
-Security note: external repos are *untrusted input* by definition. C9 runs in the
-same hardened sandbox posture (§12) with `network=none` by default and the
+Security note: external repos are _untrusted input_ by definition. C9 runs in
+the same hardened sandbox posture (§12) with `network=none` by default and the
 conductor DB unreachable from the sandbox — an attacker opening a malicious PR
 gets the same blast-radius containment as any agent.
 
@@ -1527,11 +1545,11 @@ gets the same blast-radius containment as any agent.
 
 ### C9.6 Test / eval / canary strategy
 
-- **No-contract gate eval:** the contract-independent stages must still catch the
-  applicable C1 mutants (e.g., policy edit, secret leak, failing tests, new
+- **No-contract gate eval:** the contract-independent stages must still catch
+  the applicable C1 mutants (e.g., policy edit, secret leak, failing tests, new
   high-risk findings) on a PR with no Conveyor contract.
-- **Skipped-stage honesty:** stages skipped for lack of a contract must be clearly
-  reported as skipped, never silently counted as passed.
+- **Skipped-stage honesty:** stages skipped for lack of a contract must be
+  clearly reported as skipped, never silently counted as passed.
 - **Untrusted-PR safety:** a malicious PR (prompt injection in description,
   exfil attempt in tests) must be contained exactly like the agent threat model
   (reuse §12.0 threat fixtures).
@@ -1548,13 +1566,14 @@ gets the same blast-radius containment as any agent.
 **Effort: M.** The gate is reused; the work is the GitHub App ingress, the
 no-contract gate profile, the egress poster, and hosting the dossier.
 
-- *Risk:* no-contract reviews are weaker and could erode trust → **mitigation:**
-  explicit stage-skipped labeling; offer `inferred`/`provided` contract modes for
-  depth; never overclaim.
-- *Risk:* untrusted external code execution → **mitigation:** full §12 sandbox
+- _Risk:_ no-contract reviews are weaker and could erode trust → **mitigation:**
+  explicit stage-skipped labeling; offer `inferred`/`provided` contract modes
+  for depth; never overclaim.
+- _Risk:_ untrusted external code execution → **mitigation:** full §12 sandbox
   posture; `network=none`; no credentials; conductor unreachable.
-- *Risk:* scope creep into a CI platform → **mitigation:** stay a *check* over a
-  PatchSet (Design Law 10, "no bespoke tool empire"); integrate, don't rebuild CI.
+- _Risk:_ scope creep into a CI platform → **mitigation:** stay a _check_ over a
+  PatchSet (Design Law 10, "no bespoke tool empire"); integrate, don't rebuild
+  CI.
 
 ---
 
@@ -1565,29 +1584,29 @@ no-contract gate profile, the egress poster, and hosting the dossier.
 **Primary phase: 5 (ungoverned), fully governed in Phase 6. No schema seam.**
 
 Why not Phase 0/1: best-of-N requires a fleet (parallel isolated containers,
-Phase 3) and only makes economic sense with a governor to decide *when* N>1 is
-worth the spend (Phase 6). In Phase 1 there is one container and one attempt; the
-RunAttempt model already supports multiple attempts, so nothing is *blocked*, but
-running N in parallel is a fleet behavior.
+Phase 3) and only makes economic sense with a governor to decide _when_ N>1 is
+worth the spend (Phase 6). In Phase 1 there is one container and one attempt;
+the RunAttempt model already supports multiple attempts, so nothing is
+_blocked_, but running N in parallel is a fleet behavior.
 
 Why Phase 5–6: the fleet exists by Phase 3, so a basic N-in-parallel is possible
-in Phase 5; but the *value* of best-of-N is quality-per-dollar, which needs the
+in Phase 5; but the _value_ of best-of-N is quality-per-dollar, which needs the
 economic governor (Phase 6) to gate it to high-criticality / historically
 low-first-pass-success slices. Ungoverned best-of-N just multiplies cost.
 
 Why it is powerful: the deterministic gate is already the arbiter of truth, so
 running the same Slice with N diverse models/prompts in parallel and letting the
-gate pick the best *passing* diff converts the gate from a pass/fail judge into a
-**quality amplifier** at the cost of money, not trust. Diversity beats serial
-retries (different models fail differently), and the governor keeps it sane. It is
-the cleanest example of "the gate makes risky generation safe."
+gate pick the best _passing_ diff converts the gate from a pass/fail judge into
+a **quality amplifier** at the cost of money, not trust. Diversity beats serial
+retries (different models fail differently), and the governor keeps it sane. It
+is the cleanest example of "the gate makes risky generation safe."
 
 ### C10.2 Phase 0/1 seam
 
 None. The `RunAttempt` model already allows multiple attempts per Slice (§7.3);
-best-of-N is *concurrent* speculative attempts behind explicit policy, which §7.3
-already anticipates ("later phases may allow concurrent speculative attempts only
-behind explicit policy").
+best-of-N is _concurrent_ speculative attempts behind explicit policy, which
+§7.3 already anticipates ("later phases may allow concurrent speculative
+attempts only behind explicit policy").
 
 ### C10.3 Schema
 
@@ -1616,7 +1635,7 @@ SpeculationCandidate (view over RunAttempt for the group)
   selection_score           computed for best_passing
 ```
 
-Selection (only among *gate-passing* candidates — never trade correctness for
+Selection (only among _gate-passing_ candidates — never trade correctness for
 cost):
 
 ```text
@@ -1648,11 +1667,11 @@ Conveyor.Jobs.RunSpeculationGroup   (Phase 5 Oban worker; gated by Governor in P
     6. record SpeculationGroup; emit cost + selection rationale
 ```
 
-Governor integration (Phase 6): N is dynamic — N=1 for low-criticality green-path
-slices; N=2–3 for high-criticality or historically flaky slice types; N drops to 1
-under budget pressure (graceful degradation, the plan's economic-governor
-principle). All candidates share one frozen RunSpec so the comparison is
-apples-to-apples and replayable.
+Governor integration (Phase 6): N is dynamic — N=1 for low-criticality
+green-path slices; N=2–3 for high-criticality or historically flaky slice types;
+N drops to 1 under budget pressure (graceful degradation, the plan's
+economic-governor principle). All candidates share one frozen RunSpec so the
+comparison is apples-to-apples and replayable.
 
 ### C10.5 Dependencies
 
@@ -1663,17 +1682,18 @@ apples-to-apples and replayable.
 
 ### C10.6 Test / eval / canary strategy
 
-- **Selection correctness eval:** given N candidates with known gate verdicts and
-  metrics, the selected one must match the policy (never select a failing
+- **Selection correctness eval:** given N candidates with known gate verdicts
+  and metrics, the selected one must match the policy (never select a failing
   candidate; pick the expected best among passers).
 - **Cancellation safety:** `first_pass` must cleanly cancel and reap losing
   containers (reuse SandboxReaper + cancellation capability, §8/§15).
-- **Determinism of comparison:** all candidates share one RunSpec; assert the gate
-  is applied identically (same freshness key) to each.
+- **Determinism of comparison:** all candidates share one RunSpec; assert the
+  gate is applied identically (same freshness key) to each.
 
 ### C10.7 Metrics / KPIs
 
-- First-pass success uplift from N>1 (quality gained) vs marginal cost (dollars).
+- First-pass success uplift from N>1 (quality gained) vs marginal cost
+  (dollars).
 - Quality-per-dollar by slice type and N (drives the Governor's N policy).
 - Model win-rate by slice type (feeds reputation routing).
 - % of slices where N>1 actually changed the outcome (avoid paying for N when
@@ -1682,16 +1702,17 @@ apples-to-apples and replayable.
 ### C10.8 Effort & risks
 
 **Effort: S** for ungoverned N-in-parallel (the fleet + gate already exist; the
-new bits are the group resource + selection); **M** including the Governor policy
-integration.
+new bits are the group resource + selection); **M** including the Governor
+policy integration.
 
-- *Risk:* cost blowup → **mitigation:** Governor-gated N; `first_pass` early
+- _Risk:_ cost blowup → **mitigation:** Governor-gated N; `first_pass` early
   cancellation; budget cap per group; default N=1.
-- *Risk:* selecting a passing-but-subtly-worse diff → **mitigation:** selection
-  only among gate-passers; score favors small/low-risk diffs; C7/C3 still apply to
-  the winner.
-- *Risk:* wasted compute on losers → **mitigation:** losers are recorded as
-  learning data (not pure waste); `first_pass` policy when learning value is low.
+- _Risk:_ selecting a passing-but-subtly-worse diff → **mitigation:** selection
+  only among gate-passers; score favors small/low-risk diffs; C7/C3 still apply
+  to the winner.
+- _Risk:_ wasted compute on losers → **mitigation:** losers are recorded as
+  learning data (not pure waste); `first_pass` policy when learning value is
+  low.
 
 ---
 
@@ -1702,12 +1723,13 @@ each capability at its mapped phase, with the parallel product track called out.
 
 ### 4.1 Now, inside Phase 0/1 (the only pull-forward)
 
-Add the four inert seams from §2. Total cost: a few nullable columns, two embedded
-schema fields, one reserved enum value, three fixture-schema fields. No behavior,
-no consumers, passes existing RunCheck validation. **This is the entire Phase 0/1
-footprint of all ten ideas, and I would push to include it** — not because the
-features are due, but because these specific four are *schema-shaped*, and schema
-retrofits over live evidence are the documented fragility the plan exists to avoid.
+Add the four inert seams from §2. Total cost: a few nullable columns, two
+embedded schema fields, one reserved enum value, three fixture-schema fields. No
+behavior, no consumers, passes existing RunCheck validation. **This is the
+entire Phase 0/1 footprint of all ten ideas, and I would push to include it** —
+not because the features are due, but because these specific four are
+_schema-shaped_, and schema retrofits over live evidence are the documented
+fragility the plan exists to avoid.
 
 ```text
 [ ] §2.1  canary_mutant fixture: mutant_id, origin, origin_ref      (C1)
@@ -1746,18 +1768,18 @@ Track G  (parallel, after Phase 4 gate stabilizes)
 
 ### 4.3 Rationale for the ordering within phases
 
-- **C1 before C3** in Phase 5: self-play needs somewhere to deposit breaches; the
-  C1 corpus + minting is that home. Build the antifragile substrate, then the
-  adversary that feeds it.
-- **C8 early in Phase 5**: trunk self-repair is the precondition for *trusting*
+- **C1 before C3** in Phase 5: self-play needs somewhere to deposit breaches;
+  the C1 corpus + minting is that home. Build the antifragile substrate, then
+  the adversary that feeds it.
+- **C8 early in Phase 5**: trunk self-repair is the precondition for _trusting_
   unattended operation; it should land before you lean on autonomy.
-- **C6 first in Phase 6**: it is the smallest (pure projection over the dispatcher
-  score) and immediately makes every other human-decision feature (C5, C4, C8
-  escalations) land in front of the human at the right priority.
+- **C6 first in Phase 6**: it is the smallest (pure projection over the
+  dispatcher score) and immediately makes every other human-decision feature
+  (C5, C4, C8 escalations) land in front of the human at the right priority.
 - **C9 as a track, not a phase**: it is orthogonal adoption value; gate it on
   Phase 4 stability, but never let it block the autonomy roadmap.
-- **C4 last**: highest lead time, needs the most accumulated history, and is only
-  safe on a frozen taxonomy. Its *seam* is first; its *mechanism* is last.
+- **C4 last**: highest lead time, needs the most accumulated history, and is
+  only safe on a frozen taxonomy. Its _seam_ is first; its _mechanism_ is last.
 
 ### 4.4 The two strategic clusters
 
@@ -1765,10 +1787,12 @@ If you want to think in outcomes rather than features:
 
 1. **"Make the gate antifragile and self-measuring"** — C1 + C3 (+ the C2/C7
    contract-quality bracket). This is the precondition for ever turning the
-   autonomy dial up; it is where I would concentrate effort once the fleet exists.
+   autonomy dial up; it is where I would concentrate effort once the fleet
+   exists.
 2. **"Make the loop compound with minimal human cost"** — C4 + C5 + C6 (+ C8 for
    trunk health). Mistakes become invariants, bad plans get corrected through a
-   controlled flow, and the human only ever touches the highest-leverage decision.
+   controlled flow, and the human only ever touches the highest-leverage
+   decision.
 
 C9 and C10 sit outside both clusters: C9 is distribution/adoption, C10 is a
 quality dial you turn when the economics justify it.
@@ -1780,16 +1804,17 @@ quality dial you turn when the economics justify it.
 These do not block authoring the capabilities, but they are the judgment calls I
 would want your input on before implementation of the relevant phase:
 
-1. **Seam acceptance (Phase 0/1):** do you accept adding the four §2 seams to the
-   Phase 0/1 plan now? (My recommendation: yes.)
+1. **Seam acceptance (Phase 0/1):** do you accept adding the four §2 seams to
+   the Phase 0/1 plan now? (My recommendation: yes.)
 2. **C9 productization:** is the standalone gate / GitHub App a product you want
    to invest in as a parallel track, or purely an internal capability? This
    changes how much hosting/UX C9 needs.
-3. **C4 enforcement appetite:** how aggressive should auto-promotion of lessons to
-   `block` rules be? (Conservative default proposed: advisory shadow + human
+3. **C4 enforcement appetite:** how aggressive should auto-promotion of lessons
+   to `block` rules be? (Conservative default proposed: advisory shadow + human
    approval always required for `block`.)
-4. **C10 economics:** what is the acceptable cost multiplier for high-criticality
-   slices (max N, max budget multiple) before the Governor must say no?
-5. **Autonomy coupling:** should a confirmed C3 self-play breach or an unresolved
-   C8 trunk regression *hard-block* autonomy-dial increases (my assumption: yes,
-   per Design Law 4), or only warn?
+4. **C10 economics:** what is the acceptable cost multiplier for
+   high-criticality slices (max N, max budget multiple) before the Governor must
+   say no?
+5. **Autonomy coupling:** should a confirmed C3 self-play breach or an
+   unresolved C8 trunk regression _hard-block_ autonomy-dial increases (my
+   assumption: yes, per Design Law 4), or only warn?

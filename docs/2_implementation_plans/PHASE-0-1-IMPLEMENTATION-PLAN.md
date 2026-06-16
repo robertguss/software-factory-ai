@@ -131,13 +131,12 @@ credible for open source, and still proves the core loop.
    the gate can be made honest** via a gate-canary harness that measures false
    negatives now, not in a later phase.
 5. Prove trustworthy agent-TDD: acceptance tests are authored outside the
-implementer, locked before implementation, mounted read-only as a gate test
-pack, independently re-run by the conductor, and mapped back to acceptance
-criteria.
+   implementer, locked before implementation, mounted read-only as a gate test
+   pack, independently re-run by the conductor, and mapped back to acceptance
+   criteria.
 6. Establish the **`AgentRunner` adapter** so Pi can later be swapped for Cursor
    CLI, Codex, Claude Code, OpenCode/OpenCode-compatible CLIs, OpenHands, Aider,
-   Goose, or other agents
-   without changing the conductor's core state machine.
+   Goose, or other agents without changing the conductor's core state machine.
 7. Make **requirement-to-Slice traceability** real in miniature: every Slice
    maps back to a plan requirement or explicit human decision, and every
    requirement in the Phase-1 plan is either covered, declared out-of-scope, or
@@ -189,24 +188,24 @@ reruns post-integration checks. The run supports R0/R1 replay.
 
 ## 2. Tech stack & assumptions
 
-| Concern                   | Phase 0/1 choice                                                                      | Why                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Language / runtime        | Tested matrix: Elixir 1.20.x on Erlang/OTP 27+ for new development; record exact versions in every RunSpec | Best fit for durable supervision, concurrent orchestration, stronger compile-time checks, and self-healing later. |
-| Web / dashboard           | Phoenix 1.8.x + LiveView                                                              | Minimal real-time run viewer, parked/rework triage later.                                    |
-| Domain & persistence      | Ash 3.x + AshPostgres, `ash_state_machine`, Postgres 16                               | One coherent source of truth; policies and state transitions are enforceable.                |
-| Background / durable jobs | Oban                                                                                  | Durable stations; crash/reboot resumes from last persisted state.                            |
-| Operator CLI              | Mix tasks in Phase 0/1 (`mix conveyor.*`)                                             | Fastest way to ship doctor/audit/run/report without a second CLI project.                    |
-| Agent isolation           | Docker container per run (rootless mode preferred)                                    | Blast-radius control, reproducible agent and gate environments, clean teardown.              |
-| Sandbox abstraction       | `SandboxRunner` behaviour, Docker adapter first                                       | Keeps Docker from becoming the conductor API; leaves room for Podman, Firecracker, Kubernetes, or remote sandboxes later. |
-| Workspace model           | Materialized repo checkout inside the container, from a known base commit             | Equivalent to a one-task workspace; future phases can use worktrees plus containers.         |
-| Toolchain identity        | `ToolchainProfile` with image digest, dependency lock digest, and cache policy        | Reproducibility first; performance via safe caches, not mutable ambient state.               |
-| First implementer         | **Pi** (`pi.dev`) over RPC/JSON via a BEAM Port                                       | Structured seam, no TUI scraping, minimal orchestration overlap.                             |
-| Future agent seam         | `AgentRunner` behaviour + `AgentProfile` capabilities                                 | Keeps Claude/Codex/OpenHands/OpenCode/etc. interchangeable.                                  |
-| Code intelligence         | `CodeQualityAdapter` invoked by the conductor; CodeScent/CodeScene can be one adapter | Read-only context/risk/gate signal; no source mutation; OSS fallback remains possible.       |
-| Safety                    | `ExecPolicy` + Docker + environment allowlist + command denylist                      | Docker is necessary but not sufficient; policy is explicit from day one.                     |
-| Project instructions      | Generated/linted `AGENTS.md`                                                          | Predictable agent-readable contract for repo commands, rules, and done criteria.             |
-| Sample testbed            | Tiny FastAPI "tasks" service with pytest                                              | Small enough to reason about; rich enough for API behavior, persistence, tests, and mutants. |
-| Artifact projection       | `.conveyor/runs/<run_attempt_id>/`                                                    | Reviewable OSS-friendly artifacts while Postgres remains truth.                              |
+| Concern                   | Phase 0/1 choice                                                                                           | Why                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Language / runtime        | Tested matrix: Elixir 1.20.x on Erlang/OTP 27+ for new development; record exact versions in every RunSpec | Best fit for durable supervision, concurrent orchestration, stronger compile-time checks, and self-healing later.         |
+| Web / dashboard           | Phoenix 1.8.x + LiveView                                                                                   | Minimal real-time run viewer, parked/rework triage later.                                                                 |
+| Domain & persistence      | Ash 3.x + AshPostgres, `ash_state_machine`, Postgres 16                                                    | One coherent source of truth; policies and state transitions are enforceable.                                             |
+| Background / durable jobs | Oban                                                                                                       | Durable stations; crash/reboot resumes from last persisted state.                                                         |
+| Operator CLI              | Mix tasks in Phase 0/1 (`mix conveyor.*`)                                                                  | Fastest way to ship doctor/audit/run/report without a second CLI project.                                                 |
+| Agent isolation           | Docker container per run (rootless mode preferred)                                                         | Blast-radius control, reproducible agent and gate environments, clean teardown.                                           |
+| Sandbox abstraction       | `SandboxRunner` behaviour, Docker adapter first                                                            | Keeps Docker from becoming the conductor API; leaves room for Podman, Firecracker, Kubernetes, or remote sandboxes later. |
+| Workspace model           | Materialized repo checkout inside the container, from a known base commit                                  | Equivalent to a one-task workspace; future phases can use worktrees plus containers.                                      |
+| Toolchain identity        | `ToolchainProfile` with image digest, dependency lock digest, and cache policy                             | Reproducibility first; performance via safe caches, not mutable ambient state.                                            |
+| First implementer         | **Pi** (`pi.dev`) over RPC/JSON via a BEAM Port                                                            | Structured seam, no TUI scraping, minimal orchestration overlap.                                                          |
+| Future agent seam         | `AgentRunner` behaviour + `AgentProfile` capabilities                                                      | Keeps Claude/Codex/OpenHands/OpenCode/etc. interchangeable.                                                               |
+| Code intelligence         | `CodeQualityAdapter` invoked by the conductor; CodeScent/CodeScene can be one adapter                      | Read-only context/risk/gate signal; no source mutation; OSS fallback remains possible.                                    |
+| Safety                    | `ExecPolicy` + Docker + environment allowlist + command denylist                                           | Docker is necessary but not sufficient; policy is explicit from day one.                                                  |
+| Project instructions      | Generated/linted `AGENTS.md`                                                                               | Predictable agent-readable contract for repo commands, rules, and done criteria.                                          |
+| Sample testbed            | Tiny FastAPI "tasks" service with pytest                                                                   | Small enough to reason about; rich enough for API behavior, persistence, tests, and mutants.                              |
+| Artifact projection       | `.conveyor/runs/<run_attempt_id>/`                                                                         | Reviewable OSS-friendly artifacts while Postgres remains truth.                                                           |
 
 **Assumptions:** Docker is installed and reachable; the selected runner image
 contains the sample project toolchain; a live provider credential is available
@@ -366,9 +365,9 @@ The `RunSpec` freezes:
 - schema versions for all emitted artifacts;
 - station plan digest.
 
-`StationPlan` is a versioned, immutable station DAG generated into the `RunSpec`.
-Phase 1 uses a linear DAG; future phases may use the same schema for parallel
-scout/gate/review execution without building a new scheduler model.
+`StationPlan` is a versioned, immutable station DAG generated into the
+`RunSpec`. Phase 1 uses a linear DAG; future phases may use the same schema for
+parallel scout/gate/review execution without building a new scheduler model.
 
 ```json
 {
@@ -475,11 +474,13 @@ retention.
   acceptance calibration, scout, prompt, implementer session, evidence
   recording, review, gate, canary, report projection, and post-integration
   checks all belong to the attempt — not to the agent session.
+
 - **`AgentSession`** —
   `id, run_attempt_id, run_prompt_id, agent_profile_id, adapter_session_id?, role∈implementer/reviewer/scout, base_commit, started_at?, completed_at?, status∈running/succeeded/failed/cancelled, raw_result_ref?, cost_estimate?, tokens?`
 
   `AgentSession` is adapter output, not the run itself. It is trusted only as a
   recorded transcript/input to later deterministic stations.
+
 - **`PatchSet`** —
   `id, run_attempt_id, agent_session_id?, base_commit, patch_ref, patch_sha256, changed_files[], added_files[], deleted_files[], renamed_files[], lines_added, lines_deleted, touches_locked_paths, applies_cleanly, generated_at`
 - **`RiskAssessment`** —
@@ -508,6 +509,7 @@ retention.
   tables. `GateHealth` is the single queryable summary the deterministic gate
   needs to answer "is the gate currently fresh and honest for this freshness
   key?"
+
 - **`LedgerEvent`** —
   `id, project_id, slice_id?, run_attempt_id?, agent_session_id?, station_run_id?, trace_id?, span_id?, idempotency_key, type, payload, occurred_at`
 - **`Policy`** —
@@ -697,11 +699,11 @@ run directory.
 Phase 1 does not implement full event sourcing. `LedgerEvent` is an immutable
 audit log and timeline, not the sole state store. Replay has three levels:
 
-| Level | Phase   | Meaning                                                                                                |
-| ----- | ------- | ------------------------------------------------------------------------------------------------------ |
-| R0    | Phase 1 | Rebuild the human timeline from `LedgerEvent`.                                                         |
+| Level | Phase   | Meaning                                                                                                        |
+| ----- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| R0    | Phase 1 | Rebuild the human timeline from `LedgerEvent`.                                                                 |
 | R1    | Phase 1 | Regenerate `.conveyor/runs/<run_attempt_id>/` artifacts from database records and content-addressed artifacts. |
-| R2    | Later   | Reconstruct domain resource state from event reducers.                                                 |
+| R2    | Later   | Reconstruct domain resource state from event reducers.                                                         |
 
 When this plan says a run is replayable in Phase 1, it means R0/R1 replay.
 
@@ -736,10 +738,9 @@ When this plan says a run is replayable in Phase 1, it means R0/R1 replay.
 ```
 
 Projection regeneration must be idempotent: the same run record should recreate
-the same artifact tree and checksums.
-Projection regeneration must never treat a projection path as trusted input; it
-must verify content-addressed blobs first and then rebuild the human-friendly
-tree.
+the same artifact tree and checksums. Projection regeneration must never treat a
+projection path as trusted input; it must verify content-addressed blobs first
+and then rebuild the human-friendly tree.
 
 The run directory is represented by a canonical `RunBundle` manifest that gives
 every PR body, reviewer dossier, gate result, and human approval a single
@@ -1003,8 +1004,8 @@ conveyor.run_slice
 Every `LedgerEvent`, `StationRun`, `ToolInvocation`, artifact manifest, and
 projected report includes the same `trace_id`. Adapter events should include
 `traceparent` when the adapter protocol supports it. Metrics should use stable
-names and dimensions so Phase 3 scheduling and Phase 6 cost observability do
-not require backfilling. OpenTelemetry traces are the most mature signal for the
+names and dimensions so Phase 3 scheduling and Phase 6 cost observability do not
+require backfilling. OpenTelemetry traces are the most mature signal for the
 Erlang/Elixir SDK, so Phase 1 prioritizes traces and a small set of bounded
 metrics over rich metrics/logs.
 
@@ -1087,9 +1088,9 @@ No production-looking secrets mounted into worker containers
 
 Doctor failures should be actionable. A missing optional future adapter is a
 warning. A missing Docker daemon, selected gate-blocking code-quality adapter,
-policy profile, or test command is a failure.
-Every blocking doctor/audit/gate finding must include at least one suggested
-`NextAction` and, where possible, the exact Mix command to rerun after fixing it.
+policy profile, or test command is a failure. Every blocking doctor/audit/gate
+finding must include at least one suggested `NextAction` and, where possible,
+the exact Mix command to rerun after fixing it.
 
 Every run records the runtime that produced its evidence:
 
@@ -1389,19 +1390,19 @@ Docker limits blast radius; policy limits intent. Both are required.
 
 Phase 0 must document and test against the following threat classes:
 
-| Threat | Example | Primary defenses |
-| ------ | ------- | ---------------- |
-| Malicious repository content | Comments or docs tell the agent to ignore Conveyor rules | Prompt trust labels, instruction hierarchy, prompt-injection evals |
-| Malicious tool output | Test output asks the agent to exfiltrate secrets | Tool-output trust labels, RunCheck, policy |
-| Agent policy evasion | Agent tries shell tricks or indirect scripts | Command grammar, sandbox, egress policy, denylist |
-| Test weakening | Agent edits tests or fixtures to make failures disappear | Locked read-only `TestPack`, contract lock, RunCheck |
-| Secret exposure | Logs, prompts, diffs, or artifacts contain credentials | Secret scanner, redaction/quarantine, env allowlist |
-| Supply-chain drift | Image, dependency, or tool version changes between runs | Container image digest, dependency lock, SBOM, provenance |
-| Artifact tampering | Manifest points to changed or missing logs | Content-addressed artifacts, digest verification, RunCheck |
-| Reviewer rubber stamp | Reviewer accepts an inadequate dossier | Actor separation, rubric schema, reviewer evals, later bug correlation |
-| Gate false negative | Known-bad mutant passes | Gate canaries, stop-the-line policy |
-| Internal state corruption | Agent network probes the conductor's Postgres/ledger | Conductor DB and ledger are unreachable from the sandbox network; agent egress is segregated from the internal application database |
-| Host escape or overreach | Container gets host credentials or Docker socket | Rootless/no-privilege sandbox, no host home mount, no Docker socket |
+| Threat                       | Example                                                  | Primary defenses                                                                                                                    |
+| ---------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Malicious repository content | Comments or docs tell the agent to ignore Conveyor rules | Prompt trust labels, instruction hierarchy, prompt-injection evals                                                                  |
+| Malicious tool output        | Test output asks the agent to exfiltrate secrets         | Tool-output trust labels, RunCheck, policy                                                                                          |
+| Agent policy evasion         | Agent tries shell tricks or indirect scripts             | Command grammar, sandbox, egress policy, denylist                                                                                   |
+| Test weakening               | Agent edits tests or fixtures to make failures disappear | Locked read-only `TestPack`, contract lock, RunCheck                                                                                |
+| Secret exposure              | Logs, prompts, diffs, or artifacts contain credentials   | Secret scanner, redaction/quarantine, env allowlist                                                                                 |
+| Supply-chain drift           | Image, dependency, or tool version changes between runs  | Container image digest, dependency lock, SBOM, provenance                                                                           |
+| Artifact tampering           | Manifest points to changed or missing logs               | Content-addressed artifacts, digest verification, RunCheck                                                                          |
+| Reviewer rubber stamp        | Reviewer accepts an inadequate dossier                   | Actor separation, rubric schema, reviewer evals, later bug correlation                                                              |
+| Gate false negative          | Known-bad mutant passes                                  | Gate canaries, stop-the-line policy                                                                                                 |
+| Internal state corruption    | Agent network probes the conductor's Postgres/ledger     | Conductor DB and ledger are unreachable from the sandbox network; agent egress is segregated from the internal application database |
+| Host escape or overreach     | Container gets host credentials or Docker socket         | Rootless/no-privilege sandbox, no host home mount, no Docker socket                                                                 |
 
 Each threat class must have at least one Phase-1 test, canary, or doctor check.
 
@@ -1545,12 +1546,12 @@ RunSpec freshness key.
 
 Network policy is explicit per station:
 
-| Station | Default network | Allowed egress |
-| ------- | --------------- | -------------- |
-| scout | none | optional code-quality adapter endpoint |
-| implement | none | provider API only when required by adapter |
-| verify/gate | none | none unless dependency bootstrap is explicitly approved |
-| canary | none | none |
+| Station     | Default network | Allowed egress                                          |
+| ----------- | --------------- | ------------------------------------------------------- |
+| scout       | none            | optional code-quality adapter endpoint                  |
+| implement   | none            | provider API only when required by adapter              |
+| verify/gate | none            | none unless dependency bootstrap is explicitly approved |
+| canary      | none            | none                                                    |
 
 No station's allowed egress may include the conductor's own network. The
 AshPostgres database, ledger, and any internal Conveyor service must be
@@ -1604,10 +1605,10 @@ unless it passed through `ToolExecutor`.
 
 Phase-1 Pi profiles:
 
-| Profile | Description | Autonomy ceiling |
-| ------- | ----------- | ---------------- |
-| `pi_host_controlled_tools` | Pi control loop outside the sandbox; tool calls routed through Conveyor `ToolExecutor` inside the sandbox. Preferred if integration permits. | L1/L2-shaped |
-| `pi_in_container_observe_only` | Whole Pi process inside Docker; no pre-exec interception; Conveyor observes the transcript and relies on stricter sandbox limits. | L1 only |
+| Profile                        | Description                                                                                                                                  | Autonomy ceiling |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `pi_host_controlled_tools`     | Pi control loop outside the sandbox; tool calls routed through Conveyor `ToolExecutor` inside the sandbox. Preferred if integration permits. | L1/L2-shaped     |
+| `pi_in_container_observe_only` | Whole Pi process inside Docker; no pre-exec interception; Conveyor observes the transcript and relies on stricter sandbox limits.            | L1 only          |
 
 ---
 
@@ -1655,8 +1656,8 @@ The `CodeQualityAdapter`/`ScoutSignalAdapter` family is used in three places:
 2. **After work:** detect risk deltas and new findings.
 3. **Gate:** block if configured thresholds are violated.
 
-Quality-signal output is never treated as sole proof. The gate still runs
-tests, validates the manifest, and requires reviewer acceptance.
+Quality-signal output is never treated as sole proof. The gate still runs tests,
+validates the manifest, and requires reviewer acceptance.
 
 Phase 1 should ship with:
 
@@ -1847,19 +1848,19 @@ and cost reporting.
 
 Minimum capability matrix:
 
-| Capability | L1 local implementation | L2 PR generation | L3 low-risk auto-merge |
-| ---------- | ----------------------- | ---------------- | ---------------------- |
-| Clean sandbox execution | required | required | required |
-| Independent gate rerun | required | required | required |
-| Diff captured from fresh base | required | required | required |
-| Structured final output | warning if absent | required | required |
-| Streaming events / heartbeat | required | required | required |
-| Cancellation | best-effort allowed | best-effort allowed | hard or externally enforced |
-| Pre-exec command policy | observe-only allowed with hardened sandbox | required | required |
-| Credential broker integration | preferred | required | required |
-| Cost/budget reporting | estimated allowed | required if provider supports it | required |
-| Reviewer actor separation | required for gate | required | required |
-| Canary health freshness | required | required | required |
+| Capability                    | L1 local implementation                    | L2 PR generation                 | L3 low-risk auto-merge      |
+| ----------------------------- | ------------------------------------------ | -------------------------------- | --------------------------- |
+| Clean sandbox execution       | required                                   | required                         | required                    |
+| Independent gate rerun        | required                                   | required                         | required                    |
+| Diff captured from fresh base | required                                   | required                         | required                    |
+| Structured final output       | warning if absent                          | required                         | required                    |
+| Streaming events / heartbeat  | required                                   | required                         | required                    |
+| Cancellation                  | best-effort allowed                        | best-effort allowed              | hard or externally enforced |
+| Pre-exec command policy       | observe-only allowed with hardened sandbox | required                         | required                    |
+| Credential broker integration | preferred                                  | required                         | required                    |
+| Cost/budget reporting         | estimated allowed                          | required if provider supports it | required                    |
+| Reviewer actor separation     | required for gate                          | required                         | required                    |
+| Canary health freshness       | required                                   | required                         | required                    |
 
 An adapter may run below its theoretical capability level if project policy,
 host sandbox support, or credential posture is weaker than the adapter itself.
@@ -1881,8 +1882,8 @@ policy, the agent event envelope, or evidence capture.
 3. Mount only the workspace and allowed cache directories.
 4. Inject only scoped provider credentials and safe env vars.
 5. Launch Pi in RPC/JSON mode over stdin/stdout and connect via a BEAM Port.
-6. Prefer routing tool execution through Conveyor `ToolExecutor`. If the selected
-   Pi mode cannot provide pre-exec interception, mark command policy as
+6. Prefer routing tool execution through Conveyor `ToolExecutor`. If the
+   selected Pi mode cannot provide pre-exec interception, mark command policy as
    `observe_only`, lower the autonomy ceiling, and rely on stricter sandbox
    limits plus clean-gate verification.
 7. Stream Pi events into the `Ledger` with heartbeats.
@@ -1890,11 +1891,11 @@ policy, the agent event envelope, or evidence capture.
    policy decisions.
 9. Collect the final git diff as a `PatchSet`; do not trust uncommitted
    workspace state as evidence.
-10. Apply the `PatchSet` to a fresh `WorkspaceMaterialization` at
-    `base_commit` with purpose `gate`; all deterministic verification runs
-    against that clean materialization.
-11. Tear down containers and workspaces according to `cleanup_policy`, preserving
-    failed workspaces only when policy allows.
+10. Apply the `PatchSet` to a fresh `WorkspaceMaterialization` at `base_commit`
+    with purpose `gate`; all deterministic verification runs against that clean
+    materialization.
+11. Tear down containers and workspaces according to `cleanup_policy`,
+    preserving failed workspaces only when policy allows.
 
 Pi remains first because it provides a structured RPC seam and minimal overlap
 with the conductor. The adapter contract is deliberately broader than Pi so
@@ -2038,9 +2039,8 @@ Implements Slice `<id>` from requirement(s) `<REQ-...>`.
 
 ## Evidence
 
-Run bundle: `<run_bundle_sha256>`
-Dossier digest: `<dossier_sha256>`
-Gate digest: `<gate_result_sha256>`
+Run bundle: `<run_bundle_sha256>` Dossier digest: `<dossier_sha256>` Gate
+digest: `<gate_result_sha256>`
 ```
 
 ---
@@ -2061,9 +2061,9 @@ Gate stages:
    require human review or fail the gate according to risk policy.
 3. **Observed risk assessment:** actual diff, command behavior, adapter
    capabilities, dependency changes, code-quality deltas, and touched paths are
-   classified through `ReviewPolicy.risk_rules`. If observed risk exceeds planned
-   risk, the gate deterministically escalates required reviews, requires human
-   approval, or fails closed according to policy.
+   classified through `ReviewPolicy.risk_rules`. If observed risk exceeds
+   planned risk, the gate deterministically escalates required reviews, requires
+   human approval, or fails closed according to policy.
 4. **Policy:** no blocked command classes, no forbidden env/network access, no
    policy file edits.
 5. **Secret safety:** prompt, logs, diff, manifest, dossier, and PR body contain
@@ -2112,8 +2112,8 @@ runcheck_schema_version
 ```
 
 Any change to one of these keys invalidates prior canary health. The gate must
-fail closed with `stale_canary` rather than using a green result from a different
-freshness key.
+fail closed with `stale_canary` rather than using a green result from a
+different freshness key.
 
 All required stages must pass. Any failure records a `GateResult`, creates
 findings, and moves the Slice to `needs_rework`, `policy_blocked`, or `failed`.
@@ -2198,12 +2198,12 @@ An LLM reviewer can rubber-stamp, so reviewer trust is calibrated before it is
 gate-relevant. Phase 1 includes a small labeled reviewer fixture suite — the
 same principle as gate canaries, applied to the stochastic reviewer:
 
-| Fixture | Expected reviewer decision |
-| ------- | -------------------------- |
-| complete_green_dossier | accepted |
-| missing_acceptance_mapping | needs_rework |
-| protected_policy_edit | rejected |
-| malformed_evidence_refs | rejected |
+| Fixture                    | Expected reviewer decision |
+| -------------------------- | -------------------------- |
+| complete_green_dossier     | accepted                   |
+| missing_acceptance_mapping | needs_rework               |
+| protected_policy_edit      | rejected                   |
+| malformed_evidence_refs    | rejected                   |
 
 The Slice gate may use a reviewer decision only when `ReviewerHealth` is green
 for the reviewer profile and rubric version used by the run. Otherwise the gate
@@ -2447,15 +2447,16 @@ evidence.
    `ContextPack`.
 9. **Prompt** — `PromptBuilder` emits a versioned prompt containing Brief, Pack,
    AGENTS.md, policy, and output schema.
-10. **Implement** — an `AgentSession` (`AgentRunner.Pi`) runs inside Docker under
-    `implement` policy; events stream to the ledger; final diff is captured.
-11. **Record evidence** — `EvidenceRecorder` applies the recorded `PatchSet` to a
-    clean gate workspace, independently re-runs verification suites from
+10. **Implement** — an `AgentSession` (`AgentRunner.Pi`) runs inside Docker
+    under `implement` policy; events stream to the ledger; final diff is
+    captured.
+11. **Record evidence** — `EvidenceRecorder` applies the recorded `PatchSet` to
+    a clean gate workspace, independently re-runs verification suites from
     structured test results + code-quality checks, maps ACs to results, writes
     manifest/dossier/evidence/diff, and validates idempotency →
     `evidence_recorded` on the attempt.
-12. **Review** — a separate reviewer `AgentSession` reads the recorded dossier and
-    returns a structured verdict → `reviewed` on the attempt.
+12. **Review** — a separate reviewer `AgentSession` reads the recorded dossier
+    and returns a structured verdict → `reviewed` on the attempt.
 13. **Gate** — deterministic gate composes policy, build, tests, acceptance
     mapping, CodeScent delta, RunCheck, reviewer, and canary health; on success
     the attempt is `gated` and the Slice transitions to `gated`.
@@ -2523,25 +2524,25 @@ evidence.
 
 ## 24. Risks & open questions
 
-| Risk / question                   | Phase 0/1 stance                                                                                                            |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Gate trustworthiness              | Front-load via canary false-negative measurement; a passed mutant blocks release.                                           |
-| Scope creep                       | Factory kernel only: conductor, evidence, policy, audit, adapter. No issue tracker/chat/deploy platform.                    |
-| Pi RPC maturity / protocol churn  | Contained behind `AgentRunner`; use fake runner in default suite; keep Codex/Claude adapter seam ready.                     |
-| Docker latency                    | Acceptable for one Slice; record timings for future pooling/warm-container decisions.                                       |
-| Dependency bootstrap latency      | Use pinned toolchain images and optional read-only dependency caches; record install/cache timings before building warm pools. |
-| Agent/model runaway cost or loops | Add Phase-1 `RunBudget` caps for wall-clock, idle time, tool calls, commands, output bytes, and tokens/cost when available. |
-| Docker false sense of safety      | Add explicit `ExecPolicy`, env allowlist, denylist, incident log, and no production secrets.                                |
-| Flaky tests corrupting evidence   | Conductor re-runs cleanly; flakes become validation noise to fix before scaling.                                            |
+| Risk / question                      | Phase 0/1 stance                                                                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gate trustworthiness                 | Front-load via canary false-negative measurement; a passed mutant blocks release.                                                                             |
+| Scope creep                          | Factory kernel only: conductor, evidence, policy, audit, adapter. No issue tracker/chat/deploy platform.                                                      |
+| Pi RPC maturity / protocol churn     | Contained behind `AgentRunner`; use fake runner in default suite; keep Codex/Claude adapter seam ready.                                                       |
+| Docker latency                       | Acceptable for one Slice; record timings for future pooling/warm-container decisions.                                                                         |
+| Dependency bootstrap latency         | Use pinned toolchain images and optional read-only dependency caches; record install/cache timings before building warm pools.                                |
+| Agent/model runaway cost or loops    | Add Phase-1 `RunBudget` caps for wall-clock, idle time, tool calls, commands, output bytes, and tokens/cost when available.                                   |
+| Docker false sense of safety         | Add explicit `ExecPolicy`, env allowlist, denylist, incident log, and no production secrets.                                                                  |
+| Flaky tests corrupting evidence      | Conductor re-runs cleanly; flakes become validation noise to fix before scaling.                                                                              |
 | Flaky tests produce false confidence | Verification commands can repeat and classify likely flakes; default Phase 1 policy fails closed unless a test is explicitly quarantined by a human decision. |
-| Plan audit overfitting            | Start deterministic and simple; false positives are acceptable if findings are actionable.                                  |
-| Ash learning curve / schema churn | Keep resource APIs stable; write migrations/tests early; mark future-only resources as stubs.                               |
-| Artifact truth split              | Postgres is truth; disk artifacts are regenerated projections with checksums.                                               |
-| Context Scout too weak            | Phase 1 mostly deterministic; measure context-pack miss rate before investing in agentic scout.                             |
-| CodeScent treated as proof        | Explicitly only a risk/context/gate-delta signal; tests and RunCheck remain required.                                       |
-| Reviewer rubber-stamping          | Separate profile/model where possible; schema validation; reviewer findings tracked against later bugs.                     |
-| AGENTS.md drift                   | Linter compares file against project config and policy.                                                                     |
-| Autonomy expectations             | Phase 1 states L1 with L2 artifacts; no auto-merge/deploy.                                                                  |
+| Plan audit overfitting               | Start deterministic and simple; false positives are acceptable if findings are actionable.                                                                    |
+| Ash learning curve / schema churn    | Keep resource APIs stable; write migrations/tests early; mark future-only resources as stubs.                                                                 |
+| Artifact truth split                 | Postgres is truth; disk artifacts are regenerated projections with checksums.                                                                                 |
+| Context Scout too weak               | Phase 1 mostly deterministic; measure context-pack miss rate before investing in agentic scout.                                                               |
+| CodeScent treated as proof           | Explicitly only a risk/context/gate-delta signal; tests and RunCheck remain required.                                                                         |
+| Reviewer rubber-stamping             | Separate profile/model where possible; schema validation; reviewer findings tracked against later bugs.                                                       |
+| AGENTS.md drift                      | Linter compares file against project config and policy.                                                                                                       |
+| Autonomy expectations                | Phase 1 states L1 with L2 artifacts; no auto-merge/deploy.                                                                                                    |
 
 ---
 
@@ -2551,12 +2552,12 @@ evidence.
 
 Every item in Phase 0/1 is labeled:
 
-| Label | Meaning |
-| ----- | ------- |
-| `TRACER_REQUIRED` | The end-to-end Slice cannot run without this. |
-| `TRUST_REQUIRED` | The Slice can run without this, but evidence/gate claims are not credible. |
-| `INSTRUMENT_ONLY` | Capture fields or docs now; do not build a full subsystem. |
-| `DEFER` | Document future schema or invariant only. |
+| Label             | Meaning                                                                    |
+| ----------------- | -------------------------------------------------------------------------- |
+| `TRACER_REQUIRED` | The end-to-end Slice cannot run without this.                              |
+| `TRUST_REQUIRED`  | The Slice can run without this, but evidence/gate claims are not credible. |
+| `INSTRUMENT_ONLY` | Capture fields or docs now; do not build a full subsystem.                 |
+| `DEFER`           | Document future schema or invariant only.                                  |
 
 Default cutline:
 
@@ -2630,9 +2631,10 @@ broader adapter story is not a substitute for a clean red/green/gate path.
 - **P0.7 AGENTS.md generator/linter.** Generate starter file and lint for
   required commands/rules. _AC:_ generated file passes; intentionally incomplete
   file fails with useful findings.
-- **P0.8 Artifact projector.** Create `.conveyor/runs/<run_attempt_id>/` projection
-  code. _AC:_ manifest/dossier/evidence/provenance paths regenerate idempotently
-  from database records; every projected artifact has a recorded content digest.
+- **P0.8 Artifact projector.** Create `.conveyor/runs/<run_attempt_id>/`
+  projection code. _AC:_ manifest/dossier/evidence/provenance paths regenerate
+  idempotently from database records; every projected artifact has a recorded
+  content digest.
 - **P0.9 LiveView skeleton.** Run viewer renders Project/Plan/Slice state and
   ledger timeline. _AC:_ seeded Slice updates live when ledger events append.
 
@@ -2672,11 +2674,11 @@ broader adapter story is not a substitute for a clean red/green/gate path.
 - **P1.12 Gate-canary harness.** Run enabled mutant set through gate-only path.
   _AC:_ every mutant is rejected; false-negative rate is reported; any passed
   mutant fails CI.
-- **P1.13 Static report + minimal LiveView complete.** Write
-  `manifest.json`, `dossier.md`, `evidence.json`, `review.json`, `gate.json`,
-  `diff.patch`, and `pr_body.md`; LiveView renders those same records plus live
-  station status. _AC:_ the dossier is usable without LiveView and CI can
-  produce all artifacts headlessly.
+- **P1.13 Static report + minimal LiveView complete.** Write `manifest.json`,
+  `dossier.md`, `evidence.json`, `review.json`, `gate.json`, `diff.patch`, and
+  `pr_body.md`; LiveView renders those same records plus live station status.
+  _AC:_ the dossier is usable without LiveView and CI can produce all artifacts
+  headlessly.
 - **P1.14 End-to-end tracer run.** One human action drives approved Slice to
   `gated`; human merges manually to `done`. _AC:_ run replays from event log and
   artifacts regenerate.

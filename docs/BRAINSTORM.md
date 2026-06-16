@@ -462,25 +462,31 @@ ECONOMIC GOVERNOR, INSTITUTIONAL MEMORY (pgvector).
 end-to-end, human-in-loop, manual merge). Phases 2–8 = roadmap to the dream.
 Learn whether the loop _feels_ right on real slices before scaling.
 
-**RATIFIED PRINCIPLE — front-load gate validation.** The riskiest assumption in the whole
-design is that the verification gate can be made strong enough to trust unattended. So we
-validate the gate's honesty in **Phase 1**, not later: a **gate-canary harness** runs a
-labeled set of injected-bug "mutants" through the gate-only and asserts each is REJECTED,
-tracking the false-negative rate (smallest instance of Phase-5 shadow mode). A gate that
-passes a mutant = a release-blocking Conveyor bug. If the gate can't be trusted,
-"autonomous" just means "fast at being wrong."
+**RATIFIED PRINCIPLE — front-load gate validation.** The riskiest assumption in
+the whole design is that the verification gate can be made strong enough to
+trust unattended. So we validate the gate's honesty in **Phase 1**, not later: a
+**gate-canary harness** runs a labeled set of injected-bug "mutants" through the
+gate-only and asserts each is REJECTED, tracking the false-negative rate
+(smallest instance of Phase-5 shadow mode). A gate that passes a mutant = a
+release-blocking Conveyor bug. If the gate can't be trusted, "autonomous" just
+means "fast at being wrong."
 
-**Phase 0/1 clarifying decisions (see `docs/PHASE-0-1-IMPLEMENTATION-PLAN.md`):**
+**Phase 0/1 clarifying decisions (see
+`docs/PHASE-0-1-IMPLEMENTATION-PLAN.md`):**
+
 - Tracer target = a sterile, disposable **sample FastAPI (Python)** repo.
-- First implementer = **Pi** (`pi.dev`) over **RPC/JSON via a BEAM Port**, OpenAI/Codex
-  provider, behind a thin `AgentRunner` adapter (Cursor CLI / Codex / Claude Code later).
-  Pi's minimalism keeps orchestration in the conductor; CodeScent stays a conductor-run
-  gate stage (Pi's "no MCP" is irrelevant — the implementer never calls it).
-- Isolation = **single Docker container from day one** (carries into Phase 3 WorkerPool).
-- In Phase 1 the human hand-authors the single Plan/Epic/Slice/Brief AND the failing tests
-  (acting as Test Architect); the conductor independently re-runs the gate.
-- New doc `docs/PHASE-0-1-IMPLEMENTATION-PLAN.md` = comprehensive standalone plan for
-  multi-model comparison + hybrid synthesis.
+- First implementer = **Pi** (`pi.dev`) over **RPC/JSON via a BEAM Port**,
+  OpenAI/Codex provider, behind a thin `AgentRunner` adapter (Cursor CLI / Codex
+  / Claude Code later). Pi's minimalism keeps orchestration in the conductor;
+  CodeScent stays a conductor-run gate stage (Pi's "no MCP" is irrelevant — the
+  implementer never calls it).
+- Isolation = **single Docker container from day one** (carries into Phase 3
+  WorkerPool).
+- In Phase 1 the human hand-authors the single Plan/Epic/Slice/Brief AND the
+  failing tests (acting as Test Architect); the conductor independently re-runs
+  the gate.
+- New doc `docs/PHASE-0-1-IMPLEMENTATION-PLAN.md` = comprehensive standalone
+  plan for multi-model comparison + hybrid synthesis.
 
 - **Q7b parallelism DECIDED:** phased — strict `blockedBy` deps for v1;
   interface-stub parallelism deferred to v2 (Phase 8).
