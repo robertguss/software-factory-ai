@@ -8,6 +8,7 @@
 import Config
 
 config :conveyor,
+  ash_domains: [Conveyor.Factory],
   ecto_repos: [Conveyor.Repo],
   generators: [timestamp_type: :utc_datetime]
 
