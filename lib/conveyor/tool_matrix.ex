@@ -10,7 +10,8 @@ defmodule Conveyor.ToolMatrix do
   @type version_requirement :: String.t()
   @type toolchain_image :: %{
           required(:ref) => String.t(),
-          required(:digest) => String.t()
+          required(:digest) => String.t(),
+          required(:sbom_ref) => String.t()
         }
 
   @latest_tested_versions %{
@@ -31,8 +32,9 @@ defmodule Conveyor.ToolMatrix do
   }
 
   @default_toolchain_image %{
-    ref: "ghcr.io/conveyor/sample-python-runner:2026-06-01",
-    digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    ref: "ghcr.io/conveyor/sample-python-runner:2026-06-17",
+    digest: "sha256:18be896c98e13585f4d2701490a5be39126ec1b14d429f72b5707b99516b5548",
+    sbom_ref: "toolchains/sample-python-runner/sbom.cyclonedx.json"
   }
 
   @spec latest_tested_versions() :: %{atom() => version_requirement()}
