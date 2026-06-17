@@ -1,6 +1,8 @@
 defmodule Conveyor.Doctor do
   @moduledoc "Operator prerequisite checks for Conveyor projects."
 
+  alias Conveyor.CLI.ExitCodes
+  alias Conveyor.CLI.NextAction
   alias Conveyor.Config
   alias Conveyor.Config.ProjectConfig
   alias Conveyor.Doctor.Finding
@@ -41,11 +43,25 @@ defmodule Conveyor.Doctor do
 
     body =
       result.findings
-      |> Enum.map(fn finding ->
-        "#{String.upcase(to_string(finding.severity))} #{finding.check}: #{finding.message}"
-      end)
+      |> Enum.flat_map(&format_finding/1)
 
     Enum.join([header | body], "\n")
+  end
+
+  @spec exit_code(Result.t()) :: non_neg_integer()
+  def exit_code(%Result{status: :passed}), do: ExitCodes.fetch!(:success)
+
+  def exit_code(%Result{findings: findings}) do
+    cond do
+      Enum.any?(findings, &(&1.check in [:config])) ->
+        ExitCodes.fetch!(:malformed_artifact_or_schema_failure)
+
+      Enum.any?(findings, &(&1.check in [:policy_profiles, :secret_posture])) ->
+        ExitCodes.fetch!(:policy_or_secret_safety_violation)
+
+      true ->
+        ExitCodes.fetch!(:infrastructure_or_doctor_failure)
+    end
   end
 
   defp load_config(project_path) do
@@ -53,7 +69,7 @@ defmodule Conveyor.Doctor do
 
     case Config.load(config_path) do
       {:ok, config} -> {config, []}
-      {:error, error} -> {nil, [failure(:config, error.message)]}
+      {:error, error} -> {nil, [failure(:config, error.message, "Fix .conveyor/config.toml")]}
     end
   end
 
@@ -78,7 +94,11 @@ defmodule Conveyor.Doctor do
     if Version.match?(Version.parse!(actual), requirement) do
       nil
     else
-      failure(check, "#{actual} does not match tested matrix #{requirement}")
+      failure(
+        check,
+        "#{actual} does not match tested matrix #{requirement}",
+        "Install the tested runtime"
+      )
     end
   end
 
@@ -91,7 +111,11 @@ defmodule Conveyor.Doctor do
     if actual >= String.to_integer(minimum) do
       nil
     else
-      failure(:otp_version, "OTP #{actual} does not match tested matrix >= #{minimum}")
+      failure(
+        :otp_version,
+        "OTP #{actual} does not match tested matrix >= #{minimum}",
+        "Install the tested OTP runtime"
+      )
     end
   end
 
@@ -101,14 +125,23 @@ defmodule Conveyor.Doctor do
     if Keyword.get(oban_config, :repo) == Conveyor.Repo do
       []
     else
-      [failure(:oban, "Oban is not configured with Conveyor.Repo")]
+      [failure(:oban, "Oban is not configured with Conveyor.Repo", "Fix Oban application config")]
     end
   end
 
   defp check_postgres(postgres_check) do
     case postgres_check.(Conveyor.Repo.config()) do
-      :ok -> []
-      {:error, reason} -> [failure(:postgres, "Postgres is not reachable: #{inspect(reason)}")]
+      :ok ->
+        []
+
+      {:error, reason} ->
+        [
+          failure(
+            :postgres,
+            "Postgres is not reachable: #{inspect(reason)}",
+            "Start Postgres and verify database env vars"
+          )
+        ]
     end
   end
 
@@ -132,14 +165,14 @@ defmodule Conveyor.Doctor do
     if executable?.("docker") do
       []
     else
-      [failure(:docker, "Docker is not reachable or not installed")]
+      [failure(:docker, "Docker is not reachable or not installed", "Install or start Docker")]
     end
   end
 
   defp check_git(project_path, executable?) do
     cond do
       not executable?.("git") ->
-        [failure(:git, "git is not installed")]
+        [failure(:git, "git is not installed", "Install git")]
 
       not File.dir?(Path.join(project_path, ".git")) ->
         [warning(:git, "project path is not a git repository")]
@@ -163,7 +196,7 @@ defmodule Conveyor.Doctor do
     if File.regular?(Path.join(project_path, "AGENTS.md")) do
       []
     else
-      [failure(:agents_md, "AGENTS.md is missing")]
+      [failure(:agents_md, "AGENTS.md is missing", "Run mix conveyor.init")]
     end
   end
 
@@ -171,7 +204,13 @@ defmodule Conveyor.Doctor do
     if Enum.any?(command_specs, &(&1.profile == :verify)) do
       []
     else
-      [failure(:test_commands, "no verify command_specs are configured")]
+      [
+        failure(
+          :test_commands,
+          "no verify command_specs are configured",
+          "Add a verify command spec to .conveyor/config.toml"
+        )
+      ]
     end
   end
 
@@ -179,7 +218,11 @@ defmodule Conveyor.Doctor do
     for policy <- ["implement.toml", "verify.toml"],
         path = Path.join([project_path, config.policies_dir, policy]),
         not File.regular?(path) do
-      failure(:policy_profiles, "required policy profile is missing: #{path}")
+      failure(
+        :policy_profiles,
+        "required policy profile is missing: #{path}",
+        "Run mix conveyor.init or restore policy templates"
+      )
     end
   end
 
@@ -187,7 +230,11 @@ defmodule Conveyor.Doctor do
     for dir <- [config.runs_dir, config.blobs_dir],
         path = Path.join(project_path, dir),
         not (File.dir?(path) and writable?(path)) do
-      failure(:artifact_dir, "artifact directory is missing or not writable: #{path}")
+      failure(
+        :artifact_dir,
+        "artifact directory is missing or not writable: #{path}",
+        "Create the artifact directory and make it writable"
+      )
     end
   end
 
@@ -195,7 +242,13 @@ defmodule Conveyor.Doctor do
     if executable?.("codescent") do
       []
     else
-      [failure(:codescent, "CodeScent is selected as gate-blocking but not installed")]
+      [
+        failure(
+          :codescent,
+          "CodeScent is selected as gate-blocking but not installed",
+          "Install CodeScent or switch quality_adapter to noop"
+        )
+      ]
     end
   end
 
@@ -230,7 +283,13 @@ defmodule Conveyor.Doctor do
 
   defp check_secret_posture do
     if System.get_env("MIX_ENV") == "prod" do
-      [failure(:secret_posture, "doctor is running with MIX_ENV=prod")]
+      [
+        failure(
+          :secret_posture,
+          "doctor is running with MIX_ENV=prod",
+          "Run doctor outside production mode"
+        )
+      ]
     else
       []
     end
@@ -255,6 +314,25 @@ defmodule Conveyor.Doctor do
     if Enum.any?(findings, &(&1.severity == :failure)), do: :failed, else: :passed
   end
 
-  defp failure(check, message), do: %Finding{check: check, severity: :failure, message: message}
+  defp format_finding(%Finding{} = finding) do
+    line = "#{String.upcase(to_string(finding.severity))} #{finding.check}: #{finding.message}"
+
+    actions =
+      Enum.map(finding.next_actions, fn action ->
+        "  NextAction: #{action.label} (rerun: #{action.command})"
+      end)
+
+    [line | actions]
+  end
+
+  defp failure(check, message, action_label) do
+    %Finding{
+      check: check,
+      severity: :failure,
+      message: message,
+      next_actions: [%NextAction{label: action_label, command: "mix conveyor.doctor"}]
+    }
+  end
+
   defp warning(check, message), do: %Finding{check: check, severity: :warning, message: message}
 end

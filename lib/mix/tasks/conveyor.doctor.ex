@@ -16,8 +16,10 @@ defmodule Mix.Tasks.Conveyor.Doctor do
     result = Conveyor.Doctor.run(project_path)
     Mix.shell().info(Conveyor.Doctor.format(result))
 
-    if result.status == :failed do
-      Mix.raise("conveyor.doctor failed")
-    end
+    exit_fun().(Conveyor.Doctor.exit_code(result))
+  end
+
+  defp exit_fun do
+    Process.get(:conveyor_doctor_exit_fun, &System.halt/1)
   end
 end
