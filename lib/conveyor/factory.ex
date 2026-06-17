@@ -43,5 +43,14 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.InstructionSource
     resource Conveyor.Factory.CodeQualityRun
     resource Conveyor.Factory.RunPrompt
+    resource Conveyor.Factory.Policy
+    resource Conveyor.Factory.RetentionPolicy
+    resource Conveyor.Factory.RunBudget
+    resource Conveyor.Factory.Incident
+    resource Conveyor.Factory.CredentialLease
+    resource Conveyor.Factory.HumanApproval
+    resource Conveyor.Factory.ExternalChange
+    resource Conveyor.Factory.PatchEquivalence
+    resource Conveyor.Factory.LedgerEvent
   end
 end

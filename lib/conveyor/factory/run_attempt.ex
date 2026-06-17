@@ -129,6 +129,26 @@ defmodule Conveyor.Factory.RunAttempt do
     has_many :code_quality_runs, Conveyor.Factory.CodeQualityRun do
       public? true
     end
+
+    has_many :run_budgets, Conveyor.Factory.RunBudget do
+      public? true
+    end
+
+    has_many :incidents, Conveyor.Factory.Incident do
+      public? true
+    end
+
+    has_many :human_approvals, Conveyor.Factory.HumanApproval do
+      public? true
+    end
+
+    has_many :external_changes, Conveyor.Factory.ExternalChange do
+      public? true
+    end
+
+    has_many :ledger_events, Conveyor.Factory.LedgerEvent do
+      public? true
+    end
   end
 
   identities do

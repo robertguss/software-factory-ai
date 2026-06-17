@@ -136,6 +136,10 @@ defmodule Conveyor.Factory.RunSpec do
     has_many :workspace_materializations, Conveyor.Factory.WorkspaceMaterialization do
       public? true
     end
+
+    has_many :credential_leases, Conveyor.Factory.CredentialLease do
+      public? true
+    end
   end
 
   identities do

@@ -90,5 +90,9 @@ defmodule Conveyor.Factory.AgentSession do
     has_many :tool_invocations, Conveyor.Factory.ToolInvocation do
       public? true
     end
+
+    has_many :ledger_events, Conveyor.Factory.LedgerEvent do
+      public? true
+    end
   end
 end

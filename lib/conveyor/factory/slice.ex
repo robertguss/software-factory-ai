@@ -117,6 +117,18 @@ defmodule Conveyor.Factory.Slice do
     has_many :run_prompts, Conveyor.Factory.RunPrompt do
       public? true
     end
+
+    has_many :incidents, Conveyor.Factory.Incident do
+      public? true
+    end
+
+    has_many :human_approvals, Conveyor.Factory.HumanApproval do
+      public? true
+    end
+
+    has_many :ledger_events, Conveyor.Factory.LedgerEvent do
+      public? true
+    end
   end
 
   identities do

@@ -98,5 +98,21 @@ defmodule Conveyor.Factory.Project do
     has_many :code_quality_runs, Conveyor.Factory.CodeQualityRun do
       public? true
     end
+
+    has_many :retention_policies, Conveyor.Factory.RetentionPolicy do
+      public? true
+    end
+
+    has_many :incidents, Conveyor.Factory.Incident do
+      public? true
+    end
+
+    has_many :human_approvals, Conveyor.Factory.HumanApproval do
+      public? true
+    end
+
+    has_many :ledger_events, Conveyor.Factory.LedgerEvent do
+      public? true
+    end
   end
 end
