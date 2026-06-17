@@ -23,6 +23,11 @@ defmodule Mix.Tasks.ConveyorInitTest do
     assert File.dir?(Path.join(project_path, ".conveyor/blobs/sha256"))
     assert File.regular?(Path.join(project_path, "AGENTS.md"))
 
+    agents = File.read!(Path.join(project_path, "AGENTS.md"))
+    assert agents =~ "- Test: `pytest` -> `pytest -q`"
+    assert agents =~ "- Lint: `format` -> `ruff format --check .`"
+    assert agents =~ "Configured command specs from `.conveyor/config.toml`"
+
     assert {:ok, _config} = Conveyor.Config.load(Path.join(project_path, ".conveyor/config.toml"))
   end
 
