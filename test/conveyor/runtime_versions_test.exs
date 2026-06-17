@@ -43,6 +43,12 @@ defmodule Conveyor.RuntimeVersionsTest do
              docker_engine: ">= 24.0"
            } = Conveyor.ToolMatrix.latest_tested_versions()
 
-    assert Conveyor.ToolMatrix.default_toolchain_image().digest =~ ~r/^sha256:[0-9a-f]{64}$/
+    assert %{
+             ref: "ghcr.io/conveyor/sample-python-runner:2026-06-17",
+             digest: image_digest,
+             sbom_ref: "toolchains/sample-python-runner/sbom.cyclonedx.json"
+           } = Conveyor.ToolMatrix.default_toolchain_image()
+
+    assert image_digest =~ ~r/^sha256:[0-9a-f]{64}$/
   end
 end

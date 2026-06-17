@@ -6,6 +6,10 @@ defmodule Conveyor.Factory.FoundationResourcesTest do
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.ToolchainProfile
 
+  @runner_profile Path.expand("../../../toolchains/sample-python-runner/profile.toml", __DIR__)
+  @runner_lock Path.expand("../../../toolchains/sample-python-runner/requirements.lock", __DIR__)
+  @sample_lock Path.expand("../../../samples/tasks_service/requirements.lock", __DIR__)
+
   describe "Project" do
     test "creates, reads, updates, and destroys a project through Ash" do
       project =
@@ -76,6 +80,49 @@ defmodule Conveyor.Factory.FoundationResourcesTest do
       assert [read_profile] = Ash.read!(ToolchainProfile, domain: Factory)
       assert read_profile.id == profile.id
     end
+
+    test "sample Python runner profile records pinned image, lock, and SBOM identity" do
+      profile = runner_profile!()
+
+      assert profile["key"] == "sample-python-runner"
+      assert profile["image_ref"] == "ghcr.io/conveyor/sample-python-runner:2026-06-17"
+      assert profile["image_digest"] =~ ~r/^sha256:[0-9a-f]{64}$/
+      assert profile["sbom_ref"] == "toolchains/sample-python-runner/sbom.cyclonedx.json"
+      assert File.regular?(Path.expand("../../../#{profile["sbom_ref"]}", __DIR__))
+      assert File.read!(@runner_lock) == File.read!(@sample_lock)
+      assert profile["dependency_lock_sha256"] == "sha256:#{sha256_file(@runner_lock)}"
+      assert profile["cache_policy"]["mode"] == "read_only"
+
+      project =
+        Ash.create!(
+          Project,
+          %{
+            name: "Sample runner owner",
+            local_path: "/tmp/sample-runner-owner",
+            default_branch: "main"
+          },
+          domain: Factory
+        )
+
+      toolchain =
+        Ash.create!(
+          ToolchainProfile,
+          %{
+            project_id: project.id,
+            key: profile["key"],
+            image_ref: profile["image_ref"],
+            image_digest: profile["image_digest"],
+            dependency_lock_refs: profile["dependency_lock_refs"],
+            dependency_lock_sha256: profile["dependency_lock_sha256"],
+            cache_policy: profile["cache_policy"],
+            sbom_ref: profile["sbom_ref"]
+          },
+          domain: Factory
+        )
+
+      assert toolchain.image_digest == Conveyor.ToolMatrix.default_toolchain_image().digest
+      assert toolchain.sbom_ref == Conveyor.ToolMatrix.default_toolchain_image().sbom_ref
+    end
   end
 
   describe "CacheMount" do
@@ -135,5 +182,19 @@ defmodule Conveyor.Factory.FoundationResourcesTest do
       "infra_retry_policy" => %{"max_retries" => 0, "retry_on" => []},
       "result_format" => "stdout"
     }
+  end
+
+  defp runner_profile! do
+    @runner_profile
+    |> File.read!()
+    |> TomlElixir.decode!()
+    |> Map.fetch!("toolchain_profile")
+  end
+
+  defp sha256_file(path) do
+    path
+    |> File.read!()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
   end
 end
