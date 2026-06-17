@@ -122,6 +122,14 @@ defmodule Conveyor.Factory.StationRun do
     has_many :artifacts, Conveyor.Factory.Artifact do
       public? true
     end
+
+    has_many :credential_leases, Conveyor.Factory.CredentialLease do
+      public? true
+    end
+
+    has_many :ledger_events, Conveyor.Factory.LedgerEvent do
+      public? true
+    end
   end
 
   identities do
