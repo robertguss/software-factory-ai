@@ -117,6 +117,14 @@ defmodule Conveyor.Factory.RunAttempt do
     has_many :gate_results, Conveyor.Factory.GateResult do
       public? true
     end
+
+    has_many :artifacts, Conveyor.Factory.Artifact do
+      public? true
+    end
+
+    has_many :run_bundles, Conveyor.Factory.RunBundle do
+      public? true
+    end
   end
 
   identities do

@@ -35,5 +35,9 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.ToolInvocation
     resource Conveyor.Factory.Review
     resource Conveyor.Factory.GateResult
+    resource Conveyor.Factory.Artifact
+    resource Conveyor.Factory.RunBundle
+    resource Conveyor.Factory.ReviewerHealth
+    resource Conveyor.Factory.GateHealth
   end
 end
