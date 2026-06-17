@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.review@1.json",
+  "title": "Conveyor Review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_spec_sha256", "reviewer", "verdict", "rubric", "findings"],
+  "properties": {
+    "schema_version": { "const": "conveyor.review@1" },
+    "run_spec_sha256": { "$ref": "#/$defs/sha256" },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_id", "profile_id"],
+      "properties": {
+        "actor_id": { "type": "string", "minLength": 1 },
+        "profile_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "verdict": { "enum": ["accepted", "rejected", "needs_rework"] },
+    "rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correctness", "tests", "security", "maintainability"],
+      "properties": {
+        "correctness": { "$ref": "#/$defs/rubric_item" },
+        "tests": { "$ref": "#/$defs/rubric_item" },
+        "security": { "$ref": "#/$defs/rubric_item" },
+        "maintainability": { "$ref": "#/$defs/rubric_item" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "summary"],
+        "properties": {
+          "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+          "summary": { "type": "string", "minLength": 1 },
+          "evidence_ref": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "rubric_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "notes"],
+      "properties": {
+        "status": { "enum": ["pass", "fail", "not_applicable"] },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

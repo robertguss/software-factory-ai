@@ -1,0 +1,36 @@
+{
+  "schema_version": "conveyor.run_spec@1",
+  "project_id": "sample_tasks",
+  "slice_id": "SLICE-001",
+  "base_commit": "0123456789abcdef0123456789abcdef01234567",
+  "autonomy_level": "L1",
+  "plan_contract_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "policy_profile": "verify",
+  "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "verification_commands": [
+    {
+      "key": "pytest",
+      "argv": ["pytest", "-q"],
+      "profile": "verify"
+    }
+  ],
+  "container_image": {
+    "ref": "ghcr.io/conveyor/sample-python-runner:2026-06-01",
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sbom_ref": "artifacts/sbom.cyclonedx.json"
+  },
+  "sandbox_profile": "verify",
+  "budget": {
+    "max_wall_clock_ms": 120000,
+    "max_output_bytes": 1048576,
+    "max_command_count": 10
+  },
+  "schema_versions": {
+    "station_plan": "conveyor.station_plan@1",
+    "evidence": "conveyor.evidence@1",
+    "review": "conveyor.review@1",
+    "gate": "conveyor.gate@1",
+    "run_bundle": "conveyor.run_bundle@1"
+  },
+  "station_plan_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

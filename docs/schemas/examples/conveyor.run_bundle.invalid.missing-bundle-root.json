@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.run_bundle@1",
+  "run_attempt_id": "run_attempt_123",
+  "entries": [
+    {
+      "path": "evidence.json",
+      "kind": "evidence",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size_bytes": 12042,
+      "sensitivity": "public",
+      "schema_version": "conveyor.evidence@1"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "project": {
+    "key": "sample_tasks",
+    "base_ref": "main"
+  },
+  "goal": "Extend the sample tasks API so tasks can be marked complete.",
+  "non_goals": ["Authentication"],
+  "requirements": [
+    {
+      "key": "REQ-001",
+      "text": "New tasks expose completed:false by default.",
+      "risk": "low",
+      "source_ref": "plan.md#requirement-req-001"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "key": "AC-001",
+      "text": "New tasks include completed:false.",
+      "requirement_refs": ["REQ-001"],
+      "required_test_refs": ["tests/test_tasks.py::test_create_defaults_completed_false"]
+    }
+  ],
+  "verification_commands": [
+    {
+      "key": "pytest",
+      "argv": ["pytest", "-q"],
+      "profile": "verify"
+    }
+  ],
+  "decisions": [],
+  "slices": [
+    {
+      "key": "SLICE-001",
+      "title": "Add complete-a-task endpoint",
+      "requirement_refs": ["REQ-001"],
+      "likely_files": ["app/main.py"],
+      "conflict_domains": ["tasks_api"],
+      "autonomy_ceiling": "L1"
+    }
+  ]
+}

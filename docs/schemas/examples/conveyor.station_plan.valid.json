@@ -1,0 +1,17 @@
+{
+  "schema_version": "conveyor.station_plan@1",
+  "stations": [
+    {
+      "key": "baseline",
+      "worker": "Conveyor.Jobs.BaselineHealth",
+      "depends_on": [],
+      "input_refs": ["run_spec", "project", "verification_suite:baseline"],
+      "allowed_effects": ["container_start", "process_exec", "artifact_write"],
+      "sandbox_profile": "verify",
+      "output_schema": "conveyor.baseline_result@1",
+      "retry_policy": {
+        "max_attempts": 1
+      }
+    }
+  ]
+}

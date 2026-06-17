@@ -1,0 +1,33 @@
+{
+  "schema_version": "conveyor.evidence@1",
+  "run_spec_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "slice_id": "SLICE-001",
+  "acceptance_criteria_evidence": [
+    {
+      "criterion_ref": "AC-001",
+      "status": "passed",
+      "evidence_refs": ["commands/pytest.stdout.log"]
+    }
+  ],
+  "commands": [
+    {
+      "key": "pytest",
+      "argv": ["pytest", "-q"],
+      "status": "passed",
+      "stdout_ref": "commands/pytest.stdout.log",
+      "stderr_ref": "commands/pytest.stderr.log"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "diff.patch",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "schema_version": "conveyor.diff@1"
+    }
+  ],
+  "policy": {
+    "profile": "verify",
+    "violations": []
+  },
+  "known_risks": []
+}
