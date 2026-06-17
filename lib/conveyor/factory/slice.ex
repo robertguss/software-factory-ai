@@ -81,6 +81,22 @@ defmodule Conveyor.Factory.Slice do
     has_many :diff_policies, Conveyor.Factory.DiffPolicy do
       public? true
     end
+
+    has_many :agent_briefs, Conveyor.Factory.AgentBrief do
+      public? true
+    end
+
+    has_many :contract_locks, Conveyor.Factory.ContractLock do
+      public? true
+    end
+
+    has_many :test_packs, Conveyor.Factory.TestPack do
+      public? true
+    end
+
+    has_many :verification_suites, Conveyor.Factory.VerificationSuite do
+      public? true
+    end
   end
 
   identities do

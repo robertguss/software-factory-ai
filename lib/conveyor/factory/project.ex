@@ -86,5 +86,9 @@ defmodule Conveyor.Factory.Project do
     has_many :review_policies, Conveyor.Factory.ReviewPolicy do
       public? true
     end
+
+    has_many :verification_suites, Conveyor.Factory.VerificationSuite do
+      public? true
+    end
   end
 end
