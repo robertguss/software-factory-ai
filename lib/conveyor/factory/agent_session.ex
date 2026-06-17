@@ -86,5 +86,9 @@ defmodule Conveyor.Factory.AgentSession do
     has_many :patch_sets, Conveyor.Factory.PatchSet do
       public? true
     end
+
+    has_many :tool_invocations, Conveyor.Factory.ToolInvocation do
+      public? true
+    end
   end
 end

@@ -31,5 +31,9 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.PatchSet
     resource Conveyor.Factory.RiskAssessment
     resource Conveyor.Factory.WorkspaceMaterialization
+    resource Conveyor.Factory.Evidence
+    resource Conveyor.Factory.ToolInvocation
+    resource Conveyor.Factory.Review
+    resource Conveyor.Factory.GateResult
   end
 end

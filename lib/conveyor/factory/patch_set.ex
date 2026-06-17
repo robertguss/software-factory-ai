@@ -49,5 +49,9 @@ defmodule Conveyor.Factory.PatchSet do
     has_many :risk_assessments, Conveyor.Factory.RiskAssessment do
       public? true
     end
+
+    has_many :evidence_records, Conveyor.Factory.Evidence do
+      public? true
+    end
   end
 end
