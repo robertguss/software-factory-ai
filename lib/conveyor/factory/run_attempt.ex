@@ -125,6 +125,10 @@ defmodule Conveyor.Factory.RunAttempt do
     has_many :run_bundles, Conveyor.Factory.RunBundle do
       public? true
     end
+
+    has_many :code_quality_runs, Conveyor.Factory.CodeQualityRun do
+      public? true
+    end
   end
 
   identities do
