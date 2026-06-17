@@ -82,5 +82,9 @@ defmodule Conveyor.Factory.Project do
     has_many :plans, Conveyor.Factory.Plan do
       public? true
     end
+
+    has_many :review_policies, Conveyor.Factory.ReviewPolicy do
+      public? true
+    end
   end
 end

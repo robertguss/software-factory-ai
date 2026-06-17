@@ -14,5 +14,9 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.Requirement
     resource Conveyor.Factory.HumanDecision
     resource Conveyor.Factory.PlanAudit
+    resource Conveyor.Factory.Epic
+    resource Conveyor.Factory.Slice
+    resource Conveyor.Factory.DiffPolicy
+    resource Conveyor.Factory.ReviewPolicy
   end
 end
