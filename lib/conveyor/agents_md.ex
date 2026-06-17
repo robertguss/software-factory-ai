@@ -76,7 +76,7 @@ defmodule Conveyor.AgentsMd do
 
     # Done Criteria
 
-    Done requires mapped acceptance evidence, successful configured verification, independent review when required, and a passing deterministic gate.
+    Done requires mapped acceptance evidence, successful configured verification, independent verification, independent review when required, and a passing deterministic gate.
 
     # Forbidden Actions
 
