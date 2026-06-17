@@ -47,6 +47,7 @@ defmodule Conveyor.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:toml_elixir, "~> 3.1"},
+      {:jsv, "~> 0.19.5"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.12"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
