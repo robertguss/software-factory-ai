@@ -23,5 +23,6 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.TestPack
     resource Conveyor.Factory.VerificationSuite
     resource Conveyor.Factory.TestPackCalibration
+    resource Conveyor.Factory.RunSpec
   end
 end

@@ -97,6 +97,10 @@ defmodule Conveyor.Factory.Slice do
     has_many :verification_suites, Conveyor.Factory.VerificationSuite do
       public? true
     end
+
+    has_many :run_specs, Conveyor.Factory.RunSpec do
+      public? true
+    end
   end
 
   identities do
