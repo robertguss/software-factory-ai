@@ -18,5 +18,10 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.Slice
     resource Conveyor.Factory.DiffPolicy
     resource Conveyor.Factory.ReviewPolicy
+    resource Conveyor.Factory.AgentBrief
+    resource Conveyor.Factory.ContractLock
+    resource Conveyor.Factory.TestPack
+    resource Conveyor.Factory.VerificationSuite
+    resource Conveyor.Factory.TestPackCalibration
   end
 end
