@@ -101,6 +101,22 @@ defmodule Conveyor.Factory.RunAttempt do
     has_many :risk_assessments, Conveyor.Factory.RiskAssessment do
       public? true
     end
+
+    has_many :evidence_records, Conveyor.Factory.Evidence do
+      public? true
+    end
+
+    has_many :tool_invocations, Conveyor.Factory.ToolInvocation do
+      public? true
+    end
+
+    has_many :reviews, Conveyor.Factory.Review do
+      public? true
+    end
+
+    has_many :gate_results, Conveyor.Factory.GateResult do
+      public? true
+    end
   end
 
   identities do

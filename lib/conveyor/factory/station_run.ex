@@ -114,6 +114,10 @@ defmodule Conveyor.Factory.StationRun do
     has_many :workspace_materializations, Conveyor.Factory.WorkspaceMaterialization do
       public? true
     end
+
+    has_many :tool_invocations, Conveyor.Factory.ToolInvocation do
+      public? true
+    end
   end
 
   identities do
