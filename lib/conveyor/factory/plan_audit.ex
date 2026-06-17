@@ -17,6 +17,10 @@ defmodule Conveyor.Factory.PlanAudit do
     defaults [:read, :destroy, create: :*, update: :*]
   end
 
+  validations do
+    validate {Conveyor.Factory.Validations.EmbeddedSchema, field: :findings, schema: :findings}
+  end
+
   attributes do
     uuid_primary_key :id
 

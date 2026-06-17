@@ -54,9 +54,9 @@ defmodule Conveyor.Factory.PromptContextResourcesTest do
           desired_behavior: "Tasks can also be completed.",
           key_interfaces: ["PATCH /tasks/{id}", "Task.completed"],
           out_of_scope: ["Authentication"],
-          acceptance_criteria: [%{"id" => "AC-001", "text" => "Complete a task."}],
+          acceptance_criteria: [acceptance_criterion()],
           required_tests: [%{"ref" => "tests/test_tasks.py::test_complete_task"}],
-          verification_commands: [%{"argv" => ["pytest", "-q"]}],
+          verification_commands: [command_spec()],
           non_goals: ["Bulk updates"],
           locked_at: DateTime.utc_now(:microsecond),
           locked_by: "planner",
@@ -196,6 +196,36 @@ defmodule Conveyor.Factory.PromptContextResourcesTest do
       risks: ["Route may not preserve list behavior."],
       suggested_validation: ["pytest -q"],
       code_quality_refs: []
+    }
+  end
+
+  defp acceptance_criterion do
+    %{
+      "id" => "AC-001",
+      "text" => "Complete a task.",
+      "kind" => "behavioral",
+      "requirement_refs" => ["REQ-002"],
+      "required_test_refs" => ["tests/test_tasks.py::test_complete_task"],
+      "evidence_status" => "missing",
+      "evidence_refs" => []
+    }
+  end
+
+  defp command_spec do
+    %{
+      "key" => "pytest",
+      "argv" => ["pytest", "-q"],
+      "cwd" => ".",
+      "profile" => "verify",
+      "required" => true,
+      "timeout_ms" => 120_000,
+      "network" => "none",
+      "env_allowlist" => [],
+      "output_limit_bytes" => 2_000_000,
+      "repeat" => 1,
+      "flake_policy" => "fail_closed",
+      "infra_retry_policy" => %{"max_retries" => 0, "retry_on" => []},
+      "result_format" => "stdout"
     }
   end
 

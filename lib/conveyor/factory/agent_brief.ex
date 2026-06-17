@@ -17,6 +17,14 @@ defmodule Conveyor.Factory.AgentBrief do
     defaults [:read, :destroy, create: :*, update: :*]
   end
 
+  validations do
+    validate {Conveyor.Factory.Validations.EmbeddedSchema,
+              field: :acceptance_criteria, schema: :acceptance_criteria}
+
+    validate {Conveyor.Factory.Validations.EmbeddedSchema,
+              field: :verification_commands, schema: :command_specs}
+  end
+
   attributes do
     uuid_primary_key :id
 

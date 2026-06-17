@@ -143,7 +143,7 @@ defmodule Conveyor.Factory.EvidenceVerdictResourcesTest do
           station_run_id: station_run.id,
           tool_name: "pytest",
           invocation_kind: "command",
-          command_spec: %{"argv" => ["pytest", "-q"], "profile" => "verify"},
+          command_spec: command_spec(),
           policy_profile: "verify",
           cwd: ".",
           env_keys: ["PYTHONPATH"],
@@ -179,7 +179,17 @@ defmodule Conveyor.Factory.EvidenceVerdictResourcesTest do
           decision: :needs_rework,
           recommendation: :rework,
           summary: "Missing edge-case assertion.",
-          findings: [%{"severity" => "warning", "message" => "Add an edge-case test."}],
+          findings: [
+            %{
+              "severity" => "warning",
+              "category" => "review",
+              "message" => "Add an edge-case test.",
+              "artifact_refs" => [],
+              "next_actions" => [
+                %{"kind" => "rerun_station", "label" => "Rerun after adding the edge case."}
+              ]
+            }
+          ],
           checks: [%{"name" => "acceptance", "passed" => false}]
         },
         domain: Factory
@@ -248,6 +258,24 @@ defmodule Conveyor.Factory.EvidenceVerdictResourcesTest do
       budget_sha256: digest("budget"),
       code_quality_profile: "standard",
       canary_suite_version: "canary@1"
+    }
+  end
+
+  defp command_spec do
+    %{
+      "key" => "pytest",
+      "argv" => ["pytest", "-q"],
+      "cwd" => ".",
+      "profile" => "verify",
+      "required" => true,
+      "timeout_ms" => 120_000,
+      "network" => "none",
+      "env_allowlist" => ["PYTHONPATH"],
+      "output_limit_bytes" => 2_000_000,
+      "repeat" => 1,
+      "flake_policy" => "fail_closed",
+      "infra_retry_policy" => %{"max_retries" => 0, "retry_on" => []},
+      "result_format" => "junit"
     }
   end
 

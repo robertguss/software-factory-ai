@@ -17,6 +17,11 @@ defmodule Conveyor.Factory.TestPack do
     defaults [:read, :destroy, create: :*]
   end
 
+  validations do
+    validate {Conveyor.Factory.Validations.EmbeddedSchema,
+              field: :runner_command_specs, schema: :command_specs}
+  end
+
   attributes do
     uuid_primary_key :id
 

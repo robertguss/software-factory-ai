@@ -17,9 +17,7 @@ defmodule Conveyor.Factory.FoundationResourcesTest do
             local_path: "/tmp/sample",
             default_branch: "main",
             dev_branch: "factory/dev",
-            command_specs: [
-              %{"name" => "test", "argv" => ["mix", "test"]}
-            ],
+            command_specs: [command_spec("test", ["mix", "test"])],
             code_quality_profile: "strict",
             default_autonomy_level: 2
           },
@@ -27,7 +25,7 @@ defmodule Conveyor.Factory.FoundationResourcesTest do
         )
 
       assert project.status == :active
-      assert project.command_specs == [%{"name" => "test", "argv" => ["mix", "test"]}]
+      assert [%{"key" => "test", "argv" => ["mix", "test"]}] = project.command_specs
 
       assert [read_project] = Ash.read!(Project, domain: Factory)
       assert read_project.id == project.id
@@ -119,5 +117,23 @@ defmodule Conveyor.Factory.FoundationResourcesTest do
         )
       end
     end
+  end
+
+  defp command_spec(key, argv) do
+    %{
+      "key" => key,
+      "argv" => argv,
+      "cwd" => ".",
+      "profile" => "verify",
+      "required" => true,
+      "timeout_ms" => 120_000,
+      "network" => "none",
+      "env_allowlist" => [],
+      "output_limit_bytes" => 2_000_000,
+      "repeat" => 1,
+      "flake_policy" => "fail_closed",
+      "infra_retry_policy" => %{"max_retries" => 0, "retry_on" => []},
+      "result_format" => "stdout"
+    }
   end
 end
