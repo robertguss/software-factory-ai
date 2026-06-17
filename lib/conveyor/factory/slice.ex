@@ -101,6 +101,14 @@ defmodule Conveyor.Factory.Slice do
     has_many :run_specs, Conveyor.Factory.RunSpec do
       public? true
     end
+
+    has_many :run_attempts, Conveyor.Factory.RunAttempt do
+      public? true
+    end
+
+    has_many :station_runs, Conveyor.Factory.StationRun do
+      public? true
+    end
   end
 
   identities do
