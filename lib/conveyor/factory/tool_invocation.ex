@@ -17,6 +17,11 @@ defmodule Conveyor.Factory.ToolInvocation do
     defaults [:read, :destroy, create: :*, update: :*]
   end
 
+  validations do
+    validate {Conveyor.Factory.Validations.EmbeddedSchema,
+              field: :command_spec, schema: :command_spec}
+  end
+
   attributes do
     uuid_primary_key :id
 

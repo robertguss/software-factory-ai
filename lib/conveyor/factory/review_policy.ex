@@ -17,6 +17,11 @@ defmodule Conveyor.Factory.ReviewPolicy do
     defaults [:read, :destroy, create: :*, update: :*]
   end
 
+  validations do
+    validate {Conveyor.Factory.Validations.EmbeddedSchema,
+              field: :risk_rules, schema: :risk_rules}
+  end
+
   attributes do
     uuid_primary_key :id
 

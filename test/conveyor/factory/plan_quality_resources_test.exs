@@ -110,10 +110,17 @@ defmodule Conveyor.Factory.PlanQualityResourcesTest do
           decision: :needs_clarification,
           findings: [
             %{
-              "severity" => "error",
-              "category" => "traceability",
+              "severity" => "blocking",
+              "category" => "brief",
               "message" => "REQ-002 has no acceptance criterion.",
-              "next_actions" => ["Add acceptance coverage for REQ-002."]
+              "artifact_refs" => [],
+              "next_actions" => [
+                %{
+                  "kind" => "edit_plan",
+                  "label" => "Add acceptance coverage for REQ-002.",
+                  "command" => "mix conveyor.plan_audit docs/plan.md"
+                }
+              ]
             }
           ],
           coverage_summary: %{
@@ -125,7 +132,7 @@ defmodule Conveyor.Factory.PlanQualityResourcesTest do
       )
 
     assert audit.decision == :needs_clarification
-    assert [%{"category" => "traceability"}] = audit.findings
+    assert [%{"category" => "brief"}] = audit.findings
 
     updated = Ash.update!(audit, %{decision: :blocked, score: 50}, domain: Factory)
     assert updated.decision == :blocked

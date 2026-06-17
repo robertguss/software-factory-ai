@@ -59,7 +59,7 @@ defmodule Conveyor.Factory.ContractSpineResourcesTest do
     attrs = agent_brief_attrs(slice.id, 1)
 
     brief = Ash.create!(AgentBrief, attrs, domain: Factory)
-    assert brief.acceptance_criteria == [%{"id" => "AC-001", "text" => "Endpoint returns 200."}]
+    assert [%{"id" => "AC-001", "kind" => "behavioral"}] = brief.acceptance_criteria
 
     updated = Ash.update!(brief, %{risk: "high"}, domain: Factory)
     assert updated.risk == "high"
@@ -89,7 +89,7 @@ defmodule Conveyor.Factory.ContractSpineResourcesTest do
 
     test_pack = Ash.create!(TestPack, attrs, domain: Factory)
     assert test_pack.required_test_refs == ["tests/test_tasks.py::test_complete_task"]
-    assert test_pack.runner_command_specs == [%{"key" => "pytest", "argv" => ["pytest", "-q"]}]
+    assert [%{"key" => "pytest", "argv" => ["pytest", "-q"]}] = test_pack.runner_command_specs
 
     assert_raise Ash.Error.Invalid, fn ->
       Ash.create!(TestPack, attrs, domain: Factory)
@@ -116,7 +116,7 @@ defmodule Conveyor.Factory.ContractSpineResourcesTest do
           slice_id: slice.id,
           key: "acceptance",
           suite_kind: :acceptance_locked,
-          command_specs: [%{"key" => "pytest", "argv" => ["pytest", "-q"]}],
+          command_specs: [command_spec()],
           expected_on_base: :fail,
           expected_on_patch: :pass,
           required: true,
@@ -170,9 +170,9 @@ defmodule Conveyor.Factory.ContractSpineResourcesTest do
       key_interfaces: ["PATCH /tasks/{id}"],
       out_of_scope: ["Authentication"],
       risk: "medium",
-      acceptance_criteria: [%{"id" => "AC-001", "text" => "Endpoint returns 200."}],
+      acceptance_criteria: [acceptance_criterion()],
       required_tests: [%{"ref" => "tests/test_tasks.py::test_complete_task"}],
-      verification_commands: [%{"key" => "pytest", "argv" => ["pytest", "-q"]}],
+      verification_commands: [command_spec()],
       non_goals: ["Pagination"],
       locked_at: DateTime.utc_now(:microsecond),
       locked_by: "assistant",
@@ -208,10 +208,40 @@ defmodule Conveyor.Factory.ContractSpineResourcesTest do
       required_test_refs: ["tests/test_tasks.py::test_complete_task"],
       acceptance_criteria_refs: ["AC-001"],
       mount_path: "/workspace/.conveyor/test-packs/tasks-complete",
-      runner_command_specs: [%{"key" => "pytest", "argv" => ["pytest", "-q"]}],
+      runner_command_specs: [command_spec()],
       test_result_adapter: "Conveyor.TestResultAdapter.JUnit",
       locked_at: DateTime.utc_now(:microsecond),
       locked_by: "assistant"
+    }
+  end
+
+  defp acceptance_criterion do
+    %{
+      "id" => "AC-001",
+      "text" => "Endpoint returns 200.",
+      "kind" => "behavioral",
+      "requirement_refs" => ["REQ-001"],
+      "required_test_refs" => ["tests/test_tasks.py::test_complete_task"],
+      "evidence_status" => "missing",
+      "evidence_refs" => []
+    }
+  end
+
+  defp command_spec do
+    %{
+      "key" => "pytest",
+      "argv" => ["pytest", "-q"],
+      "cwd" => ".",
+      "profile" => "verify",
+      "required" => true,
+      "timeout_ms" => 120_000,
+      "network" => "none",
+      "env_allowlist" => [],
+      "output_limit_bytes" => 2_000_000,
+      "repeat" => 1,
+      "flake_policy" => "fail_closed",
+      "infra_retry_policy" => %{"max_retries" => 0, "retry_on" => []},
+      "result_format" => "junit"
     }
   end
 
