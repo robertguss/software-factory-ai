@@ -16,6 +16,8 @@ defmodule Conveyor.Config.ProjectConfig do
           runs_dir: String.t(),
           blobs_dir: String.t(),
           quality_adapter: String.t(),
+          sample_repo_path: String.t() | nil,
+          sample_base_ref: String.t() | nil,
           command_specs: [CommandSpec.t()]
         }
 
@@ -41,5 +43,7 @@ defmodule Conveyor.Config.ProjectConfig do
             runs_dir: nil,
             blobs_dir: nil,
             quality_adapter: nil,
+            sample_repo_path: nil,
+            sample_base_ref: nil,
             command_specs: []
 end

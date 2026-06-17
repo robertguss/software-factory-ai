@@ -10,12 +10,14 @@ defmodule Conveyor.Doctor do
 
   @type executable_fun :: (String.t() -> boolean())
   @type postgres_fun :: (keyword() -> :ok | {:error, term()})
+  @type git_fun :: (String.t(), [String.t()], keyword() -> {String.t(), non_neg_integer()})
 
   @spec run(Path.t(), keyword()) :: Result.t()
   def run(project_path \\ File.cwd!(), opts \\ []) do
     project_path = Path.expand(project_path)
     executable? = Keyword.get(opts, :executable?, &default_executable?/1)
     postgres_check = Keyword.get(opts, :postgres_check, &default_postgres_check/1)
+    git_command = Keyword.get(opts, :git_command, &System.cmd/3)
 
     {config, findings} = load_config(project_path)
 
@@ -26,6 +28,7 @@ defmodule Conveyor.Doctor do
       |> Kernel.++(check_postgres(postgres_check))
       |> Kernel.++(check_docker(executable?))
       |> Kernel.++(check_git(project_path, executable?))
+      |> Kernel.++(check_sample_repo(project_path, config, executable?, git_command))
       |> Kernel.++(check_project_files(project_path, config))
       |> Kernel.++(check_optional_adapters(config, executable?))
       |> Kernel.++(check_secret_posture())
@@ -180,6 +183,131 @@ defmodule Conveyor.Doctor do
       true ->
         []
     end
+  end
+
+  defp check_sample_repo(_project_path, nil, _executable?, _git_command), do: []
+
+  defp check_sample_repo(
+         project_path,
+         %ProjectConfig{sample_repo_path: sample_repo_path, sample_base_ref: sample_base_ref},
+         executable?,
+         git_command
+       ) do
+    cond do
+      is_nil(sample_repo_path) and is_nil(sample_base_ref) ->
+        []
+
+      is_nil(sample_repo_path) or is_nil(sample_base_ref) ->
+        [
+          failure(
+            :sample_repo,
+            "sample_repo_path and sample_base_ref must be configured together",
+            "Set both keys in .conveyor/config.toml"
+          )
+        ]
+
+      not executable?.("git") ->
+        []
+
+      true ->
+        sample_repo_path
+        |> Path.expand(project_path)
+        |> check_sample_repo_path(sample_base_ref, git_command)
+    end
+  end
+
+  defp check_sample_repo_path(sample_path, sample_base_ref, git_command) do
+    cond do
+      not File.dir?(sample_path) ->
+        [
+          failure(
+            :sample_repo,
+            "sample repo path does not exist: #{sample_path}",
+            "Create the sample repo or update sample_repo_path"
+          )
+        ]
+
+      not git_success?(git_command, sample_path, ["rev-parse", "--is-inside-work-tree"]) ->
+        [
+          failure(
+            :sample_repo,
+            "sample repo path is not inside a git working tree: #{sample_path}",
+            "Initialize or materialize the sample repo from the expected base commit"
+          )
+        ]
+
+      not git_success?(git_command, sample_path, [
+        "rev-parse",
+        "--verify",
+        "#{sample_base_ref}^{commit}"
+      ]) ->
+        [
+          failure(
+            :sample_repo,
+            "sample base ref cannot be resolved: #{sample_base_ref}",
+            "Record a valid sample_base_ref in .conveyor/config.toml"
+          )
+        ]
+
+      (status =
+         git_output(git_command, git_root(git_command, sample_path), [
+           "status",
+           "--porcelain",
+           "--",
+           git_pathspec(git_command, sample_path)
+         ])) != "" ->
+        [
+          failure(
+            :sample_repo,
+            "sample repo has uncommitted changes: #{summarize_git_status(status)}",
+            "Restore or commit sample repo changes before running Conveyor"
+          )
+        ]
+
+      not git_success?(
+        git_command,
+        git_root(git_command, sample_path),
+        ["diff", "--quiet", sample_base_ref, "--", git_pathspec(git_command, sample_path)]
+      ) ->
+        [
+          failure(
+            :sample_repo,
+            "sample repo tree differs from expected base ref #{sample_base_ref}",
+            "Reset or materialize the sample repo at the recorded base commit"
+          )
+        ]
+
+      true ->
+        []
+    end
+  end
+
+  defp git_success?(git_command, cwd, args) do
+    {_output, status} = git_command.("git", ["-C", cwd | args], stderr_to_stdout: true)
+    status == 0
+  end
+
+  defp git_output(git_command, cwd, args) do
+    {output, 0} = git_command.("git", ["-C", cwd | args], stderr_to_stdout: true)
+    String.trim(output)
+  end
+
+  defp git_root(git_command, cwd) do
+    git_output(git_command, cwd, ["rev-parse", "--show-toplevel"])
+  end
+
+  defp git_pathspec(git_command, cwd) do
+    case git_output(git_command, cwd, ["rev-parse", "--show-prefix"]) do
+      "" -> "."
+      prefix -> String.trim_trailing(prefix, "/")
+    end
+  end
+
+  defp summarize_git_status(status) do
+    status
+    |> String.split("\n", trim: true)
+    |> Enum.take(3)
+    |> Enum.join("; ")
   end
 
   defp check_project_files(project_path, %ProjectConfig{} = config) do
