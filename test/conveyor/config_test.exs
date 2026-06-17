@@ -21,6 +21,8 @@ defmodule Conveyor.ConfigTest do
     assert config.runs_dir == ".conveyor/runs"
     assert config.blobs_dir == ".conveyor/blobs"
     assert config.quality_adapter == "noop"
+    assert config.sample_repo_path == nil
+    assert config.sample_base_ref == nil
 
     assert [
              %CommandSpec{
@@ -89,6 +91,33 @@ defmodule Conveyor.ConfigTest do
                 "invalid config key project.command_specs.0.profile: expected one of explore, implement, verify, release, maintenance",
               path: ["project", "command_specs", "0", "profile"]
             }} = Config.load(path)
+  end
+
+  test "loads optional sample repo metadata" do
+    path =
+      write_config!("""
+      [project]
+      name = "sample_tasks"
+      repo_path = "."
+      default_branch = "main"
+      default_autonomy_level = "L1"
+      policies_dir = ".conveyor/policies"
+      prompts_dir = ".conveyor/prompts"
+      runs_dir = ".conveyor/runs"
+      blobs_dir = ".conveyor/blobs"
+      quality_adapter = "noop"
+      sample_repo_path = "samples/tasks_service"
+      sample_base_ref = "60426b147bd2b752dc03710f75e740f81bb5e3ee"
+
+      [[project.command_specs]]
+      key = "pytest"
+      argv = ["pytest", "-q"]
+      profile = "verify"
+      """)
+
+    assert {:ok, %ProjectConfig{} = config} = Config.load(path)
+    assert config.sample_repo_path == "samples/tasks_service"
+    assert config.sample_base_ref == "60426b147bd2b752dc03710f75e740f81bb5e3ee"
   end
 
   test "builds the default project config path" do

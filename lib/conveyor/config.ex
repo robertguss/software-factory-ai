@@ -60,6 +60,8 @@ defmodule Conveyor.Config do
          runs_dir: runs_dir,
          blobs_dir: blobs_dir,
          quality_adapter: quality_adapter,
+         sample_repo_path: optional_string_value(project, "sample_repo_path"),
+         sample_base_ref: optional_string_value(project, "sample_base_ref"),
          command_specs: parsed_commands
        }}
     end
