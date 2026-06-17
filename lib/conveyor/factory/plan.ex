@@ -82,5 +82,9 @@ defmodule Conveyor.Factory.Plan do
     has_many :audits, Conveyor.Factory.PlanAudit do
       public? true
     end
+
+    has_many :epics, Conveyor.Factory.Epic do
+      public? true
+    end
   end
 end
