@@ -8,7 +8,8 @@ defmodule Conveyor.MixProject do
       elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       dialyzer: [
-        ignore_warnings: ".dialyzer_ignore.exs"
+        ignore_warnings: ".dialyzer_ignore.exs",
+        plt_add_apps: [:ex_unit]
       ],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -35,18 +36,18 @@ defmodule Conveyor.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.8"},
-      {:phoenix_ecto, "~> 4.5"},
+      {:phoenix, "~> 1.8.8"},
+      {:phoenix_ecto, "~> 4.7"},
       {:ecto_sql, "~> 3.14"},
-      {:postgrex, ">= 0.0.0"},
-      {:ash, "~> 3.0"},
-      {:ash_postgres, "~> 2.0"},
-      {:oban, "~> 2.19"},
+      {:postgrex, "~> 0.22"},
+      {:ash, "~> 3.29"},
+      {:ash_postgres, "~> 2.10"},
+      {:oban, "~> 2.23"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
-      {:bandit, "~> 1.5"},
+      {:bandit, "~> 1.12"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

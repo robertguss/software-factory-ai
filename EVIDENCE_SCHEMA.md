@@ -40,6 +40,7 @@ is not copied from an agent final message unless independently checked.
 | `schema_version` | Exact schema version. |
 | `run_spec_sha256` | Digest of the RunSpec that produced this evidence. |
 | `slice_id` | Slice being proven. |
+| `runtime_versions` | Runtime snapshot for Elixir, OTP, Phoenix, Ash, Oban, Docker, sandbox runner, agent adapter, and toolchain image digest. |
 | `acceptance_criteria_evidence[]` | Criterion refs, status, and evidence refs. |
 | `commands[]` | Rerun or recorded commands with status and log refs. |
 | `artifacts[]` | Content-addressed artifact references. |
@@ -75,6 +76,10 @@ references:
 Command evidence may point to redacted projections, but the manifest must retain
 the digest relationship to the raw artifact when policy allows retaining raw
 bytes.
+
+`runtime_versions` is copied into evidence even though RunSpec also records it.
+That keeps exported evidence interpretable when it is reviewed outside the
+database or after dependencies have moved forward.
 
 ## Tool Invocation Evidence
 
