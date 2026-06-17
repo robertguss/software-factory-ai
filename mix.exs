@@ -9,7 +9,7 @@ defmodule Conveyor.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       dialyzer: [
         ignore_warnings: ".dialyzer_ignore.exs",
-        plt_add_apps: [:ex_unit]
+        plt_add_apps: [:ex_unit, :mix]
       ],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
