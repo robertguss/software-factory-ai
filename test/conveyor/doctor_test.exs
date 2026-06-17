@@ -29,6 +29,9 @@ defmodule Conveyor.DoctorTest do
       )
 
     assert_failed(result, :docker)
+
+    assert Doctor.exit_code(result) ==
+             Conveyor.CLI.ExitCodes.fetch!(:infrastructure_or_doctor_failure)
   end
 
   test "fails when Postgres is unreachable" do
@@ -41,6 +44,9 @@ defmodule Conveyor.DoctorTest do
       )
 
     assert_failed(result, :postgres)
+
+    assert Doctor.exit_code(result) ==
+             Conveyor.CLI.ExitCodes.fetch!(:infrastructure_or_doctor_failure)
   end
 
   test "fails when policy profiles are missing" do
@@ -54,6 +60,9 @@ defmodule Conveyor.DoctorTest do
       )
 
     assert_failed(result, :policy_profiles)
+
+    assert Doctor.exit_code(result) ==
+             Conveyor.CLI.ExitCodes.fetch!(:policy_or_secret_safety_violation)
   end
 
   test "fails when no verify command specs are configured" do
@@ -72,6 +81,9 @@ defmodule Conveyor.DoctorTest do
       )
 
     assert_failed(result, :test_commands)
+
+    assert Doctor.exit_code(result) ==
+             Conveyor.CLI.ExitCodes.fetch!(:infrastructure_or_doctor_failure)
   end
 
   defp scaffold_project! do
@@ -93,6 +105,9 @@ defmodule Conveyor.DoctorTest do
 
   defp assert_failed(result, check) do
     assert result.status == :failed
-    assert Enum.any?(result.findings, &(&1.check == check and &1.severity == :failure))
+    assert finding = Enum.find(result.findings, &(&1.check == check and &1.severity == :failure))
+    assert [%Conveyor.CLI.NextAction{command: "mix conveyor.doctor"} | _] = finding.next_actions
+    assert Doctor.format(result) =~ "NextAction:"
+    assert Doctor.format(result) =~ "rerun: mix conveyor.doctor"
   end
 end
