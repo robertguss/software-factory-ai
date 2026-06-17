@@ -78,5 +78,9 @@ defmodule Conveyor.Factory.Project do
     has_many :toolchain_profiles, Conveyor.Factory.ToolchainProfile do
       public? true
     end
+
+    has_many :plans, Conveyor.Factory.Plan do
+      public? true
+    end
   end
 end
