@@ -20,8 +20,7 @@ defmodule Mix.Tasks.Conveyor.Init do
     {"policies/implement.toml", ".conveyor/policies/implement.toml"},
     {"policies/verify.toml", ".conveyor/policies/verify.toml"},
     {"prompts/implementation-prompt@1.md", ".conveyor/prompts/implementation-prompt@1.md"},
-    {"prompts/reviewer@1.md", ".conveyor/prompts/reviewer@1.md"},
-    {"AGENTS.md", "AGENTS.md"}
+    {"prompts/reviewer@1.md", ".conveyor/prompts/reviewer@1.md"}
   ]
 
   @impl Mix.Task
@@ -47,6 +46,8 @@ defmodule Mix.Tasks.Conveyor.Init do
       copy_template!(project_path, template, destination)
     end)
 
+    generate_agents!(project_path)
+
     :ok
   end
 
@@ -68,6 +69,17 @@ defmodule Mix.Tasks.Conveyor.Init do
       |> File.cp!(destination_path)
 
       Mix.shell().info([:green, "* created ", :reset, destination_path])
+    end
+  end
+
+  defp generate_agents!(project_path) do
+    destination_path = Path.join(project_path, "AGENTS.md")
+
+    if File.exists?(destination_path) do
+      Mix.shell().info([:yellow, "* exists  ", :reset, destination_path])
+    else
+      path = Conveyor.AgentsMd.write!(project_path, overwrite?: false)
+      Mix.shell().info([:green, "* created ", :reset, path])
     end
   end
 
