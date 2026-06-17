@@ -63,5 +63,9 @@ defmodule Conveyor.Factory.ToolchainProfile do
       allow_nil? true
       public? true
     end
+
+    has_many :run_specs, Conveyor.Factory.RunSpec do
+      public? true
+    end
   end
 end
