@@ -24,5 +24,9 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.VerificationSuite
     resource Conveyor.Factory.TestPackCalibration
     resource Conveyor.Factory.RunSpec
+    resource Conveyor.Factory.RunAttempt
+    resource Conveyor.Factory.AgentSession
+    resource Conveyor.Factory.StationRun
+    resource Conveyor.Factory.StationEffect
   end
 end

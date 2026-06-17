@@ -128,6 +128,10 @@ defmodule Conveyor.Factory.RunSpec do
       allow_nil? true
       public? true
     end
+
+    has_many :run_attempts, Conveyor.Factory.RunAttempt do
+      public? true
+    end
   end
 
   identities do
