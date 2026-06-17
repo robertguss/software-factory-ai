@@ -98,6 +98,11 @@ defmodule Conveyor.Factory.AgentBrief do
       allow_nil? false
       public? true
     end
+
+    has_many :run_prompts, Conveyor.Factory.RunPrompt do
+      destination_attribute :brief_id
+      public? true
+    end
   end
 
   identities do

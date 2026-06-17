@@ -39,5 +39,9 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.RunBundle
     resource Conveyor.Factory.ReviewerHealth
     resource Conveyor.Factory.GateHealth
+    resource Conveyor.Factory.ContextPack
+    resource Conveyor.Factory.InstructionSource
+    resource Conveyor.Factory.CodeQualityRun
+    resource Conveyor.Factory.RunPrompt
   end
 end

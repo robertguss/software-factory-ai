@@ -109,6 +109,14 @@ defmodule Conveyor.Factory.Slice do
     has_many :station_runs, Conveyor.Factory.StationRun do
       public? true
     end
+
+    has_many :context_packs, Conveyor.Factory.ContextPack do
+      public? true
+    end
+
+    has_many :run_prompts, Conveyor.Factory.RunPrompt do
+      public? true
+    end
   end
 
   identities do

@@ -94,5 +94,9 @@ defmodule Conveyor.Factory.Project do
     has_many :gate_health_checks, Conveyor.Factory.GateHealth do
       public? true
     end
+
+    has_many :code_quality_runs, Conveyor.Factory.CodeQualityRun do
+      public? true
+    end
   end
 end
