@@ -35,6 +35,22 @@ defmodule Conveyor.Factory.HumanDecision do
       public? true
     end
 
+    attribute :section_ref, :string do
+      allow_nil? false
+      public? true
+    end
+
+    attribute :source_span, :map do
+      allow_nil? false
+      default %{}
+      public? true
+    end
+
+    attribute :contract_sha256, :string do
+      allow_nil? false
+      public? true
+    end
+
     attribute :status, :atom do
       allow_nil? false
       constraints one_of: [:active, :superseded]

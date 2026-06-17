@@ -86,7 +86,10 @@ defmodule Conveyor.Factory.PlanQualityResourcesTest do
       plan_id: plan.id,
       stable_key: "DEC-001",
       decision: "Do not add authentication in Phase 1.",
-      rationale: "Keep the tracer bullet focused on one low-risk API behavior."
+      rationale: "Keep the tracer bullet focused on one low-risk API behavior.",
+      section_ref: "decisions/DEC-001",
+      source_span: %{},
+      contract_sha256: plan.contract_sha256
     }
 
     decision = Ash.create!(HumanDecision, attrs, domain: Factory)
