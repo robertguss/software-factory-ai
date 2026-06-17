@@ -93,6 +93,14 @@ defmodule Conveyor.Factory.RunAttempt do
     has_many :station_runs, Conveyor.Factory.StationRun do
       public? true
     end
+
+    has_many :patch_sets, Conveyor.Factory.PatchSet do
+      public? true
+    end
+
+    has_many :risk_assessments, Conveyor.Factory.RiskAssessment do
+      public? true
+    end
   end
 
   identities do

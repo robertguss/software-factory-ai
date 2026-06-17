@@ -110,6 +110,10 @@ defmodule Conveyor.Factory.StationRun do
     has_many :effects, Conveyor.Factory.StationEffect do
       public? true
     end
+
+    has_many :workspace_materializations, Conveyor.Factory.WorkspaceMaterialization do
+      public? true
+    end
   end
 
   identities do
