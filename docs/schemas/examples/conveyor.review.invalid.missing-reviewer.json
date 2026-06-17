@@ -1,0 +1,24 @@
+{
+  "schema_version": "conveyor.review@1",
+  "run_spec_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "verdict": "accepted",
+  "rubric": {
+    "correctness": {
+      "status": "pass",
+      "notes": "Acceptance evidence maps to the required tests."
+    },
+    "tests": {
+      "status": "pass",
+      "notes": "Required tests are present and passing."
+    },
+    "security": {
+      "status": "pass",
+      "notes": "No new policy risk found."
+    },
+    "maintainability": {
+      "status": "pass",
+      "notes": "Patch is focused."
+    }
+  },
+  "findings": []
+}
