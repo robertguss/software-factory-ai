@@ -2,8 +2,8 @@ defmodule Conveyor.RunSliceTest do
   use Conveyor.DataCase, async: false
 
   alias Conveyor.Factory
-  alias Conveyor.Factory.EventOutbox
   alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.EventOutbox
   alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
