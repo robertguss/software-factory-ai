@@ -137,9 +137,21 @@ defmodule Conveyor.DoctorTest do
     assert_failed(result, :sandbox_constraints)
   end
 
+  # System.unique_integer resets per VM, so add a timestamp and wipe any leftover dir to
+  # avoid landing on a prior run's populated git repo (a source of flaky git failures).
+  defp doctor_project_path! do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "conveyor-doctor-#{System.system_time(:nanosecond)}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(path)
+    path
+  end
+
   defp scaffold_project! do
-    project_path =
-      Path.join(System.tmp_dir!(), "conveyor-doctor-#{System.unique_integer([:positive])}")
+    project_path = doctor_project_path!()
 
     capture_io(fn ->
       Mix.Tasks.Conveyor.Init.scaffold!(project_path)
@@ -150,8 +162,7 @@ defmodule Conveyor.DoctorTest do
   end
 
   defp scaffold_project_with_sample_repo! do
-    project_path =
-      Path.join(System.tmp_dir!(), "conveyor-doctor-#{System.unique_integer([:positive])}")
+    project_path = doctor_project_path!()
 
     sample_path = Path.join(project_path, "samples/tasks_service")
 

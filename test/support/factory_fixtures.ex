@@ -124,9 +124,13 @@ defmodule Conveyor.FactoryFixtures do
     path =
       Path.join(
         System.tmp_dir!(),
-        "conveyor-#{label}-#{System.unique_integer([:positive])}"
+        "conveyor-#{label}-#{System.system_time(:nanosecond)}-#{System.unique_integer([:positive])}"
       )
 
+    # System.unique_integer resets per VM, so without the timestamp + an explicit wipe a
+    # fresh run can land on a leftover temp dir from a prior run (a populated git repo),
+    # which surfaces as flaky "nothing to commit" / stale-stat git failures.
+    File.rm_rf!(path)
     File.mkdir_p!(path)
     path
   end
