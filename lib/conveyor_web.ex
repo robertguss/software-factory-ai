@@ -26,6 +26,7 @@ defmodule ConveyorWeb do
       # Import common connection and controller functions to use in pipelines
       import Plug.Conn
       import Phoenix.Controller
+      import Phoenix.LiveView.Router
     end
   end
 
@@ -42,6 +43,15 @@ defmodule ConveyorWeb do
         layouts: [html: ConveyorWeb.Layouts]
 
       import Plug.Conn
+
+      unquote(verified_routes())
+    end
+  end
+
+  def live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: false
 
       unquote(verified_routes())
     end
