@@ -11,9 +11,13 @@ defmodule Conveyor.Evidence.VerificationRerunner do
   defmodule Result do
     @moduledoc false
 
-    @type t :: %__MODULE__{status: :passed | :failed, suites: [map()]}
+    @type t :: %__MODULE__{
+            status: :passed | :failed,
+            suites: [map()],
+            reproducibility: map() | nil
+          }
     @enforce_keys [:status, :suites]
-    defstruct [:status, :suites]
+    defstruct [:status, :suites, :reproducibility]
   end
 
   @suite_kinds [:baseline_regression, :acceptance_locked]
@@ -33,10 +37,68 @@ defmodule Conveyor.Evidence.VerificationRerunner do
     %Result{status: status, suites: suites}
   end
 
+  @spec run_reproducible!(RunSpec.t(), keyword()) :: Result.t()
+  def run_reproducible!(%RunSpec{} = run_spec, opts \\ []) do
+    agent_runner = Keyword.fetch!(opts, :agent_runner)
+    gate_runner = Keyword.fetch!(opts, :gate_runner)
+    run_opts = Keyword.drop(opts, [:agent_runner, :gate_runner])
+
+    agent_result = run!(run_spec, Keyword.put(run_opts, :runner, agent_runner))
+    gate_result = run!(run_spec, Keyword.put(run_opts, :runner, gate_runner))
+    reproducibility = reproducibility(agent_result, gate_result)
+
+    status =
+      if agent_result.status == :passed and gate_result.status == :passed and
+           reproducibility["status"] == "passed" do
+        :passed
+      else
+        :failed
+      end
+
+    %Result{status: status, suites: gate_result.suites, reproducibility: reproducibility}
+  end
+
   defp suites(slice_id) do
     VerificationSuite
     |> Ash.read!(domain: Factory)
     |> Enum.filter(&(&1.slice_id == slice_id and &1.suite_kind in @suite_kinds))
+  end
+
+  defp reproducibility(agent_result, gate_result) do
+    agent_digest = digest(agent_result.suites)
+    gate_digest = digest(gate_result.suites)
+
+    findings =
+      if agent_digest == gate_digest do
+        []
+      else
+        [
+          %{
+            "category" => "clean_container_divergence",
+            "severity" => "blocking",
+            "agent_status" => Atom.to_string(agent_result.status),
+            "gate_status" => Atom.to_string(gate_result.status),
+            "agent_sha256" => agent_digest,
+            "gate_sha256" => gate_digest
+          }
+        ]
+      end
+
+    %{
+      "status" => if(findings == [], do: "passed", else: "failed"),
+      "agent_status" => Atom.to_string(agent_result.status),
+      "gate_status" => Atom.to_string(gate_result.status),
+      "agent_sha256" => agent_digest,
+      "gate_sha256" => gate_digest,
+      "findings" => findings
+    }
+  end
+
+  defp digest(value) do
+    value
+    |> canonical_json()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
   end
 
   defp run_suite(suite, opts) do
@@ -190,4 +252,22 @@ defmodule Conveyor.Evidence.VerificationRerunner do
   defp result_value(result, key, default) when is_map(result) do
     Map.get(result, key, Map.get(result, Atom.to_string(key), default))
   end
+
+  defp canonical_json(value) when is_map(value) do
+    body =
+      value
+      |> Enum.sort_by(fn {key, _value} -> to_string(key) end)
+      |> Enum.map(fn {key, nested} ->
+        Jason.encode!(to_string(key)) <> ":" <> canonical_json(nested)
+      end)
+      |> Enum.join(",")
+
+    "{" <> body <> "}"
+  end
+
+  defp canonical_json(value) when is_list(value),
+    do: "[" <> Enum.map_join(value, ",", &canonical_json/1) <> "]"
+
+  defp canonical_json(value) when is_atom(value), do: value |> Atom.to_string() |> Jason.encode!()
+  defp canonical_json(value), do: Jason.encode!(value)
 end

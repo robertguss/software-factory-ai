@@ -167,6 +167,76 @@ defmodule Conveyor.VerificationRerunnerTest do
              1
   end
 
+  test "passes clean-container reproducibility when agent and gate results match", %{
+    project: project,
+    run_spec: run_spec,
+    slice: slice
+  } do
+    Ash.create!(
+      VerificationSuite,
+      suite_attrs(project.id, slice.id, :acceptance_locked, [
+        command_spec("acceptance", ["mix", "test"], result_format: "json")
+      ]),
+      domain: Factory
+    )
+
+    runner = fn %{"key" => "acceptance"} ->
+      %{exit_code: 0, stdout: Jason.encode!(%{tests: [%{id: "acceptance-1", status: "passed"}]})}
+    end
+
+    result =
+      VerificationRerunner.run_reproducible!(run_spec,
+        agent_runner: runner,
+        gate_runner: runner
+      )
+
+    assert result.status == :passed
+    assert result.reproducibility["status"] == "passed"
+    assert result.reproducibility["findings"] == []
+    assert result.reproducibility["agent_sha256"] == result.reproducibility["gate_sha256"]
+  end
+
+  test "fails clean-container reproducibility when gate result diverges from agent result", %{
+    project: project,
+    run_spec: run_spec,
+    slice: slice
+  } do
+    Ash.create!(
+      VerificationSuite,
+      suite_attrs(project.id, slice.id, :acceptance_locked, [
+        command_spec("acceptance", ["mix", "test"], result_format: "json")
+      ]),
+      domain: Factory
+    )
+
+    agent_runner = fn %{"key" => "acceptance"} ->
+      %{exit_code: 0, stdout: Jason.encode!(%{tests: [%{id: "acceptance-1", status: "passed"}]})}
+    end
+
+    gate_runner = fn %{"key" => "acceptance"} ->
+      %{exit_code: 1, stdout: Jason.encode!(%{tests: [%{id: "acceptance-1", status: "failed"}]})}
+    end
+
+    result =
+      VerificationRerunner.run_reproducible!(run_spec,
+        agent_runner: agent_runner,
+        gate_runner: gate_runner
+      )
+
+    assert result.status == :failed
+    assert result.reproducibility["status"] == "failed"
+    assert result.reproducibility["agent_status"] == "passed"
+    assert result.reproducibility["gate_status"] == "failed"
+    assert result.reproducibility["agent_sha256"] != result.reproducibility["gate_sha256"]
+
+    assert [
+             %{
+               "category" => "clean_container_divergence",
+               "severity" => "blocking"
+             }
+           ] = result.reproducibility["findings"]
+  end
+
   defp suite_attrs(project_id, slice_id, suite_kind, command_specs) do
     %{
       project_id: project_id,
