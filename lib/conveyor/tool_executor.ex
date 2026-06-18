@@ -8,6 +8,7 @@ defmodule Conveyor.ToolExecutor do
   alias Conveyor.Factory.ToolInvocation
   alias Conveyor.Policy.Engine
   alias Conveyor.Policy.NormalizedCommand
+  alias Conveyor.Policy.ViolationHandler
   alias Conveyor.Sandbox.Runner
 
   @trusted_invocation_kind "tool_executor"
@@ -18,11 +19,12 @@ defmodule Conveyor.ToolExecutor do
     @type t :: %__MODULE__{
             decision: Engine.Decision.t(),
             invocation: ToolInvocation.t(),
-            execution: Runner.Result.t() | nil
+            execution: Runner.Result.t() | nil,
+            violation: ViolationHandler.Result.t() | nil
           }
 
-    @enforce_keys [:decision, :invocation, :execution]
-    defstruct [:decision, :invocation, :execution]
+    @enforce_keys [:decision, :invocation, :execution, :violation]
+    defstruct [:decision, :invocation, :execution, :violation]
   end
 
   @spec execute!(NormalizedCommand.t(), Policy.t(), keyword()) :: Result.t()
@@ -38,13 +40,15 @@ defmodule Conveyor.ToolExecutor do
         invocation =
           record_invocation!(command, policy, decision, started_at, execution, opts)
 
-        %Result{decision: decision, invocation: invocation, execution: execution}
+        %Result{decision: decision, invocation: invocation, execution: execution, violation: nil}
 
       :blocked ->
         invocation =
           record_invocation!(command, policy, decision, started_at, nil, opts)
 
-        %Result{decision: decision, invocation: invocation, execution: nil}
+        violation = ViolationHandler.record!(decision, invocation, opts)
+
+        %Result{decision: decision, invocation: invocation, execution: nil, violation: violation}
     end
   end
 
