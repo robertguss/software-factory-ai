@@ -6,6 +6,7 @@ defmodule Conveyor.RunGateCanaryTest do
   alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.GateHealth
   alias Conveyor.Gate.StageResult
   alias Conveyor.Jobs.RunGateCanary
 
@@ -48,6 +49,7 @@ defmodule Conveyor.RunGateCanaryTest do
     assert summary["case_count"] == 9
     assert summary["false_negative_count"] == 0
     assert summary["false_positive_count"] == 0
+    assert summary["ci_exit_code"] == 0
     assert Enum.all?(summary["mutants"], &(&1["outcome"] == "rejected_expected"))
     assert Enum.all?(summary["mutants"], & &1["matched_expected"])
   end
@@ -58,6 +60,7 @@ defmodule Conveyor.RunGateCanaryTest do
     refute summary["passed"]
     assert summary["known_good"]["outcome"] == "passed"
     assert summary["false_negative_count"] == 8
+    assert summary["ci_exit_code"] == 6
     assert Enum.all?(summary["mutants"], &(&1["outcome"] == "false_negative"))
   end
 
@@ -90,6 +93,28 @@ defmodule Conveyor.RunGateCanaryTest do
     assert written["case_count"] == 9
   end
 
+  test "updates GateHealth summary for the current freshness key" do
+    fixture = create_artifact_run!(blob_root: temp_dir!("gate-canary-health"))
+
+    summary =
+      run_canary(FixtureGateStage,
+        project_id: fixture.project.id,
+        context: gate_context(fixture.project.id)
+      )
+
+    assert summary["gate_health_id"]
+
+    [health] =
+      GateHealth
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.project_id == fixture.project.id))
+
+    assert health.passed
+    assert health.false_negative_count == 0
+    assert health.last_run_ref == "samples/tasks_service/.conveyor/canary/mutants.json"
+    assert health.freshness_key_sha256
+  end
+
   defp run_canary(stage, opts \\ []) do
     RunGateCanary.run!(
       Keyword.merge(
@@ -102,12 +127,18 @@ defmodule Conveyor.RunGateCanaryTest do
     )
   end
 
-  defp gate_context do
+  defp gate_context(project_id \\ nil) do
     %{
+      project_id: project_id,
       run_attempt_id: "run-attempt-canary",
       gate_code_sha256: "sha256:gate",
       policy_sha256: "sha256:policy",
-      contract_lock_sha256: "sha256:contract"
+      contract_lock_sha256: "sha256:contract",
+      test_pack_sha256: "sha256:test-pack",
+      container_image_digest: "sha256:image",
+      code_quality_profile_sha256: "sha256:quality",
+      canary_suite_version: "canary@1",
+      runcheck_schema_version: "conveyor.run_bundle@1"
     }
   end
 end
