@@ -5,12 +5,12 @@ defmodule Conveyor.RunAttemptLifecycle do
 
   alias Conveyor.Factory
   alias Conveyor.Factory.Epic
-  alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.RunSpec
   alias Conveyor.Factory.Slice
+  alias Conveyor.Ledger
   alias Conveyor.Repo
 
   @spec transition!(struct(), atom(), keyword()) :: struct()
@@ -121,8 +121,7 @@ defmodule Conveyor.RunAttemptLifecycle do
     actor = Keyword.get(opts, :actor, "system")
     reason = Keyword.get(opts, :reason, "run attempt transition")
 
-    Ash.create!(
-      LedgerEvent,
+    Ledger.write!(
       %{
         project_id: project.id,
         slice_id: attempt.slice_id,
@@ -141,7 +140,6 @@ defmodule Conveyor.RunAttemptLifecycle do
         },
         occurred_at: occurred_at
       },
-      domain: Factory,
       return_notifications?: true
     )
   end
@@ -151,8 +149,7 @@ defmodule Conveyor.RunAttemptLifecycle do
     actor = Keyword.get(opts, :actor, "system")
     reason = Keyword.get(opts, :reason, "run attempt retry")
 
-    Ash.create!(
-      LedgerEvent,
+    Ledger.write!(
       %{
         project_id: project.id,
         slice_id: retry_attempt.slice_id,
@@ -171,7 +168,6 @@ defmodule Conveyor.RunAttemptLifecycle do
         },
         occurred_at: occurred_at
       },
-      domain: Factory,
       return_notifications?: true
     )
   end
