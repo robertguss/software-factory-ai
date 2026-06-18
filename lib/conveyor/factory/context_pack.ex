@@ -33,6 +33,8 @@ defmodule Conveyor.Factory.ContextPack do
       public?: true
 
     attribute :code_quality_refs, {:array, :string}, allow_nil?: false, default: [], public?: true
+
+    create_timestamp :created_at
   end
 
   relationships do
