@@ -62,6 +62,7 @@ defmodule Conveyor.Sandbox.DockerRunnerTest do
     assert Enum.any?(create_args, &String.contains?(&1, "#{materialized.path}:/workspace:rw"))
     assert adjacent_args?(create_args, "--user", "65532:65532")
     assert adjacent_args?(create_args, "--network", "none")
+    refute adjacent_args?(create_args, "--network", "host")
     assert adjacent_args?(create_args, "--security-opt", "no-new-privileges:true")
     assert adjacent_args?(create_args, "--cap-drop", "ALL")
     assert adjacent_args?(create_args, "--pids-limit", "256")
