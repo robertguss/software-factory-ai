@@ -26,7 +26,8 @@ defmodule Conveyor.Sandbox.DockerRunner do
          {:ok, paths} <- prepare_workspace_paths(run_spec, opts),
          {:ok, project_path} <- archive_checkout(source, run_spec.base_commit, paths, opts),
          {:ok, container_id} <- create_container(project_path, image_ref(run_spec, opts), opts),
-         {:ok, workspace} <- record_workspace(run_spec, project_path, container_id, opts) do
+         {:ok, workspace} <-
+           record_workspace(run_spec, project_path, paths.root_path, container_id, opts) do
       {:ok,
        %Materialized{
          workspace: workspace,
@@ -168,7 +169,7 @@ defmodule Conveyor.Sandbox.DockerRunner do
     end
   end
 
-  defp record_workspace(run_spec, project_path, container_id, opts) do
+  defp record_workspace(run_spec, project_path, root_path, container_id, opts) do
     workspace =
       Ash.create!(
         WorkspaceMaterialization,
@@ -178,6 +179,7 @@ defmodule Conveyor.Sandbox.DockerRunner do
           purpose: Keyword.get(opts, :purpose, :implement),
           base_commit: run_spec.base_commit,
           path: project_path,
+          root_path: root_path,
           container_id: container_id,
           mount_mode: Keyword.get(opts, :mount_mode, :read_write),
           head_tree_sha256: WorkspaceCleanup.tree_sha256(project_path),
