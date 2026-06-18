@@ -6,10 +6,10 @@ defmodule Conveyor.SliceLifecycle do
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentBrief
   alias Conveyor.Factory.Epic
-  alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.Slice
+  alias Conveyor.Ledger
   alias Conveyor.Repo
 
   @spec transition!(struct(), atom(), keyword()) :: struct()
@@ -154,8 +154,7 @@ defmodule Conveyor.SliceLifecycle do
     actor = Keyword.get(opts, :actor, "system")
     reason = Keyword.get(opts, :reason, "slice transition")
 
-    Ash.create!(
-      LedgerEvent,
+    Ledger.write!(
       %{
         project_id: project.id,
         slice_id: slice.id,
@@ -171,7 +170,6 @@ defmodule Conveyor.SliceLifecycle do
         },
         occurred_at: occurred_at
       },
-      domain: Factory,
       return_notifications?: true
     )
   end
