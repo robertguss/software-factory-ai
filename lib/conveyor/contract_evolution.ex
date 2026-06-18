@@ -39,6 +39,14 @@ defmodule Conveyor.ContractEvolution do
   defmodule Rerun do
     @moduledoc false
 
+    @type t :: %__MODULE__{
+            diff: Conveyor.ContractEvolution.Diff.t(),
+            contract_lock: struct(),
+            run_spec: struct(),
+            run_attempt: struct(),
+            human_decision: struct()
+          }
+
     @enforce_keys [:diff, :contract_lock, :run_spec, :run_attempt, :human_decision]
     defstruct [:diff, :contract_lock, :run_spec, :run_attempt, :human_decision]
   end
