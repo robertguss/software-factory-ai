@@ -1,9 +1,9 @@
 # Conveyor — REV2 Applied Diff (original Ultimate-Hybrid → REV2)
 
-> **Companion to** `docs/5_compare_plans_round_2/claude_opus_4_8.md` (the round-2
-> review). That document holds the _analysis and rationale_ for each revision;
-> this document is the **actual unified diff** of the changes as applied to the
-> plan.
+> **Companion to** `docs/5_compare_plans_round_2/claude_opus_4_8.md` (the
+> round-2 review). That document holds the _analysis and rationale_ for each
+> revision; this document is the **actual unified diff** of the changes as
+> applied to the plan.
 >
 > **Files**
 >
@@ -24,20 +24,20 @@
 
 ## Revision → location legend
 
-| Tag    | Change                                                                            | Sections                  |
-| ------ | --------------------------------------------------------------------------------- | ------------------------- |
-| **R1** | Live Battery (statistical pass@k / SPRT bands) split from the deterministic gate   | §0.3, §2.16, §17.2        |
-| **R2** | Mode-specific cassette freshness keys (recording keyed on generation surface only) | §2.8                      |
-| **R3** | Scoped, expiring `QualificationGrant`s (new resource) + rich env fingerprint        | §0.3, §2.7, §5.1, §15.4   |
-| **R4** | Throwaway end-to-end integration tracer pulled to the front                         | §18 (new P15.0a), §25     |
-| **R5** | Deterministic-by-construction provenance (model annotates only the residual)        | §6.1, §P2-S7              |
-| **R6** | First-class compiler-derived AC falsifiers                                          | §P2-S10, §P2-S11          |
-| **R7** | `MockDegraded` is the conformance gate; live 2nd adapter is confirmation             | §1.8, §2.7, §13.2, §17.1  |
-| **S1** | `verification` edge needs a Phase-4 gate it doesn't build — constrain or defer       | §8.1                      |
-| **S2** | Working vs. published revisions (anti revision-explosion)                            | §5.1                      |
-| **S3** | "What Conveyor did NOT evaluate" banner (compilation fidelity ≠ plan quality)        | §10.7                     |
-| **S4** | Planning-stage memoization                                                           | §13.6 (new)               |
-| **S5** | Interrogator-completeness-under-injection canary                                    | §16.4                     |
+| Tag    | Change                                                                             | Sections                 |
+| ------ | ---------------------------------------------------------------------------------- | ------------------------ |
+| **R1** | Live Battery (statistical pass@k / SPRT bands) split from the deterministic gate   | §0.3, §2.16, §17.2       |
+| **R2** | Mode-specific cassette freshness keys (recording keyed on generation surface only) | §2.8                     |
+| **R3** | Scoped, expiring `QualificationGrant`s (new resource) + rich env fingerprint       | §0.3, §2.7, §5.1, §15.4  |
+| **R4** | Throwaway end-to-end integration tracer pulled to the front                        | §18 (new P15.0a), §25    |
+| **R5** | Deterministic-by-construction provenance (model annotates only the residual)       | §6.1, §P2-S7             |
+| **R6** | First-class compiler-derived AC falsifiers                                         | §P2-S10, §P2-S11         |
+| **R7** | `MockDegraded` is the conformance gate; live 2nd adapter is confirmation           | §1.8, §2.7, §13.2, §17.1 |
+| **S1** | `verification` edge needs a Phase-4 gate it doesn't build — constrain or defer     | §8.1                     |
+| **S2** | Working vs. published revisions (anti revision-explosion)                          | §5.1                     |
+| **S3** | "What Conveyor did NOT evaluate" banner (compilation fidelity ≠ plan quality)      | §10.7                    |
+| **S4** | Planning-stage memoization                                                         | §13.6 (new)              |
+| **S5** | Interrogator-completeness-under-injection canary                                   | §16.4                    |
 
 The first two hunks are the header `Status` line + the REV2 changelog block.
 
@@ -50,7 +50,7 @@ index b86da97..164c94c 100644
 +++ b/docs/4_phase_2/PHASE-1.5-2-TRUST-QUALIFICATION-PLAN-COMPILER-CONTRACT-FOUNDRY-ULTIMATE-HYBRID-REV2.md
 @@ -1,7 +1,7 @@
  # Conveyor — Phase 1.5 + Phase 2: Trust Qualification, Plan Compiler & Contract Foundry
- 
+
 -> **Status:** ultimate hybrid brainstorming draft; not yet committed for
 -> implementation.
 +> **Status:** ultimate hybrid brainstorming draft — **revision REV2** (round-2
@@ -89,13 +89,13 @@ index b86da97..164c94c 100644
 +> - **S1–S5** — verification-edge consistency (§8.1), working/published revisions
 +>   (§5.1), a "what Conveyor did NOT evaluate" banner (§10.7), planning-stage
 +>   memoization (§13.6), and an interrogator-completeness canary (§16.4).
- 
+
  ---
- 
+
 @@ -162,9 +189,22 @@ protects the next trust boundary or creates a reusable primitive.
- 
+
  #### `qualification_gate`
- 
+
 -Proves the existing execution loop is fit to be amplified. It evaluates the
 -Battery, adapter conformance, test integrity, canary honesty, cassette freshness,
 -evidence comparison, and triage accuracy.
@@ -115,11 +115,11 @@ index b86da97..164c94c 100644
 +The gate therefore emits not a boolean badge but one or more scoped, expiring
 +**QualificationGrants** (R3): "adapter Y is qualified for archetype X at
 +success-rate ≥ p (confidence c), autonomy ≤ L, until <expiry>."
- 
+
  #### `phase2_gate`
- 
+
 @@ -302,8 +342,12 @@ The program is complete only when both release gates pass.
- 
+
  1. a content-addressed Battery covers representative archetypes and integrity
     traps;
 -2. the primary real adapter completes the full Battery and a second materially
@@ -134,9 +134,9 @@ index b86da97..164c94c 100644
  4. full replay is deterministic and hybrid replay reproduces live gate verdicts;
  5. the active required TestPack corpus has no unresolved vacuity, flake, or
 @@ -483,18 +527,26 @@ may widen it; Phase 1.5 does not.
- 
+
  ### 2.7 Adapter qualification
- 
+
 -The primary adapter must pass the entire live Battery. A second materially
 -independent adapter must pass:
 +The primary adapter must pass the deterministic-authority portion of the Battery
@@ -149,12 +149,12 @@ index b86da97..164c94c 100644
 +
 +A second materially-independent **live** adapter is a high-value confirmation —
 +not a build-gating condition — that should pass:
- 
+
  - the complete adapter conformance suite;
  - all policy and cancellation traps;
  - at least one success case from each major work class;
  - every trap whose behavior depends on adapter capabilities.
- 
+
 -A full second-adapter Battery is encouraged but not a hard release condition if
 -cost or provider instability would make the gate brittle. The point is to prove
 -that `AgentRunner` is a real abstraction and to expose capability mismatch, not
@@ -163,13 +163,13 @@ index b86da97..164c94c 100644
 +its purpose is to prove that `AgentRunner` survives contact with a real foreign
 +tool loop and to expose capability mismatch, while vendor availability stays out
 +of the gate.
- 
+
  Adapter capability snapshots include:
- 
+
 @@ -515,6 +567,17 @@ known_degradations[]
  The conductor deterministically derives the autonomy ceiling from this snapshot.
  No adapter name receives implicit trust.
- 
+
 +Qualification is **scoped and expiring**, not a global badge (R3).
 +`qualification_gate` emits one or more `QualificationGrant` records; every future
 +RunSpec/PlanningSpec must prove a _current_ grant covers its (adapter, agent
@@ -182,12 +182,12 @@ index b86da97..164c94c 100644
 +authorize work.
 +
  ### 2.8 Agent Cassettes: real stochastic behavior, reproducible conductor tests
- 
+
  Generalize the concept to `AgentCassette` so the same primitive can later record
 @@ -557,16 +620,30 @@ replay_proposal
    CI path.
  ```
- 
+
 -Freshness rules:
 -
 -- exact spec digest match is mandatory;
@@ -212,18 +212,18 @@ index b86da97..164c94c 100644
  - full replay cannot be cited as proof that the current gate rejects current
    mutants;
  - hybrid/live evidence is required for trust-gate freshness.
- 
+
 +Rationale: under a single broad key, every prompt or policy tweak invalidated the
 +whole cassette corpus, so the "cheap deterministic CI" promise evaporated during
 +active development. Mode-specific keys give cassettes a useful half-life.
 +
  ### 2.9 Test-Integrity Sentinel
- 
+
  Run after acceptance calibration and before readiness.
 @@ -739,8 +816,10 @@ candidate, not a sacred architecture component.
- 
+
  `mix conveyor.qualification_gate` passes only when:
- 
+
 -1. every active Battery case has the expected outcome in required live/hybrid
 -   coverage;
 +1. every active Battery case reaches its expected outcome under **hybrid replay**
@@ -236,7 +236,7 @@ index b86da97..164c94c 100644
 @@ -1144,6 +1223,37 @@ status ∈ locked | diverged | inconclusive
  created_at
  ```
- 
+
 +##### `QualificationGrant`
 +
 +The machine-enforced output of `qualification_gate` (R3): authority is scoped and
@@ -269,7 +269,7 @@ index b86da97..164c94c 100644
 +digest alone does not capture kernel- or architecture-sensitive behavior.
 +
  #### Phase-2 planning resources
- 
+
  ##### `ConstraintSet`
 @@ -1188,6 +1298,7 @@ source_document_ref
  normalized_contract_ref
@@ -282,7 +282,7 @@ index b86da97..164c94c 100644
 @@ -1197,6 +1308,13 @@ created_at
  The existing `Plan` remains the durable identity. The existing Phase-1 Plan is
  migrated or projected as revision 1.
- 
+
 +**Working vs. published revisions (S2).** Interactive authoring (clarification
 +answers, Workbench edits before approval) creates cheap **working** revisions that
 +may be squashed; only a **published** revision is approval-eligible and immutable
@@ -291,12 +291,12 @@ index b86da97..164c94c 100644
 +authoring session is not drowned in dozens of micro-revisions.
 +
  #### `PlanningSpec`
- 
+
  The planning analogue of `RunSpec`.
 @@ -1557,6 +1675,20 @@ The Workbench defaults to **inference-first review**:
- 
+
  No hidden assumption survives approval.
- 
+
 +**Provenance is assigned deterministically wherever it is decidable; the model
 +only annotates the residual (R5).** A model that self-reports
 +`origin: :human_explicit` is making an untrusted claim, and a forged or mistaken
@@ -312,7 +312,7 @@ index b86da97..164c94c 100644
 +and shrinks the trusted-model surface to the genuinely-inferred minority.
 +
  ### 6.2 Assumption register and decision debt
- 
+
  ```text
 @@ -1884,7 +2016,10 @@ The compiler:
  8. rejects impossible, orphaned, scope-added, or policy-incompatible Slices;
@@ -341,7 +341,7 @@ index b86da97..164c94c 100644
 @@ -2038,6 +2174,18 @@ Integrity status dimensions:
  - interface-oracle coverage;
  - contract strength assessment.
- 
+
 +**Compiler-derived falsifiers (independent of the Test Architect) (R6).** Role
 +separation is a weak guarantee when every role is the same base model — two
 +instances share blind spots and will mis-read the same ambiguous AC identically.
@@ -355,7 +355,7 @@ index b86da97..164c94c 100644
 +"cheapest wrong implementation" critic a floor of genuinely independent tests.
 +
  #### What is hard-blocking in Phase 2
- 
+
  Hard-block:
 @@ -2300,6 +2448,12 @@ Avoid treating every relationship as `blockedBy`.
    later eligible for stub parallelism.
@@ -373,7 +373,7 @@ index b86da97..164c94c 100644
 @@ -2610,6 +2764,16 @@ This is generated from canonical artifacts, clearly labeled as a summary, and
  never substitutes for evidence. The same mechanism can later support operator
  education and a “Conveyor Academy” experience without adding authority.
- 
+
 +**Fidelity is not quality (S3).** The `approval_summary.md` and Factory Chronicle
 +must carry an explicit "What Conveyor did NOT evaluate" banner: Conveyor verifies
 +that the _compilation faithfully represents the human's plan_ (scope fidelity,
@@ -385,7 +385,7 @@ index b86da97..164c94c 100644
 +convincing compiler.
 +
  ### 10.8 Static and headless parity
- 
+
  Everything required for approval or recovery is available through:
 @@ -3030,6 +3194,7 @@ Adapters behind `AgentRunner`:
  AgentRunner.PrimaryLive
@@ -393,12 +393,12 @@ index b86da97..164c94c 100644
  AgentRunner.Replay
 +AgentRunner.MockDegraded   # deterministic capability-mismatch conformance gate (R7)
  ```
- 
+
  The plan does not hardcode a vendor into the core. The secondary adapter is
 @@ -3093,6 +3258,17 @@ Allowed dimensions remain bounded: archetype, adapter, role, station, status,
  failure class, run mode, risk, and review lens. Raw paths, prompts, errors, and
  model prose remain artifacts rather than metric labels.
- 
+
 +### 13.6 Planning-stage memoization
 +
 +A content-addressed planning-stage cache keyed on each stage's input digest (S4).
@@ -411,7 +411,7 @@ index b86da97..164c94c 100644
 +shortcut: deterministic validators still re-run on the reused artifact's digest.
 +
  ## 14. Operator interface
- 
+
  Keep Mix tasks close to a future standalone CLI. Commands emit concise human
 @@ -3275,7 +3451,9 @@ image, result parser, mutation/integrity adapter, or code-impact extractor:
  - invalidates relevant cassettes and health summaries;
@@ -421,9 +421,9 @@ index b86da97..164c94c 100644
 +- is visible in EvidenceComparison;
 +- expires or downgrades every QualificationGrant whose `invalidation_triggers`
 +  match, so authority cannot outlive the evidence that earned it (R3).
- 
+
  ### 15.5 Safety invariants
- 
+
 @@ -3372,6 +3550,7 @@ matching_cassette_replayed
  bundle_byte_change_invalidates_approval
  prompt_injection_ignored
@@ -448,7 +448,7 @@ index b86da97..164c94c 100644
 @@ -3553,10 +3734,20 @@ The initial decision bands are deliberately conservative:
  | Hard blockers clear, but one archetype or adapter is materially weak | conditionally qualified | restrict scope/profile and open a targeted hardening branch |
  | Any hard blocker fails, or ordinary cases routinely require manual rescue | not qualified | do not automate decomposition yet |
- 
+
 -“Mostly” is converted into a numeric threshold only after the corpus is frozen
 -and the first unbiased run is recorded. The decision artifact must state the
 -sample size, confidence limitations, and any excluded case. Excluding a hard
@@ -467,13 +467,13 @@ index b86da97..164c94c 100644
 +
 +The decision artifact must state the sample size, confidence limitations, and any
 +excluded case. Excluding a hard case merely because it failed is prohibited.
- 
+
  ### 17.3 Phase 2 contract/compiler gate — hard correctness thresholds
- 
+
 @@ -3701,6 +3892,33 @@ Acceptance criteria:
  - a stop-the-line branch prevents later authority activation;
  - the decision can be regenerated from the referenced evidence.
- 
+
 +### P15.0a — End-to-end integration tracer (throwaway, time-boxed)
 +
 +The program's load-bearing bet — _a machine-generated contract can drive the
@@ -502,10 +502,10 @@ index b86da97..164c94c 100644
 +- it is reviewed before the Phase-2 schema freeze.
 +
  ### P15.1 — Canonical capability registry and qualification seams
- 
+
  Deliver:
 @@ -4918,6 +5136,7 @@ repair it before Phase 2.
- 
+
  ```text
  finish Phase 0/1
 +→ throwaway end-to-end integration tracer (one generated contract → real loop)
