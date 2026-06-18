@@ -1,12 +1,14 @@
 defmodule Conveyor.Sandbox.Runner do
   @moduledoc """
-  Minimal sandbox command runner used behind ToolExecutor.
+  Sandbox runner behaviour and minimal host command runner used behind ToolExecutor.
 
   The policy boundary lives in `Conveyor.ToolExecutor`; this module only runs a
   command that has already been normalized and allowed.
   """
 
+  alias Conveyor.Factory.RunSpec
   alias Conveyor.Policy.NormalizedCommand
+  alias Conveyor.Sandbox.Materialized
 
   defmodule Result do
     @moduledoc false
@@ -21,6 +23,11 @@ defmodule Conveyor.Sandbox.Runner do
     @enforce_keys [:exit_code, :stdout, :stderr, :duration_ms]
     defstruct [:exit_code, :stdout, :stderr, :duration_ms]
   end
+
+  @callback materialize(RunSpec.t(), keyword()) :: {:ok, Materialized.t()} | {:error, term()}
+  @callback exec(Materialized.t(), NormalizedCommand.t(), keyword()) ::
+              Result.t() | {:ok, Result.t()} | {:error, term()}
+  @callback destroy(Materialized.t(), keyword()) :: :ok | {:error, term()}
 
   @spec exec(NormalizedCommand.t()) :: Result.t()
   def exec(%NormalizedCommand{} = command) do
