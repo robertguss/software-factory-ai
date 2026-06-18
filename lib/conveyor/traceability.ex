@@ -311,7 +311,7 @@ defmodule Conveyor.Traceability do
   end
 
   defp slice_ref(slice, contract_slice) do
-    Map.get(contract_slice, "slice_ref") || "slice:#{slice.id}"
+    Map.get(contract_slice, "slice_ref") || "SLICE-#{pad(slice.position)}"
   end
 
   defp string_list(map, key) do

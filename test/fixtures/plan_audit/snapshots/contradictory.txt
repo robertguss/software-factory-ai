@@ -1,0 +1,11 @@
+Plan audit: blocked
+Clarity: 100%
+Acceptance coverage: 100%
+Testability: 100%
+Requirement traceability: 100%
+Architecture decisions: 100%
+Autonomy readiness: 100%
+Decision: blocked
+Blocking findings:
+- Requirements REQ-001 and REQ-002 contradict each other.
+  NextAction: Resolve the contradiction between REQ-001 and REQ-002.

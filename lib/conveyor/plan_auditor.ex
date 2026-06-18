@@ -98,6 +98,7 @@ defmodule Conveyor.PlanAuditor do
     findings =
       []
       |> Kernel.++(clarity_findings(contract, requirements))
+      |> Kernel.++(contradiction_findings(requirements))
       |> Kernel.++(acceptance_findings(traceability.requirement_map))
       |> Kernel.++(testability_findings(acceptance_criteria))
       |> Kernel.++(verification_command_findings(verification_commands))
@@ -239,6 +240,23 @@ defmodule Conveyor.PlanAuditor do
     end)
   end
 
+  defp contradiction_findings(requirements) do
+    claims =
+      requirements
+      |> Enum.map(&requirement_claim/1)
+      |> Enum.reject(&is_nil/1)
+
+    for {positive_key, claim} <- positive_claims(claims),
+        {negative_key, ^claim} <- negative_claims(claims),
+        positive_key < negative_key do
+      finding(
+        "Requirements #{positive_key} and #{negative_key} contradict each other.",
+        [positive_key, negative_key],
+        "Resolve the contradiction between #{positive_key} and #{negative_key}."
+      )
+    end
+  end
+
   defp testability_findings(acceptance_criteria) do
     acceptance_criteria
     |> Enum.filter(&(string_list(&1, "required_test_refs") == []))
@@ -333,12 +351,48 @@ defmodule Conveyor.PlanAuditor do
     }
   end
 
+  defp requirement_claim(requirement) do
+    key = Map.fetch!(requirement, "key")
+    text = requirement |> Map.get("text", "") |> normalize_text()
+
+    cond do
+      String.contains?(text, "must not ") ->
+        {key, :negative, String.replace(text, "must not ", "must ")}
+
+      String.contains?(text, "must ") ->
+        {key, :positive, text}
+
+      true ->
+        nil
+    end
+  end
+
+  defp positive_claims(claims) do
+    claims
+    |> Enum.filter(fn {_key, polarity, _claim} -> polarity == :positive end)
+    |> Enum.map(fn {key, _polarity, claim} -> {key, claim} end)
+  end
+
+  defp negative_claims(claims) do
+    claims
+    |> Enum.filter(fn {_key, polarity, _claim} -> polarity == :negative end)
+    |> Enum.map(fn {key, _polarity, claim} -> {key, claim} end)
+  end
+
   defp maybe_add(findings, true, finding), do: [finding | findings]
   defp maybe_add(findings, false, _finding), do: findings
 
   defp vague?(text) do
     normalized = String.downcase(text)
     Enum.any?(@vague_terms, &String.contains?(normalized, &1))
+  end
+
+  defp normalize_text(text) do
+    text
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9 ]+/, "")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
   end
 
   defp string_list(map, key) do

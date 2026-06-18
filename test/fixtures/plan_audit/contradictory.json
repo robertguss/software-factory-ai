@@ -1,0 +1,63 @@
+{
+  "schema_version": "conveyor.plan@1",
+  "project": {
+    "key": "sample_tasks",
+    "base_ref": "main"
+  },
+  "goal": "Extend the sample tasks API so tasks can be marked complete.",
+  "non_goals": ["Authentication", "Pagination"],
+  "requirements": [
+    {
+      "key": "REQ-001",
+      "text": "Tasks must allow completion.",
+      "risk": "low",
+      "source_ref": "plan.md#requirement-req-001",
+      "status": "covered"
+    },
+    {
+      "key": "REQ-002",
+      "text": "Tasks must not allow completion.",
+      "risk": "high",
+      "source_ref": "plan.md#requirement-req-002",
+      "status": "covered"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "key": "AC-001",
+      "text": "Tasks can be completed.",
+      "requirement_refs": ["REQ-001"],
+      "required_test_refs": ["tests/test_tasks.py::test_complete_task"]
+    },
+    {
+      "key": "AC-002",
+      "text": "Task completion remains unavailable.",
+      "requirement_refs": ["REQ-002"],
+      "required_test_refs": ["tests/test_tasks.py::test_completion_unavailable"]
+    }
+  ],
+  "verification_commands": [
+    {
+      "key": "pytest",
+      "argv": ["pytest", "-q"],
+      "profile": "verify"
+    }
+  ],
+  "decisions": [
+    {
+      "key": "DEC-001",
+      "decision": "Do not add authentication in Phase 1.",
+      "rationale": "Keep the tracer bullet focused on one low-risk API behavior."
+    }
+  ],
+  "slices": [
+    {
+      "key": "SLICE-001",
+      "title": "Add complete-a-task endpoint",
+      "requirement_refs": ["REQ-001", "REQ-002"],
+      "likely_files": ["app/main.py", "tests/test_tasks.py"],
+      "conflict_domains": ["tasks_api"],
+      "autonomy_ceiling": "L1"
+    }
+  ]
+}
