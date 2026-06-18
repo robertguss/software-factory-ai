@@ -194,7 +194,7 @@ defmodule Conveyor.AgentRunner.PatchCapture do
   end
 
   defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 
   defp field(struct, primary, fallback) do
     field(struct, primary) || field(struct, fallback)
