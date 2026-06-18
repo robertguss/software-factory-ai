@@ -53,10 +53,11 @@ defmodule Conveyor.CodeQualityAdapter.LocalPython do
   end
 
   defp discover_files(project_root) do
-    project_root
-    |> Path.expand()
+    root = Path.expand(project_root)
+
+    root
     |> walk_files()
-    |> Enum.map(&Path.relative_to(&1, project_root))
+    |> Enum.map(&Path.relative_to(&1, root))
     |> Enum.sort()
   end
 
@@ -156,9 +157,10 @@ defmodule Conveyor.CodeQualityAdapter.LocalPython do
   defp python_source?(path), do: String.ends_with?(path, ".py") and not python_test?(path)
 
   defp python_test?(path) do
-    String.starts_with?(path, "tests/") or
-      String.contains?(path, "/tests/") or
-      String.starts_with?(Path.basename(path), "test_")
+    String.ends_with?(path, ".py") and
+      (String.starts_with?(path, "tests/") or
+         String.contains?(path, "/tests/") or
+         String.starts_with?(Path.basename(path), "test_"))
   end
 
   defp config_file?(path) do
