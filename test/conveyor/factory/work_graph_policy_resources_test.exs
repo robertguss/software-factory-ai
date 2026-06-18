@@ -80,8 +80,9 @@ defmodule Conveyor.Factory.WorkGraphPolicyResourcesTest do
     assert slice.likely_files == ["app/main.py", "tests/test_tasks.py"]
     assert slice.conflict_domains == ["tasks_api"]
 
-    updated = Ash.update!(slice, %{state: :running, autonomy_level: "L2"}, domain: Factory)
-    assert updated.state == :running
+    assert slice.state == :ready
+
+    updated = Ash.update!(slice, %{autonomy_level: "L2"}, domain: Factory)
     assert updated.autonomy_level == "L2"
 
     assert_raise Ash.Error.Invalid, fn ->
