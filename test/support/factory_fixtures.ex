@@ -1,6 +1,7 @@
 defmodule Conveyor.FactoryFixtures do
   @moduledoc false
 
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
   alias Conveyor.Factory.Epic
@@ -87,7 +88,7 @@ defmodule Conveyor.FactoryFixtures do
         domain: Factory
       )
 
-    write_blob!(blob_root, sha256, artifact_content)
+    blob = BlobStore.write!(artifact_content, blob_root: blob_root)
 
     artifact =
       Ash.create!(
@@ -98,7 +99,7 @@ defmodule Conveyor.FactoryFixtures do
           kind: "run-log",
           media_type: "text/plain",
           projection_path: projection_path,
-          blob_ref: "cas/#{sha256}",
+          blob_ref: blob.ref,
           sha256: sha256,
           size_bytes: byte_size(artifact_content),
           subject_kind: "run_attempt",
@@ -128,12 +129,6 @@ defmodule Conveyor.FactoryFixtures do
 
     File.mkdir_p!(path)
     path
-  end
-
-  defp write_blob!(blob_root, sha256, content) do
-    path = Path.join([blob_root, "cas", sha256])
-    File.mkdir_p!(Path.dirname(path))
-    File.write!(path, content)
   end
 
   defp run_spec_attrs(slice_id) do

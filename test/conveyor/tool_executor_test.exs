@@ -3,6 +3,7 @@ defmodule Conveyor.ToolExecutorTest do
 
   import Conveyor.FactoryFixtures
 
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Config.CommandSpec
   alias Conveyor.Factory
   alias Conveyor.Factory.Incident
@@ -251,9 +252,7 @@ defmodule Conveyor.ToolExecutorTest do
   defp digest(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 
   defp blob_content!(blob_root, blob_ref) do
-    blob_root
-    |> Path.join(blob_ref)
-    |> File.read!()
+    BlobStore.read!(blob_ref, blob_root: blob_root)
   end
 
   defp get_by_id!(resource, id) do

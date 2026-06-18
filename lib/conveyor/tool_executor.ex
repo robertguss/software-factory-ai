@@ -3,6 +3,7 @@ defmodule Conveyor.ToolExecutor do
   Sole trusted command execution path for pre-exec policy.
   """
 
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.Policy
   alias Conveyor.Factory.ToolInvocation
@@ -156,22 +157,14 @@ defmodule Conveyor.ToolExecutor do
 
   defp write_blob!(content, opts) do
     blob_root = opts |> Keyword.get(:blob_root, ".conveyor/blobs") |> Path.expand()
-    sha256 = sha256(content)
-    blob_ref = "cas/#{sha256}"
-    path = Path.join(blob_root, blob_ref)
-
-    File.mkdir_p!(Path.dirname(path))
-    File.write!(path, content)
-
-    blob_ref
+    blob = BlobStore.write!(content, blob_root: blob_root)
+    blob.ref
   end
 
   defp output_sha256(stdout, stderr) do
     :crypto.hash(:sha256, [stdout, stderr])
     |> Base.encode16(case: :lower)
   end
-
-  defp sha256(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 
   defp command_spec_snapshot(command, policy) do
     %{
