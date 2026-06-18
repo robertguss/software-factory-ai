@@ -8,6 +8,7 @@ defmodule Conveyor.ToolExecutor do
   alias Conveyor.Factory.ToolInvocation
   alias Conveyor.Policy.Engine
   alias Conveyor.Policy.NormalizedCommand
+  alias Conveyor.Policy.RunBudgetGuard
   alias Conveyor.Policy.ViolationHandler
   alias Conveyor.Sandbox.Runner
 
@@ -20,11 +21,12 @@ defmodule Conveyor.ToolExecutor do
             decision: Engine.Decision.t(),
             invocation: ToolInvocation.t(),
             execution: Runner.Result.t() | nil,
-            violation: ViolationHandler.Result.t() | nil
+            violation: ViolationHandler.Result.t() | nil,
+            budget: RunBudgetGuard.Result.t() | nil
           }
 
-    @enforce_keys [:decision, :invocation, :execution, :violation]
-    defstruct [:decision, :invocation, :execution, :violation]
+    @enforce_keys [:decision, :invocation, :execution, :violation, :budget]
+    defstruct [:decision, :invocation, :execution, :violation, :budget]
   end
 
   @spec execute!(NormalizedCommand.t(), Policy.t(), keyword()) :: Result.t()
@@ -40,15 +42,30 @@ defmodule Conveyor.ToolExecutor do
         invocation =
           record_invocation!(command, policy, decision, started_at, execution, opts)
 
-        %Result{decision: decision, invocation: invocation, execution: execution, violation: nil}
+        budget = record_budget(invocation, execution, opts)
+
+        %Result{
+          decision: decision,
+          invocation: invocation,
+          execution: execution,
+          violation: nil,
+          budget: budget
+        }
 
       :blocked ->
         invocation =
           record_invocation!(command, policy, decision, started_at, nil, opts)
 
+        budget = record_budget(invocation, nil, opts)
         violation = ViolationHandler.record!(decision, invocation, opts)
 
-        %Result{decision: decision, invocation: invocation, execution: nil, violation: violation}
+        %Result{
+          decision: decision,
+          invocation: invocation,
+          execution: nil,
+          violation: violation,
+          budget: budget
+        }
     end
   end
 
@@ -64,6 +81,16 @@ defmodule Conveyor.ToolExecutor do
       |> Map.merge(execution_attrs(execution, opts))
 
     Ash.create!(ToolInvocation, attrs, domain: Factory)
+  end
+
+  defp record_budget(invocation, execution, opts) do
+    case Keyword.get(opts, :run_budget_id) do
+      nil ->
+        nil
+
+      run_budget_id ->
+        RunBudgetGuard.record_tool_invocation!(run_budget_id, invocation, execution, opts)
+    end
   end
 
   defp base_attrs(command, policy, decision, started_at, opts) do
