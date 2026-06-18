@@ -1,0 +1,23 @@
+{
+  "template_version": "implementation-prompt@1",
+  "output_schema_version": "conveyor.agent_output@1",
+  "sections": [
+    "# Role",
+    "# Autonomy Level",
+    "# Project Instructions",
+    "# Slice Contract",
+    "# Context Pack",
+    "# Safety Policy",
+    "# Work Rules",
+    "# Required Verification",
+    "# Required Output Schema"
+  ],
+  "required_output_fields": [
+    "summary",
+    "files_changed",
+    "commands_attempted",
+    "acceptance_mapping",
+    "known_risks",
+    "blocker"
+  ]
+}
