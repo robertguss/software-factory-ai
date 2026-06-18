@@ -238,5 +238,5 @@ defmodule Conveyor.Gate.Finalizer do
   end
 
   defp value(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 end

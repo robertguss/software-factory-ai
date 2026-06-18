@@ -415,11 +415,11 @@ defmodule Conveyor.Gate.Stages.ObservedRisk do
     "sha256:" <> Base.encode16(:crypto.hash(:sha256, encoded), case: :lower)
   end
 
-  defp get(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp get(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
   defp get(_value, _key), do: nil
 
   defp value(nil, _key), do: nil
 
   defp value(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 end
