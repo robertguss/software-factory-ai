@@ -188,7 +188,8 @@ defmodule Conveyor.ReviewerHealth do
       rubric_version: rubric_version,
       fixture_suite_version: fixture_suite_version,
       passed: passed,
-      failures: failures
+      failures: failures,
+      checked_at: DateTime.utc_now(:microsecond)
     }
 
     case find_health(reviewer_profile_id, rubric_version, fixture_suite_version) do
