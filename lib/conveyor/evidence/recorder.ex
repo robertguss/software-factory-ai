@@ -293,8 +293,6 @@ defmodule Conveyor.Evidence.Recorder do
     end
   end
 
-  defp evidence_status(acceptance, _security_findings), do: Atom.to_string(acceptance.status)
-
   defp security_summary(security_findings, redaction_policy) do
     %{
       "policy" => Atom.to_string(redaction_policy),
