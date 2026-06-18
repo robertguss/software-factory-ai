@@ -197,6 +197,54 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     assert result.projection_path == "/tmp/recorded"
   end
 
+  test "regenerates the same tree and checksums from the same record", %{
+    blob_root: blob_root,
+    projection_root: projection_root,
+    run_attempt: run_attempt,
+    station_run: station_run
+  } do
+    create_blob_artifact!(
+      blob_root,
+      run_attempt,
+      station_run,
+      "review result\n",
+      "review/result.txt"
+    )
+
+    create_blob_artifact!(
+      blob_root,
+      run_attempt,
+      station_run,
+      ~s({"status":"passed"}\n),
+      "gate/result.json"
+    )
+
+    first =
+      Projector.project_run!(run_attempt,
+        blob_root: blob_root,
+        projection_root: projection_root
+      )
+
+    run_dir = Path.join(projection_root, run_attempt.id)
+    first_tree = tree_snapshot(run_dir)
+    File.write!(Path.join(run_dir, "stale.txt"), "stale projection data")
+
+    second =
+      Projector.project_run!(run_attempt,
+        blob_root: blob_root,
+        projection_root: projection_root
+      )
+
+    manifest = File.read!(Path.join(run_dir, "manifest.json")) |> Jason.decode!()
+    projection_paths = Enum.map(manifest["artifacts"], & &1["projection_path"])
+
+    assert projection_paths == ["gate/result.json", "review/result.txt"]
+    assert first_tree == tree_snapshot(run_dir)
+    refute File.exists?(Path.join(run_dir, "stale.txt"))
+    assert second.manifest_sha256 == first.manifest_sha256
+    assert second.bundle_root_sha256 == first.bundle_root_sha256
+  end
+
   defp create_artifact!(run_attempt, station_run, blob_ref, sha256, size_bytes, projection_path) do
     Ash.create!(
       Artifact,
@@ -218,6 +266,19 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     )
   end
 
+  defp create_blob_artifact!(blob_root, run_attempt, station_run, content, projection_path) do
+    blob = BlobStore.write!(content, blob_root: blob_root)
+
+    create_artifact!(
+      run_attempt,
+      station_run,
+      blob.ref,
+      blob.sha256,
+      blob.size_bytes,
+      projection_path
+    )
+  end
+
   defp corrupt_blob!(blob_root, blob_ref, content) do
     path = BlobStore.path_for!(blob_ref, blob_root: blob_root)
     File.mkdir_p!(Path.dirname(path))
@@ -233,6 +294,18 @@ defmodule Conveyor.Artifacts.ProjectorTest do
 
     File.mkdir_p!(path)
     path
+  end
+
+  defp tree_snapshot(root) do
+    root
+    |> Path.join("**/*")
+    |> Path.wildcard()
+    |> Enum.filter(&File.regular?/1)
+    |> Enum.sort()
+    |> Enum.map(fn path ->
+      relative_path = Path.relative_to(path, root)
+      {relative_path, File.read!(path) |> digest_bytes()}
+    end)
   end
 
   defp run_spec_attrs(slice_id) do

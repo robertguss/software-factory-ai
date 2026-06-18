@@ -23,7 +23,7 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
     artifacts = artifacts_for(run_attempt.id)
     verified = Enum.map(artifacts, &verify_artifact_blob!(&1, blob_root))
     manifest = manifest(run_attempt, artifacts)
-    manifest_json = Jason.encode!(manifest)
+    manifest_json = canonical_json(manifest)
     manifest_sha256 = sha256(manifest_json)
     bundle_root_sha256 = bundle_root_sha256(manifest)
 
@@ -144,7 +144,7 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
     manifest
     |> Map.fetch!("artifacts")
     |> Enum.map(&Map.take(&1, ["projection_path", "sha256", "size_bytes"]))
-    |> Jason.encode!()
+    |> canonical_json()
     |> sha256()
   end
 
@@ -169,6 +169,24 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
       raise ArgumentError, "#{label} escapes projection root"
     end
   end
+
+  defp canonical_json(value) when is_map(value) do
+    body =
+      value
+      |> Enum.sort_by(fn {key, _value} -> to_string(key) end)
+      |> Enum.map(fn {key, nested} ->
+        Jason.encode!(to_string(key)) <> ":" <> canonical_json(nested)
+      end)
+      |> Enum.join(",")
+
+    "{" <> body <> "}"
+  end
+
+  defp canonical_json(value) when is_list(value) do
+    "[" <> Enum.map_join(value, ",", &canonical_json/1) <> "]"
+  end
+
+  defp canonical_json(value), do: Jason.encode!(value)
 
   defp sha256(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 end
