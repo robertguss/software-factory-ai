@@ -25,7 +25,11 @@ def test_create_task_returns_new_task(client: TestClient) -> None:
     response = client.post("/tasks", json={"title": "write baseline tests"})
 
     assert response.status_code == 201
-    assert response.json() == {"id": 1, "title": "write baseline tests"}
+    assert response.json() == {
+        "id": 1,
+        "title": "write baseline tests",
+        "completed": False,
+    }
 
 
 def test_create_defaults_completed_false(client: TestClient) -> None:
@@ -49,8 +53,8 @@ def test_created_tasks_are_listed_in_creation_order(client: TestClient) -> None:
     assert second.status_code == 201
     assert response.status_code == 200
     assert response.json() == [
-        {"id": 1, "title": "write baseline tests"},
-        {"id": 2, "title": "run pytest"},
+        {"id": 1, "title": "write baseline tests", "completed": False},
+        {"id": 2, "title": "run pytest", "completed": False},
     ]
 
 
