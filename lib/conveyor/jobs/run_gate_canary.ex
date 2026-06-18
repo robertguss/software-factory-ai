@@ -143,7 +143,7 @@ defmodule Conveyor.Jobs.RunGateCanary do
     do: ExitCodes.fetch!(:canary_or_eval_false_negative)
 
   defp ci_exit_code(%{"false_positive_count" => fp_count}) when fp_count > 0,
-    do: ExitCodes.fetch!(:canary_or_eval_false_negative)
+    do: ExitCodes.fetch!(:deterministic_gate_failed)
 
   defp ci_exit_code(_summary), do: ExitCodes.fetch!(:success)
 
@@ -243,7 +243,7 @@ defmodule Conveyor.Jobs.RunGateCanary do
   defp value(nil, _key), do: nil
 
   defp value(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 
   defp value(_value, _key), do: nil
 end
