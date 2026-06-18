@@ -1,0 +1,12 @@
+diff --git a/samples/tasks_service/tasks_service/main.py b/samples/tasks_service/tasks_service/main.py
+--- a/samples/tasks_service/tasks_service/main.py
++++ b/samples/tasks_service/tasks_service/main.py
+@@ -69,7 +69,7 @@
+ def complete_task(task_id: int, payload: TaskComplete) -> Task:
+     task = store.complete(task_id, payload.completed)
+     if task is None:
+-        raise HTTPException(status_code=404, detail="Task not found")
++        return Task(id=task_id, title="missing", completed=False)
+     return task
+ 
+ 
