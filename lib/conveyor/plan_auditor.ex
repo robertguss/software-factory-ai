@@ -248,7 +248,7 @@ defmodule Conveyor.PlanAuditor do
 
     for {positive_key, claim} <- positive_claims(claims),
         {negative_key, ^claim} <- negative_claims(claims),
-        positive_key < negative_key do
+        positive_key != negative_key do
       finding(
         "Requirements #{positive_key} and #{negative_key} contradict each other.",
         [positive_key, negative_key],
