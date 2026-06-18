@@ -343,7 +343,13 @@ defmodule Conveyor.Doctor do
   end
 
   defp check_policy_files(project_path, %ProjectConfig{} = config) do
-    for policy <- ["implement.toml", "verify.toml"],
+    for policy <- [
+          "explore.toml",
+          "implement.toml",
+          "maintenance.toml",
+          "release.toml",
+          "verify.toml"
+        ],
         path = Path.join([project_path, config.policies_dir, policy]),
         not File.regular?(path) do
       failure(
