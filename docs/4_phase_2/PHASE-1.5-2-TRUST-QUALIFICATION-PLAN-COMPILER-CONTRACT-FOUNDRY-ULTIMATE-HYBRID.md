@@ -26,12 +26,21 @@ release gates**, but it should be delivered through **four independently useful
 increments** and one deliberately cheap vertical-risk tracer:
 
 1. **P15-A — Evidence Kernel.** Establish the reusable trust substrate before
-   multiplying workflow-specific resources: canonical schemas and digests,
-   attestation envelopes, one auditable policy-decision layer, Tool Contracts,
-   role-specific views, station leases and fencing tokens, effect receipts,
-   causal event envelopes, artifact derivation indexes, trace propagation,
-   heavy-artifact storage, retention rules, and emergency/budget controls.
-   Dogfood this kernel against the existing Phase-1 loop immediately.
+   multiplying workflow-specific resources, delivered through two internal
+   checkpoints so empirical Battery feedback arrives before all hardening is
+   complete:
+   - **P15-A-core:** the minimum semantics required to trust an early Battery
+     run — canonical identity and digests, typed policy decisions, RoleViews,
+     ToolContracts, station fencing, effect receipts, authoritative events,
+     LocalCAS, trace propagation, emergency stop, and budget admission;
+   - **P15-A-hardening:** everything required before a release grant — complete
+     retention/erasure, ArtifactStore backend conformance, migration breadth,
+     restore testing, operator projections, and remaining control-plane
+     canaries.
+   P15-B corpus, scorer, adapter-conformance, and replay work may begin after
+   P15-A-core; the final `qualification_gate` still requires all
+   P15-A-hardening. Dogfood the kernel against the existing Phase-1 loop
+   immediately.
 2. **P15-B — Trust Qualification.** Turn the Phase-1 tracer into a permanent
    full-loop Battery with separate conformance, safety-invariant,
    outcome-quality, and operability case classes; qualify the primary live
@@ -75,16 +84,19 @@ The implementation sequence is therefore:
 2. produce a quantitative retrospective and initial branch decision;
 3. run the throwaway generated-contract tracer and feed its findings back into
    the branch decision;
-4. build and dogfood P15-A Evidence Kernel primitives on the current loop;
-5. build P15-B Battery, replay, integrity, adapter, and forensic coverage;
-6. clear deterministic qualification invariants and issue the narrowest useful
+4. build and dogfood P15-A-core on the current loop;
+5. begin P15-B corpus, runner, MockDegraded, and adapter-conformance work on
+   the dogfooded kernel;
+6. complete P15-A-hardening while early Battery evidence is collected;
+7. build remaining P15-B replay, integrity, and forensic coverage;
+8. clear deterministic qualification invariants and issue the narrowest useful
    `QualificationGrant` supported by live statistical evidence;
-7. stop and harden if the grant does not cover the intended Phase-2 scope;
-8. implement P2-A as pure compiler passes with content-addressed memoization;
-9. clear `compiler_structure_gate` on held-out plans and property tests;
-10. implement P2-B Contract Foundry, hierarchical approval, and amendments;
-11. pre-register and execute the serial generated-plan pilot;
-12. clear `phase2_gate` before beginning fleet, merge-queue, or auto-merge work.
+9. stop and harden if the grant does not cover the intended Phase-2 scope;
+10. implement P2-A as pure compiler passes with content-addressed memoization;
+11. clear `compiler_structure_gate` on held-out plans and property tests;
+12. implement P2-B Contract Foundry, hierarchical approval, and amendments;
+13. pre-register and execute the serial generated-plan pilot;
+14. clear `phase2_gate` before beginning fleet, merge-queue, or auto-merge work.
 
 This is not a retreat from ambition. It is the shortest path to durable
 ambition. Phase 2 multiplies the number of contracts. Phase 3 multiplies the
@@ -310,6 +322,26 @@ test quality, role isolation, hierarchical approval binding, amendment and
 invalidation integrity, and downstream serial execution of a pre-registered
 pilot. A failure blocks Phase 3.
 
+### 0.4 Normative document split
+
+This file is the program index and release contract. As implementation begins,
+its normative detail is split into focused documents so this file does not
+remain the canonical home of every repeated schema:
+
+```text
+PROGRAM.md       goals, gates, cutline, milestones
+ARCHITECTURE.md  component and state architecture
+TRUST-MODEL.md   authority, policy, threat, grant, and approval semantics
+EVALS.md         Battery, canaries, statistics, and release criteria
+schemas/*.json   machine-readable canonical schemas
+policies/*       versioned policy bundles and DecisionContracts
+adrs/*           irreversible design decisions
+```
+
+Markdown schema examples in this document are generated from the Schema
+Registry and are illustrative, not an independent source of truth. Normative
+requirements use MUST/SHOULD/MAY.
+
 ## 1. Program product contract
 
 ### 1.1 Public promise after both tranches
@@ -437,7 +469,7 @@ the minimum of policy, adapter capability, active QualificationGrant, approval
 roots, verification evidence, and emergency/budget state. No UI mode or adapter
 name can raise it.
 
-### 1.7 Non-goals
+### 1.7 Non-goals and deployment profiles
 
 This program does **not** build:
 
@@ -458,6 +490,26 @@ This program does **not** build:
   the default and S3-compatible storage is an optional backend;
 - provider-specific model headers or features as core trust assumptions;
 - a model-written narrative as a source of authority.
+
+The program also does not treat every installation as equally durable. It
+supports explicit deployment profiles, and a grant's durability is part of its
+scope rather than an assumption:
+
+```text
+local_dev
+  unsigned statements permitted; no cross-host durability claim
+
+single_node_durable
+  encrypted backups, Postgres PITR, ArtifactStore backup, and tested restore
+
+team_server
+  authenticated attestations, replicated or independently backed artifacts,
+  defined RPO/RTO, and periodic restore/authority-reconstruction drills
+```
+
+**Delivery: seam now, engine later (§5.11)** — `local_dev` is the default and
+grants are stamped with a deployment profile now; backup/restore and durability
+enforcement land with the P15-A hardening checkpoint.
 
 ### 1.8 Definition of done for the combined program
 
@@ -717,12 +769,18 @@ Scorer-only sidecar:
   "hidden_oracle_refs": ["secure-eval://sha256/..."],
   "expected_defense_refs": [],
   "sampling_policy": {
-    "method": "beta_binomial_lower_bound",
+    "method": "fixed_n_interval | confidence_sequence | paired_sequential",
     "min_samples": 3,
     "max_samples": 12,
     "confidence": 0.95,
     "floor_p0": 0.70,
-    "stopping_rule": "predeclared_confidence_or_budget"
+    "stopping_rule": "predeclared",
+    "sampling_unit": "repository_case_cluster",
+    "cluster_key": "repo_and_case_family",
+    "max_samples_per_cluster": 3,
+    "strata": ["archetype", "risk", "language_toolchain"],
+    "case_selection_seed": "...",
+    "sequential_validity": "required_if_data_dependent_stop"
   }
 }
 ```
@@ -730,7 +788,13 @@ Scorer-only sidecar:
 The sampling method is policy-selected and versioned. A paired baseline,
 Beta-Binomial interval, or sequential test may be used, but its prior,
 threshold, stop rule, budget, and exclusion handling are frozen before samples
-begin. Safety failures are never averaged away by quality success.
+begin. The **statistical unit is a repository case cluster, not a repeated
+attempt**: twelve attempts on one fixture are not twelve independent
+repository/task observations, so per-cluster contribution is capped. If sampling
+stops on observed results, the policy uses an anytime-valid method or a
+prospectively fixed adaptive design rather than repeatedly inspecting an
+ordinary fixed-sample interval. Safety failures are never averaged away by
+quality success.
 
 ### 2.5 Battery runner and scoring model
 
@@ -827,12 +891,32 @@ confirmed and which capabilities remain unassessed. A primary-adapter-specific
 grant may issue without it; any claim of cross-vendor portability or portable
 adapter abstraction requires successful secondary-live evidence.
 
-Adapter capability snapshots include:
+Adapter capability snapshots are composed from evidenced `CapabilityClaim`s
+rather than bare booleans. Each claim records its semantics, limits, evidence
+source, and freshness, so the system can distinguish a declared capability from
+a probed or observed one:
+
+```text
+CapabilityClaim
+  capability_key
+  capability_version
+  mode_or_value
+  limits{}
+  source ∈ declared | probed | observed
+  evidence_ref
+  observed_at
+  expires_at?
+  known_degradations[]
+```
+
+The capabilities a snapshot may claim include:
 
 ```text
 streaming_events
 pre_exec_policy_mode ∈ host_controlled | adapter_hook | observe_only | none
 cancellation
+cancellation_strategy ∈ provider_cancel | sandbox_kill | credential_revoke |
+                       output_fence | composite
 session_resume
 diff_capture
 cost_reporting
@@ -845,8 +929,29 @@ provider_model_revision?
 known_degradations[]
 ```
 
-The conductor derives the maximum autonomy from capability and current policy,
-never from an adapter name.
+The conductor never consumes raw claims directly. It consumes a derived
+`EffectiveCapabilitySet` — the intersection of adapter declaration, successful
+probes, observed run behavior, current health, and policy restriction:
+
+```text
+EffectiveCapabilitySet
+  adapter
+  declared_claim_refs[]
+  probe_claim_refs[]
+  observed_claim_refs[]
+  excluded_or_degraded_claims[]
+  effective_capabilities{}
+  derived_at
+  expires_at
+  capability_set_digest
+```
+
+The conductor derives maximum autonomy from the EffectiveCapabilitySet, current
+policy, and a valid AdmissionPermit — never from an adapter name.
+
+**Delivery: seam now, engine later (§5.11)** — declared capability fields land
+now; the probe/observe `EffectiveCapabilitySet` intersection engine follows
+adapter evidence.
 
 #### Adapter health circuit breaker
 
@@ -862,13 +967,20 @@ The circuit opens on policy-defined consecutive protocol/transport failures,
 capability drift, invalid event samples, failed cancellation probes, or
 provider-reported unavailability. A coding-quality miss alone does not open the
 circuit. An open adapter is ineligible for new attempts; in-flight behavior is
-controlled by policy. The transition expires or downgrades affected
-QualificationGrants and is visible in the Qualification Cockpit.
+controlled by policy. The transition **suspends or denies new AdmissionPermits**
+and is visible in the Qualification Cockpit. A transient outage suspends
+execution without rewriting historical qualification evidence; only confirmed
+semantic capability drift creates a `QualificationImpact` and may invalidate the
+affected QualificationGrants whose effective semantics actually changed.
+Capability drift immediately fences adapter output and suspends new permits.
 
 ### 2.8 Scoped, expiring QualificationGrants
 
-Qualification is a machine-enforced scope, not a project-level label.
-`qualification_gate` emits one or more grants covering exact combinations of:
+Qualification is immutable evidence about a scope, not a runtime lease.
+Transient health, budget, queue, or emergency state never rewrites a
+QualificationGrant; only semantic drift, expiry, explicit revocation, or
+evidence invalidation may supersede it. `qualification_gate` emits one or more
+grants covering exact combinations of:
 
 ```text
 adapter capability snapshot
@@ -892,10 +1004,56 @@ Each grant carries:
 - invalidation triggers for prompt, model, adapter, environment, policy, gate,
   schema, and verification changes.
 
-Every RunSpec and PlanningSpec admission check records a `PolicyDecision`
-proving a current grant covers the requested scope. A CRUD grant cannot authorize
-an irreversible migration; an observe-only adapter cannot receive L1 write
-authority.
+Grant scope is represented by a versioned `QualificationScopeLattice` rather
+than an independent point in a full Cartesian product, which would explode the
+sample count and let pooled rates hide a weak stratum. Evidence may be
+**direct** (collected on the exact stratum), **inherited** (usable only because
+a policy-proven monotonic relationship exists), or **supporting only** (relevant
+but not authority-bearing). Inheritance is never assumed: evidence for an
+irreversible migration never implies CRUD capability, and evidence for one
+language/toolchain never implies another. Each grant identifies:
+
+```text
+direct_evidence_strata[]
+inherited_evidence_strata[]
+inheritance_rule_refs[]
+unassessed_strata[]
+worst_required_stratum_result
+```
+
+**Delivery: seam now, engine later (§5.11)** — the lattice and
+`worst_required_stratum_result` are recorded now; inheritance defaults to none
+until an audited monotonic rule earns it.
+
+Every effectful PlanningRun or RunAttempt also requires a short-lived
+`AdmissionPermit`. The grant answers an epistemic question — *what did the
+evidence establish?* The permit answers an operational one — *may this exact
+operation happen now?* It atomically binds the immutable spec, current grant and
+scope, effective capability set, authority and approval roots, policy bundle,
+environment fingerprint, budget reservations, current emergency/control
+generation, and an expiry/revocation generation:
+
+```text
+immutable spec digest
+current QualificationGrant
+effective capability set
+approval and ContractLock roots
+policy bundle
+environment fingerprint
+budget reservations
+emergency/control generation
+permit expiry and revocation generation
+```
+
+A permit may be renewed for the same immutable attempt; semantic drift still
+requires a new lock, spec, and attempt.
+
+Every RunSpec and PlanningSpec admission check validates a current
+`AdmissionPermit` and records a `PolicyDecision` proving a current grant covers
+the requested scope. A valid grant alone is not sufficient authority after a
+stop, budget revocation, approval change, or environment mismatch. A CRUD grant
+cannot authorize an irreversible migration; an observe-only adapter cannot
+receive L1 write authority.
 
 A `QualificationImpact` preview computes which grants and cases a proposed
 change would affect. Requalification is impact-based:
@@ -917,17 +1075,21 @@ A `CassetteSeries` identifies the generation surface for a role/spec/adapter
 combination; each live sample creates a distinct immutable `AgentCassette`.
 One recording is never treated as “the” stochastic behavior.
 
-Canonical transcript events contain:
+Canonical transcript events carry per-stream sequence and explicit
+happens-before edges, so causally independent events may legally interleave
+differently across recordings without breaking replay:
 
 ```text
 event_id
-sequence_no
+stream_id
+stream_sequence_no
 event_type
 source
 subject
 causation_id?
 correlation_id
 trace_id
+happens_before_event_ids[]
 host_recorded_at
 source_timestamp?
 data_ref
@@ -940,13 +1102,19 @@ capture hidden chain-of-thought. Strict replay fails if the conductor requests a
 different replayable tool, different normalized arguments, or a different
 causal sequence.
 
-Replay modes:
+Replay modes record causal structure, not one brittle total order:
 
 ```text
+replay_engine_strict
+  Requires one exact total sequence. Used only for single-threaded conductor
+  and projection fixtures, never for representative concurrent agent recordings.
+
 replay_full
   Replays stochastic events and ToolContract-approved recorded results under a
-  virtual clock and deterministic ID allocator. Tests conductor logic and
-  artifact projection. Never establishes current gate or sandbox freshness.
+  virtual clock and deterministic ID allocator, validating the causal partial
+  order, exact replayable tool arguments, and per-stream sequence. Tests
+  conductor logic and artifact projection. Never establishes current gate or
+  sandbox freshness.
 
 replay_hybrid
   Replays the recorded stochastic proposal/patch, rematerializes the workspace,
@@ -968,6 +1136,27 @@ failed, disputed, and safety-sensitive recordings plus the exact replay
 assertions expected from each. A failed live quality sample may be a valuable
 anchor for conductor failure behavior; anchor replay correctness is not
 misreported as coding-quality success.
+
+A `NondeterminismLedger` records every clock read, RNG seed or recorded value,
+environment read, external-read version, and tool-equivalence policy version a
+recording depended on:
+
+```text
+NondeterminismLedger
+  clock_reads[]
+  rng_seeds_or_recorded_values[]
+  environment_reads[]
+  external_read_versions[]
+  tool_equivalence_policy_versions[]
+  completeness ∈ complete | partial | unknown
+```
+
+A replay whose required ledger is incomplete returns `replay_incomplete`, not
+success.
+
+**Delivery: seam now, engine later (§5.11)** — `replay_engine_strict` suffices
+while implementation width is one; the causal engine and `NondeterminismLedger`
+become load-bearing when concurrent recordings appear.
 
 #### Mode-specific freshness
 
@@ -1008,17 +1197,27 @@ policy
 human_judgment
 ```
 
-Evidence stages include:
+Verification evidence is multi-dimensional rather than a total stage order: a
+human observation is not "above" a candidate pass, mutation evidence does not
+imply hermeticity, and adversarial challenge does not imply base calibration.
+The dimensions are:
 
 ```text
-specified
-base_calibrated
-harness_validated
-candidate_passed
-adversarially_challenged
-mutation_assessed
-human_observed
+specification_present
+base_calibration
+harness_validity
+candidate_result
+hermeticity
+repeatability
+adversarial_challenge
+mutation_assessment
+human_observation
+environment_freshness
 ```
+
+Each VerificationObligation carries a typed `EvidenceRequirement` predicate.
+Obligation satisfaction is the deterministic result of evaluating every required
+dimension; there is no generic "stage at or above" rule.
 
 The Sentinel checks:
 
@@ -1271,9 +1470,9 @@ increment and are enforced as invariants rather than treated as slogans.
 4. **Stochastic from tape; authority from current deterministic checks.** A
    recording can replay generation; it cannot replay an old claim as current
    authority.
-5. **No hidden claim.** Every generated semantic value is either
-   deterministically linked to a stable SourceAnchor or explicitly identified as
-   inferred in a ClaimSet.
+5. **No hidden authority claim.** Every authority-bearing semantic value is
+   either deterministically linked to a stable SourceAnchor or explicitly
+   identified as inferred in a ClaimSet.
 6. **No hidden constraint.** Deadlines, budgets, forbidden changes,
    compatibility, tools, verification, and autonomy ceilings are explicit hard
    or soft constraints.
@@ -1340,8 +1539,12 @@ increment and are enforced as invariants rather than treated as slogans.
 31. **No unfenced station authority.** Oban uniqueness may suppress duplicate
     insertion; only a current database fencing token permits state mutation or
     effect publication.
-32. **No effect without a receipt.** Every external side effect has an
-    idempotency key, reconciliation strategy, fencing token, and durable receipt.
+32. **No effect without declared delivery semantics.** Every external effect
+    declares whether it is idempotent, externally deduplicated, reconcilable, or
+    non-reconcilable, and carries an idempotency key, fencing token, and durable
+    receipt. A database fencing token always fences local authority publication;
+    it fences the external system only when that system supports
+    conditional/fenced writes.
 33. **No hidden policy branch.** Every allow, deny, require-human, readiness,
     waiver, autonomy, locking, and invalidation decision cites a versioned
     PolicyDecision with stable reason codes.
@@ -1387,6 +1590,16 @@ increment and are enforced as invariants rather than treated as slogans.
 48. **No trace without correlation.** Runs, jobs, events, effects, logs,
     provider request IDs where available, and artifacts carry a common trace
     context without leaking sensitive internal identifiers to providers.
+49. **Trust labels propagate.** Derived content inherits the union of its input
+    information labels unless a deterministic, policy-authorized declassifier
+    emits a new artifact and evidence.
+50. **Declared tool effects are enforced below the model.** ToolContract
+    declarations compile to sandbox, mount, network, credential, and process
+    controls; labels and prompts are not the enforcement boundary.
+51. **Role labels do not prove independence.** Every challenge or review role
+    records an IndependenceProfile; high-risk authority requires a deterministic
+    non-model floor, a materially diverse model family, or a human reviewer for
+    the critical lens.
 
 ## 4. Architecture overview
 
@@ -1482,13 +1695,28 @@ converted into authority.
 
 ### 4.1.1 One auditable PolicyDecision layer
 
-Every consequential policy question uses one interface:
+Every consequential policy question uses one typed `DecisionContract`, not a raw
+generic evaluator that different call sites can feed different shapes:
 
 ```text
-evaluate(decision_key, subject, canonical_input, policy_bundle)
-  -> allow | deny | require_human | not_applicable
+evaluate(%DecisionRequest{
+  decision_contract_ref,
+  subject_ref,
+  canonical_input,
+  evidence_refs,
+  policy_bundle_ref
+})
+  -> allow | deny | require_human | not_applicable | indeterminate
   + stable reason_codes
 ```
+
+A `DecisionContract` registry entry exists for every decision family and defines
+its input schema, allowed subject kinds, result schema, evidence selectors,
+freshness requirements, default behavior, and evaluator version. Domain modules
+may not invoke an untyped `evaluate/4`; generated typed wrappers validate the
+request before policy evaluation. `indeterminate` always fails closed and is
+reported separately from a policy-authored deny, so an evaluator failure is
+never mistaken for a valid denial.
 
 Initial required decision keys:
 
@@ -1555,8 +1783,31 @@ Phase-3 implementation concurrency.
 
 ### 4.4 Pure incremental planning-compiler pass architecture
 
-The planning compiler is a deterministic pass graph around stochastic proposal
-boundaries:
+The planning compiler is a staged, hermetic IR graph around stochastic proposal
+boundaries. Declared inputs alone do not make a pass safe to cache; typed IR
+stages and a restricted context do. The IR stages that flow between passes are:
+
+```text
+SourceIR
+  raw snapshots, source map, parsed structured manifest
+
+IntentIR
+  normalized requirements, ACs, constraints, decisions, claims
+
+CandidateIR
+  untrusted decomposition and contract proposals
+
+WorkIR
+  canonical identities, work/interface/decision/verification graphs
+
+ContractIR
+  normalized contracts, obligations, falsifiers, evidence requirements
+
+AuthorityManifest
+  exact authority subjects, roots, review projection, invalidation inputs
+```
+
+The pass graph that produces those stages is:
 
 ```text
 Source front end
@@ -1610,11 +1861,16 @@ Every deterministic pass declares:
 ```text
 pass_key
 pass_version
+input_ir_stage
+output_ir_stage
 input_selectors[]
 input_digest
+compiler_environment_digest
 output_schema_ref
 output_digest
 diagnostic_schema_ref
+observed_input_manifest_ref
+hermeticity_status ∈ verified | violated | not_assessed
 cache_policy ∈ reusable | revalidate | never
 authority_effect ∈ none | draft_only | approval_input
 ```
@@ -1626,6 +1882,23 @@ remain explicit; they do not each invent a separate retry/idempotency framework.
 Content-addressed memoization is mandatory where safe. A pass cache hit is
 accepted only when every semantic/authority input digest and pass version match.
 Presentation-only changes never force semantic recomputation.
+
+Declared `input_selectors[]` are not sufficient on their own, because a pass
+could read an environment variable, the clock, a repository file, or database
+state that was omitted from its cache key. A pure pass therefore receives only a
+restricted `PassContext`; direct Repo, filesystem, environment, network,
+wall-clock, RNG, and process access is prohibited. Every read through the
+context is captured as an observed `ArtifactInput`, and an undeclared read fails
+the pass. Cache publication then requires:
+
+```text
+declared inputs == observed authority/semantic inputs
+verified compiler environment
+deterministic output under input-order permutation
+matching pass and schema versions
+```
+
+**Delivery: engine now (§5.11).**
 
 ### 4.5 Three separate graphs
 
@@ -1649,8 +1922,9 @@ Use each BEAM/Postgres primitive for the job it is good at:
 
 ```text
 Postgres
-  canonical resources, state transitions, leases, policy decisions, grant and
-  approval metadata, artifact pointers, derivation indexes
+  canonical resources, append-only AuthorityEvents, aggregate versions, leases,
+  policy decisions, grant and approval metadata, artifact pointers, derivation
+  indexes, and transactional outbox rows
 
 Oban
   durable scheduled work and retryable station invocation
@@ -1659,9 +1933,17 @@ Phoenix.PubSub / OTP messaging
   best-effort low-latency UI progress and telemetry notification
 
 ArtifactStore (LocalCAS default; S3-compatible optional)
-  immutable large blobs, event segments, context packs, cassettes, patches,
+  immutable large blobs, ObservationSegments, context packs, cassettes, patches,
   static bundles, optional analytical archives
 ```
+
+`AuthorityEvent` is the low-volume, transactional, append-only audit and
+recovery record for consequential state changes; it lives in Postgres with a
+per-stream sequence/version. `ObservationSegment` is the high-volume transcript,
+tool-output, token, and telemetry evidence; it lives in the ArtifactStore and
+never independently changes authority. An authority transition and its outbox
+notification share one Postgres transaction; a blob upload and a database update
+do not, so no design claim depends on a distributed transaction across the two.
 
 Oban arguments contain IDs and digests, not prompts, event streams, or large
 JSON payloads. Agent events are buffered in a bounded process, assigned sequence
@@ -1682,7 +1964,26 @@ adapter metadata mechanism and only when sensitivity policy permits; otherwise
 the provider's returned request ID is correlated locally.
 
 Canonical domain events are independent of the telemetry backend. Telemetry is
-a projection over events and spans, not the source of replay truth.
+a projection over events and spans, not the source of replay truth. Authority
+events use a CloudEvents-compatible metadata envelope with Conveyor extensions
+for aggregate stream, causation, correlation, fencing epoch, and policy
+decision:
+
+```text
+AuthorityEvent
+  event_id
+  stream_id
+  stream_version
+  event_type
+  subject_ref
+  causation_id?
+  correlation_id
+  trace_context
+  payload_ref
+  committed_at
+```
+
+**Delivery: engine now (§5.11).**
 
 ### 4.8 Safety control plane
 
@@ -1708,13 +2009,64 @@ limits stop runaway graphs even when per-run budgets are incorrectly configured.
 
 #### Adapter health circuit
 
-Health probes and live protocol failures can open an adapter circuit and expire
-or narrow affected grants. Quality failures do not masquerade as adapter-health
-failures.
+Health probes and live protocol failures can open an adapter circuit and suspend
+new AdmissionPermits; confirmed capability drift may narrow affected grants.
+Quality failures do not masquerade as adapter-health failures.
+
+### 4.9 The architecture as six planes
+
+After the trust, policy, effect, and compiler refinements above, the system is
+easiest to reason about as a small number of planes with one-way authority flow:
+
+```text
+Source Authority Plane
+  Markdown + published structured manifest + HumanDecisions
+
+Compiler Plane
+  hermetic staged IR + proposal boundaries + ChangeSets + derivation graph
+
+Authority Control Plane
+  DecisionContracts + QualificationGrants + approvals + AdmissionPermits
+  + budgets + emergency/control generations
+
+Execution Plane
+  station leases + EffectAttempts + reconciliation + local publication fencing
+
+Evidence Plane
+  AuthorityEvents in Postgres + immutable artifacts/ObservationSegments in CAS
+  + RootManifests + signed attestations
+
+Projection Plane
+  CLI + static reports + LiveView + offline verifier
+```
+
+The highest-leverage implementation order across these planes is: typed policy
+and `AdmissionPermit`; authoritative-event and effect commit semantics;
+evidence-requirement facets; hermetic pass access and cache rules; secure
+RootManifest/CAS/attestation semantics; early Battery execution; the structured
+manifest and ChangeSet compiler; then approval and product surfaces.
 
 ## 5. Domain model and artifact strategy
 
-Keep active tables limited to objects with independent lifecycle,
+Use three explicit persistence tiers rather than promoting every immutable
+record to a dedicated table before its query patterns are known:
+
+```text
+Tier 1  relational authority resources — transactional lifecycle/admission state
+Tier 2  immutable typed evidence documents with indexed headers
+Tier 3  rebuildable projections — UI, report, and search models
+```
+
+Likely Tier-1 resources include StationRun, EffectAttempt/EffectReceipt,
+Artifact/ArtifactInput, PolicyDecision, QualificationGrant, AdmissionPermit,
+HumanApproval/ContractLock, BudgetReservation, and control/lifecycle events.
+Likely Tier-2 (artifact-first) resources include QualificationImpact,
+EvidenceComparison, FailureDiagnosis, BatteryCaseResult, BehaviorLockRun,
+CompilerPassResult, structural reports, and candidate comparisons.
+`RecoveryProposal` becomes relational only if it has an active
+authorization/execution lifecycle.
+
+Keep Tier-1 tables limited to objects with independent lifecycle,
 authorization, query, retention, or state-transition needs. Proposals, compiler
 IR, pass diagnostics, reports, and one-shot projections remain
 content-addressed artifacts unless a workflow must mutate or query them
@@ -1733,6 +2085,28 @@ value
 
 For readability, legacy examples in older documents may use `*_sha256`; new
 schemas use `*_digest` and treat those old names as migration aliases.
+
+Authority-root manifests use explicit domain separation so a digest cannot be
+confused across root kinds or versions:
+
+```text
+hash(
+  "conveyor:<root-kind>:v<version>\0" ||
+  canonical_root_manifest_bytes
+)
+```
+
+Because the canonical profile constrains data to I-JSON and
+ECMAScript-compatible primitives, JCS-authoritative schemas MUST encode
+ambiguous types safely:
+
+```text
+money           integer minor units + currency
+large integers  decimal strings when outside safe I-JSON range
+timestamps      normalized RFC3339 strings
+durations       integer milliseconds or nanoseconds
+unordered sets  deterministically sorted arrays
+```
 
 #### `SchemaRegistryEntry`
 
@@ -1785,8 +2159,12 @@ ADR). Authoritative evidence is wrapped in a statement envelope:
 }
 ```
 
-Local operation may use unsigned attestations protected by the local CAS and
-approval chain. Signature support is additive:
+Local-development operation may use unsigned in-toto Statements protected by the
+local CAS and approval chain. Team-server, cross-host, release-grant, and
+portable-bundle profiles require a DSSE-wrapped in-toto Statement or an
+explicitly equivalent authenticated envelope: an unsigned statement gives a
+standard claim shape but not producer authentication. Signature support is
+additive:
 
 ```text
 signature_status ∈ unsigned | locally_signed | externally_verified
@@ -1813,16 +2191,36 @@ status ∈ draft | active | superseded | revoked
 created_at
 ```
 
+#### `DecisionContract`
+
+```text
+decision_key
+version
+subject_kinds[]
+input_schema_ref
+result_schema_ref
+required_evidence_selectors[]
+freshness_policy
+default_result ∈ deny | require_human
+evaluator_ref
+evaluator_version
+contract_digest
+```
+
+**Delivery: engine now (§5.11).**
+
 #### `PolicyDecision`
 
 ```text
 id
 decision_key
+decision_contract_digest
 subject_kind
 subject_id
 input_digest
+evidence_root_digest
 policy_bundle_digest
-result ∈ allow | deny | require_human | not_applicable
+result ∈ allow | deny | require_human | not_applicable | indeterminate
 reason_codes[]
 explanation_ref?
 decision_digest
@@ -1843,15 +2241,30 @@ input_schema_ref
 output_schema_ref
 effect_class ∈ pure_read | workspace_write | external_write | credential_use
 idempotency_semantics
+delivery_semantics ∈ idempotent | deduplicated | reconcilable | non_reconcilable
+fence_support ∈ native | local_publication_only | none
 replay_mode ∈ deterministic | recorded_result | live_required | non_replayable
 authorization_action
 timeout_policy
 cpu_memory_output_limits
 network_profile
 sensitivity_profile
+allowed_input_labels[]
+output_label_rules[]
+enforcement_profile_ref
 reconciliation_strategy
+ambiguity_policy ∈ block | require_human | compensate
 status ∈ active | deprecated | revoked
 ```
+
+A `non_reconcilable` external effect is prohibited at L1 unless explicitly
+human-authorized. A database fencing token always fences local authority
+publication; it fences the external system only when `fence_support` is
+`native`.
+
+**Delivery (§5.11):** `delivery_semantics`, `fence_support`, `ambiguity_policy`,
+and `enforcement_profile_ref` are **engine now**; the information-label fields
+`allowed_input_labels` and `output_label_rules` are **seam now, engine later**.
 
 #### `RoleView` artifact
 
@@ -1864,16 +2277,38 @@ included_field_selectors[]
 redacted_field_selectors[]
 hidden_subject_classes[]
 tool_contract_keys[]
+maximum_information_labels[]
 effective_policy_digest
 view_digest
 ```
 
 The PolicyDecision and artifact manifest provide the active audit/query path.
 
+#### `EffectAttempt`
+
+An effect attempt is recorded separately from its final receipt, so an
+`outcome_unknown` external call is not silently treated as success or failure:
+
+```text
+id
+station_run_id
+station_effect_id
+fencing_token
+admission_permit_id
+idempotency_key
+request_digest
+started_at
+completed_at?
+status ∈ started | externally_accepted | failed | outcome_unknown
+```
+
+**Delivery: engine now (§5.11).**
+
 #### `EffectReceipt`
 
 ```text
 id
+effect_attempt_id
 station_run_id
 station_effect_id
 fencing_token
@@ -1881,10 +2316,42 @@ idempotency_key
 external_correlation_id?
 request_digest
 result_digest?
-reconciliation_status ∈ pending | confirmed | absent | ambiguous
+reconciliation_status ∈ pending | confirmed | absent | ambiguous | compensated
 trace_id
 observed_at
 ```
+
+#### `EnforcementProfile`
+
+A ToolContract's declared effects compile into a concrete `EnforcementProfile`
+applied below the model, so labels and prompts are not the enforcement boundary:
+
+```text
+filesystem_mounts[]
+writable_paths[]
+network_egress_rules[]
+credential_scopes[]
+process_and_syscall_policy
+cpu_memory_pids_limits
+output_limits
+profile_digest
+```
+
+#### `ObservedEffectSummary`
+
+```text
+tool_invocation_id
+observed_file_reads_digest
+observed_file_writes_digest
+observed_network_destinations_digest
+observed_processes_digest
+declared_vs_observed_verdict
+attestation_ref
+```
+
+**Delivery (§5.11):** `EnforcementProfile` is **engine now**;
+`ObservedEffectSummary` (declared-vs-observed runtime attestation) is **seam now,
+engine later**.
 
 #### `ArtifactInput`
 
@@ -1996,6 +2463,7 @@ language_toolchain_keys[]
 repository_risk_classes[]
 policy_bundle_digest
 environment_fingerprint_digest
+deployment_profile_digest
 verification_capability_refs[]
 max_autonomy
 success_rate_bands[]
@@ -2007,6 +2475,32 @@ invalidation_triggers[]
 status ∈ active | conditional | expired | revoked | superseded
 superseded_by_id?
 ```
+
+#### `AdmissionPermit`
+
+The short-lived current operational authority for an effectful run. The grant is
+immutable evidence; the permit is recomputed each time and binds it to current
+state:
+
+```text
+id
+subject_kind ∈ planning_run | run_attempt | station_run
+subject_id
+spec_digest
+qualification_grant_id
+effective_capability_set_digest
+authority_root_digests[]
+policy_bundle_digest
+environment_fingerprint_digest
+budget_reservation_ids[]
+control_generation
+issued_at
+expires_at
+permit_digest
+supersedes_permit_id?
+```
+
+**Delivery: engine now (§5.11).**
 
 #### `QualificationImpact`
 
@@ -2073,6 +2567,7 @@ retention_class
 id
 battery_run_id
 battery_case_id
+case_cluster_key
 sample_no
 run_attempt_ids[]
 terminal_outcome
@@ -2081,6 +2576,9 @@ trace_assertion_results[]
 forbidden_effect_count
 first_pass_passed
 eventual_passed
+quality_dimensions{}
+defect_severity?
+human_review_ref?
 attempts
 rework_rounds
 cost_cents?
@@ -2091,6 +2589,13 @@ provider_or_infra_failure?
 status
 notes
 ```
+
+`quality_dimensions` is a vector — functional_correctness, scope_compliance,
+patch_minimality, maintainability, reviewability, security_posture, and
+resource_efficiency — not one success rate. Functional correctness and scope
+compliance may be hard requirements; maintainability and reviewability begin as
+blinded sampled human assessments until calibrated. `case_cluster_key` bounds
+how much one fixture family can contribute to a stratum estimate.
 
 #### `BatteryCaseResult`
 
@@ -2160,7 +2665,7 @@ obligation_kind ∈ example | property | interface | differential |
                   metamorphic | policy | human_judgment
 required
 oracle_definition_ref
-minimum_evidence_stage
+evidence_requirement_ref
 status ∈ open | satisfied | blocked | waived | superseded
 ```
 
@@ -2171,15 +2676,31 @@ id
 verification_obligation_id
 producer_kind
 producer_ref
-stage ∈ specified | base_calibrated | harness_validated |
-        candidate_passed | adversarially_challenged |
-        mutation_assessed | human_observed
+evidence_kind ∈ specification | calibration | harness_validation |
+                candidate_result | hermeticity | repeatability |
+                adversarial_challenge | mutation_assessment |
+                human_observation | environment_attestation
 validity ∈ valid | suspect | invalid | expired
 environment_fingerprint_digest?
 result_ref
 evidence_digest
 created_at
 ```
+
+#### `ObligationSatisfaction`
+
+```text
+verification_obligation_id
+evidence_requirement_digest
+consumed_evidence_ids[]
+dimension_results{}
+result ∈ satisfied | blocked | waived | not_assessed
+policy_decision_id
+satisfaction_digest
+evaluated_at
+```
+
+**Delivery: engine now (§5.11).**
 
 #### `VerificationWaiver`
 
@@ -2351,13 +2872,14 @@ source_snapshot_ids[]
 normalized_contract_ref
 contract_digest
 change_class ∈ initial | clarification | amendment | human_edit | compiler_repair
-status ∈ clarification_needed | compiling | approval_ready |
-         approved | rejected | superseded
+status ∈ published | superseded | withdrawn
 created_by
 created_at
 ```
 
-Only published semantic revisions receive a revision number and approval
+Workflow states such as `compiling`, `approval_ready`, and `failed` belong to
+`PlanningRun`, not to the immutable semantic revision. Only published semantic
+revisions receive a revision number and approval
 eligibility. Interactive pre-publication edits create immutable
 `PlanDraftCheckpoint` artifacts that may be squashed into the next published
 revision.
@@ -2576,6 +3098,54 @@ report_ref
 created_at
 ```
 
+#### `ChangeSet`
+
+The canonical mutation language. Workbench edits, amendment previews, candidate
+changes, and actual application all compile to one operation algebra, so preview
+and apply invoke the same pure reducer:
+
+```text
+id
+subject_kind
+subject_id
+base_revision_digest
+base_authority_root_digest?
+operations[]
+preconditions[]
+proposed_by
+materiality_labels[]
+impact_preview_ref
+resulting_revision_digest?
+change_set_digest
+status ∈ proposed | validated | applied | conflicted | rejected | superseded
+created_at
+```
+
+Initial operation keys:
+
+```text
+add_requirement
+replace_acceptance_criterion
+add_or_remove_constraint
+accept_or_reject_claim
+split_slice
+merge_slices
+add_or_remove_work_dependency
+upsert_interface_contract
+rebind_interface
+mark_human_verification
+activate_or_revoke_waiver
+change_autonomy_ceiling
+```
+
+Application requires that all base-root preconditions still match; otherwise the
+ChangeSet becomes `conflicted` and must be deterministically rebased or
+recreated.
+
+**Delivery: seam now, engine later (§5.11)** — the type and the operation keys
+the Workbench uses land now; the full algebra and deterministic rebase are
+deferred.
+
 #### `PlanAmendmentProposal`
 
 ```text
@@ -2626,6 +3196,38 @@ created_at
 The authority tree excludes the approval signature/record itself to avoid a
 circular digest. HumanApproval signs/references the already-computed roots.
 
+#### `ApprovalPolicy`
+
+```text
+policy_key
+version
+subject_scope
+required_actor_roles[]
+threshold
+separation_of_duties_rules[]
+required_acknowledgement_keys[]
+expiry_policy
+policy_digest
+```
+
+#### `ApprovalSet`
+
+```text
+subject_authority_roots[]
+review_root_digest
+approval_policy_digest
+approval_ids[]
+threshold_satisfied
+active_revocation_events[]
+approval_set_digest
+```
+
+A local developer profile uses threshold one; the data model does not require a
+later redesign for team threshold, role, and separation-of-duty rules.
+
+**Delivery: seam now, engine later (§5.11)** — threshold-one issuance now; quorum
+and separation-of-duties enforcement when team profiles need them.
+
 #### `PilotSelection`
 
 ```text
@@ -2670,13 +3272,15 @@ Extend carefully:
   verification obligations, and recovery expectations;
 - `TestPackCalibration`: distinct calibration, integrity, repeatability,
   obligation coverage, and waiver axes;
-- `HumanApproval`: shared authority root, approved Epic roots, review root,
-  archive root, selected candidate, accepted assumptions/waivers, maximum
-  autonomy, and signature metadata;
+- `HumanApproval`: actor identity and role, shared authority root, approved Epic
+  roots, review root, archive root, selected candidate, accepted
+  assumptions/waivers, maximum autonomy, critical acknowledgements, expiry, and
+  signature metadata;
 - `findings[]`: stable `rule_key`, reason code, confidence, materiality labels,
   and typed `next_action_keys`;
-- `Artifact`: storage backend, object key, availability, retention class,
-  sensitivity, canonicalization profile, attestation ref, and trace ID;
+- `Artifact`: storage backend, object key, availability, durability class, last
+  verified time, replica/backup status, retention class, sensitivity,
+  canonicalization profile, attestation ref, and trace ID;
 - `Artifact` manifests: relations `derived_from`, `supersedes`, `compares_to`,
   `selected_from`, `invalidates`, and `promoted_from`.
 
@@ -2782,10 +3386,39 @@ Large prompts, context packs, event streams, tool transcripts, patches, and
 static bundles are blobs. Postgres stores digest, storage pointer, sensitivity,
 availability, retention, and lineage—not raw high-frequency token events.
 
+Content identity, storage addressing, and authentication are distinct concerns.
+A plaintext digest used directly as a global object key can leak equality or
+existence across security domains, so artifacts carry an explicit
+`ArtifactAddress`:
+
+```text
+ArtifactAddress
+  trust_domain_id
+  content_digest                 # access-controlled plaintext identity
+  ciphertext_digest?
+  opaque_storage_key
+  encryption_key_ref?
+  storage_backend
+```
+
+Restricted-evaluation, secret, and tenant-isolated artifacts do not deduplicate
+across trust domains. `head_blob` authorizes the caller before revealing
+existence, and secure deletion operates on artifact references and encryption
+keys rather than blindly on a possibly shared digest.
+
+**Delivery: engine now (§5.11)** — trust-domain isolation and authorized
+`head_blob` are core security; cross-domain encryption and dedup are
+implementation detail within the same seam.
+
 Workers buffer canonical events within bounded memory and flush immutable JSONL
-segments every configured byte/time threshold. Completion commits the segment
-manifest and final state in one Postgres transaction. A crash leaves segments
-recoverable and an ambiguous final effect subject to reconciliation.
+segments every configured byte/time threshold. Blob bytes are staged and
+digest-verified before publication; a Postgres transaction then commits the
+artifact pointer, final state, AuthorityEvent, and outbox record together, and
+notifications are published from the outbox. A deterministic sweeper
+garbage-collects blobs that were staged but never committed. No design claim
+depends on a distributed transaction between Postgres and the ArtifactStore. A
+crash leaves segments recoverable and an ambiguous final effect subject to
+reconciliation.
 
 Optional analytical compaction may convert old JSONL segments to
 Zstd-compressed Parquet. Recommended defaults are configuration, not release
@@ -2881,6 +3514,45 @@ Additional invariants:
 - review-root changes cannot silently mutate authority roots;
 - corrections create superseding rows/artifacts and ledger events.
 
+### 5.11 Delivery status of newly-introduced resources
+
+The trust, policy, effect, and compiler refinements add a number of resources.
+Each carries an explicit **delivery status** so the program does not build every
+mechanism before evidence justifies it (mirroring the `seam_only` capability
+status in §21.1):
+
+- **engine now** — built in full in its home increment because it closes a
+  latent correctness, authority, or security gap;
+- **seam now, engine later** — the schema/field and its invariant land now so no
+  later migration is forced, but the enforcing evaluator, inheritance rule, or
+  engine is deferred until measured usage or evidence demands it.
+
+| Resource / change | Rev | Delivery | Rationale |
+| --- | --- | --- | --- |
+| `AuthorityEvent` / `ObservationSegment` + staged commit | 4 | engine now | removes an implied Postgres↔ArtifactStore distributed commit |
+| `EffectAttempt` + `EffectReceipt.compensated` + delivery semantics | 5 | engine now | honest `outcome_unknown` and non-reconcilable effects |
+| evidence dimensions, `EvidenceRequirement`, `ObligationSatisfaction` | 6 | engine now | removes a false total order over orthogonal evidence |
+| hermetic `PassContext` + `hermeticity_status` | 7 | engine now | closes an undeclared-read cache-poisoning vector |
+| `DecisionContract` + `PolicyDecision.indeterminate` | 3 | engine now | fail-closed evaluator failure ≠ authored deny |
+| `AdmissionPermit` | 2 | engine now | separates immutable evidence from operational authority |
+| `EnforcementProfile` | 13 | engine now | compiles ToolContract effects into a real sandbox boundary |
+| `ArtifactAddress`, `RootManifest`, digest domain separation, JCS encoding | 12 | engine now | trust-domain isolation and non-colliding authority roots |
+| subtree claim inheritance + `ClaimCoverageReport` | 19 | engine now | correct default; report is cheap and bounds the review surface |
+| `PlanRevision.status` cleanup | 16 | engine now | workflow states move to `PlanningRun` |
+| `CapabilityClaim` / `EffectiveCapabilitySet` | 9 | seam now, engine later | record declared claims now; probe/observe intersection later |
+| `QualificationScopeLattice` | 10 | seam now, engine later | default to no inheritance until an audited monotonic rule earns it |
+| `BatterySampleResult` quality vector + `case_cluster_key` | 10 | seam now, engine later | record the vector/cluster now; stratified inference engine later |
+| `NondeterminismLedger` + causal replay modes | 11 | seam now, engine later | `replay_engine_strict` suffices while implementation width is one |
+| info-flow label fields + `ObservedEffectSummary` | 13 | seam now, engine later | pilot coarse labels narrowly before propagation is load-bearing |
+| `ChangeSet` operation algebra | 8 | seam now, engine later | core ops + shared reducer now; full algebra and deterministic rebase later |
+| `ApprovalPolicy` / `ApprovalSet` | 14 | seam now, engine later | threshold-one default now; quorum and separation-of-duties for team profiles later |
+| `IndependenceProfile` | 18 | seam now, engine later | record the achieved profile now; risk-gated enforcement as policy matures |
+| deployment profiles + `QualificationGrant.deployment_profile_digest` | 15 | seam now, engine later | stamp `local_dev` now; durability/restore enforcement later |
+
+A seam-now resource keeps its fields and digests stable from the start; only its
+evaluator, inheritance rule, or enforcement engine is deferred — each is a
+cutline candidate (§19), not a P15-A/P2-A core requirement.
+
 ## 6. Claims, constraints, uncertainty, context budgets, and inspectable project knowledge
 
 The primary human trust question is not merely “what did the model output?” It
@@ -2898,7 +3570,12 @@ is:
 
 Do not duplicate a large provenance envelope in every semantic field. Each
 canonical semantic artifact has a separate `ClaimSet` keyed by JSON Pointer or
-canonical subtree identifier.
+canonical subtree identifier. A claim on a canonical subtree applies to its
+descendants unless a more specific claim overrides it, so ClaimSet size stays
+proportional to semantic decisions rather than raw field count. Only
+authority-bearing semantic leaves require coverage; presentation, telemetry,
+cached explanatory prose, and rebuildable projection fields are excluded by
+schema annotation.
 
 ```elixir
 %Claim{
@@ -2934,6 +3611,23 @@ This shrinks the trusted-model surface and keeps semantic artifact digests
 stable when confidence or explanatory prose changes. Confidence and review
 ordering are evidence metadata; they change authority only when the approved
 semantic value, accepted assumption, or waiver changes.
+
+The compiler emits a `ClaimCoverageReport` that proves coverage over
+authority-bearing leaves rather than every field:
+
+```text
+ClaimCoverageReport
+  authority_leaf_count
+  directly_claimed_count
+  inherited_claim_count
+  uncovered_pointers[]
+  conflicting_claim_pointers[]
+  high_impact_inferred_pointers[]
+  coverage_digest
+```
+
+**Delivery: engine now (§5.11)** — subtree inheritance and authority-leaf
+coverage are the correct default; the report is cheap.
 
 ### 6.2 Stable SourceAnchors
 
@@ -3175,10 +3869,12 @@ critical context.
 
 ## 7. Phase-2 planning and compiler pipeline
 
-Phase 2 begins only when an active QualificationGrant covers the requested
-planning roles, adapters, environment, verification capabilities, and autonomy.
-Every stochastic station can run live or from a planning-role Cassette; pure
-compiler passes and policy validators are identical in both modes.
+Agentic Phase 2 begins only when an active QualificationGrant covers the
+requested planning roles, adapters, environment, verification capabilities, and
+autonomy. A deterministic parse/lint mode may run without an agent grant but
+creates no approval, lock, or execution authority. Every stochastic station can
+run live or from a planning-role Cassette; pure compiler passes and policy
+validators are identical in both modes.
 
 P2-A ends at a non-authorizing static decision package and
 `compiler_structure_gate`. P2-B begins when executable contracts, evidence, and
@@ -3188,7 +3884,9 @@ approval authority are authored.
 
 Inputs:
 
-- source Markdown and `conveyor.plan@1` block/sidecar;
+- source Markdown for narrative and SourceAnchors;
+- exactly one authoritative `conveyor.plan@1` canonical manifest, either
+  embedded or referenced;
 - explicit hard/soft constraints and approved defaults;
 - repository identity and base commit;
 - HumanDecisions already attached to the Plan;
@@ -3215,6 +3913,12 @@ Outputs:
 - canonical source map and initial deterministic SourceAnchors;
 - `PlanningSpec`, pass graph, RoleView policy, budgets, and cassette policy.
 
+When no authoritative manifest exists, Conveyor may emit a draft extraction from
+prose, but every extracted semantic field is `agent_inferred` or
+`deterministic_candidate` — never `human_explicit` — until the human publishes
+the manifest. Conflicting embedded and sidecar manifests are a hard parse
+failure; there is no implicit precedence rule.
+
 Acceptance:
 
 - formatting-only source changes do not force a semantic revision;
@@ -3224,7 +3928,11 @@ Acceptance:
   path;
 - same canonical semantic input produces the same digests;
 - qualification admission and any override are frozen in PlanningSpec;
-- unknown schemas fail explicitly.
+- unknown schemas fail explicitly;
+- free-form narrative prose never directly creates execution authority;
+- the published structured manifest is the sole semantic input to lowering;
+- Markdown remains linked as explanatory source evidence and human-readable
+  context.
 
 ### P2-S2 — Deterministic front-end audit
 
@@ -3428,7 +4136,7 @@ Every contract includes:
 - InterfaceContracts, ownership, lock levels, compatibility, and deprecation;
 - ACs with positive, negative, boundary, abuse, and non-goal examples;
 - properties/invariants where appropriate;
-- VerificationObligations and expected evidence stages;
+- VerificationObligations and expected evidence requirements;
 - authorized scope and protected paths;
 - risk and required review lenses;
 - likely files/conflict domains as non-authoritative hints;
@@ -3532,8 +4240,8 @@ Hard checks:
 8. No test weakens policy, scope, or acceptance.
 9. Every required interface has an explicit oracle path.
 10. Compiler-derived falsifiers are present or explicitly superseded.
-11. Required VerificationObligations are satisfied only by valid evidence at or
-    above their minimum stage, or by an active waiver.
+11. Required VerificationObligations are satisfied only when their complete
+    EvidenceRequirement predicate evaluates true, or by an active waiver.
 
 Hard-block:
 
@@ -3576,6 +4284,34 @@ Lenses:
 Lenses may run concurrently. Findings retain disagreement and carry stable rule
 keys, evidence refs, materiality labels, and repair proposals. The Critic cannot
 approve or lock.
+
+Policy selects the required `IndependenceProfile` by risk and lens, because
+different role names do not create independent evidence when the same model
+family, prompt lineage, context, and provider are used:
+
+```text
+logical
+  separate role and RoleView
+
+context_separated
+  separate role, hidden prior output, independent prompt/context assembly
+
+model_diverse
+  materially different model family or provider plus context separation
+
+human_or_deterministic
+  human judgment or deterministic oracle provides the challenge
+```
+
+Security, irreversible migration, public compatibility, and autonomy-increasing
+changes require at least one `model_diverse` or `human_or_deterministic`
+critical lens. The bundle records the achieved profile and any limitation, so
+role separation is honest without making a secondary provider a universal build
+dependency.
+
+**Delivery: seam now, engine later (§5.11)** — the profile is recorded per role
+now; risk-gated enforcement of `model_diverse`/`human_or_deterministic` tightens
+as policy matures.
 
 ### P2-S14 — Bounded repair and partial salvage
 
@@ -3644,6 +4380,23 @@ archive_bundle_root
 
 The approval record is not a leaf in the root it signs.
 
+Every authority, review, and archive root is computed from a canonical
+`RootManifest` with explicit domain separation, so a root cannot be confused
+across kinds or silently omit a subject class:
+
+```text
+RootManifest
+  root_kind
+  root_version
+  canonicalization_profile
+  hash_algorithm
+  sorted_entries[{subject_kind, subject_key, digest, role}]
+  omitted_subject_classes[]
+  manifest_digest
+```
+
+**Delivery: engine now (§5.11).**
+
 ### P2-S17 — Human approval and impact preview
 
 Before applying any human edit, `preview_invalidation` shows:
@@ -3670,8 +4423,8 @@ The human can:
 - rerun only affected stages;
 - save a draft checkpoint and resume.
 
-Edits create typed change sets. Semantic changes publish a new PlanRevision and
-rerun invalidated passes. Review-only corrections create an erratum or renewed
+Edits compile to canonical ChangeSets. Semantic changes publish a new
+PlanRevision and rerun invalidated passes. Review-only corrections create an erratum or renewed
 review acknowledgment according to policy; they do not mutate authority.
 
 HumanApproval records:
@@ -3976,7 +4729,7 @@ Purely human-judgment ACs say so and cap autonomy.
         :policy | :human_judgment,
   required: true,
   oracle_definition_ref: "blobs/sha256/...",
-  minimum_evidence_stage: :candidate_passed,
+  evidence_requirement_ref: "blobs/sha256/...",
   compiler_falsifier_seed_refs: ["FAL-AC-021-1"],
   waiver_policy_key: "verification.waive.required",
   claim_refs: []
@@ -3993,6 +4746,8 @@ Purely human-judgment ACs say so and cap autonomy.
   acceptance_refs: ["AC-021"],
   interface_refs: ["http.get.tasks"],
   expected_on_base: :fail,
+  base_calibration_expectation:
+    :pass | :fail_expected_reason | :differential | :not_applicable,
   expected_base_reason: "completed filter not implemented",
   expected_on_candidate: :pass,
   failure_signature_policy: :stable_reason,
@@ -4145,8 +4900,8 @@ execute:
 9. **Code-impact view** — advisory modules/symbols/interfaces and confidence.
 10. **Contract view** — AgentBrief, scope, locks, compatibility, falsifiers,
     challenge cases, rollout/recovery intent.
-11. **Verification view** — obligations, evidence stages, integrity, waivers,
-    human-only items.
+11. **Verification view** — obligations, evidence dimensions, integrity,
+    waivers, human-only items.
 12. **Risk/recovery view** — protected paths, failure paths, typed recovery.
 13. **Derivation/invalidation view** — why an artifact is stale and what can be reused.
 14. **Diff view** — current revision/roots vs prior revision/approval.
@@ -4195,8 +4950,11 @@ engage_emergency_stop
 request_resume
 ```
 
-Every action produces a typed change set or domain action. No form field mutates
-canonical rows in place.
+Every semantic action produces a canonical `ChangeSet`; preview and application
+invoke the same pure reducer. Application requires that all base-root
+preconditions still match, otherwise the ChangeSet becomes `conflicted` and must
+be deterministically rebased or recreated. No form field mutates canonical rows
+in place.
 
 ### 10.5 Impact preview
 
@@ -4346,7 +5104,8 @@ A material proposal:
 4. computes affected grants, artifacts, Epics, downstream Slices, interfaces,
    obligations, and approvals from the derivation/interface graphs;
 5. emits an impact preview before human acceptance;
-6. creates a proposed redline against the published semantic plan/contract;
+6. creates a proposed ChangeSet and deterministic redline against the published
+   semantic plan/contract;
 7. requires a HumanDecision;
 8. creates a new source snapshot and published PlanRevision when accepted;
 9. reruns only invalidated pure passes and stochastic roles;
@@ -4740,7 +5499,8 @@ run_or_planning_id + station_key + station_spec_digest + attempt_no
 
 Claiming a durable StationRun atomically:
 
-1. verifies emergency stop, grant, budget, and prerequisite policy;
+1. validates a current AdmissionPermit and its control generation, then verifies
+   emergency stop, grant, budget, and prerequisite policy;
 2. increments `lease_epoch`;
 3. sets owner/expiry/heartbeat;
 4. records the current trace ID.
@@ -4836,7 +5596,11 @@ explicitly includes them.
 
 Each invocation receives a content-addressed RoleView and ToolContract allowlist.
 No role can approve, lock, alter policy, access scorer-only data, or materialize
-canonical work.
+canonical work. Every challenge or review role also records an
+`IndependenceProfile` — `logical`, `context_separated`, `model_diverse`, or
+`human_or_deterministic` — and high-risk authority requires at least a
+`model_diverse` or `human_or_deterministic` critical lens, since role labels
+alone do not prove independent evidence.
 
 ### 13.6 Event streaming and durable catch-up
 
@@ -4975,10 +5739,17 @@ mix conveyor.factory_chronicle PLAN_REVISION_ID
 mix conveyor.pilot_select PLANNING_BUNDLE_ID
 mix conveyor.pilot_run PILOT_SELECTION_ID
 mix conveyor.phase2_gate PROJECT_ID
+mix conveyor.bundle_verify BUNDLE_PATH [--offline] [--require-signatures]
 ```
 
 `mix conveyor.plan_prepare` stops at the static approval-ready package. It never
 self-approves or launches an implementer.
+
+`mix conveyor.bundle_verify` is an offline verifier: a third party can validate
+schemas, canonicalization, RootManifests, attestations and signatures, the
+ApprovalPolicy threshold, grant scope, waiver expiry, ContractLocks, and
+referenced artifact availability from a static bundle without Conveyor's
+database or UI.
 
 ### 14.3 Stable process exit classes and machine error keys
 
@@ -5030,7 +5801,7 @@ handling.
   interfaces, obligations, contracts, roots, impact, approval.
 - **Evidence Time Machine** — typed comparisons, stale explanations, derivation.
 - **Recovery Queue** — diagnoses, proposals, policy decisions, effect receipts.
-- **Contract Quality Dashboard** — obligation/evidence stages, integrity,
+- **Contract Quality Dashboard** — obligation/evidence dimensions, integrity,
   falsifiers, challenge cases, waivers.
 - **Factory Chronicle** — deterministic narrative linked to raw evidence.
 - **Control Center** — emergency stop/resume, global budgets, adapter circuits,
@@ -5263,6 +6034,9 @@ tool_contract_authorization
 output_boundary_validation
 station_fencing
 effect_idempotency_and_reconciliation
+authority_lifecycle_state_machine
+effect_unknown_outcome_recovery
+stale_worker_external_output_fenced
 trace_propagation
 artifact_store_roundtrip
 retention_reference_safety
@@ -5530,7 +6304,12 @@ Prove:
 - cold retrieval preserves digest;
 - event compaction preserves canonical semantic transcript or is non-authority;
 - a LiveView reconnect reconstructs ordered history from durable segments;
-- LocalCAS and S3-compatible backends pass the same conformance suite.
+- LocalCAS and S3-compatible backends pass the same conformance suite;
+- an approved bundle, active grant, and selected replay anchor restore from the
+  deployment profile's declared backup boundary;
+- restored authority roots reproduce byte-for-byte;
+- no new AdmissionPermit issues while a required authority artifact is
+  unavailable or its durability requirement is unmet.
 
 ## 17. Program KPIs, grants, release gates, and go/no-go thresholds
 
@@ -5626,8 +6405,11 @@ if not enumerated. The list is a floor, not a loophole catalogue.
 
 ### 17.2 Live statistical capability assessment and grant issuance
 
-Live quality is evaluated per grant scope, commonly
-`adapter × profile × archetype × language/toolchain × risk class`.
+Live quality is evaluated per grant-scope stratum drawn from the
+`QualificationScopeLattice` (commonly
+`adapter × profile × archetype × language/toolchain × risk class`), with
+explicit conservative inheritance rather than treating every combination as
+independent or pooling all samples into one rate.
 
 The versioned SamplingPolicy records:
 
@@ -5647,7 +6429,8 @@ Permitted initial methods include a recorded Beta-Binomial lower bound or a
 sequential likelihood/posterior test. The exact choice is policy, not hardcoded
 architecture.
 
-The grant stores:
+The grant stores both aggregate and worst-required-stratum results, so an
+aggregate success cannot conceal a failing required stratum:
 
 ```text
 p_low
@@ -5655,6 +6438,7 @@ p_high
 confidence
 sample_count
 quality_floor
+worst_required_stratum_result
 method/policy_digest
 provider_or_infra_failure_count
 ```
@@ -5845,6 +6629,17 @@ P15-B together clear `qualification_gate`; P2-A clears the non-authorizing
 `compiler_structure_gate`; P2-B clears `phase2_gate`.
 
 ### 18.1 Increment P15-A — Evidence Kernel
+
+P15-A is delivered through two internal checkpoints (see §0). **P15-A-core** —
+canonical identity, typed policy, RoleViews/ToolContracts, station fencing,
+effect receipts, authoritative events, LocalCAS, trace propagation, emergency
+stop, and budget admission — is the minimum needed to trust an early Battery
+run, and P15-B corpus, scorer, adapter-conformance, and replay work may begin
+once it is dogfooded. **P15-A-hardening** — complete retention/erasure, backend
+conformance, migration breadth, restore testing, operator projections, and the
+remaining control-plane canaries — completes before the release
+`qualification_gate`. The milestones below are written as P15-A0–A5; the
+core/hardening line runs through them rather than between two of them.
 
 #### P15-A0 — Phase-1 retrospective, baseline freeze, and vertical tracer
 
@@ -6042,7 +6837,7 @@ Acceptance:
 Deliver:
 
 - obligation/evidence/waiver resources;
-- evidence-stage ladder;
+- per-dimension EvidenceRequirement predicate and ObligationSatisfaction;
 - calibration, hermeticity, repeatability, mount, and vacuity probes;
 - quarantine lifecycle with no authority laundering;
 - compiler-falsifier placeholder seam for Phase 2;
@@ -6231,7 +7026,14 @@ Deliver:
 - placeholder prompt structure dry-compile;
 - StreamData properties;
 - static/headless report;
-- internal gate command.
+- internal gate command;
+- supported deterministic product commands:
+
+```bash
+mix conveyor.plan_prepare PLAN.md --no-agents
+mix conveyor.contract_lint agent_brief.json
+mix conveyor.plan_lint PLAN.md --format human|json|sarif
+```
 
 Acceptance:
 
@@ -6241,7 +7043,11 @@ Acceptance:
 - pass cache and derivation impact tests pass;
 - all hard structural blockers clear;
 - no ContractLock/approval/implementation authority is created;
-- `compiler_structure_gate` passes.
+- `compiler_structure_gate` passes;
+- no-agent lint runs without a QualificationGrant, never creates approval or
+  execution authority, and produces the same deterministic diagnostics as the
+  full compiler;
+- SARIF and static Markdown are projections of the same canonical findings.
 
 ### 18.4 Increment P2-B — Contract Foundry and serial pilot
 
@@ -6974,15 +7780,20 @@ High-impact, high-age decision debt can block autonomy or force re-approval.
 Export plan/contract findings as SARIF so IDEs and CI can show source-linked
 problems. This is an adoption nicety, not source of truth.
 
-### 24.15 Contract lint as a standalone command — likely high ROI
+### 24.15 Contract lint as a standalone command — promoted to P2-A core
 
 ```bash
 mix conveyor.plan_prepare PLAN.md --no-agents
-mix conveyor.contract_lint agent_brief.yml
+mix conveyor.contract_lint agent_brief.json
+mix conveyor.plan_lint PLAN.md --format human|json|sarif
 ```
 
-A deterministic-only mode can become an adoption wedge without creating a
-separate architecture.
+The deterministic linter is the cleanest early product wedge: it is useful
+before agentic compilation is fully qualified, exercises schemas, claims,
+constraints, graph analyses, and diagnostics, produces real plans and defects
+for the compiler corpus, has no provider cost, and cannot create execution
+authority. It is therefore part of P2-A core (§18.3 P2-A4) rather than a
+deferred idea.
 
 ### 24.16 Decomposition confidence calibration — learning seam
 
@@ -7185,7 +7996,6 @@ but multiplies identity, credential, and rollout complexity; it should follow a
 proven interface firewall and merge queue.
 
 ---
-
 
 ### 24.37 Analytical archive and local query profile — optional operations track
 
@@ -7408,7 +8218,7 @@ rechecking grants, readiness, budgets, roots, and gate freshness.
 Contracts support:
 
 - Slice/Epic/Phase gate level;
-- VerificationObligations and minimum stages;
+- VerificationObligations and evidence requirements;
 - challenge/held-out tests and mutation targets;
 - behavior-oracle scopes;
 - interface/compatibility checks;
