@@ -42,6 +42,7 @@ defmodule Conveyor.MixProject do
       {:postgrex, "~> 0.22"},
       {:ash, "~> 3.29"},
       {:ash_postgres, "~> 2.10"},
+      {:ash_state_machine, "~> 0.2.13"},
       {:oban, "~> 2.23"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},

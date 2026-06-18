@@ -6,7 +6,8 @@ defmodule Conveyor.Factory.Slice do
   use Ash.Resource,
     otp_app: :conveyor,
     domain: Conveyor.Factory,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    extensions: [AshStateMachine]
 
   postgres do
     table "slices"
@@ -15,6 +16,46 @@ defmodule Conveyor.Factory.Slice do
 
   actions do
     defaults [:read, :destroy, create: :*, update: :*]
+
+    update :approve do
+      change transition_state(:approved)
+    end
+
+    update :mark_ready do
+      change transition_state(:ready)
+    end
+
+    update :start do
+      change transition_state(:in_progress)
+    end
+
+    update :gate do
+      change transition_state(:gated)
+    end
+
+    update :integrate do
+      change transition_state(:integrated)
+    end
+
+    update :complete do
+      change transition_state(:done)
+    end
+
+    update :request_rework do
+      change transition_state(:needs_rework)
+    end
+
+    update :park do
+      change transition_state(:parked)
+    end
+
+    update :fail do
+      change transition_state(:failed)
+    end
+
+    update :policy_block do
+      change transition_state(:policy_blocked)
+    end
   end
 
   attributes do
@@ -38,8 +79,22 @@ defmodule Conveyor.Factory.Slice do
 
     attribute :state, :atom do
       allow_nil? false
-      constraints one_of: [:planned, :ready, :running, :accepted, :blocked, :archived]
-      default :planned
+
+      constraints one_of: [
+                    :drafted,
+                    :approved,
+                    :ready,
+                    :in_progress,
+                    :gated,
+                    :integrated,
+                    :done,
+                    :needs_rework,
+                    :parked,
+                    :failed,
+                    :policy_blocked
+                  ]
+
+      default :drafted
       public? true
     end
 
@@ -133,5 +188,32 @@ defmodule Conveyor.Factory.Slice do
 
   identities do
     identity :unique_epic_position, [:epic_id, :position]
+  end
+
+  state_machine do
+    initial_states([:drafted])
+    default_initial_state(:drafted)
+
+    transitions do
+      transition(:approve, from: :drafted, to: :approved)
+      transition(:mark_ready, from: [:drafted, :approved, :needs_rework], to: :ready)
+      transition(:start, from: :ready, to: :in_progress)
+      transition(:gate, from: :in_progress, to: :gated)
+      transition(:integrate, from: :gated, to: :integrated)
+      transition(:complete, from: :integrated, to: :done)
+
+      transition(:request_rework,
+        from: [:ready, :in_progress, :gated, :integrated],
+        to: :needs_rework
+      )
+
+      transition(:park,
+        from: [:drafted, :approved, :ready, :in_progress, :gated, :integrated, :needs_rework],
+        to: :parked
+      )
+
+      transition(:fail, from: [:in_progress, :gated, :integrated, :needs_rework], to: :failed)
+      transition(:policy_block, from: [:ready, :in_progress, :gated], to: :policy_blocked)
+    end
   end
 end
