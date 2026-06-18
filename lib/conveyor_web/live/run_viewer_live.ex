@@ -50,6 +50,9 @@ defmodule ConveyorWeb.RunViewerLive do
     )
 
     {:noreply, assign_run_data(socket)}
+  rescue
+    error in ArgumentError ->
+      {:noreply, put_flash(socket, :error, Exception.message(error))}
   end
 
   @impl true
