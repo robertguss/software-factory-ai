@@ -65,7 +65,7 @@ verification_commands:
 decisions:
   - key: DEC-001
     decision: Keep Phase 1 focused on completion state only.
-    rationale: Authentication, pagination, un-complete flows, bulk updates, and deployment do not improve the tracer-bullet evidence.
+    rationale: Authentication, pagination, un-complete flows, bulk updates, and deployment are outside the tracer-bullet evidence boundary.
   - key: DEC-002
     decision: Use one L1 implementation slice for the sample app change.
     rationale: The behavior is small, local to the task model/API, and covered by locked pytest acceptance cases.

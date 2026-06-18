@@ -48,31 +48,43 @@ defmodule Mix.Tasks.Conveyor.PlanAudit do
 
   defp create_project!(%PlanContract.Result{contract: contract, source_path: source_path}) do
     project = Map.fetch!(contract, "project")
+    local_path = Path.dirname(source_path)
 
-    Ash.create!(
-      Project,
-      %{
-        name: Map.fetch!(project, "key"),
-        local_path: Path.dirname(source_path),
-        default_branch: Map.fetch!(project, "base_ref")
-      },
-      domain: Factory
-    )
+    attrs = %{
+      name: Map.fetch!(project, "key"),
+      local_path: local_path,
+      default_branch: Map.fetch!(project, "base_ref")
+    }
+
+    case find_one(Project, &(&1.local_path == local_path)) do
+      nil -> Ash.create!(Project, attrs, domain: Factory)
+      existing -> Ash.update!(existing, attrs, domain: Factory)
+    end
   end
 
   defp create_plan!(project, %PlanContract.Result{} = contract_result) do
-    Ash.create!(
-      Plan,
-      %{
-        project_id: project.id,
-        title: "#{contract_result.contract["project"]["key"]} plan",
-        intent: Map.fetch!(contract_result.contract, "goal"),
-        source_document: contract_result.source_path,
-        normalized_contract: contract_result.contract,
-        contract_sha256: contract_result.contract_sha256
-      },
-      domain: Factory
-    )
+    attrs = %{
+      project_id: project.id,
+      title: "#{contract_result.contract["project"]["key"]} plan",
+      intent: Map.fetch!(contract_result.contract, "goal"),
+      source_document: contract_result.source_path,
+      normalized_contract: contract_result.contract,
+      contract_sha256: contract_result.contract_sha256
+    }
+
+    case find_one(
+           Plan,
+           &(&1.project_id == project.id and &1.contract_sha256 == contract_result.contract_sha256)
+         ) do
+      nil -> Ash.create!(Plan, attrs, domain: Factory)
+      existing -> Ash.update!(existing, attrs, domain: Factory)
+    end
+  end
+
+  defp find_one(resource, predicate) do
+    resource
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(predicate)
   end
 
   defp exit_code(%PlanAuditor.Result{decision: :ready}), do: ExitCodes.fetch!(:success)

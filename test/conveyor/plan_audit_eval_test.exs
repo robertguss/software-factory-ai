@@ -15,6 +15,7 @@ defmodule Conveyor.PlanAuditEvalTest do
     {"good", "handoff_ready"},
     {"missing-ac", "blocked"},
     {"missing-test", "blocked"},
+    {"missing-decision", "blocked"},
     {"untraceable", "blocked"},
     {"vague", "blocked"},
     {"contradictory", "blocked"},
