@@ -1,0 +1,74 @@
+[
+  {
+    "label": "rm_rf_workspace",
+    "argv": ["rm", "-rf", "/tmp/workspace"],
+    "allowlist": ["rm"],
+    "denylist": ["rm -rf"],
+    "expected_reason": "denylisted"
+  },
+  {
+    "label": "git_reset_hard",
+    "argv": ["git", "reset", "--hard", "HEAD"],
+    "allowlist": ["git"],
+    "denylist": ["git reset --hard"],
+    "expected_reason": "denylisted"
+  },
+  {
+    "label": "git_clean_force",
+    "argv": ["git", "clean", "-fd"],
+    "allowlist": ["git"],
+    "denylist": ["git clean -fd"],
+    "expected_reason": "denylisted"
+  },
+  {
+    "label": "force_push",
+    "argv": ["git", "push", "--force", "origin", "main"],
+    "allowlist": ["git"],
+    "denylist": ["git push --force"],
+    "expected_reason": "denylisted"
+  },
+  {
+    "label": "sudo_package_install",
+    "argv": ["sudo", "apt", "install", "curl"],
+    "allowlist": ["sudo"],
+    "denylist": ["sudo"],
+    "expected_reason": "denylisted"
+  },
+  {
+    "label": "kubectl_apply",
+    "argv": ["kubectl", "apply", "-f", "deploy.yaml"],
+    "allowlist": ["kubectl"],
+    "denylist": ["kubectl apply"],
+    "expected_reason": "denylisted"
+  },
+  {
+    "label": "terraform_apply",
+    "argv": ["terraform", "apply", "-auto-approve"],
+    "allowlist": ["terraform"],
+    "denylist": ["terraform apply"],
+    "expected_reason": "denylisted"
+  },
+  {
+    "label": "secret_env_access",
+    "argv": ["pytest", "-q"],
+    "allowlist": ["pytest"],
+    "denylist": [],
+    "env_allowlist": ["AWS_SECRET_ACCESS_KEY"],
+    "expected_reason": "env_not_allowed"
+  },
+  {
+    "label": "network_egress_attempt",
+    "argv": ["pytest", "-q"],
+    "allowlist": ["pytest"],
+    "denylist": [],
+    "network": "egress",
+    "expected_reason": "network_not_allowed"
+  },
+  {
+    "label": "protected_path_edit",
+    "argv": ["python", "scripts/edit_protected.py", ".conveyor/config.toml"],
+    "allowlist": ["python"],
+    "denylist": ["python scripts/edit_protected.py"],
+    "expected_reason": "denylisted"
+  }
+]
