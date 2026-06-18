@@ -74,6 +74,32 @@ defmodule Conveyor.RunGateCanaryTest do
     end
   end
 
+  defmodule UnexpectedRejectionStage do
+    @behaviour Conveyor.Gate.Stage
+
+    # Rejects every mutant, but always under a category/stage that does not match the
+    # expected catch (nor a valid stricter category), yielding rejected_unexpected.
+    @impl true
+    def run(%{patch_set: %{kind: :known_good}}, _opts) do
+      %StageResult{key: "fixture_gate", status: :passed, required?: true}
+    end
+
+    def run(%{patch_set: %{expected_catch: _expected}}, _opts) do
+      %StageResult{
+        key: "canary_test_wrong_stage",
+        status: :failed,
+        required?: true,
+        findings: [
+          %{
+            "category" => "canary_test_wrong_reason",
+            "severity" => "blocking",
+            "message" => "rejected for an unexpected reason"
+          }
+        ]
+      }
+    end
+  end
+
   test "runs known-good and all enabled mutants through the gate-only path" do
     summary = run_canary(FixtureGateStage)
 
@@ -105,6 +131,18 @@ defmodule Conveyor.RunGateCanaryTest do
     assert summary["false_positive_count"] == 1
     assert summary["false_negative_count"] == 0
     # A false positive is release-blocking but distinct from a false negative (6).
+    assert summary["ci_exit_code"] == 1
+  end
+
+  test "classifies a wrong-reason rejection as unexpected with the gate-failed exit code" do
+    summary = run_canary(UnexpectedRejectionStage)
+
+    refute summary["passed"]
+    assert summary["false_negative_count"] == 0
+    assert summary["false_positive_count"] == 0
+    assert summary["unexpected_rejection_count"] == 8
+    assert Enum.all?(summary["mutants"], &(&1["outcome"] == "rejected_unexpected"))
+    # passed == false must not be reported as a successful canary run.
     assert summary["ci_exit_code"] == 1
   end
 
