@@ -25,6 +25,9 @@ defmodule Conveyor.Factory.Artifact do
     attribute :projection_path, :string, allow_nil?: false, public?: true
     attribute :blob_ref, :string, allow_nil?: false, public?: true
     attribute :sha256, :string, allow_nil?: false, public?: true
+    attribute :raw_sha256, :string, public?: true
+    attribute :redacted_sha256, :string, public?: true
+    attribute :redaction_findings, {:array, :map}, allow_nil?: false, default: [], public?: true
     attribute :size_bytes, :integer, allow_nil?: false, public?: true
     attribute :subject_kind, :string, allow_nil?: false, public?: true
     attribute :producer, :string, allow_nil?: false, public?: true
