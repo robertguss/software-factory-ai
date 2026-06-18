@@ -1,6 +1,7 @@
 defmodule Conveyor.StationTest do
   use Conveyor.DataCase, async: false
 
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
   alias Conveyor.Factory.Epic
@@ -101,10 +102,11 @@ defmodule Conveyor.StationTest do
         domain: Factory
       )
 
-    %{run_attempt: run_attempt}
+    %{blob_root: temp_dir!("station-blobs"), run_attempt: run_attempt}
   end
 
   test "executes station mechanics once and reuses succeeded idempotency key", %{
+    blob_root: blob_root,
     run_attempt: run_attempt
   } do
     now = ~U[2026-06-18 00:00:00.000000Z]
@@ -112,6 +114,7 @@ defmodule Conveyor.StationTest do
     result =
       SampleStation.execute!(run_attempt, %{"input" => "value"},
         actor: "worker-1",
+        blob_root: blob_root,
         now: now,
         completed_at: DateTime.add(now, 5, :second)
       )
@@ -133,12 +136,18 @@ defmodule Conveyor.StationTest do
     assert [artifact] = Ash.read!(Artifact, domain: Factory)
     assert artifact.station_run_id == station_run_id
     assert artifact.sha256 =~ ~r/^sha256:[0-9a-f]{64}$/
+    assert artifact.blob_ref =~ ~r|^sha256/[0-9a-f]{2}/[0-9a-f]{64}$|
+    assert BlobStore.read!(artifact.blob_ref, blob_root: blob_root) == "sample station log\n"
 
     assert [event] = station_events(station_run_id)
     assert event.type == "station.succeeded"
     assert event.payload["output_sha256"] == result.station_run.output_sha256
 
-    retry = SampleStation.execute!(run_attempt, %{"input" => "value"}, actor: "worker-1")
+    retry =
+      SampleStation.execute!(run_attempt, %{"input" => "value"},
+        actor: "worker-1",
+        blob_root: blob_root
+      )
 
     assert retry.reused?
     assert retry.station_run.id == station_run_id
@@ -152,6 +161,7 @@ defmodule Conveyor.StationTest do
   end
 
   test "idempotency key uses run attempt, station, station spec digest, and attempt number", %{
+    blob_root: blob_root,
     run_attempt: run_attempt
   } do
     input = %{"input" => "value"}
@@ -165,13 +175,20 @@ defmodule Conveyor.StationTest do
         run_attempt.attempt_no
       )
 
-    result = SampleStation.execute!(run_attempt, input, actor: "worker-1")
+    result = SampleStation.execute!(run_attempt, input, actor: "worker-1", blob_root: blob_root)
 
     assert result.station_run.idempotency_key == expected
   end
 
-  test "heartbeat refreshes lease without creating new station rows", %{run_attempt: run_attempt} do
-    result = SampleStation.execute!(run_attempt, %{"input" => "heartbeat"}, actor: "worker-1")
+  test "heartbeat refreshes lease without creating new station rows", %{
+    blob_root: blob_root,
+    run_attempt: run_attempt
+  } do
+    result =
+      SampleStation.execute!(run_attempt, %{"input" => "heartbeat"},
+        actor: "worker-1",
+        blob_root: blob_root
+      )
 
     refreshed =
       Station.heartbeat!(result.station_run,
@@ -230,4 +247,15 @@ defmodule Conveyor.StationTest do
   end
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)
+
+  defp temp_dir!(label) do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "conveyor-#{label}-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(path)
+    path
+  end
 end

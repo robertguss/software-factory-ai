@@ -1,6 +1,7 @@
 defmodule Conveyor.Artifacts.ProjectorTest do
   use Conveyor.DataCase, async: false
 
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Artifacts.Projector
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
@@ -114,8 +115,16 @@ defmodule Conveyor.Artifacts.ProjectorTest do
   } do
     content = "pytest passed\n"
     sha256 = digest_bytes(content)
-    write_blob!(blob_root, sha256, content)
-    create_artifact!(run_attempt, station_run, sha256, byte_size(content), "logs/pytest.txt")
+    blob = BlobStore.write!(content, blob_root: blob_root)
+
+    create_artifact!(
+      run_attempt,
+      station_run,
+      blob.ref,
+      sha256,
+      byte_size(content),
+      "logs/pytest.txt"
+    )
 
     first =
       Projector.project_run!(run_attempt,
@@ -151,11 +160,13 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     station_run: station_run
   } do
     expected_sha256 = digest_bytes("expected")
-    write_blob!(blob_root, expected_sha256, "corrupted")
+    blob_ref = BlobStore.ref_for_sha256!(expected_sha256)
+    corrupt_blob!(blob_root, blob_ref, "corrupted")
 
     create_artifact!(
       run_attempt,
       station_run,
+      blob_ref,
       expected_sha256,
       byte_size("expected"),
       "logs/bad.txt"
@@ -186,7 +197,7 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     assert result.projection_path == "/tmp/recorded"
   end
 
-  defp create_artifact!(run_attempt, station_run, sha256, size_bytes, projection_path) do
+  defp create_artifact!(run_attempt, station_run, blob_ref, sha256, size_bytes, projection_path) do
     Ash.create!(
       Artifact,
       %{
@@ -195,7 +206,7 @@ defmodule Conveyor.Artifacts.ProjectorTest do
         kind: "run-log",
         media_type: "text/plain",
         projection_path: projection_path,
-        blob_ref: "cas/#{sha256}",
+        blob_ref: blob_ref,
         sha256: sha256,
         size_bytes: size_bytes,
         subject_kind: "run_attempt",
@@ -207,8 +218,8 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     )
   end
 
-  defp write_blob!(blob_root, sha256, content) do
-    path = Path.join([blob_root, "cas", sha256])
+  defp corrupt_blob!(blob_root, blob_ref, content) do
+    path = BlobStore.path_for!(blob_ref, blob_root: blob_root)
     File.mkdir_p!(Path.dirname(path))
     File.write!(path, content)
   end

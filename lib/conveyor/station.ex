@@ -7,6 +7,7 @@ defmodule Conveyor.Station do
   and station ledger events.
   """
 
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
   alias Conveyor.Factory.Epic
@@ -234,7 +235,8 @@ defmodule Conveyor.Station do
         write_artifacts!(
           station_run,
           run_attempt,
-          Map.get(output, :artifacts, Map.get(output, "artifacts", []))
+          Map.get(output, :artifacts, Map.get(output, "artifacts", [])),
+          opts
         )
 
       artifact_refs = Enum.map(artifacts, & &1.projection_path)
@@ -346,17 +348,18 @@ defmodule Conveyor.Station do
     }
   end
 
-  defp write_artifacts!(station_run, run_attempt, artifacts) do
+  defp write_artifacts!(station_run, run_attempt, artifacts, opts) do
     artifacts
-    |> Enum.map(&write_artifact!(station_run, run_attempt, &1))
+    |> Enum.map(&write_artifact!(station_run, run_attempt, &1, opts))
     |> Enum.unzip()
     |> then(fn {artifacts, notifications} -> {artifacts, List.flatten(notifications)} end)
   end
 
-  defp write_artifact!(station_run, run_attempt, artifact) do
+  defp write_artifact!(station_run, run_attempt, artifact, opts) do
     content = Map.get(artifact, :content) || Map.get(artifact, "content") || ""
-    sha256 = sha256(content)
-    size_bytes = byte_size(content)
+    blob = BlobStore.write!(content, blob_root: Keyword.get(opts, :blob_root, ".conveyor/blobs"))
+    sha256 = Map.get(artifact, :sha256, Map.get(artifact, "sha256", "sha256:#{blob.sha256}"))
+    size_bytes = Map.get(artifact, :size_bytes, Map.get(artifact, "size_bytes", blob.size_bytes))
 
     attrs = %{
       run_attempt_id: run_attempt.id,
@@ -367,8 +370,8 @@ defmodule Conveyor.Station do
       projection_path:
         Map.get(artifact, :projection_path) ||
           Map.get(artifact, "projection_path") ||
-          "artifacts/stations/#{station_run.station}/#{sha256}.json",
-      blob_ref: Map.get(artifact, :blob_ref, Map.get(artifact, "blob_ref", "cas/#{sha256}")),
+          "artifacts/stations/#{station_run.station}/#{blob.sha256}.json",
+      blob_ref: Map.get(artifact, :blob_ref, Map.get(artifact, "blob_ref", blob.ref)),
       sha256: sha256,
       size_bytes: size_bytes,
       subject_kind:

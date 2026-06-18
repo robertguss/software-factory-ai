@@ -5,6 +5,7 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
 
   @behaviour Conveyor.Artifacts.Projector
 
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Artifacts.Projector
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
@@ -46,22 +47,12 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
   end
 
   defp verify_artifact_blob!(artifact, blob_root) do
-    source_path = safe_join!(blob_root, artifact.blob_ref, "blob_ref")
-    content = File.read!(source_path)
-    actual_sha256 = sha256(content)
-    actual_size = byte_size(content)
+    blob =
+      BlobStore.verify!(artifact.blob_ref, artifact.sha256, artifact.size_bytes,
+        blob_root: blob_root
+      )
 
-    if actual_sha256 != artifact.sha256 do
-      raise ArgumentError,
-            "artifact #{artifact.id} digest mismatch: expected #{artifact.sha256}, got #{actual_sha256}"
-    end
-
-    if actual_size != artifact.size_bytes do
-      raise ArgumentError,
-            "artifact #{artifact.id} size mismatch: expected #{artifact.size_bytes}, got #{actual_size}"
-    end
-
-    %{artifact: artifact, content: content}
+    %{artifact: artifact, content: blob.content}
   end
 
   defp manifest(run_attempt, artifacts) do
