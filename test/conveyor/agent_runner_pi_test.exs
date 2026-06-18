@@ -14,6 +14,7 @@ defmodule Conveyor.AgentRunnerPiTest do
   alias Conveyor.Factory.ContextPack
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.LedgerEvent
+  alias Conveyor.Factory.PatchSet
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Policy
   alias Conveyor.Factory.Project
@@ -106,6 +107,7 @@ defmodule Conveyor.AgentRunnerPiTest do
                %{path: workspace_path, base_commit: base_commit},
                policy(),
                agent_session_id: fixture.agent_session.id,
+               run_attempt_id: fixture.run_attempt.id,
                blob_root: blob_root,
                profile: :pi_host_controlled_tools,
                session_id: "pi-request-1",
@@ -122,6 +124,7 @@ defmodule Conveyor.AgentRunnerPiTest do
     assert result.attempted_commands == ["mix test"]
     assert result.metadata["adapter"] == "pi"
     assert result.metadata["session_id"] == "pi-session-123"
+    assert result.metadata["patch_set_id"]
 
     diff = BlobStore.read!(result.diff_ref, blob_root: blob_root)
     assert diff =~ "-original"
@@ -156,6 +159,15 @@ defmodule Conveyor.AgentRunnerPiTest do
     assert session.adapter_session_id == "pi-session-123"
     assert session.status == :succeeded
     assert session.raw_result_ref == result.metadata["raw_transcript_ref"]
+
+    patch_set =
+      PatchSet
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.id == result.metadata["patch_set_id"]))
+
+    assert patch_set.patch_ref == result.diff_ref
+    assert patch_set.changed_files == ["sample.txt"]
+    assert patch_set.applies_cleanly
   end
 
   test "output flood stops the Pi session and records cancel acknowledgement" do
@@ -330,7 +342,7 @@ defmodule Conveyor.AgentRunnerPiTest do
         domain: Factory
       )
 
-    %{agent_session: agent_session, run_prompt: run_prompt}
+    %{agent_session: agent_session, run_attempt: run_attempt, run_prompt: run_prompt}
   end
 
   defp git_workspace!(label) do

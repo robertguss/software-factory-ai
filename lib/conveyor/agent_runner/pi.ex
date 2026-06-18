@@ -12,6 +12,7 @@ defmodule Conveyor.AgentRunner.Pi do
 
   alias Conveyor.AgentRunner.Capabilities
   alias Conveyor.AgentRunner.EventRecorder
+  alias Conveyor.AgentRunner.PatchCapture
   alias Conveyor.AgentRunner.RawRunResult
   alias Conveyor.AgentRunner.SessionLimits
   alias Conveyor.Artifacts.BlobStore
@@ -71,8 +72,10 @@ defmodule Conveyor.AgentRunner.Pi do
       with {:ok, rpc_result} <- rpc_client.(request, recorder) do
         final_sequence = record_terminal_events!(recorder, rpc_result)
         raw_transcript_ref = raw_transcript_ref(rpc_result, blob_opts)
-        diff_ref = capture_diff!(workspace_path, base_commit, blob_opts)
-        result = raw_run_result(rpc_result, diff_ref, raw_transcript_ref, profile, final_sequence)
+        patch_capture = capture_patch(workspace, workspace_path, base_commit, opts, blob_opts)
+
+        result =
+          raw_run_result(rpc_result, patch_capture, raw_transcript_ref, profile, final_sequence)
 
         update_agent_session!(agent_session_id, session_id, result, raw_transcript_ref)
 
@@ -273,18 +276,19 @@ defmodule Conveyor.AgentRunner.Pi do
     sequence_no + 1
   end
 
-  defp raw_run_result(rpc_result, diff_ref, raw_transcript_ref, profile, final_sequence) do
+  defp raw_run_result(rpc_result, patch_capture, raw_transcript_ref, profile, final_sequence) do
     %RawRunResult{
       summary: Map.get(rpc_result, "summary") || Map.get(rpc_result, :summary, ""),
       messages: Map.get(rpc_result, "messages") || Map.get(rpc_result, :messages, []),
       tool_calls: Map.get(rpc_result, "tool_calls") || Map.get(rpc_result, :tool_calls, []),
       attempted_commands:
         Map.get(rpc_result, "attempted_commands") || Map.get(rpc_result, :attempted_commands, []),
-      diff_ref: diff_ref,
+      diff_ref: patch_capture.patch_ref,
       metadata: %{
         "adapter" => @adapter,
         "profile" => Atom.to_string(profile),
         "session_id" => Map.get(rpc_result, "session_id") || Map.get(rpc_result, :session_id),
+        "patch_set_id" => patch_capture.patch_set_id,
         "raw_transcript_ref" => raw_transcript_ref,
         "final_sequence_no" => final_sequence
       }
@@ -298,15 +302,35 @@ defmodule Conveyor.AgentRunner.Pi do
     |> Map.fetch!(:ref)
   end
 
-  defp capture_diff!(workspace_path, base_commit, blob_opts) do
-    {diff, 0} =
-      System.cmd("git", ["-C", workspace_path, "diff", "--binary", base_commit, "--"],
-        stderr_to_stdout: true
-      )
+  defp capture_patch(workspace, workspace_path, base_commit, opts, blob_opts) do
+    case Keyword.get(opts, :run_attempt_id) do
+      nil ->
+        diff = git_diff!(workspace_path, base_commit)
+        blob = BlobStore.write!(diff, blob_opts)
+        %{patch_ref: blob.ref, patch_set_id: nil}
 
-    diff
-    |> BlobStore.write!(blob_opts)
-    |> Map.fetch!(:ref)
+      run_attempt_id ->
+        patch_set =
+          PatchCapture.capture!(
+            workspace,
+            blob_opts
+            |> Keyword.put(:base_commit, base_commit)
+            |> Keyword.put(:run_attempt_id, run_attempt_id)
+            |> Keyword.put(:agent_session_id, Keyword.get(opts, :agent_session_id))
+            |> Keyword.put(:locked_paths, Keyword.get(opts, :locked_paths, []))
+          )
+
+        %{patch_ref: patch_set.patch_ref, patch_set_id: patch_set.id}
+    end
+  end
+
+  defp git_diff!(workspace_path, base_commit) do
+    case System.cmd("git", ["-C", workspace_path, "diff", "--binary", base_commit, "--"],
+           stderr_to_stdout: true
+         ) do
+      {diff, 0} -> diff
+      {output, status} -> raise "git diff failed with #{status}: #{output}"
+    end
   end
 
   defp update_agent_session!(agent_session_id, session_id, result, raw_transcript_ref) do
