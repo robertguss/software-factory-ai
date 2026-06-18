@@ -14,13 +14,16 @@ defmodule ConveyorWeb.RunViewerLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    projects = load_projects()
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Conveyor.PubSub, "ledger_events")
+    end
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Run Viewer")
-     |> assign(:projects, projects)
-     |> assign(:summary, summarize(projects))}
+    {:ok, assign_run_data(assign(socket, :page_title, "Run Viewer"))}
+  end
+
+  @impl true
+  def handle_info({:ledger_event, _message}, socket) do
+    {:noreply, assign_run_data(socket)}
   end
 
   @impl true
@@ -443,6 +446,14 @@ defmodule ConveyorWeb.RunViewerLive do
   end
 
   defp read_all(resource), do: Ash.read!(resource, domain: Factory)
+
+  defp assign_run_data(socket) do
+    projects = load_projects()
+
+    socket
+    |> assign(:projects, projects)
+    |> assign(:summary, summarize(projects))
+  end
 
   defp summarize(projects) do
     Enum.reduce(projects, %{projects: 0, plans: 0, slices: 0, events: 0}, fn project, acc ->

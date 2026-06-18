@@ -3,6 +3,7 @@ defmodule ConveyorWeb.RunViewerLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Conveyor.EventOutboxRelay
   alias Conveyor.Factory
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.Plan
@@ -94,5 +95,31 @@ defmodule ConveyorWeb.RunViewerLiveTest do
     assert html =~ "slice.ready"
     assert html =~ "viewer:#{slice.id}:ready"
     assert html =~ "2026-01-02 03:04:05 UTC"
+  end
+
+  test "updates when committed ledger events are published from the outbox", %{
+    conn: conn,
+    project: project,
+    slice: slice
+  } do
+    {:ok, view, html} = live(conn, ~p"/runs")
+    refute html =~ "slice.started"
+
+    Ledger.write!(%{
+      project_id: project.id,
+      slice_id: slice.id,
+      idempotency_key: "viewer:#{slice.id}:started",
+      type: "slice.started",
+      payload: %{"slice_id" => slice.id, "state" => "in_progress"},
+      occurred_at: ~U[2026-01-02 03:05:06Z]
+    })
+
+    assert [_ | _] = EventOutboxRelay.publish_pending!()
+
+    html = render(view)
+    assert html =~ "slice.started"
+    assert html =~ "viewer:#{slice.id}:started"
+    assert html =~ "2026-01-02 03:05:06 UTC"
+    assert html =~ "2 ledger events"
   end
 end
