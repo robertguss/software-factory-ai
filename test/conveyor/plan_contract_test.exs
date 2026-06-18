@@ -5,6 +5,7 @@ defmodule Conveyor.PlanContractTest do
   alias Conveyor.PlanContract.Error
 
   @valid_example Path.expand("../../docs/schemas/examples/conveyor.plan.valid.json", __DIR__)
+  @sample_tasks_plan Path.expand("../../samples/tasks_service/plan.md", __DIR__)
   @invalid_missing_schema Path.expand(
                             "../../docs/schemas/examples/conveyor.plan.invalid.missing-schema-version.json",
                             __DIR__
@@ -29,6 +30,27 @@ defmodule Conveyor.PlanContractTest do
     assert {:ok, result} = PlanContract.load(plan_path)
     assert result.source_path == sidecar_path
     assert result.contract["project"]["key"] == "sample_tasks"
+  end
+
+  test "loads the Phase 1 sample tasks plan contract" do
+    assert {:ok, result} = PlanContract.load(@sample_tasks_plan)
+
+    assert result.contract["project"]["key"] == "sample_tasks"
+
+    assert Enum.map(result.contract["requirements"], & &1["key"]) == [
+             "REQ-001",
+             "REQ-002",
+             "REQ-003",
+             "REQ-004"
+           ]
+
+    assert result.contract["slices"] |> hd() |> Map.fetch!("autonomy_ceiling") == "L1"
+
+    required_tests =
+      result.contract["acceptance_criteria"]
+      |> Enum.flat_map(& &1["required_test_refs"])
+
+    assert "tests/test_tasks_api.py::test_complete_task" in required_tests
   end
 
   test "loads a fenced conveyor-plan@1 block from markdown" do
