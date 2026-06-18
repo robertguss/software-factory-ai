@@ -76,7 +76,7 @@ defmodule Conveyor.Effects.Reconciler do
   end
 
   defp reconcile_effect!(effect, {:ok, :succeeded, observed_ref}, now) do
-    update_effect!(effect, :reconciled, observed_ref, cleanup_status(effect, :completed), now)
+    update_effect!(effect, :reconciled, observed_ref, cleanup_status(effect, :pending), now)
   end
 
   defp reconcile_effect!(effect, {:ok, :failed, observed_ref}, now) do
