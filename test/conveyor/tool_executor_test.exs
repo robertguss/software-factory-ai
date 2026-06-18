@@ -5,7 +5,11 @@ defmodule Conveyor.ToolExecutorTest do
 
   alias Conveyor.Config.CommandSpec
   alias Conveyor.Factory
+  alias Conveyor.Factory.Incident
+  alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Policy
+  alias Conveyor.Factory.RunAttempt
+  alias Conveyor.Factory.Slice
   alias Conveyor.Factory.ToolInvocation
   alias Conveyor.Policy.NormalizedCommand
   alias Conveyor.Sandbox.Runner
@@ -20,7 +24,15 @@ defmodule Conveyor.ToolExecutorTest do
         artifact_content: "tool executor fixture\n"
       )
 
-    %{blob_root: blob_root, run_attempt: fixture.run_attempt, station_run: fixture.station_run}
+    slice = get_by_id!(Slice, fixture.run_attempt.slice_id)
+
+    %{
+      blob_root: blob_root,
+      project: fixture.project,
+      run_attempt: fixture.run_attempt,
+      slice: slice,
+      station_run: fixture.station_run
+    }
   end
 
   test "records a blocked invocation without executing the runner", %{
@@ -138,6 +150,54 @@ defmodule Conveyor.ToolExecutorTest do
     refute ToolExecutor.trusted_invocation?(invocation)
   end
 
+  test "blocked policy violations create an incident, stop the run, and transition the slice", %{
+    blob_root: blob_root,
+    run_attempt: run_attempt,
+    slice: slice,
+    station_run: station_run
+  } do
+    slice = Ash.update!(slice, %{state: :in_progress}, domain: Factory)
+    run_attempt = Ash.update!(run_attempt, %{status: :running}, domain: Factory)
+
+    command = normalized_command(["git", "reset", "--hard", "HEAD"])
+    policy = policy(allowlist: ["git"], denylist: ["git reset --hard"])
+
+    result =
+      ToolExecutor.execute!(command, policy,
+        blob_root: blob_root,
+        run_attempt_id: run_attempt.id,
+        station_run_id: station_run.id,
+        runner: fn _command -> flunk("blocked commands must not execute") end
+      )
+
+    assert result.decision.reason == :denylisted
+    assert result.invocation.status == :blocked
+
+    assert [incident] = Ash.read!(Incident, domain: Factory)
+    assert incident.category == "policy_violation"
+    assert incident.severity == :error
+    assert incident.run_attempt_id == run_attempt.id
+    assert incident.slice_id == slice.id
+    assert incident.evidence_refs == ["tool-invocations/#{result.invocation.id}"]
+
+    stopped_attempt = get_by_id!(RunAttempt, run_attempt.id)
+    assert stopped_attempt.status == :failed
+    assert stopped_attempt.outcome == :policy_blocked
+    assert stopped_attempt.failure_category == "policy_violation"
+
+    blocked_slice = get_by_id!(Slice, slice.id)
+    assert blocked_slice.state == :policy_blocked
+
+    assert [event] =
+             LedgerEvent
+             |> Ash.read!(domain: Factory)
+             |> Enum.filter(&(&1.type == "policy.blocked"))
+
+    assert event.run_attempt_id == run_attempt.id
+    assert event.payload["incident_id"] == incident.id
+    assert event.payload["tool_invocation_id"] == result.invocation.id
+  end
+
   defp normalized_command(argv, opts \\ []) do
     workspace_root = temp_dir!("tool-executor-workspace")
 
@@ -194,5 +254,11 @@ defmodule Conveyor.ToolExecutorTest do
     blob_root
     |> Path.join(blob_ref)
     |> File.read!()
+  end
+
+  defp get_by_id!(resource, id) do
+    resource
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(&(&1.id == id))
   end
 end
