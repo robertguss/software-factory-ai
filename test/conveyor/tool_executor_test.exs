@@ -12,16 +12,19 @@ defmodule Conveyor.ToolExecutorTest do
   alias Conveyor.ToolExecutor
 
   setup do
+    blob_root = temp_dir!("tool-executor-blobs")
+
     fixture =
       create_artifact_run!(
-        blob_root: temp_dir!("tool-executor-blobs"),
+        blob_root: blob_root,
         artifact_content: "tool executor fixture\n"
       )
 
-    %{run_attempt: fixture.run_attempt, station_run: fixture.station_run}
+    %{blob_root: blob_root, run_attempt: fixture.run_attempt, station_run: fixture.station_run}
   end
 
   test "records a blocked invocation without executing the runner", %{
+    blob_root: blob_root,
     run_attempt: run_attempt,
     station_run: station_run
   } do
@@ -31,6 +34,7 @@ defmodule Conveyor.ToolExecutorTest do
 
     result =
       ToolExecutor.execute!(command, policy,
+        blob_root: blob_root,
         run_attempt_id: run_attempt.id,
         station_run_id: station_run.id,
         runner: fn _command ->
@@ -50,9 +54,14 @@ defmodule Conveyor.ToolExecutorTest do
     assert invocation.invocation_kind == "tool_executor"
     assert invocation.command_spec["argv"] == ["bash", "-lc", "mix test"]
     assert invocation.exit_code == nil
+    assert invocation.duration_ms >= 0
+    assert invocation.output_sha256 == digest("")
+    assert blob_content!(blob_root, invocation.stdout_ref) == ""
+    assert blob_content!(blob_root, invocation.stderr_ref) == ""
   end
 
   test "evaluates policy before executing and records a trusted successful invocation", %{
+    blob_root: blob_root,
     run_attempt: run_attempt,
     station_run: station_run
   } do
@@ -62,6 +71,7 @@ defmodule Conveyor.ToolExecutorTest do
 
     result =
       ToolExecutor.execute!(command, policy,
+        blob_root: blob_root,
         run_attempt_id: run_attempt.id,
         station_run_id: station_run.id,
         runner: fn executed_command ->
@@ -76,10 +86,13 @@ defmodule Conveyor.ToolExecutorTest do
     assert result.invocation.policy_decision == :allowed
     assert result.invocation.exit_code == 0
     assert result.invocation.output_sha256 == digest("ok\n")
+    assert blob_content!(blob_root, result.invocation.stdout_ref) == "ok\n"
+    assert blob_content!(blob_root, result.invocation.stderr_ref) == ""
     assert ToolExecutor.trusted_invocation?(result.invocation)
   end
 
   test "records failed executions as failed but still policy-allowed", %{
+    blob_root: blob_root,
     run_attempt: run_attempt,
     station_run: station_run
   } do
@@ -88,6 +101,7 @@ defmodule Conveyor.ToolExecutorTest do
 
     result =
       ToolExecutor.execute!(command, policy,
+        blob_root: blob_root,
         run_attempt_id: run_attempt.id,
         station_run_id: station_run.id,
         runner: fn _command ->
@@ -98,6 +112,8 @@ defmodule Conveyor.ToolExecutorTest do
     assert result.invocation.status == :failed
     assert result.invocation.policy_decision == :allowed
     assert result.invocation.exit_code == 2
+    assert blob_content!(blob_root, result.invocation.stdout_ref) == "failure\n"
+    assert blob_content!(blob_root, result.invocation.stderr_ref) == ""
   end
 
   test "adapter-reported invocations are not trusted command executions" do
@@ -173,4 +189,10 @@ defmodule Conveyor.ToolExecutorTest do
   end
 
   defp digest(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
+
+  defp blob_content!(blob_root, blob_ref) do
+    blob_root
+    |> Path.join(blob_ref)
+    |> File.read!()
+  end
 end

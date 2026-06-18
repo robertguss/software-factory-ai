@@ -57,7 +57,7 @@ defmodule Conveyor.ToolExecutor do
     attrs =
       command
       |> base_attrs(policy, decision, started_at, opts)
-      |> Map.merge(execution_attrs(execution))
+      |> Map.merge(execution_attrs(execution, opts))
 
     Ash.create!(ToolInvocation, attrs, domain: Factory)
   end
@@ -80,14 +80,28 @@ defmodule Conveyor.ToolExecutor do
     }
   end
 
-  defp execution_attrs(nil), do: %{completed_at: DateTime.utc_now(:microsecond)}
+  defp execution_attrs(nil, opts) do
+    output = record_output!("", "", opts)
 
-  defp execution_attrs(%Runner.Result{} = execution) do
+    %{
+      completed_at: DateTime.utc_now(:microsecond),
+      duration_ms: 0,
+      stdout_ref: output.stdout_ref,
+      stderr_ref: output.stderr_ref,
+      output_sha256: output.output_sha256
+    }
+  end
+
+  defp execution_attrs(%Runner.Result{} = execution, opts) do
+    output = record_output!(execution.stdout, execution.stderr, opts)
+
     %{
       completed_at: DateTime.utc_now(:microsecond),
       exit_code: execution.exit_code,
       duration_ms: execution.duration_ms,
-      output_sha256: output_sha256(execution),
+      stdout_ref: output.stdout_ref,
+      stderr_ref: output.stderr_ref,
+      output_sha256: output.output_sha256,
       status: execution_status(execution.exit_code)
     }
   end
@@ -101,10 +115,32 @@ defmodule Conveyor.ToolExecutor do
   defp policy_decision(%Engine.Decision{status: :allowed}), do: :allowed
   defp policy_decision(%Engine.Decision{status: :blocked}), do: :blocked
 
-  defp output_sha256(%Runner.Result{} = execution) do
-    :crypto.hash(:sha256, [execution.stdout, execution.stderr])
+  defp record_output!(stdout, stderr, opts) do
+    %{
+      stdout_ref: write_blob!(stdout, opts),
+      stderr_ref: write_blob!(stderr, opts),
+      output_sha256: output_sha256(stdout, stderr)
+    }
+  end
+
+  defp write_blob!(content, opts) do
+    blob_root = opts |> Keyword.get(:blob_root, ".conveyor/blobs") |> Path.expand()
+    sha256 = sha256(content)
+    blob_ref = "cas/#{sha256}"
+    path = Path.join(blob_root, blob_ref)
+
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, content)
+
+    blob_ref
+  end
+
+  defp output_sha256(stdout, stderr) do
+    :crypto.hash(:sha256, [stdout, stderr])
     |> Base.encode16(case: :lower)
   end
+
+  defp sha256(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 
   defp command_spec_snapshot(command, policy) do
     %{
