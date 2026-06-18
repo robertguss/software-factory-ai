@@ -297,6 +297,24 @@ defmodule Conveyor.PlanAuditor do
 
   defp architecture_findings(decisions) do
     decisions
+    |> missing_decision_findings()
+    |> Kernel.++(unresolved_decision_findings(decisions))
+  end
+
+  defp missing_decision_findings([]) do
+    [
+      finding(
+        "Plan has an unresolved architecture decision: no decisions recorded.",
+        [],
+        "Record at least one DEC-* decision with rationale."
+      )
+    ]
+  end
+
+  defp missing_decision_findings(_decisions), do: []
+
+  defp unresolved_decision_findings(decisions) do
+    decisions
     |> Enum.filter(fn decision ->
       vague?(Map.get(decision, "decision", "")) or vague?(Map.get(decision, "rationale", ""))
     end)
