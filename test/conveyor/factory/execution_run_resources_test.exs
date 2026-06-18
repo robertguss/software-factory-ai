@@ -4,6 +4,7 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentSession
   alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.RunAttempt
@@ -11,6 +12,7 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
   alias Conveyor.Factory.Slice
   alias Conveyor.Factory.StationEffect
   alias Conveyor.Factory.StationRun
+  alias Conveyor.RunAttemptLifecycle
 
   setup do
     project =
@@ -51,7 +53,7 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
     %{run_spec: run_spec, slice: slice}
   end
 
-  test "run attempts enforce attempt number and one active attempt per slice", %{
+  test "run attempts enforce attempt number and retry from a fresh run spec", %{
     run_spec: run_spec,
     slice: slice
   } do
@@ -69,18 +71,92 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
     end
 
     failed =
-      Ash.update!(
-        attempt,
-        %{status: :failed, outcome: :needs_rework, failure_category: "test_failure"},
-        domain: Factory
-      )
+      attempt
+      |> RunAttemptLifecycle.transition!(:start, actor: "runner")
+      |> RunAttemptLifecycle.transition!(:fail, actor: "runner", reason: "test failure")
 
     assert failed.status == :failed
 
+    retry_run_spec =
+      Ash.create!(RunSpec, run_spec_attrs(slice.id, "run-spec-2", 2), domain: Factory)
+
     second_attempt =
-      Ash.create!(RunAttempt, run_attempt_attrs(slice.id, run_spec.id, 2), domain: Factory)
+      RunAttemptLifecycle.create_retry_attempt!(failed, retry_run_spec,
+        actor: "orchestrator",
+        reason: "retry failed implementation"
+      )
 
     assert second_attempt.attempt_no == 2
+    assert second_attempt.run_spec_id == retry_run_spec.id
+    assert second_attempt.status == :planned
+
+    assert Ash.read!(Slice, domain: Factory)
+           |> Enum.find(&(&1.id == slice.id))
+           |> Map.fetch!(:state) ==
+             :drafted
+
+    assert Enum.map(run_attempt_events(failed.id), & &1.payload["status"]) == [
+             "running",
+             "failed"
+           ]
+
+    assert [%{"attempt_no" => 2}] =
+             run_attempt_events(second_attempt.id)
+             |> Enum.map(& &1.payload)
+  end
+
+  test "run attempt lifecycle records legal transitions and rejects illegal transitions", %{
+    run_spec: run_spec,
+    slice: slice
+  } do
+    attempt =
+      Ash.create!(RunAttempt, run_attempt_attrs(slice.id, run_spec.id, 1), domain: Factory)
+
+    assert_raise Ash.Error.Invalid, fn ->
+      RunAttemptLifecycle.transition!(attempt, :record_evidence, actor: "runner")
+    end
+
+    attempt =
+      attempt
+      |> RunAttemptLifecycle.transition!(:start, actor: "runner")
+      |> RunAttemptLifecycle.transition!(:record_evidence, actor: "runner")
+      |> RunAttemptLifecycle.transition!(:review, actor: "reviewer")
+      |> RunAttemptLifecycle.transition!(:gate, actor: "gate")
+      |> RunAttemptLifecycle.transition!(:report, actor: "reporter")
+
+    assert attempt.status == :reported
+
+    assert Enum.map(run_attempt_events(attempt.id), & &1.payload["status"]) == [
+             "running",
+             "evidence_recorded",
+             "reviewed",
+             "gated",
+             "reported"
+           ]
+  end
+
+  test "retry creation requires a failed attempt and next-number fresh run spec", %{
+    run_spec: run_spec,
+    slice: slice
+  } do
+    attempt =
+      Ash.create!(RunAttempt, run_attempt_attrs(slice.id, run_spec.id, 1), domain: Factory)
+
+    retry_run_spec =
+      Ash.create!(RunSpec, run_spec_attrs(slice.id, "run-spec-2", 2), domain: Factory)
+
+    assert_raise ArgumentError, ~r/failed RunAttempt/, fn ->
+      RunAttemptLifecycle.create_retry_attempt!(attempt, retry_run_spec)
+    end
+
+    failed =
+      attempt
+      |> RunAttemptLifecycle.transition!(:start, actor: "runner")
+      |> RunAttemptLifecycle.transition!(:fail, actor: "runner")
+
+    assert_raise ArgumentError, ~r/fresh/, fn ->
+      RunAttemptLifecycle.create_retry_attempt!(failed, run_spec)
+    end
   end
 
   test "agent sessions record untrusted adapter output", %{run_spec: run_spec, slice: slice} do
@@ -242,6 +318,16 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
         }
       ]
     }
+  end
+
+  defp run_attempt_events(run_attempt_id) do
+    LedgerEvent
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(
+      &(&1.run_attempt_id == run_attempt_id and
+          &1.type in ["run_attempt.transitioned", "run_attempt.retry_created"])
+    )
+    |> Enum.sort_by(&DateTime.to_unix(&1.occurred_at, :microsecond))
   end
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)

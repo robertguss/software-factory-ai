@@ -6,7 +6,8 @@ defmodule Conveyor.Factory.RunAttempt do
   use Ash.Resource,
     otp_app: :conveyor,
     domain: Conveyor.Factory,
-    data_layer: AshPostgres.DataLayer
+    data_layer: AshPostgres.DataLayer,
+    extensions: [AshStateMachine]
 
   postgres do
     table "run_attempts"
@@ -15,6 +16,46 @@ defmodule Conveyor.Factory.RunAttempt do
 
   actions do
     defaults [:read, :destroy, create: :*, update: :*]
+
+    update :start do
+      change transition_state(:running)
+    end
+
+    update :record_evidence do
+      change transition_state(:evidence_recorded)
+    end
+
+    update :review do
+      change transition_state(:reviewed)
+    end
+
+    update :gate do
+      change transition_state(:gated)
+    end
+
+    update :report do
+      change transition_state(:reported)
+    end
+
+    update :fail do
+      change transition_state(:failed)
+    end
+
+    update :cancel do
+      change transition_state(:cancelled)
+    end
+
+    update :mark_stale do
+      change transition_state(:stale)
+    end
+
+    update :request_rework do
+      change transition_state(:needs_rework)
+    end
+
+    update :reject do
+      change transition_state(:rejected)
+    end
   end
 
   attributes do
@@ -40,7 +81,21 @@ defmodule Conveyor.Factory.RunAttempt do
 
     attribute :status, :atom do
       allow_nil? false
-      constraints one_of: [:planned, :running, :succeeded, :failed, :cancelled, :stale]
+
+      constraints one_of: [
+                    :planned,
+                    :running,
+                    :evidence_recorded,
+                    :reviewed,
+                    :gated,
+                    :reported,
+                    :failed,
+                    :cancelled,
+                    :stale,
+                    :needs_rework,
+                    :rejected
+                  ]
+
       default :planned
       public? true
     end
@@ -153,5 +208,34 @@ defmodule Conveyor.Factory.RunAttempt do
 
   identities do
     identity :unique_slice_attempt_no, [:slice_id, :attempt_no]
+  end
+
+  state_machine do
+    state_attribute(:status)
+    initial_states([:planned])
+    default_initial_state(:planned)
+
+    transitions do
+      transition(:start, from: :planned, to: :running)
+      transition(:record_evidence, from: :running, to: :evidence_recorded)
+      transition(:review, from: :evidence_recorded, to: :reviewed)
+      transition(:gate, from: :reviewed, to: :gated)
+      transition(:report, from: :gated, to: :reported)
+      transition(:fail, from: [:running, :evidence_recorded, :reviewed, :gated], to: :failed)
+
+      transition(:request_rework,
+        from: [:evidence_recorded, :reviewed, :gated],
+        to: :needs_rework
+      )
+
+      transition(:reject, from: [:reviewed, :gated], to: :rejected)
+
+      transition(:cancel,
+        from: [:planned, :running, :evidence_recorded, :reviewed],
+        to: :cancelled
+      )
+
+      transition(:mark_stale, from: [:planned, :running, :evidence_recorded], to: :stale)
+    end
   end
 end
