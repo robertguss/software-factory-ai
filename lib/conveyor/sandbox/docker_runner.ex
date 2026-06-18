@@ -13,6 +13,7 @@ defmodule Conveyor.Sandbox.DockerRunner do
   alias Conveyor.Factory.Slice
   alias Conveyor.Factory.WorkspaceMaterialization
   alias Conveyor.Policy.NormalizedCommand
+  alias Conveyor.Sandbox.DockerProfile
   alias Conveyor.Sandbox.Materialized
   alias Conveyor.Sandbox.Runner
 
@@ -149,22 +150,37 @@ defmodule Conveyor.Sandbox.DockerRunner do
   defp archive_pathspec(prefix), do: ["--", prefix]
 
   defp create_container(project_path, image_ref, opts) do
-    create_args = [
-      "create",
-      "--workdir",
-      @workspace_mount,
-      "--volume",
-      "#{project_path}:#{@workspace_mount}:rw",
-      image_ref,
-      "sleep",
-      "infinity"
-    ]
+    create_args =
+      [
+        "create",
+        "--name",
+        "conveyor-#{System.unique_integer([:positive])}",
+        "--workdir",
+        @workspace_mount
+      ] ++
+        DockerProfile.create_args(opts) ++
+        workspace_mount_args(project_path) ++
+        readonly_contract_mount_args(project_path) ++
+        [image_ref, "sleep", "infinity"]
 
     with {container_id, 0} <- cmd!("docker", create_args, opts),
          {_output, 0} <- cmd!("docker", ["start", String.trim(container_id)], opts) do
       {:ok, String.trim(container_id)}
     else
       {output, status} -> {:error, {:container_create_failed, status, output}}
+    end
+  end
+
+  defp workspace_mount_args(project_path),
+    do: ["--volume", "#{project_path}:#{@workspace_mount}:rw"]
+
+  defp readonly_contract_mount_args(project_path) do
+    conveyor_path = Path.join(project_path, ".conveyor")
+
+    if File.dir?(conveyor_path) do
+      ["--volume", "#{conveyor_path}:#{@workspace_mount}/.conveyor:ro"]
+    else
+      []
     end
   end
 

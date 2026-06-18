@@ -60,6 +60,17 @@ defmodule Conveyor.Sandbox.DockerRunnerTest do
     assert_received {:docker_create, create_args}
     assert Enum.member?(create_args, "python:3.12-slim")
     assert Enum.any?(create_args, &String.contains?(&1, "#{materialized.path}:/workspace:rw"))
+    assert adjacent_args?(create_args, "--user", "65532:65532")
+    assert adjacent_args?(create_args, "--network", "none")
+    assert adjacent_args?(create_args, "--security-opt", "no-new-privileges:true")
+    assert adjacent_args?(create_args, "--cap-drop", "ALL")
+    assert adjacent_args?(create_args, "--pids-limit", "256")
+    assert adjacent_args?(create_args, "--cpus", "1.0")
+    assert adjacent_args?(create_args, "--memory", "512m")
+    assert "--read-only" in create_args
+    assert "--privileged" not in create_args
+    refute Enum.any?(create_args, &String.contains?(&1, "/var/run/docker.sock"))
+    refute Enum.any?(create_args, &String.contains?(&1, System.user_home!()))
     assert_received :docker_start
 
     command = normalized_command(["python", "--version"], materialized.path)
@@ -114,6 +125,12 @@ defmodule Conveyor.Sandbox.DockerRunnerTest do
     {base_commit, 0} = System.cmd("git", ["rev-parse", "HEAD"], cd: root, stderr_to_stdout: true)
 
     %{root: root, project_path: project_path, base_commit: String.trim(base_commit)}
+  end
+
+  defp adjacent_args?(args, key, value) do
+    args
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.any?(&(&1 == [key, value]))
   end
 
   defp get_by_id!(resource, id) do

@@ -11,6 +11,7 @@ defmodule Conveyor.DoctorTest do
     result =
       Doctor.run(project_path,
         executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
 
@@ -25,6 +26,7 @@ defmodule Conveyor.DoctorTest do
     result =
       Doctor.run(project_path,
         executable?: executable?(["git"]),
+        docker_command: docker_info([]),
         postgres_check: fn _config -> :ok end
       )
 
@@ -40,6 +42,7 @@ defmodule Conveyor.DoctorTest do
     result =
       Doctor.run(project_path,
         executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> {:error, :econnrefused} end
       )
 
@@ -56,6 +59,7 @@ defmodule Conveyor.DoctorTest do
     result =
       Doctor.run(project_path,
         executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
 
@@ -77,6 +81,7 @@ defmodule Conveyor.DoctorTest do
     result =
       Doctor.run(project_path,
         executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
 
@@ -93,6 +98,7 @@ defmodule Conveyor.DoctorTest do
     result =
       Doctor.run(project_path,
         executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
 
@@ -108,6 +114,7 @@ defmodule Conveyor.DoctorTest do
     result =
       Doctor.run(project_path,
         executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
 
@@ -115,6 +122,19 @@ defmodule Conveyor.DoctorTest do
 
     assert Doctor.exit_code(result) ==
              Conveyor.CLI.ExitCodes.fetch!(:infrastructure_or_doctor_failure)
+  end
+
+  test "fails when required Docker sandbox constraints are unavailable" do
+    project_path = scaffold_project!()
+
+    result =
+      Doctor.run(project_path,
+        executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=apparmor"]),
+        postgres_check: fn _config -> :ok end
+      )
+
+    assert_failed(result, :sandbox_constraints)
   end
 
   defp scaffold_project! do
@@ -178,6 +198,16 @@ defmodule Conveyor.DoctorTest do
   defp executable?(available) do
     available = MapSet.new(available)
     fn executable -> MapSet.member?(available, executable) end
+  end
+
+  defp docker_info(security_options) do
+    fn
+      "docker", ["info", "--format", "{{json .SecurityOptions}}"], _opts ->
+        {inspect(security_options), 0}
+
+      _executable, _args, _opts ->
+        {"unexpected docker command", 1}
+    end
   end
 
   defp assert_failed(result, check) do

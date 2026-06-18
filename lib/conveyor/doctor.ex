@@ -7,6 +7,7 @@ defmodule Conveyor.Doctor do
   alias Conveyor.Config.ProjectConfig
   alias Conveyor.Doctor.Finding
   alias Conveyor.Doctor.Result
+  alias Conveyor.Sandbox.DockerProfile
 
   @type executable_fun :: (String.t() -> boolean())
   @type postgres_fun :: (keyword() -> :ok | {:error, term()})
@@ -18,6 +19,7 @@ defmodule Conveyor.Doctor do
     executable? = Keyword.get(opts, :executable?, &default_executable?/1)
     postgres_check = Keyword.get(opts, :postgres_check, &default_postgres_check/1)
     git_command = Keyword.get(opts, :git_command, &System.cmd/3)
+    docker_command = Keyword.get(opts, :docker_command, &System.cmd/3)
 
     {config, findings} = load_config(project_path)
 
@@ -27,6 +29,7 @@ defmodule Conveyor.Doctor do
       |> Kernel.++(check_oban())
       |> Kernel.++(check_postgres(postgres_check))
       |> Kernel.++(check_docker(executable?))
+      |> Kernel.++(check_sandbox_constraints(executable?, docker_command))
       |> Kernel.++(check_git(project_path, executable?))
       |> Kernel.++(check_sample_repo(project_path, config, executable?, git_command))
       |> Kernel.++(check_project_files(project_path, config))
@@ -170,6 +173,50 @@ defmodule Conveyor.Doctor do
     else
       [failure(:docker, "Docker is not reachable or not installed", "Install or start Docker")]
     end
+  end
+
+  defp check_sandbox_constraints(executable?, docker_command) do
+    if executable?.("docker") do
+      case docker_command.("docker", ["info", "--format", "{{json .SecurityOptions}}"],
+             stderr_to_stdout: true
+           ) do
+        {output, 0} ->
+          sandbox_constraint_findings(output)
+
+        {output, status} ->
+          [
+            failure(
+              :sandbox_constraints,
+              "Docker security options could not be inspected: #{String.trim(output)} (#{status})",
+              "Start Docker with seccomp/no-new-privileges support or select a compatible sandbox profile"
+            )
+          ]
+      end
+    else
+      []
+    end
+  end
+
+  defp sandbox_constraint_findings(security_options) do
+    failures =
+      DockerProfile.required_security_options()
+      |> Enum.reject(&String.contains?(security_options, &1))
+      |> Enum.map(fn option ->
+        failure(
+          :sandbox_constraints,
+          "Docker required security option is unavailable: #{option}",
+          "Enable #{option} support or select a compatible sandbox profile"
+        )
+      end)
+
+    rootless_warnings =
+      if String.contains?(security_options, "rootless") do
+        []
+      else
+        [warning(:sandbox_rootless, "Docker rootless mode is not active; rootless is preferred")]
+      end
+
+    failures ++ rootless_warnings
   end
 
   defp check_git(project_path, executable?) do
