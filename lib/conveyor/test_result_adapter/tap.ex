@@ -21,6 +21,8 @@ defmodule Conveyor.TestResultAdapter.Tap do
     case Regex.run(@tap_line, line) do
       [_, "ok", id, name] -> [%TestResult{id: id, name: name, status: :passed}]
       [_, "not ok", id, name] -> [%TestResult{id: id, name: name, status: :failed}]
+      [_, "ok", id] -> [%TestResult{id: id, name: id, status: :passed}]
+      [_, "not ok", id] -> [%TestResult{id: id, name: id, status: :failed}]
       _other -> []
     end
   end
