@@ -1,28 +1,22 @@
 {
   "schema_version": "conveyor.review@1",
   "run_spec_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "dossier_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "reviewer": {
-    "actor_id": "reviewer-001",
+    "actor_id": "reviewer-session-001",
     "profile_id": "phase-1-reviewer"
   },
-  "verdict": "accepted",
-  "rubric": {
-    "correctness": {
+  "rubric_version": "reviewer@1",
+  "decision": "accepted",
+  "recommendation": "merge",
+  "summary": "Acceptance evidence maps to the required tests.",
+  "findings": [],
+  "checks": [
+    {
+      "name": "acceptance",
       "status": "pass",
-      "notes": "Acceptance evidence maps to the required tests."
-    },
-    "tests": {
-      "status": "pass",
-      "notes": "Required tests are present and passing."
-    },
-    "security": {
-      "status": "pass",
-      "notes": "No new policy risk found."
-    },
-    "maintainability": {
-      "status": "pass",
-      "notes": "Patch is focused."
+      "evidence_refs": ["dossier.md"],
+      "summary": "Required tests are present and passing."
     }
-  },
-  "findings": []
+  ]
 }
