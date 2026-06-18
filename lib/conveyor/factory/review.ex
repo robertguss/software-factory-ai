@@ -19,6 +19,7 @@ defmodule Conveyor.Factory.Review do
 
   validations do
     validate {Conveyor.Factory.Validations.EmbeddedSchema, field: :findings, schema: :findings}
+    validate Conveyor.Factory.Validations.ReviewerActorSeparation
   end
 
   attributes do

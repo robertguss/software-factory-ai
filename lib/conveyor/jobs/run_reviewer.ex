@@ -16,6 +16,7 @@ defmodule Conveyor.Jobs.RunReviewer do
   alias Conveyor.Factory.Review
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.RunSpec
+  alias Conveyor.Factory.Validations.ReviewerActorSeparation
 
   defmodule Result do
     @moduledoc false
@@ -56,50 +57,66 @@ defmodule Conveyor.Jobs.RunReviewer do
     dossier = read_dossier!(run_attempt, opts)
     now = DateTime.utc_now(:microsecond)
 
+    case ReviewerActorSeparation.check(run_attempt.id, reviewer_profile_id, nil) do
+      :ok -> :ok
+      {:error, message} -> raise ArgumentError, message
+    end
+
     reviewer_session =
       create_reviewer_session!(run_attempt, reviewer_profile_id, run_prompt_id, now, opts)
 
-    review_json =
-      reviewer!(opts).(%{
-        dossier: dossier.content,
-        dossier_sha256: dossier.sha256,
-        run_attempt: run_attempt,
-        run_spec: run_spec,
-        reviewer_profile_id: reviewer_profile_id,
-        reviewer_session_id: reviewer_session.id,
-        rubric_version: rubric_version
-      })
-
-    validate_review_json!(review_json, run_spec, dossier.sha256, reviewer_profile_id)
-
-    review =
-      Ash.create!(
-        Review,
-        %{
-          run_attempt_id: run_attempt.id,
-          reviewer_session_id: reviewer_session.id,
-          reviewer_profile_id: reviewer_profile_id,
-          review_kind: Keyword.get(opts, :review_kind, :general),
-          rubric_version: review_json["rubric_version"],
+    try do
+      review_json =
+        reviewer!(opts).(%{
+          dossier: dossier.content,
           dossier_sha256: dossier.sha256,
-          reviewed_at: now,
-          decision: atom!(review_json["decision"]),
-          recommendation: atom!(review_json["recommendation"]),
-          summary: review_json["summary"],
-          findings: review_json["findings"],
-          checks: review_json["checks"]
-        },
-        domain: Factory
-      )
+          run_attempt: run_attempt,
+          run_spec: run_spec,
+          reviewer_profile_id: reviewer_profile_id,
+          reviewer_session_id: reviewer_session.id,
+          rubric_version: rubric_version
+        })
 
-    reviewer_session =
-      Ash.update!(
-        reviewer_session,
-        %{status: :succeeded, completed_at: DateTime.utc_now(:microsecond)},
-        domain: Factory
-      )
+      validate_review_json!(review_json, run_spec, dossier.sha256, reviewer_profile_id)
 
-    %Result{review: review, reviewer_session: reviewer_session, review_json: review_json}
+      review =
+        Ash.create!(
+          Review,
+          %{
+            run_attempt_id: run_attempt.id,
+            reviewer_session_id: reviewer_session.id,
+            reviewer_profile_id: reviewer_profile_id,
+            review_kind: Keyword.get(opts, :review_kind, :general),
+            rubric_version: review_json["rubric_version"],
+            dossier_sha256: dossier.sha256,
+            reviewed_at: now,
+            decision: atom!(review_json["decision"]),
+            recommendation: atom!(review_json["recommendation"]),
+            summary: review_json["summary"],
+            findings: review_json["findings"],
+            checks: review_json["checks"]
+          },
+          domain: Factory
+        )
+
+      reviewer_session =
+        Ash.update!(
+          reviewer_session,
+          %{status: :succeeded, completed_at: DateTime.utc_now(:microsecond)},
+          domain: Factory
+        )
+
+      %Result{review: review, reviewer_session: reviewer_session, review_json: review_json}
+    rescue
+      error ->
+        Ash.update!(
+          reviewer_session,
+          %{status: :failed, completed_at: DateTime.utc_now(:microsecond)},
+          domain: Factory
+        )
+
+        reraise error, __STACKTRACE__
+    end
   end
 
   defp create_reviewer_session!(run_attempt, reviewer_profile_id, run_prompt_id, now, opts) do

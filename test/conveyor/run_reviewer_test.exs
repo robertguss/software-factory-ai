@@ -106,6 +106,106 @@ defmodule Conveyor.RunReviewerTest do
     assert_schema_valid!(result.review_json)
   end
 
+  test "rejects malformed reviewer output and records failed reviewer session" do
+    fixture = reviewer_fixture!("run-reviewer-malformed")
+
+    reviewer = fn context ->
+      %{
+        "schema_version" => "conveyor.review@1",
+        "run_spec_sha256" => raw_sha256(context.run_spec.run_spec_sha256),
+        "dossier_sha256" => context.dossier_sha256,
+        "reviewer" => %{
+          "actor_id" => context.reviewer_session_id,
+          "profile_id" => context.reviewer_profile_id
+        },
+        "rubric_version" => context.rubric_version,
+        "decision" => "accepted",
+        "recommendation" => "merge",
+        "summary" => "Missing required checks field.",
+        "findings" => []
+      }
+    end
+
+    assert_raise ArgumentError, ~r/review JSON failed schema validation/, fn ->
+      RunReviewer.run!(fixture.run_attempt, blob_root: fixture.blob_root, reviewer: reviewer)
+    end
+
+    assert [] = Ash.read!(Review, domain: Factory)
+    assert [session] = Ash.read!(AgentSession, domain: Factory)
+    assert session.role == :reviewer
+    assert session.status == :failed
+  end
+
+  test "forbids reviewer profile reuse from implementer sessions" do
+    fixture = reviewer_fixture!("run-reviewer-separation")
+    shared_profile_id = Ash.UUID.generate()
+
+    create_session!(
+      fixture.run_attempt,
+      role: :implementer,
+      agent_profile_id: shared_profile_id,
+      adapter_session_id: "adapter-shared"
+    )
+
+    assert_raise ArgumentError, ~r/reviewer profile must differ/, fn ->
+      RunReviewer.run!(fixture.run_attempt,
+        blob_root: fixture.blob_root,
+        reviewer_profile_id: shared_profile_id
+      )
+    end
+
+    assert [] = Ash.read!(Review, domain: Factory)
+    assert [%{role: :implementer}] = Ash.read!(AgentSession, domain: Factory)
+  end
+
+  test "review resource validation forbids reviewer and implementer actor reuse" do
+    fixture = reviewer_fixture!("run-reviewer-resource-separation")
+    shared_profile_id = Ash.UUID.generate()
+
+    create_session!(
+      fixture.run_attempt,
+      role: :implementer,
+      agent_profile_id: shared_profile_id,
+      adapter_session_id: "adapter-shared"
+    )
+
+    reviewer_session =
+      create_session!(
+        fixture.run_attempt,
+        role: :reviewer,
+        agent_profile_id: shared_profile_id,
+        adapter_session_id: "adapter-shared"
+      )
+
+    assert_raise Ash.Error.Invalid, ~r/reviewer profile must differ/, fn ->
+      Ash.create!(
+        Review,
+        %{
+          run_attempt_id: fixture.run_attempt.id,
+          reviewer_session_id: reviewer_session.id,
+          reviewer_profile_id: shared_profile_id,
+          review_kind: :general,
+          rubric_version: "reviewer@1",
+          dossier_sha256: BlobStore.sha256(fixture.dossier),
+          reviewed_at: DateTime.utc_now(:microsecond),
+          decision: :accepted,
+          recommendation: :merge,
+          summary: "Should fail actor separation.",
+          findings: [],
+          checks: [
+            %{
+              "name" => "dossier_digest",
+              "status" => "pass",
+              "evidence_refs" => ["dossier.md"],
+              "summary" => "Digest matched."
+            }
+          ]
+        },
+        domain: Factory
+      )
+    end
+  end
+
   defp reviewer_fixture!(label) do
     project =
       Ash.create!(
@@ -182,6 +282,23 @@ defmodule Conveyor.RunReviewerTest do
     )
 
     %{blob_root: blob_root, dossier: dossier, run_attempt: run_attempt}
+  end
+
+  defp create_session!(run_attempt, opts) do
+    Ash.create!(
+      AgentSession,
+      %{
+        run_attempt_id: run_attempt.id,
+        run_prompt_id: Ash.UUID.generate(),
+        agent_profile_id: Keyword.fetch!(opts, :agent_profile_id),
+        adapter_session_id: Keyword.get(opts, :adapter_session_id),
+        role: Keyword.fetch!(opts, :role),
+        base_commit: run_attempt.base_commit,
+        started_at: DateTime.utc_now(:microsecond),
+        status: :succeeded
+      },
+      domain: Factory
+    )
   end
 
   defp assert_schema_valid!(review_json) do
