@@ -285,12 +285,11 @@ defmodule Conveyor.Evidence.Recorder do
     |> Enum.find(&(&1.run_attempt_id == run_attempt_id and &1.patch_set_id == patch_set_id))
   end
 
-  defp evidence_status(_acceptance, security_findings)
-       when is_list(security_findings) and security_findings != [] do
-    if Enum.any?(security_findings, &(&1["severity"] == "blocking")) do
-      "blocked"
-    else
-      "redacted"
+  defp evidence_status(acceptance, security_findings) when is_list(security_findings) do
+    cond do
+      Enum.any?(security_findings, &(&1["severity"] == "blocking")) -> "blocked"
+      security_findings != [] and acceptance.status == :passed -> "redacted"
+      true -> Atom.to_string(acceptance.status)
     end
   end
 
