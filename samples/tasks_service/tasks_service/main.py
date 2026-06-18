@@ -1,7 +1,7 @@
 from threading import Lock
 from typing import Annotated
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 
@@ -12,6 +12,11 @@ class TaskCreate(BaseModel):
 class Task(BaseModel):
     id: int
     title: str
+    completed: bool = False
+
+
+class TaskUpdate(BaseModel):
+    completed: bool
 
 
 class TaskStore:
@@ -26,6 +31,15 @@ class TaskStore:
             self._next_id += 1
             self._tasks.append(task)
             return task
+
+    def complete(self, task_id: int) -> Task:
+        with self._lock:
+            for index, task in enumerate(self._tasks):
+                if task.id == task_id:
+                    completed = task.model_copy(update={"completed": True})
+                    self._tasks[index] = completed
+                    return completed
+            raise KeyError(task_id)
 
     def list(self) -> list[Task]:
         with self._lock:
@@ -49,6 +63,16 @@ def list_tasks() -> list[Task]:
 @app.post("/tasks", response_model=Task, status_code=201)
 def create_task(payload: TaskCreate) -> Task:
     return store.create(payload.title)
+
+
+@app.patch("/tasks/{task_id}", response_model=Task)
+def complete_task(task_id: int, payload: TaskUpdate) -> Task:
+    if not payload.completed:
+        raise HTTPException(status_code=400, detail="Only completing tasks is supported")
+    try:
+        return store.complete(task_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found") from None
 
 
 def reset_store_for_tests() -> None:
