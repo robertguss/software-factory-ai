@@ -17,7 +17,10 @@ defmodule Mix.Tasks.Conveyor.Init do
 
   @template_files [
     {"config.toml", ".conveyor/config.toml"},
+    {"policies/explore.toml", ".conveyor/policies/explore.toml"},
     {"policies/implement.toml", ".conveyor/policies/implement.toml"},
+    {"policies/maintenance.toml", ".conveyor/policies/maintenance.toml"},
+    {"policies/release.toml", ".conveyor/policies/release.toml"},
     {"policies/verify.toml", ".conveyor/policies/verify.toml"},
     {"prompts/implementation-prompt@1.md", ".conveyor/prompts/implementation-prompt@1.md"},
     {"prompts/reviewer@1.md", ".conveyor/prompts/reviewer@1.md"}

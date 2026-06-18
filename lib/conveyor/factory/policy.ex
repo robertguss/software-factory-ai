@@ -24,7 +24,7 @@ defmodule Conveyor.Factory.Policy do
 
     attribute :profile, :atom do
       allow_nil? false
-      constraints one_of: [:explore, :implement, :verify, :release, :dangerous_maintenance]
+      constraints one_of: [:explore, :implement, :verify, :release, :maintenance]
       public? true
     end
 

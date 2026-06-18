@@ -14,7 +14,10 @@ defmodule Mix.Tasks.ConveyorInitTest do
 
     assert output =~ ".conveyor/config.toml"
     assert File.regular?(Path.join(project_path, ".conveyor/config.toml"))
+    assert File.regular?(Path.join(project_path, ".conveyor/policies/explore.toml"))
     assert File.regular?(Path.join(project_path, ".conveyor/policies/implement.toml"))
+    assert File.regular?(Path.join(project_path, ".conveyor/policies/maintenance.toml"))
+    assert File.regular?(Path.join(project_path, ".conveyor/policies/release.toml"))
     assert File.regular?(Path.join(project_path, ".conveyor/policies/verify.toml"))
     assert File.regular?(Path.join(project_path, ".conveyor/prompts/implementation-prompt@1.md"))
     assert File.regular?(Path.join(project_path, ".conveyor/prompts/reviewer@1.md"))
