@@ -31,7 +31,8 @@ config :conveyor, ConveyorWeb.Endpoint,
     layout: false
   ],
   pubsub_server: Conveyor.PubSub,
-  live_view: [signing_salt: "fcEZTPl6"]
+  live_view: [signing_salt: "fcEZTPl6"],
+  session_signing_salt: System.get_env("SESSION_SIGNING_SALT") || "lF8jHNOH"
 
 # Configures Elixir's Logger
 config :logger, :console,
