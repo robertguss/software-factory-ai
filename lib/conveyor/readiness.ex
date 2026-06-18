@@ -16,7 +16,7 @@ defmodule Conveyor.Readiness do
   defmodule Result do
     @moduledoc "Readiness check result."
 
-    @type status :: :ready | :blocked
+    @type status :: :ready | :blocked | :needs_clarification | :too_large
     @type finding :: %{code: atom(), message: String.t()}
 
     @type t :: %__MODULE__{
@@ -42,7 +42,7 @@ defmodule Conveyor.Readiness do
       mark_ready(context, opts)
     else
       %Result{
-        status: :blocked,
+        status: classify(findings),
         slice: slice,
         agent_brief: context.agent_brief,
         contract_lock: context.contract_lock,
@@ -130,6 +130,8 @@ defmodule Conveyor.Readiness do
     |> require_non_empty(:missing_risk, brief.risk, "Brief has no risk")
     |> require_acceptance_criteria(brief.acceptance_criteria)
     |> require_required_tests(brief.required_tests)
+    |> require_specific_wording(brief)
+    |> require_slice_size(brief)
   end
 
   defp require_acceptance_criteria(findings, []),
@@ -155,6 +157,33 @@ defmodule Conveyor.Readiness do
       findings
     else
       finding(findings, :incomplete_required_tests, "Brief required tests are incomplete")
+    end
+  end
+
+  defp require_specific_wording(findings, brief) do
+    fields =
+      [
+        {:vague_desired_behavior, brief.desired_behavior},
+        {:vague_current_behavior, brief.current_behavior}
+      ] ++
+        Enum.map(brief.acceptance_criteria, fn criterion ->
+          {:vague_acceptance_criteria, criterion["text"]}
+        end)
+
+    Enum.reduce(fields, findings, fn {code, text}, acc ->
+      if vague?(text) do
+        finding(acc, code, "Brief contains vague wording: #{inspect(text)}")
+      else
+        acc
+      end
+    end)
+  end
+
+  defp require_slice_size(findings, brief) do
+    if length(brief.acceptance_criteria) > 10 or length(brief.required_tests) > 20 do
+      finding(findings, :brief_too_large, "Brief is too large for one implementation slice")
+    else
+      findings
     end
   end
 
@@ -236,6 +265,32 @@ defmodule Conveyor.Readiness do
       }
   end
 
+  defp classify(findings) do
+    codes = MapSet.new(Enum.map(findings, & &1.code))
+
+    cond do
+      :brief_too_large in codes ->
+        :too_large
+
+      not MapSet.disjoint?(
+        codes,
+        MapSet.new([
+          :missing_acceptance_criteria,
+          :incomplete_acceptance_criteria,
+          :missing_required_tests,
+          :incomplete_required_tests,
+          :vague_desired_behavior,
+          :vague_current_behavior,
+          :vague_acceptance_criteria
+        ])
+      ) ->
+        :needs_clarification
+
+      true ->
+        :blocked
+    end
+  end
+
   defp criterion_complete?(criterion) do
     filled?(criterion["id"]) and filled?(criterion["text"]) and
       non_empty?(criterion["required_test_refs"])
@@ -243,6 +298,15 @@ defmodule Conveyor.Readiness do
 
   defp required_test_complete?(test) do
     filled?(test["ref"]) and filled?(test["source_ref"]) and test["locked"] == true
+  end
+
+  defp vague?(text) when not is_binary(text), do: false
+
+  defp vague?(text) do
+    Regex.match?(
+      ~r/\b(make it better|make .* better|improve|good|nice|stuff|things|etc|tbd|todo|as needed|handle edge cases)\b/i,
+      text
+    )
   end
 
   defp require_non_empty(findings, _code, value, _message) when is_binary(value) and value != "",
