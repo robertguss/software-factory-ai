@@ -38,6 +38,9 @@ defmodule Conveyor.Factory.WorkspaceMaterialization do
     attribute :base_commit, :string, allow_nil?: false, public?: true
     attribute :applied_patch_sha256, :string, public?: true
     attribute :path, :string, allow_nil?: false, public?: true
+    # Deletable temp root (parent of :path for subdir projects). Persisted so the
+    # SandboxReaper, which only has the DB record, removes the whole workspace.
+    attribute :root_path, :string, public?: true
     attribute :container_id, :string, public?: true
 
     attribute :mount_mode, :atom do

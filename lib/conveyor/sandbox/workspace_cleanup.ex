@@ -22,7 +22,7 @@ defmodule Conveyor.Sandbox.WorkspaceCleanup do
       if preserve?(workspace.cleanup_policy, opts) do
         :preserved
       else
-        delete_path(Keyword.get(opts, :root_path, workspace.path))
+        delete_path(Keyword.get(opts, :root_path) || workspace.root_path || workspace.path)
       end
 
     updated =
