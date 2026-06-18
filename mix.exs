@@ -37,6 +37,8 @@ defmodule Conveyor.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.8.8"},
+      {:phoenix_live_view, "~> 1.2"},
+      {:phoenix_html, "~> 4.1"},
       {:phoenix_ecto, "~> 4.7"},
       {:ecto_sql, "~> 3.14"},
       {:postgrex, "~> 0.22"},
@@ -51,6 +53,7 @@ defmodule Conveyor.MixProject do
       {:jsv, "~> 0.19.5"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.12"},
+      {:lazy_html, ">= 0.1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
