@@ -653,6 +653,31 @@ The tracer is time-boxed, non-authoritative, and intentionally crude. Its value
 is disproportional to its code because it tests the cross-phase integration bet
 before horizontal infrastructure accumulates.
 
+#### Golden journey tests
+
+After the throwaway tracer informs schema design, preserve the scenario as a
+non-authoritative golden journey suite, rerun after P15-A-core, after P15-B,
+after P2-A, and before the P2-B pilot. Golden journeys are not release evidence
+for broad quality; they are integration tripwires that prove the main product
+path still connects, so independent subsystems cannot all pass while the
+end-to-end product silently degrades.
+
+Required journeys:
+
+```text
+one existing hand-authored Phase-1 contract through the Evidence Kernel
+one crude generated contract through the qualified loop
+one no-agent deterministic plan lint path
+one generated Slice contract through Contract Foundry dry-compile
+one failed/impossible contract through amendment and new-attempt semantics
+one emergency-stop interruption and safe resume/park path
+```
+
+Each journey records every manual repair, missing field, policy block,
+diagnosis, recovery action, and artifact/root invalidation. A journey may fail
+without denying a broad grant, but it blocks schema freeze or release promotion
+when it reveals an integration-contract mismatch.
+
 ### 2.2 Qualification thesis
 
 > **Gate canaries prove that deterministic authority rejects labeled bad
@@ -718,6 +743,15 @@ Corpus rules:
 - keep scorer-only metadata, known-good solutions, hidden oracles, holdout
   membership, and expected defenses in a separately authorized evaluation
   store;
+- mark all scorer-only, holdout, hidden-oracle, known-good, and trap-defense
+  artifacts with `restricted_evaluation` information labels that propagate into
+  logs, Cassettes, reports, prompt manifests, and ArtifactInputs;
+- run a fixture-leakage scanner before sealing any role-visible prompt,
+  projection, Cassette, or exported bundle;
+- include near-duplicate and randomized fixture variants so prompt tuning cannot
+  overfit only exact public cases;
+- record all prompt/template changes against the public and held-out case
+  exposure history;
 - derive distinct scorer and role-safe case views; scorer-only fields never
   enter prompts, workspaces, ordinary projections, or cassette-visible tool
   results;
@@ -1048,6 +1082,38 @@ permit expiry and revocation generation
 A permit may be renewed for the same immutable attempt; semantic drift still
 requires a new lock, spec, and attempt.
 
+Long-running attempts do not treat admission as a one-time check. Every
+effectful station and every provider/tool call performs a `PermitCheckpoint`
+(§5.3) that revalidates:
+
+```text
+same immutable spec digest
+same authority and ContractLock roots
+current grant status and expiry
+current EffectiveCapabilitySet
+current adapter health
+current emergency/control generation
+current budget reservation
+current or accepted-compatible environment fingerprint
+permit not expired, or renewed
+```
+
+Checkpoint failure parks the attempt in a typed suspended or terminal state:
+
+```text
+permit_expired
+grant_expired_or_revoked
+adapter_circuit_open
+budget_revoked
+emergency_stopped
+environment_mismatch
+authority_root_invalidated
+```
+
+No checkpoint may mutate the immutable RunSpec or PlanningSpec. Resumption
+requires either a renewed permit over the same immutable subject or a new
+approved lock/spec/attempt when semantics changed.
+
 Every RunSpec and PlanningSpec admission check validates a current
 `AdmissionPermit` and records a `PolicyDecision` proving a current grant covers
 the requested scope. A valid grant alone is not sufficient authority after a
@@ -1171,6 +1237,10 @@ agent-visible toolchain/sandbox surface + tool responses
 ```
 
 A change to this surface misses the Cassette in every mode.
+
+Provider/model identity carries an evidence level (see `AgentCassette` in §5.3).
+A change from `exact` to `declared_only`, or from a known revision to unknown, is
+capability drift for any scope whose policy requires stable model identity.
 
 The **evaluation surface** includes current gate, post-generation tests,
 verification policy, result adapters, and evaluation-only sandbox settings.
@@ -1723,6 +1793,7 @@ Initial required decision keys:
 ```text
 run.start
 planning.start
+provider.egress
 qualification.grant_issue
 qualification.grant_admit
 adapter.autonomy_ceiling
@@ -1738,6 +1809,13 @@ slice.ready
 budget.reserve
 emergency_stop.resume
 ```
+
+`provider.egress` is evaluated immediately before any external model or provider
+call. It proves that the exact prompt, attachments, tool-visible context,
+metadata, and provider contract are allowed for the subject, trust domain,
+deployment profile, and RoleView. Provider egress is not implied by RoleView
+visibility: a role may be allowed to observe an artifact locally while policy
+still forbids sending that artifact to a third-party provider.
 
 Policy validation is separate from runtime evaluation. A policy bundle cannot
 be activated until its input schemas, conflicting rules, default-deny behavior,
@@ -2108,6 +2186,34 @@ durations       integer milliseconds or nanoseconds
 unordered sets  deterministically sorted arrays
 ```
 
+#### `ResourceRef` and `SubjectRef`
+
+Every authority-bearing, evidence-bearing, or policy-addressable object is
+referenced through one canonical typed reference shape:
+
+```text
+ResourceRef
+  kind
+  id_or_key
+  version?
+  digest?
+  project_id?
+  trust_domain_id?
+```
+
+`SubjectRef` is the policy/evidence subset of `ResourceRef`, used when an object
+is the subject of a decision, approval, comparison, effect, diagnosis, or
+derivation edge. New schemas MUST NOT invent bespoke `*_id` + `*_kind` pairs
+unless a migration adapter maps them losslessly to `SubjectRef`. A reference with
+a digest is immutable and content-addressed; a reference without a digest is a
+mutable locator and cannot by itself grant authority. Policy, comparison,
+invalidation, approval, and offline verification operate on `SubjectRef`; CLI
+commands accept human-friendly IDs but resolve them to a canonical `ResourceRef`
+before evaluation.
+
+**Delivery: seam now, engine later (§5.11)** — the canonical shape lands now;
+lossless migration adapters retire legacy `*_id`/`*_kind` pairs over time.
+
 #### `SchemaRegistryEntry`
 
 ```text
@@ -2174,6 +2280,34 @@ signer_identity?
 
 Emitting an in-toto-shaped envelope does not imply a supply-chain assurance
 level Conveyor has not otherwise met.
+
+#### `LifecycleContract`
+
+Every Tier-1 resource with a mutable status registers a lifecycle contract:
+
+```text
+resource_kind
+states[]
+terminal_states[]
+transition_key
+from_state
+to_state
+required_policy_decision_keys[]
+required_authority_inputs[]
+required_event_type
+idempotency_key_shape?
+forbidden_when[]
+```
+
+Domain code may not update a lifecycle status directly. Generated transition
+wrappers validate lifecycle preconditions, the current lease/permit/control
+generation, the required policy decisions, and event publication in one
+transaction. Lifecycle contracts are required for StationRun, EffectAttempt,
+QualificationGrant, AdmissionPermit, PlanningRun, PlanRevision, ContractLock,
+RunAttempt, VerificationObligation, HumanApproval, RecoveryAction,
+PlanAmendmentProposal, and PilotSelection.
+
+**Delivery: engine now (§5.11).**
 
 ### 5.2 Shared Evidence Kernel resources
 
@@ -2431,6 +2565,83 @@ trace_id
 
 Every state mutation checks the current epoch.
 
+#### `ActorIdentity`
+
+```text
+actor_id
+actor_kind ∈ human | service_account | system
+display_name
+auth_provider
+verified_identity_ref?
+roles[]
+trust_domain_id
+status ∈ active | disabled | revoked
+created_at
+```
+
+#### `ActorAction`
+
+```text
+id
+actor_id
+action_key
+subject_ref
+policy_decision_id
+authority_root_digests[]
+review_root_digest?
+reason_ref?
+trace_id
+performed_at
+```
+
+Every HumanDecision, HumanApproval, waiver, emergency stop/resume, amendment,
+grant revocation, policy activation, and destructive retention action records an
+`ActorAction`. Local development may use a local unsigned actor; team-server and
+cross-host profiles require an authenticated `ActorIdentity` and role membership.
+
+**Delivery (§5.11):** `ActorAction` provenance is **engine now**; authenticated
+team-server `ActorIdentity` is **seam now, engine later**.
+
+#### `ProviderContract`
+
+```text
+provider_key
+adapter_key
+data_processing_class ∈ local_only | third_party | self_hosted |
+                        restricted_third_party
+retention_policy
+training_use_policy ∈ prohibited | permitted_by_contract | unknown
+region_policy?
+metadata_policy
+supported_redaction_modes[]
+max_input_sensitivity_labels[]
+egress_attestation_requirements[]
+contract_digest
+status ∈ active | deprecated | revoked
+```
+
+#### `ProviderEgressRecord`
+
+```text
+id
+subject_ref
+provider_contract_digest
+role_view_digest
+prompt_manifest_digest
+input_label_summary
+redaction_report_ref?
+policy_decision_id
+provider_request_id?
+trace_id
+sent_at
+```
+
+A provider call without a valid `provider.egress` PolicyDecision (§4.1.1) and a
+durable `ProviderEgressRecord` is prohibited. Provider egress is a distinct
+authority decision from internal RoleView visibility.
+
+**Delivery: engine now (§5.11).**
+
 ### 5.3 Phase-1.5 qualification resources
 
 #### `PhaseNextDecision`
@@ -2498,6 +2709,28 @@ issued_at
 expires_at
 permit_digest
 supersedes_permit_id?
+```
+
+**Delivery: engine now (§5.11).**
+
+#### `PermitCheckpoint`
+
+A long-running attempt revalidates admission at each effectful boundary rather
+than once at claim time (§2.8):
+
+```text
+id
+admission_permit_id
+subject_ref
+station_run_id?
+checkpoint_kind ∈ station_claim | provider_call | tool_effect |
+                 authority_publication | permit_renewal
+validated_inputs_digest
+result ∈ valid | invalid | suspended
+reason_codes[]
+policy_decision_id
+checked_at
+trace_id
 ```
 
 **Delivery: engine now (§5.11).**
@@ -2597,6 +2830,33 @@ compliance may be hard requirements; maintainability and reviewability begin as
 blinded sampled human assessments until calibrated. `case_cluster_key` bounds
 how much one fixture family can contribute to a stratum estimate.
 
+Subjective dimensions are scored against a versioned `HumanReviewRubric`:
+
+```text
+rubric_key
+version
+dimension
+score_levels[]
+anchor_examples_ref
+reviewer_role_requirements
+blinding_policy
+minimum_reviewers
+adjudication_policy
+inter_rater_reliability_target?
+rubric_digest
+```
+
+Subjective scores are never mixed with deterministic pass/fail evidence. Reviewer
+identity, role, blinding status, and conflict-of-interest flags are recorded;
+disagreement is preserved rather than silently averaged; high-risk release
+decisions use adjudicated categorical outcomes rather than raw mean scores; and
+rubrics are frozen before sample review begins. A new subjective dimension starts
+measurement-only until enough rubric calibration exists to make it grant-bearing.
+
+**Delivery: seam now, engine later (§5.11)** — the rubric schema and blinded
+capture land now; inter-rater reliability targets and adjudication automation
+follow.
+
 #### `BatteryCaseResult`
 
 ```text
@@ -2639,6 +2899,7 @@ recording_no
 provider_request_id?
 provider_model_id
 provider_model_revision?
+provider_identity_confidence ∈ exact | declared_only | family_only | unknown
 provider_parameters_ref
 agent_event_stream_ref
 tool_transcript_ref
@@ -2654,6 +2915,11 @@ recorded_at
 ```
 
 Recorded gate results may be diagnostic attachments, never replay authority.
+
+When `provider_model_revision` is unavailable, the recording stamps the strongest
+evidenced identity in `provider_identity_confidence`. A grant may still issue only
+if policy accepts that weaker identity for the requested scope; otherwise the
+affected evidence is supporting-only, not authority-bearing.
 
 #### `VerificationObligation`
 
@@ -3548,10 +3814,39 @@ status in §21.1):
 | `ApprovalPolicy` / `ApprovalSet` | 14 | seam now, engine later | threshold-one default now; quorum and separation-of-duties for team profiles later |
 | `IndependenceProfile` | 18 | seam now, engine later | record the achieved profile now; risk-gated enforcement as policy matures |
 | deployment profiles + `QualificationGrant.deployment_profile_digest` | 15 | seam now, engine later | stamp `local_dev` now; durability/restore enforcement later |
+| `ResourceRef` / `SubjectRef` canonical references | 20 | seam now, engine later | canonical shape lands now; lossless migration adapters retire legacy `*_id`/`*_kind` pairs |
+| `LifecycleContract` + generated transition wrappers | 21 | engine now | status changes cannot bypass policy, roots, grants, or events |
+| `ProviderContract`, `ProviderEgressRecord`, `provider.egress` | 22 | engine now | provider egress is a distinct security event from RoleView visibility |
+| `PermitCheckpoint` | 23 | engine now | a permit valid at claim time may not authorize an entire long attempt |
+| `ActorIdentity` / `ActorAction` | 24 | engine now (provenance) / seam now (auth) | action provenance now; authenticated team-server identity later |
+| `HumanReviewRubric` | 25 | seam now, engine later | rubric and blinded capture now; inter-rater reliability and adjudication later |
+| `DependencyResolutionManifest` | 26 | seam now, engine later | record resolution/hermeticity now; gate on it as the supply-chain engine matures |
+| `IncidentRecord` + security incident mode | 27 | engine now (record) / seam now (auto-engage) | record and manual containment now; policy-automatic engagement later |
+| `ManualInterventionArtifact` | 28 | engine now | reuses anchors/claims/derivation/impact; an honest, labeled escape hatch |
 
 A seam-now resource keeps its fields and digests stable from the start; only its
 evaluator, inheritance rule, or enforcement engine is deferred — each is a
 cutline candidate (§19), not a P15-A/P2-A core requirement.
+
+Every `seam now, engine later` item carries a `SeamSunsetRecord` so deferred
+mechanism does not silently become permanent half-authority debt:
+
+```text
+seam_key
+introduced_in_increment
+reason
+data_preserved
+engine_entry_condition
+sunset_or_promotion_deadline
+current_usage_count
+authority_effect ∈ none | advisory | blocks_if_missing
+owner
+status ∈ active | promoted | removed | extended_by_decision
+```
+
+At each public gate the seam records are reviewed. A seam with no measured use,
+no authority effect, and no credible migration risk is removed rather than
+carried forward.
 
 ## 6. Claims, constraints, uncertainty, context budgets, and inspectable project knowledge
 
@@ -5123,6 +5418,39 @@ Material includes any change that:
 - changes an active waiver or compensating control;
 - increases autonomy or requires a broader QualificationGrant.
 
+#### Manual intervention intake
+
+Operators may import a human-authored patch, contract edit, test pack, context
+note, diagnosis, or recovery note through a typed `ManualInterventionArtifact`.
+Manual intervention is not prohibited; hidden manual reconstruction is.
+
+```text
+ManualInterventionArtifact
+  intervention_kind ∈ patch | contract_edit | test_pack | context_note |
+                      diagnosis_note | recovery_note | approval_note
+  subject_ref
+  base_authority_root_digest?
+  content_ref
+  actor_action_id
+  reason
+  affected_refs[]
+  materiality_labels[]
+  counts_as_generated_success ∈ true | false
+  requires_reapproval
+  created_at
+```
+
+Rules:
+
+- manual intervention creates normal SourceAnchors, ClaimSets, derivation edges,
+  and impact previews;
+- material manual edits require the normal approval / new-lock / new-spec /
+  new-attempt semantics;
+- a selected pilot Slice that needs from-scratch manual contract reconstruction
+  remains a Phase-2 release failure even if the product path can continue;
+- manual patches may be useful diagnostic or recovery artifacts but do not
+  retroactively improve compiler quality metrics.
+
 ### 11.2 Micro-negotiation modes
 
 #### Mode 1 — `human_gated` (default authority)
@@ -5382,6 +5710,40 @@ budget reservation, idempotency, and bounded retries may auto-apply:
 
 Everything affecting intent, scope, acceptance, policy, interfaces, waivers,
 approval, grants, or source remains human-gated.
+
+### 12.6.1 Security incident mode
+
+Security-sensitive failures create an `IncidentRecord` and may engage emergency
+stop automatically under policy:
+
+```text
+IncidentRecord
+  incident_key
+  severity ∈ low | medium | high | critical
+  incident_class ∈ secret_exposure | hidden_oracle_exposure |
+                   provider_egress_violation | prompt_injection_escape |
+                   policy_bypass | artifact_tamper | credential_misuse |
+                   sandbox_escape | unknown_security
+  affected_subject_refs[]
+  affected_grant_ids[]
+  affected_artifact_refs[]
+  containment_actions[]
+  evidence_refs[]
+  status ∈ open | contained | remediated | closed
+  owner
+  opened_at
+  closed_at?
+```
+
+Containment actions may include engaging emergency stop, opening an adapter
+circuit, revoking AdmissionPermits, revoking or narrowing QualificationGrants,
+quarantining Cassettes/artifacts, rotating credentials, marking prompts/outputs
+contaminated, disabling an affected PolicyBundle or ToolContract, and requiring
+requalification after remediation. Incident records are authority-bearing
+evidence and cannot be hidden by retention or projection policy while open.
+
+**Delivery (§5.11):** the record and manual containment commands (§14.1) are
+**engine now**; policy-automatic engagement is **seam now, engine later**.
 
 ### 12.7 Diagnosis and recovery honesty eval
 
@@ -5697,6 +6059,8 @@ mix conveyor.battery [--case ID | --archetype KEY]
                      [--mode live|replay_full|replay_hybrid|conformance]
 mix conveyor.battery_report BATTERY_RUN_ID
 mix conveyor.qualification_gate PROJECT_ID --scope scope.yml
+mix conveyor.qualification_bundle GRANT_ID --out bundle/
+mix conveyor.qualification_bundle_verify bundle/ [--offline] [--require-signatures]
 mix conveyor.grants PROJECT_ID [--active | --all]
 mix conveyor.qualification_impact changeset.yml
 mix conveyor.record_cassette RUN_ATTEMPT_ID
@@ -5711,8 +6075,30 @@ mix conveyor.recovery SUBJECT_ID
 mix conveyor.adapter_health [ADAPTER]
 mix conveyor.stop --reason "..." [--project PROJECT_ID]
 mix conveyor.resume --decision DECISION_ID [--project PROJECT_ID]
+mix conveyor.incident_open incident.yml
+mix conveyor.incident_status INCIDENT_ID
+mix conveyor.incident_contain INCIDENT_ID --action ACTION
 mix conveyor.artifact_gc --dry-run
 ```
+
+`qualification_bundle_verify` validates a grant from exported artifacts without
+contacting the live Conveyor database:
+
+```text
+schema registry and canonicalization profile
+grant scope and limitations
+evidence root and RootManifest
+BatteryRun/CaseResult/SampleResult digests
+deterministic hard-invariant verdicts
+canary/meta-canary/poison-pill results
+replay anchor manifests and freshness surfaces
+waivers, expiry, compensating controls, and autonomy caps
+artifact availability, tombstone, or redaction status
+signature status required by the deployment profile
+```
+
+Live database state may make a grant inactive later; the bundle proves what
+evidence originally supported the grant.
 
 ### 14.2 Phase-2 commands
 
@@ -5819,6 +6205,10 @@ These are product affordances, not autonomy levels. Actual authority remains
 the intersection of policy, RoleView, ToolContract, adapter capability, grant,
 approval roots, verification evidence, budget, and emergency state.
 
+Permission modes apply to human and service actors alike. UI affordance
+visibility is not authorization: every action resolves to an `ActorAction`
+(§5.2) backed by a PolicyDecision.
+
 ## 15. Safety, security, operational, and evidence threat model
 
 ### 15.1 Evidence Kernel and Phase-1.5 threats
@@ -5854,6 +6244,8 @@ approval roots, verification evidence, budget, and emergency state.
 - the Battery scorer omits failed samples, changes thresholds after the run, or
   reports the poison pill as agent behavior;
 - Battery overfitting improves public fixtures while held-out performance falls;
+- hidden fixture knowledge leaks through logs, cassettes, exported reports,
+  prompt dry-runs, screenshots, or developer-created summaries;
 - global budget logic fails and a runaway graph spends across many jobs;
 - emergency stop engages but new effects or active agents continue;
 - trace IDs leak sensitive internal identifiers to a provider.
@@ -5877,6 +6269,9 @@ Defenses:
 - compaction equivalence checks;
 - predeclared sampling and poison-pill runner meta-canary;
 - held-out/rotating cases;
+- restricted-evaluation taint labels, leakage scanners, and export redaction
+  canaries;
+- randomized fixture variants and near-duplicate contamination checks;
 - transactional budget reservations and system-wide circuit limits;
 - durable emergency stop checked before claims/effects/publication;
 - local correlation when provider metadata is unavailable or disallowed.
@@ -5944,6 +6339,12 @@ Defenses:
 ### 15.3 Secret, sensitivity, and role-visibility handling
 
 - never persist raw credentials in events, Cassettes, prompts, or attestations;
+- never send hidden-oracle, scorer-only, secret, restricted-evaluation, or
+  policy-forbidden artifacts to an external provider;
+- provider egress is a distinct policy decision from internal RoleView
+  visibility;
+- prompt manifests record exact input labels, redaction, provider contract,
+  retention expectations, and local/provider correlation IDs;
 - never require, infer, or represent hidden model chain-of-thought as evidence;
   store only observable outputs, tool calls/results, decisions, and summaries;
 - credentials are scoped, ephemeral, revocable, and excluded from replay;
@@ -5971,7 +6372,34 @@ locale_and_timezone
 sandbox_policy_digest
 network_profile_digest
 toolchain_lock_digests
+dependency_resolution_manifest_digest
 ```
+
+#### `DependencyResolutionManifest`
+
+```text
+manifest_digest
+repository_base_commit
+package_manager
+lockfile_digests[]
+registry_mirror_policy
+resolved_package_refs[]
+script_execution_policy
+network_access_policy
+cache_hit_policy
+native_binary_policy
+vulnerability_snapshot_ref?
+generated_at
+```
+
+Gate, TestIntegrity, and Battery runs record whether dependency resolution was
+`fully_locked`, `locked_with_approved_network`, `partially_locked`,
+`unlocked_blocking`, or `not_applicable`. Required verification may not rely on
+unlocked dependency resolution unless an explicit policy waiver marks the
+evidence lower-authority and caps autonomy.
+
+**Delivery: seam now, engine later (§5.11)** — the manifest and resolution status
+are recorded now; hermeticity gating matures with the supply-chain engine.
 
 Adapter/tool/pass/schema/policy versions are part of the relevant generation,
 evaluation, or authority inputs. Material change:
@@ -6005,6 +6433,7 @@ evaluation, or authority inputs. Material change:
 | Layer | Purpose | Default execution |
 | --- | --- | --- |
 | Unit tests | deterministic modules, policies, schemas | every CI run |
+| State-machine/model tests | lifecycle, fencing, permits, effect commit, GC invariants | every CI run |
 | Compiler property tests | generated invariants over pure pass graph | every CI run |
 | Fixture integration | orchestration/effects with fake outputs | every CI run |
 | Policy bypass tests | every authority path uses PolicyDecision | every CI run |
@@ -6019,6 +6448,49 @@ evaluation, or authority inputs. Material change:
 | Generated-Slice pilot | compiler authority survives real execution | Phase-2 release |
 | Human legibility | operator approval/recovery tasks | milestone/release study |
 | Retention/restore | GC, archive, erased/unavailable semantics | scheduled/release |
+
+### 16.1.1 Trust-spine state-machine models
+
+The following invariants require executable state-machine tests, and at least the
+fencing/effect/admission subset SHOULD have a small formal model (a `StreamData`
+state machine, PropEr, TLA+/PlusCal, or equivalent):
+
+```text
+station lease acquisition and stale epoch rejection
+effect attempt -> receipt -> reconciliation
+AdmissionPermit checkpoint and renewal
+emergency stop engagement/resume
+budget reservation/commit/release/expiry
+artifact staged -> committed -> GC/tombstone
+grant active -> expired/revoked/superseded
+approval/root invalidation
+RunAttempt terminal/new-attempt semantics
+```
+
+The model must prove or test that no stale worker can publish authority; that no
+external effect is treated as successful without a receipt or an explicit
+ambiguous state; that no new effect starts after emergency stop, budget
+revocation, or permit invalidation; that active authority evidence cannot be
+garbage-collected; and that a new ContractLock/RunSpec never reuses an old
+RunAttempt.
+
+### 16.1.2 Crash-boundary tests
+
+For every staged external or storage effect, inject crashes at each commit
+boundary:
+
+```text
+before external call
+after external accept before receipt
+after receipt before artifact pointer commit
+after blob staged before DB commit
+after DB commit before outbox publish
+after outbox publish before worker ack
+after permit renewal before station publication
+```
+
+Each crash must leave a deterministic recovery state: retry, reconcile,
+compensate, park ambiguous, or fail closed.
 
 ### 16.2 Deterministic CI suites
 
@@ -6039,7 +6511,11 @@ effect_unknown_outcome_recovery
 stale_worker_external_output_fenced
 trace_propagation
 artifact_store_roundtrip
+dependency_resolution_hermeticity
 retention_reference_safety
+artifact_store_load_profile
+event_segment_catchup_load_profile
+comparison_query_load_profile
 emergency_stop
 budget_reservation
 adapter_conformance
@@ -6534,6 +7010,26 @@ Record per adapter/scope:
 - budget reservation failures/circuit trips;
 - artifact storage/restore/GC health.
 
+Also record Evidence Kernel performance baselines:
+
+```text
+station claim p50/p95
+policy evaluation p50/p95
+event segment flush latency and size
+LiveView reconnect catch-up latency by event count
+artifact put/get/head p50/p95 by backend and sensitivity class
+diff command latency by subject type and artifact size
+why_stale traversal latency by derivation graph size
+qualification_gate evaluation latency
+database row growth and WAL volume per run
+CAS storage growth per run and per Battery sample
+GC dry-run/apply latency and reclaimed bytes
+```
+
+Initial SLOs are measurement targets, not release blockers, until P15-B8. A
+severe regression that makes operator diagnosis or emergency control unusable is
+a hard blocker.
+
 Decision outcomes:
 
 ```text
@@ -6919,6 +7415,7 @@ Deliver:
 - run all hard blockers and requested live sample policies;
 - issue, narrow, or deny QualificationGrants;
 - publish evidence roots, limitations, expiry/triggers, residual risks;
+- publish an offline-verifiable qualification bundle;
 - update PhaseNextDecision and either authorize P2 scope or open hardening.
 
 Acceptance:
@@ -7048,6 +7545,21 @@ Acceptance:
   execution authority, and produces the same deterministic diagnostics as the
   full compiler;
 - SARIF and static Markdown are projections of the same canonical findings.
+
+Product acceptance for the deterministic wedge:
+
+- runs without provider credentials, AgentRunner, Cassettes, or an active
+  QualificationGrant;
+- detects missing hard constraints, unmeasurable ACs, ambiguous interfaces,
+  orphan requirements, human-decision blockers, weak oracle paths, and critical
+  context-budget impossibility;
+- emits stable rule keys suitable for CI baselining;
+- supports suppression only through a typed HumanDecision or policy waiver, never
+  inline ignored prose;
+- exports SARIF with SourceAnchors and canonical finding IDs;
+- records anonymized rule/outcome metrics when telemetry policy permits;
+- cannot create ContractLocks, RunSpecs, or PlanningRuns with execution
+  authority, approvals, or grants.
 
 ### 18.4 Increment P2-B — Contract Foundry and serial pilot
 
@@ -7411,6 +7923,20 @@ Scope-control rule:
 Residual-risk rule: every accepted release waiver records owner, scope, expiry,
 reason, compensating controls, affected grants/roots, and autonomy ceiling.
 Permanent “temporary” waivers are prohibited.
+
+Each project/deployment profile also carries a `WaiverBudget`:
+
+```text
+max_active_required_obligation_waivers
+max_active_policy_waivers
+max_total_autonomy_reduction
+max_age_by_risk
+release_blocking_waiver_classes[]
+```
+
+Exceeding the waiver budget blocks new higher-autonomy grants and forces a
+`PhaseNextDecision` branch. Waivers are risk-acceptance records, not a
+missing-test backlog.
 
 ## 21. Canonical capability and schema registries
 
