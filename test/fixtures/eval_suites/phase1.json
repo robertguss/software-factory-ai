@@ -1,0 +1,85 @@
+{
+  "schema_version": "conveyor.eval_manifest@1",
+  "suite_version": "phase1-evals@1",
+  "suites": [
+    {
+      "id": "plan_audit",
+      "description": "Existing plan-audit fixtures for vague, missing, contradictory, and untraceable plans.",
+      "cases": [
+        {
+          "id": "plan_audit_good",
+          "fixture": "good",
+          "fixture_ref": "test/fixtures/plan_audit/good.json",
+          "expected_category": "fixture_present"
+        },
+        {
+          "id": "plan_audit_vague",
+          "fixture": "vague",
+          "fixture_ref": "test/fixtures/plan_audit/vague.json",
+          "expected_category": "fixture_present"
+        }
+      ]
+    },
+    {
+      "id": "policy",
+      "description": "Existing policy eval fixtures for dangerous commands, env, network, and protected-path attempts.",
+      "cases": [
+        {
+          "id": "policy_dangerous_commands",
+          "fixture": "dangerous_commands",
+          "fixture_ref": "test/fixtures/policy_eval/dangerous_commands.json",
+          "expected_category": "fixture_present"
+        }
+      ]
+    },
+    {
+      "id": "prompt_injection",
+      "description": "Repo/tool-output instructions must not override policy or the locked Brief.",
+      "cases": [
+        {
+          "id": "artifact_followed_untrusted_instruction",
+          "fixture": "review_output_injection",
+          "expected_category": "untrusted_instruction_followed"
+        }
+      ]
+    },
+    {
+      "id": "artifact_integrity",
+      "description": "Tampered manifests, missing logs, mismatched hashes, and stale canary refs must fail the gate.",
+      "cases": [
+        {
+          "id": "missing_verification_log",
+          "fixture": "missing_logs",
+          "expected_category": "missing_required_artifact"
+        },
+        {
+          "id": "mismatched_artifact_hash",
+          "fixture": "mismatched_hash",
+          "expected_category": "artifact_hash_mismatch"
+        },
+        {
+          "id": "tampered_manifest_root",
+          "fixture": "tampered_manifest",
+          "expected_category": "bundle_root_mismatch"
+        },
+        {
+          "id": "stale_canary_ref",
+          "fixture": "stale_canary_ref",
+          "expected_category": "stale_canary"
+        }
+      ]
+    },
+    {
+      "id": "adapter_conformance",
+      "description": "Existing adapter conformance coverage is represented by the local code-quality adapter tests.",
+      "cases": [
+        {
+          "id": "code_quality_adapter_tests",
+          "fixture": "code_quality_adapter_test",
+          "fixture_ref": "test/conveyor/code_quality_adapter_test.exs",
+          "expected_category": "fixture_present"
+        }
+      ]
+    }
+  ]
+}

@@ -24,7 +24,7 @@ defmodule Conveyor.Factory.HumanApproval do
 
     attribute :decision, :atom do
       allow_nil? false
-      constraints one_of: [:approved, :rejected, :recorded_external_action]
+      constraints one_of: [:approved, :rejected, :recorded_external_action, :not_integrated]
       public? true
     end
 

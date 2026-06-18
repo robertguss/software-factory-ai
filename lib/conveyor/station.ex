@@ -109,6 +109,7 @@ defmodule Conveyor.Station do
         reused?: true
       }
     else
+      reject_unknown_effects!(station_run)
       effects = declare_effects!(station_module, station_run, input)
 
       context = %Context{
@@ -127,6 +128,20 @@ defmodule Conveyor.Station do
       end
       |> Map.put(:effects, effects)
     end
+  end
+
+  defp reject_unknown_effects!(station_run) do
+    unknown_effects =
+      StationEffect
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.station_run_id == station_run.id and &1.status == :unknown))
+
+    if unknown_effects != [] do
+      raise ArgumentError,
+            "StationRun #{station_run.id} has unknown StationEffect records; reconcile before retry"
+    end
+
+    :ok
   end
 
   @spec heartbeat!(StationRun.t(), keyword()) :: StationRun.t()
@@ -173,8 +188,15 @@ defmodule Conveyor.Station do
 
     station_run =
       case find_one(StationRun, &(&1.idempotency_key == attrs.idempotency_key)) do
-        nil -> Ash.create!(StationRun, attrs, domain: Factory)
-        existing -> existing
+        nil ->
+          Ash.create!(StationRun, attrs, domain: Factory)
+
+        existing ->
+          if existing.status != :succeeded do
+            reject_unknown_effects!(existing)
+          end
+
+          existing
       end
 
     if station_run.status == :succeeded do

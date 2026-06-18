@@ -6,6 +6,8 @@ defmodule Conveyor.Artifacts.ProjectorTest do
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
   alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.GateResult
+  alias Conveyor.Factory.Incident
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.RunAttempt
@@ -13,6 +15,7 @@ defmodule Conveyor.Artifacts.ProjectorTest do
   alias Conveyor.Factory.RunSpec
   alias Conveyor.Factory.Slice
   alias Conveyor.Factory.StationRun
+  alias Conveyor.Factory.ToolInvocation
 
   defmodule RecordingBackend do
     @moduledoc false
@@ -101,8 +104,10 @@ defmodule Conveyor.Artifacts.ProjectorTest do
 
     %{
       blob_root: temp_dir!("blobs"),
+      project: project,
       projection_root: temp_dir!("projection"),
       run_attempt: run_attempt,
+      slice: slice,
       station_run: station_run
     }
   end
@@ -151,6 +156,206 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     assert File.read!(projected_file) == content
     assert second.manifest_sha256 == first.manifest_sha256
     assert second.bundle_root_sha256 == first.bundle_root_sha256
+  end
+
+  test "projects complete headless artifact set with schema-valid machine artifacts", %{
+    blob_root: blob_root,
+    projection_root: projection_root,
+    run_attempt: run_attempt
+  } do
+    Projector.project_run!(run_attempt,
+      blob_root: blob_root,
+      projection_root: projection_root
+    )
+
+    run_dir = Path.join(projection_root, run_attempt.id)
+
+    expected_paths = [
+      "diff.patch",
+      "dossier.md",
+      "evidence.json",
+      "gate.json",
+      "manifest.json",
+      "pr_body.md",
+      "retrospective.json",
+      "review.json"
+    ]
+
+    for path <- expected_paths do
+      assert File.exists?(Path.join(run_dir, path))
+    end
+
+    manifest = read_json!(Path.join(run_dir, "manifest.json"))
+    entry_paths = Enum.map(manifest["entries"], & &1["path"])
+
+    assert entry_paths == [
+             "diff.patch",
+             "dossier.md",
+             "evidence.json",
+             "gate.json",
+             "retrospective.json",
+             "review.json"
+           ]
+
+    assert_schema_valid!(manifest, "conveyor.run_bundle@1")
+    assert_schema_valid!(read_json!(Path.join(run_dir, "evidence.json")), "conveyor.evidence@1")
+    assert_schema_valid!(read_json!(Path.join(run_dir, "review.json")), "conveyor.review@1")
+    assert_schema_valid!(read_json!(Path.join(run_dir, "gate.json")), "conveyor.gate@1")
+
+    retrospective = read_json!(Path.join(run_dir, "retrospective.json"))
+    assert retrospective["schema_version"] == "conveyor.retrospective@1"
+    assert retrospective["run_attempt_id"] == run_attempt.id
+    assert retrospective["failure_taxonomy"]["run_category"] == "none"
+    assert retrospective["swarm_readiness"]["passed"] == true
+    assert retrospective["rework_handoff"]["template_version"] == "conveyor.rework_handoff@1"
+  end
+
+  test "retrospective captures timings failure taxonomy and canary stats", %{
+    blob_root: blob_root,
+    project: project,
+    projection_root: projection_root,
+    run_attempt: run_attempt,
+    slice: slice,
+    station_run: station_run
+  } do
+    run_attempt =
+      Ash.update!(
+        run_attempt,
+        %{
+          status: :failed,
+          failure_category: "test_failure",
+          started_at: ~U[2026-06-18 01:00:00.000000Z],
+          completed_at: ~U[2026-06-18 01:03:00.000000Z]
+        },
+        domain: Factory
+      )
+
+    Ash.update!(
+      station_run,
+      %{
+        status: :failed,
+        started_at: ~U[2026-06-18 01:00:10.000000Z],
+        completed_at: ~U[2026-06-18 01:01:40.000000Z],
+        error_category: "pytest_failed",
+        error_message: "expected task to be listed"
+      },
+      domain: Factory
+    )
+
+    Ash.create!(
+      ToolInvocation,
+      %{
+        run_attempt_id: run_attempt.id,
+        station_run_id: station_run.id,
+        tool_name: "pytest",
+        invocation_kind: "verify",
+        command_spec: command_spec("pytest"),
+        policy_profile: "verify",
+        cwd: ".",
+        env_keys: [],
+        network_mode: :none,
+        started_at: ~U[2026-06-18 01:00:20.000000Z],
+        completed_at: ~U[2026-06-18 01:00:35.000000Z],
+        exit_code: 1,
+        duration_ms: 15_000,
+        policy_decision: :allowed,
+        status: :failed
+      },
+      domain: Factory
+    )
+
+    Ash.create!(
+      GateResult,
+      %{
+        run_attempt_id: run_attempt.id,
+        passed: false,
+        stages: [%{"key" => "canary", "status" => "failed", "category" => "stale_canary"}],
+        false_negative: true,
+        gate_version: "gate@1",
+        gate_code_sha256: "sha256:gate",
+        policy_sha256: "sha256:policy",
+        contract_lock_sha256: "sha256:contract",
+        canary_suite_version: "canary@1"
+      },
+      domain: Factory
+    )
+
+    Ash.create!(
+      Incident,
+      %{
+        project_id: project.id,
+        slice_id: slice.id,
+        run_attempt_id: run_attempt.id,
+        severity: :warning,
+        category: "schema_friction",
+        description: "Review schema needed an adapter patch.",
+        evidence_refs: ["review.json"],
+        status: :open
+      },
+      domain: Factory
+    )
+
+    Projector.project_run!(run_attempt,
+      blob_root: blob_root,
+      projection_root: projection_root
+    )
+
+    retrospective = read_json!(Path.join([projection_root, run_attempt.id, "retrospective.json"]))
+
+    assert retrospective["timings"]["run_duration_ms"] == 180_000
+
+    assert [
+             %{
+               "station" => "artifact",
+               "duration_ms" => 90_000,
+               "error_category" => "pytest_failed"
+             }
+           ] =
+             retrospective["timings"]["stations"]
+
+    assert retrospective["failure_taxonomy"]["run_category"] == "test_failure"
+    assert retrospective["failure_taxonomy"]["station_categories"] == ["pytest_failed"]
+    assert retrospective["adapter_friction"]["failed_tool_invocations"] == 1
+    assert retrospective["cost_estimate"]["token_count"] == nil
+    assert retrospective["gate_canary"]["false_negative_count"] == 1
+    assert retrospective["schema_friction"]["incident_count"] == 1
+    assert retrospective["rework_handoff"]["next_actions"] != []
+  end
+
+  test "generates PR body with verification checklist and evidence digests", %{
+    blob_root: blob_root,
+    projection_root: projection_root,
+    run_attempt: run_attempt
+  } do
+    result =
+      Projector.project_run!(run_attempt,
+        blob_root: blob_root,
+        projection_root: projection_root
+      )
+
+    run_dir = Path.join(projection_root, run_attempt.id)
+    manifest = read_json!(Path.join(run_dir, "manifest.json"))
+    pr_body = File.read!(Path.join(run_dir, "pr_body.md"))
+    dossier_sha256 = entry_for!(manifest["entries"], "dossier.md")["sha256"]
+    gate_sha256 = entry_for!(manifest["entries"], "gate.json")["sha256"]
+
+    for section <- [
+          "## Task",
+          "## Summary",
+          "## Acceptance Criteria",
+          "## Verification",
+          "## Risk",
+          "## Agent",
+          "## Evidence"
+        ] do
+      assert pr_body =~ section
+    end
+
+    assert pr_body =~ "- [x] RunCheck: manifest/dossier valid"
+    assert pr_body =~ "- [x] Reviewer: accepted"
+    assert pr_body =~ "Run bundle: `#{result.bundle_root_sha256}`"
+    assert pr_body =~ "Dossier digest: `#{dossier_sha256}`"
+    assert pr_body =~ "Gate digest: `#{gate_sha256}`"
   end
 
   test "rejects corrupted blobs before writing projection files", %{
@@ -242,8 +447,20 @@ defmodule Conveyor.Artifacts.ProjectorTest do
 
     assert manifest["schema_version"] == "conveyor.run_bundle@1"
     assert manifest["run_attempt_id"] == run_attempt.id
-    assert projection_paths == ["gate/result.json", "review/result.txt"]
-    assert Enum.map(manifest["entries"], & &1["kind"]) == ["gate", "review"]
+
+    assert projection_paths == [
+             "diff.patch",
+             "dossier.md",
+             "evidence.json",
+             "gate.json",
+             "gate/result.json",
+             "retrospective.json",
+             "review.json",
+             "review/result.txt"
+           ]
+
+    assert entry_for!(manifest["entries"], "gate/result.json")["kind"] == "gate"
+    assert entry_for!(manifest["entries"], "review/result.txt")["kind"] == "review"
     assert Enum.all?(manifest["entries"], &(&1["sha256"] =~ ~r/^[0-9a-f]{64}$/))
     assert manifest["bundle_root_sha256"] == bundle_root_sha256(manifest["entries"])
     assert first.manifest_sha256 == digest_bytes(manifest_json)
@@ -320,7 +537,19 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     projected_sha256s = MapSet.new(Enum.map(entries, & &1["sha256"]))
 
     assert result.artifact_count == 3
-    assert projected_paths == ["evidence/public.txt", "gate/internal.txt", "review/redacted.txt"]
+
+    assert projected_paths == [
+             "diff.patch",
+             "dossier.md",
+             "evidence.json",
+             "evidence/public.txt",
+             "gate.json",
+             "gate/internal.txt",
+             "retrospective.json",
+             "review.json",
+             "review/redacted.txt"
+           ]
+
     assert File.exists?(Path.join(run_dir, public.projection_path))
     assert File.exists?(Path.join(run_dir, internal.projection_path))
     assert File.exists?(Path.join(run_dir, redacted.projection_path))
@@ -360,6 +589,24 @@ defmodule Conveyor.Artifacts.ProjectorTest do
       },
       domain: Factory
     )
+  end
+
+  defp command_spec(key) do
+    %{
+      "key" => key,
+      "argv" => ["mix", "test"],
+      "cwd" => ".",
+      "profile" => "verify",
+      "required" => true,
+      "timeout_ms" => 120_000,
+      "network" => "none",
+      "env_allowlist" => [],
+      "output_limit_bytes" => 2_000_000,
+      "repeat" => 1,
+      "flake_policy" => "fail_closed",
+      "infra_retry_policy" => %{"max_attempts" => 1},
+      "result_format" => "junit"
+    }
   end
 
   defp create_blob_artifact!(
@@ -410,6 +657,21 @@ defmodule Conveyor.Artifacts.ProjectorTest do
       relative_path = Path.relative_to(path, root)
       {relative_path, File.read!(path) |> digest_bytes()}
     end)
+  end
+
+  defp read_json!(path), do: path |> File.read!() |> Jason.decode!()
+
+  defp entry_for!(entries, path), do: Enum.find(entries, &(&1["path"] == path)) || flunk(path)
+
+  defp assert_schema_valid!(json, schema_name) do
+    schema =
+      ["docs/schemas", "#{schema_name}.json"]
+      |> Path.join()
+      |> File.read!()
+      |> Jason.decode!()
+
+    root = JSV.build!(schema, warnings: :silent)
+    assert {:ok, _validated} = JSV.validate(json, root)
   end
 
   defp bundle_root_sha256(entries) do

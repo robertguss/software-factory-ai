@@ -30,7 +30,13 @@ defmodule Mix.Tasks.ConveyorReportTest do
     assert first["run_attempt_id"] == run_attempt.id
     assert first["projection_path"] == Path.join(projection_root, run_attempt.id)
     assert first["manifest_path"] == manifest_path
-    assert first["entry_paths"] == [projected_file]
+    assert projected_file in first["entry_paths"]
+
+    for path <- ~w(diff.patch dossier.md evidence.json gate.json review.json) do
+      assert Path.join([projection_root, run_attempt.id, path]) in first["entry_paths"]
+    end
+
+    assert File.exists?(Path.join([projection_root, run_attempt.id, "pr_body.md"]))
     assert first["manifest_sha256"] =~ ~r/^[0-9a-f]{64}$/
     assert first["bundle_root_sha256"] =~ ~r/^[0-9a-f]{64}$/
   end
