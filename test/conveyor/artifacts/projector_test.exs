@@ -13,6 +13,26 @@ defmodule Conveyor.Artifacts.ProjectorTest do
   alias Conveyor.Factory.Slice
   alias Conveyor.Factory.StationRun
 
+  defmodule RecordingBackend do
+    @moduledoc false
+
+    @behaviour Projector
+
+    @impl Projector
+    def project_run!(run_attempt, opts) do
+      test_pid = Keyword.fetch!(opts, :test_pid)
+      send(test_pid, {:project_run, run_attempt.id, opts})
+
+      %Projector.Result{
+        run_attempt_id: run_attempt.id,
+        projection_path: "/tmp/recorded",
+        artifact_count: 0,
+        manifest_sha256: "sha256:manifest",
+        bundle_root_sha256: "sha256:bundle"
+      }
+    end
+  end
+
   setup do
     project =
       Ash.create!(
@@ -149,6 +169,21 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     end
 
     refute File.exists?(Path.join([projection_root, run_attempt.id, "logs/bad.txt"]))
+  end
+
+  test "delegates to the selected projector backend", %{run_attempt: run_attempt} do
+    result =
+      Projector.project_run!(run_attempt,
+        backend: RecordingBackend,
+        test_pid: self(),
+        projection_root: "/unused"
+      )
+
+    assert_receive {:project_run, run_attempt_id, opts}
+    assert run_attempt_id == run_attempt.id
+    refute Keyword.has_key?(opts, :backend)
+    assert Keyword.fetch!(opts, :projection_root) == "/unused"
+    assert result.projection_path == "/tmp/recorded"
   end
 
   defp create_artifact!(run_attempt, station_run, sha256, size_bytes, projection_path) do
