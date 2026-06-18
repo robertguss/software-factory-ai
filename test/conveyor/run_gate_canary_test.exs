@@ -41,6 +41,39 @@ defmodule Conveyor.RunGateCanaryTest do
     def run(_context, _opts), do: %StageResult{key: "bad_gate", status: :passed, required?: true}
   end
 
+  defmodule FalsePositiveStage do
+    @behaviour Conveyor.Gate.Stage
+
+    # Wrongly rejects the known-good fixture (a false positive) while still
+    # rejecting every mutant for the expected reason.
+    @impl true
+    def run(%{patch_set: %{kind: :known_good}}, _opts) do
+      %StageResult{
+        key: "fixture_gate",
+        status: :failed,
+        required?: true,
+        findings: [
+          %{"category" => "spurious", "severity" => "blocking", "message" => "wrongly rejected"}
+        ]
+      }
+    end
+
+    def run(%{patch_set: %{expected_catch: expected}}, _opts) do
+      %StageResult{
+        key: expected["stage"],
+        status: :failed,
+        required?: true,
+        findings: [
+          %{
+            "category" => expected["category"],
+            "severity" => "blocking",
+            "message" => expected["reason"]
+          }
+        ]
+      }
+    end
+  end
+
   test "runs known-good and all enabled mutants through the gate-only path" do
     summary = run_canary(FixtureGateStage)
 
@@ -62,6 +95,17 @@ defmodule Conveyor.RunGateCanaryTest do
     assert summary["false_negative_count"] == 8
     assert summary["ci_exit_code"] == 6
     assert Enum.all?(summary["mutants"], &(&1["outcome"] == "false_negative"))
+  end
+
+  test "classifies a rejected known-good fixture as a false positive with the gate-failed exit code" do
+    summary = run_canary(FalsePositiveStage)
+
+    refute summary["passed"]
+    assert summary["known_good"]["outcome"] == "false_positive"
+    assert summary["false_positive_count"] == 1
+    assert summary["false_negative_count"] == 0
+    # A false positive is release-blocking but distinct from a false negative (6).
+    assert summary["ci_exit_code"] == 1
   end
 
   test "writes a canary run artifact when run attempt and blob root are provided" do

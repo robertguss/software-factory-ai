@@ -173,6 +173,35 @@ defmodule Conveyor.PromptBuilderTest do
     end
   end
 
+  test "build! selects the most recently created context pack when none is supplied", %{
+    brief: brief,
+    slice: slice
+  } do
+    # An older context pack already exists from setup; add a newer one.
+    Process.sleep(2)
+
+    newer =
+      Ash.create!(
+        ContextPack,
+        %{
+          slice_id: slice.id,
+          scout_version: "context-scout@2",
+          confidence: Decimal.new("0.95"),
+          relevant_files: [%{"path" => "lib/conveyor/prompt_builder.ex", "reason" => "Newer."}],
+          key_interfaces: [],
+          existing_tests: [],
+          risks: [],
+          suggested_validation: [],
+          code_quality_refs: []
+        },
+        domain: Factory
+      )
+
+    prompt = PromptBuilder.build!(slice, brief: brief)
+
+    assert prompt.context_pack_id == newer.id
+  end
+
   defp prompt_snapshot(body) do
     %{
       "template_version" => PromptBuilder.template_version(),

@@ -230,6 +230,35 @@ defmodule Conveyor.AgentRunnerPiTest do
     assert session.adapter_session_id == "pi-output-limit"
   end
 
+  test "an RPC error marks the agent session failed instead of leaving it running" do
+    workspace_path = git_workspace!("agent-runner-pi-rpc-error")
+    base_commit = git!(workspace_path, ["rev-parse", "HEAD"])
+    blob_root = temp_dir!("pi-rpc-error-blobs")
+    fixture = create_prompt_fixture!(workspace_path, base_commit)
+
+    rpc_client = fn _request, _emit -> {:error, {:pi_exited, 1}} end
+
+    assert {:error, {:pi_exited, 1}} =
+             Pi.run(
+               fixture.run_prompt,
+               %{path: workspace_path, base_commit: base_commit},
+               policy(),
+               agent_session_id: fixture.agent_session.id,
+               run_attempt_id: fixture.run_attempt.id,
+               blob_root: blob_root,
+               session_id: "pi-rpc-error",
+               rpc_client: rpc_client
+             )
+
+    session =
+      AgentSession
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.id == fixture.agent_session.id))
+
+    assert session.status == :failed
+    assert session.completed_at
+  end
+
   defp create_prompt_fixture!(workspace_path, base_commit) do
     project =
       Ash.create!(

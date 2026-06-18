@@ -46,6 +46,24 @@ defmodule Conveyor.GateStagesScopeTest do
     assert result.output_digest == "sha256:tree"
   end
 
+  test "workspace integrity flags a patch set that does not apply cleanly" do
+    result =
+      WorkspaceIntegrity.run(%{
+        head_tree_sha256: "sha256:tree",
+        run_spec: %RunSpec{base_commit: "base-1"},
+        run_attempt: %RunAttempt{base_commit: "base-1"},
+        patch_set: %PatchSet{
+          base_commit: "base-1",
+          patch_ref: "patches/attempt.patch",
+          applies_cleanly: false,
+          touches_locked_paths: false
+        }
+      })
+
+    assert result.status == :failed
+    assert "patch_apply_failed" in Enum.map(result.findings, & &1["category"])
+  end
+
   test "diff scope fails for out-of-policy paths size and forbidden change classes" do
     result =
       DiffScope.run(%{
