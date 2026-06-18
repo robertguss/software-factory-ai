@@ -17,6 +17,10 @@ defmodule Conveyor.Factory.Plan do
     defaults [:read, :destroy, create: :*, update: :*]
   end
 
+  validations do
+    validate {Conveyor.Factory.Validations.PlanStatusTransition, []}, on: [:update]
+  end
+
   attributes do
     uuid_primary_key :id
 
@@ -53,8 +57,18 @@ defmodule Conveyor.Factory.Plan do
 
     attribute :status, :atom do
       allow_nil? false
-      constraints one_of: [:imported, :auditing, :ready, :blocked, :archived]
-      default :imported
+
+      constraints one_of: [
+                    :draft,
+                    :audited,
+                    :handoff_ready,
+                    :active,
+                    :completed,
+                    :needs_clarification,
+                    :archived
+                  ]
+
+      default :draft
       public? true
     end
 

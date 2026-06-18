@@ -42,11 +42,11 @@ defmodule Conveyor.Factory.PlanQualityResourcesTest do
 
   test "creates, reads, updates, and destroys a plan through Ash", %{plan: plan, project: project} do
     assert plan.project_id == project.id
-    assert plan.status == :imported
+    assert plan.status == :draft
     assert plan.schema_version == "conveyor.plan@1"
 
-    updated = Ash.update!(plan, %{status: :ready, readiness_score: 100}, domain: Factory)
-    assert updated.status == :ready
+    updated = Ash.update!(plan, %{status: :audited, readiness_score: 100}, domain: Factory)
+    assert updated.status == :audited
     assert updated.readiness_score == 100
 
     assert [read_plan] = Ash.read!(Plan, domain: Factory)
