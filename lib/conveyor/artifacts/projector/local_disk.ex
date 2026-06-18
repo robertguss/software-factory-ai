@@ -22,8 +22,9 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
     run_dir = Path.join(projection_root, run_attempt.id)
 
     artifacts = artifacts_for(run_attempt.id)
-    verified = Enum.map(artifacts, &verify_artifact_blob!(&1, blob_root))
-    entries = manifest_entries(artifacts)
+    projectable_artifacts = Enum.reject(artifacts, &restricted_sensitivity?/1)
+    verified = Enum.map(projectable_artifacts, &verify_artifact_blob!(&1, blob_root))
+    entries = manifest_entries(projectable_artifacts)
     bundle_root_sha256 = bundle_root_sha256(entries)
     manifest = manifest(run_attempt, entries, bundle_root_sha256)
     manifest_json = canonical_json(manifest)
@@ -35,7 +36,7 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
     %Projector.Result{
       run_attempt_id: run_attempt.id,
       projection_path: run_dir,
-      artifact_count: length(artifacts),
+      artifact_count: length(projectable_artifacts),
       manifest_sha256: manifest_sha256,
       bundle_root_sha256: bundle_root_sha256
     }
@@ -55,6 +56,10 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
       )
 
     %{artifact: artifact, content: blob.content}
+  end
+
+  defp restricted_sensitivity?(%{sensitivity: sensitivity}) do
+    sensitivity in [:sensitive, :quarantined]
   end
 
   defp manifest(run_attempt, entries, bundle_root_sha256) do

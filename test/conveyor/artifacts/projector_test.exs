@@ -253,7 +253,95 @@ defmodule Conveyor.Artifacts.ProjectorTest do
     assert second.bundle_root_sha256 == first.bundle_root_sha256
   end
 
-  defp create_artifact!(run_attempt, station_run, blob_ref, sha256, size_bytes, projection_path) do
+  test "projects only allowed artifact sensitivities and keeps entry identity", %{
+    blob_root: blob_root,
+    projection_root: projection_root,
+    run_attempt: run_attempt,
+    station_run: station_run
+  } do
+    public =
+      create_blob_artifact!(
+        blob_root,
+        run_attempt,
+        station_run,
+        "public artifact\n",
+        "evidence/public.txt",
+        sensitivity: :public
+      )
+
+    internal =
+      create_blob_artifact!(
+        blob_root,
+        run_attempt,
+        station_run,
+        "internal artifact\n",
+        "gate/internal.txt",
+        sensitivity: :internal
+      )
+
+    redacted =
+      create_blob_artifact!(
+        blob_root,
+        run_attempt,
+        station_run,
+        "redacted artifact\n",
+        "review/redacted.txt",
+        sensitivity: :redacted
+      )
+
+    create_blob_artifact!(
+      blob_root,
+      run_attempt,
+      station_run,
+      "sensitive artifact\n",
+      "evidence/sensitive.txt",
+      sensitivity: :sensitive
+    )
+
+    create_blob_artifact!(
+      blob_root,
+      run_attempt,
+      station_run,
+      "quarantined artifact\n",
+      "evidence/quarantined.txt",
+      sensitivity: :quarantined
+    )
+
+    result =
+      Projector.project_run!(run_attempt,
+        blob_root: blob_root,
+        projection_root: projection_root
+      )
+
+    run_dir = Path.join(projection_root, run_attempt.id)
+    manifest = File.read!(Path.join(run_dir, "manifest.json")) |> Jason.decode!()
+    entries = manifest["entries"]
+    projected_paths = Enum.map(entries, & &1["path"])
+    projected_sha256s = MapSet.new(Enum.map(entries, & &1["sha256"]))
+
+    assert result.artifact_count == 3
+    assert projected_paths == ["evidence/public.txt", "gate/internal.txt", "review/redacted.txt"]
+    assert File.exists?(Path.join(run_dir, public.projection_path))
+    assert File.exists?(Path.join(run_dir, internal.projection_path))
+    assert File.exists?(Path.join(run_dir, redacted.projection_path))
+    refute File.exists?(Path.join(run_dir, "evidence/sensitive.txt"))
+    refute File.exists?(Path.join(run_dir, "evidence/quarantined.txt"))
+
+    for artifact <- [public, internal, redacted] do
+      assert MapSet.member?(projected_sha256s, artifact.sha256)
+      assert Enum.any?(entries, &(&1["path"] == artifact.projection_path))
+    end
+  end
+
+  defp create_artifact!(
+         run_attempt,
+         station_run,
+         blob_ref,
+         sha256,
+         size_bytes,
+         projection_path,
+         opts \\ []
+       ) do
     Ash.create!(
       Artifact,
       %{
@@ -268,13 +356,20 @@ defmodule Conveyor.Artifacts.ProjectorTest do
         subject_kind: "run_attempt",
         producer: "gate",
         schema_version: "conveyor.artifact@1",
-        sensitivity: :internal
+        sensitivity: Keyword.get(opts, :sensitivity, :internal)
       },
       domain: Factory
     )
   end
 
-  defp create_blob_artifact!(blob_root, run_attempt, station_run, content, projection_path) do
+  defp create_blob_artifact!(
+         blob_root,
+         run_attempt,
+         station_run,
+         content,
+         projection_path,
+         opts \\ []
+       ) do
     blob = BlobStore.write!(content, blob_root: blob_root)
 
     create_artifact!(
@@ -283,7 +378,8 @@ defmodule Conveyor.Artifacts.ProjectorTest do
       blob.ref,
       blob.sha256,
       blob.size_bytes,
-      projection_path
+      projection_path,
+      opts
     )
   end
 
