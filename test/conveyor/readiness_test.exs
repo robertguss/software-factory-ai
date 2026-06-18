@@ -78,10 +78,72 @@ defmodule Conveyor.ReadinessTest do
     assert Enum.any?(result.findings, &(&1.code == :required_tests_mismatch))
   end
 
+  test "missing acceptance criteria needs clarification", %{plan: plan, slice: slice} do
+    create_locked_contract!(slice, plan, acceptance_criteria: [])
+
+    result = Readiness.check(slice, actor: "architect")
+
+    assert result.status == :needs_clarification
+    assert result.slice.state == :drafted
+    assert Enum.any?(result.findings, &(&1.code == :missing_acceptance_criteria))
+  end
+
+  test "testless brief needs clarification", %{plan: plan, slice: slice} do
+    create_locked_contract!(slice, plan, required_tests: [])
+
+    result = Readiness.check(slice, actor: "architect")
+
+    assert result.status == :needs_clarification
+    assert result.slice.state == :drafted
+    assert Enum.any?(result.findings, &(&1.code == :missing_required_tests))
+  end
+
+  test "vague acceptance criteria needs clarification", %{plan: plan, slice: slice} do
+    vague =
+      acceptance_criterion()
+      |> Map.put("text", "Make it better and handle edge cases.")
+
+    create_locked_contract!(slice, plan, acceptance_criteria: [vague])
+
+    result = Readiness.check(slice, actor: "architect")
+
+    assert result.status == :needs_clarification
+    assert result.slice.state == :drafted
+    assert Enum.any?(result.findings, &(&1.code == :vague_acceptance_criteria))
+  end
+
+  test "oversized brief is too large", %{plan: plan, slice: slice} do
+    acceptance_criteria =
+      for index <- 1..11 do
+        acceptance_criterion()
+        |> Map.put("id", "AC-#{String.pad_leading(to_string(index), 3, "0")}")
+        |> Map.put("text", "Specific behavior #{index} is implemented.")
+        |> Map.put("required_test_refs", ["tests/test_tasks.py::test_case_#{index}"])
+      end
+
+    required_tests =
+      Enum.map(acceptance_criteria, fn criterion ->
+        required_test()
+        |> Map.put("ref", List.first(criterion["required_test_refs"]))
+        |> Map.put("acceptance_criteria_refs", [criterion["id"]])
+      end)
+
+    create_locked_contract!(slice, plan,
+      acceptance_criteria: acceptance_criteria,
+      required_tests: required_tests
+    )
+
+    result = Readiness.check(slice, actor: "architect")
+
+    assert result.status == :too_large
+    assert result.slice.state == :drafted
+    assert Enum.any?(result.findings, &(&1.code == :brief_too_large))
+  end
+
   defp create_locked_contract!(slice, plan, overrides \\ []) do
-    acceptance_criteria = [acceptance_criterion()]
-    required_tests = [required_test()]
-    verification_commands = [command_spec()]
+    acceptance_criteria = Keyword.get(overrides, :acceptance_criteria, [acceptance_criterion()])
+    required_tests = Keyword.get(overrides, :required_tests, [required_test()])
+    verification_commands = Keyword.get(overrides, :verification_commands, [command_spec()])
     test_pack_sha256 = digest("test-pack")
 
     brief =
@@ -126,6 +188,9 @@ defmodule Conveyor.ReadinessTest do
         domain: Factory
       )
 
+    lock_overrides =
+      Keyword.drop(overrides, [:acceptance_criteria, :required_tests, :verification_commands])
+
     lock_attrs =
       %{
         slice_id: slice.id,
@@ -142,7 +207,7 @@ defmodule Conveyor.ReadinessTest do
         locked_at: ~U[2026-06-18 00:00:00.000000Z],
         locked_by: "architect"
       }
-      |> Map.merge(Map.new(overrides))
+      |> Map.merge(Map.new(lock_overrides))
 
     lock = Ash.create!(ContractLock, lock_attrs, domain: Factory)
 
