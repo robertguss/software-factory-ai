@@ -37,4 +37,26 @@ defmodule Conveyor.SecurityRedactorTest do
     assert result.raw_sha256 != result.redacted_sha256
     assert [%{"severity" => "blocking", "policy" => "block"}] = result.findings
   end
+
+  test "redacted output keeps surrounding text in order for single and multiple matches" do
+    single =
+      Redactor.redact!("prefix OPENAI_API_KEY=sk-test-secret123 suffix",
+        source: "logs/run.txt",
+        policy: :redact
+      )
+
+    assert String.starts_with?(single.content, "prefix ")
+    assert single.content =~ ~r/prefix.*\[REDACTED:.*suffix/
+
+    multi =
+      Redactor.redact!(
+        "a OPENAI_API_KEY=sk-test-secret123 b token=ghp_abcdefghijklmnopqrstuvwxyz c",
+        source: "logs/run.txt",
+        policy: :redact
+      )
+
+    assert multi.content =~ ~r/a .*\[REDACTED:.*b .*\[REDACTED:.*c/
+    refute multi.content =~ "sk-test-secret123"
+    refute multi.content =~ "ghp_abcdefghijklmnopqrstuvwxyz"
+  end
 end

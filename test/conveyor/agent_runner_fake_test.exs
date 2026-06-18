@@ -5,6 +5,7 @@ defmodule Conveyor.AgentRunnerFakeTest do
   import Conveyor.FactoryFixtures
 
   alias Conveyor.AgentRunner.Fake
+  alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentBrief
   alias Conveyor.Factory.AgentSession
@@ -32,6 +33,26 @@ defmodule Conveyor.AgentRunnerFakeTest do
   test "fake runner reports malformed output as a structured adapter finding" do
     fixture = conformance_fixture!("fake-malformed")
     assert_malformed_output_is_structured!(Fake, fixture)
+  end
+
+  test "fake runner captures untracked files when no run attempt id is supplied" do
+    fixture = conformance_fixture!("fake-untracked")
+
+    assert {:ok, result} =
+             Fake.run(
+               fixture.run_prompt,
+               fixture.workspace,
+               fixture.policy,
+               agent_session_id: fixture.agent_session.id,
+               blob_root: fixture.blob_root,
+               session_id: "fake-untracked"
+             )
+
+    diff = BlobStore.read!(result.diff_ref, blob_root: fixture.blob_root)
+
+    # The new untracked file must appear in the captured diff.
+    assert diff =~ "fake_agent_output.txt"
+    assert diff =~ "fake result for"
   end
 
   defp conformance_fixture!(label) do

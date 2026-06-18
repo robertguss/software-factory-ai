@@ -63,6 +63,38 @@ defmodule Conveyor.EffectsReconcilerTest do
     assert failed_station.error_category == "effect_reconciled"
   end
 
+  test "succeeded effects remain pending for cleanup so teardown is still owed" do
+    %{station_run: station_run} = create_running_station!()
+
+    effect =
+      Ash.create!(
+        StationEffect,
+        %{
+          station_run_id: station_run.id,
+          effect_kind: :container_start,
+          idempotency_key: "effect:succeeded-container",
+          status: :unknown,
+          cleanup_required: true,
+          cleanup_status: :pending
+        },
+        domain: Factory
+      )
+
+    result =
+      Reconciler.reconcile!(
+        now: ~U[2026-06-18 02:00:00.000000Z],
+        inspector: fn _effect -> {:ok, :succeeded, "container:running"} end
+      )
+
+    assert result.reconciled_effects == 1
+
+    reconciled = get_by_id!(StationEffect, effect.id)
+    assert reconciled.status == :reconciled
+    # The resource still exists, so cleanup is still owed (not :completed).
+    assert reconciled.cleanup_status == :pending
+    assert reconciled.observed_ref == "container:running"
+  end
+
   test "station retry is blocked while prior effects are unknown and succeeds after reconciliation" do
     %{run_attempt: run_attempt} = create_run_attempt!()
 

@@ -129,6 +129,38 @@ defmodule Conveyor.EvidenceRecorderTest do
     assert Enum.any?(evidence.risks, &(&1["category"] == "secret_exposure"))
   end
 
+  test "a redaction does not mask a failed acceptance in the evidence status" do
+    fixture = evidence_fixture!("evidence-recorder-failed-redaction")
+
+    File.write!(
+      Path.join(fixture.repo_path, "sample.txt"),
+      "OPENAI_API_KEY=sk-test-secret123\n"
+    )
+
+    patch_set =
+      PatchCapture.capture!(%{path: fixture.repo_path, base_commit: fixture.base_commit},
+        run_attempt_id: fixture.run_attempt.id,
+        blob_root: fixture.blob_root
+      )
+
+    acceptance_criteria = [criterion("AC-001", ["tests/sample_test.exs::passes"])]
+    # The required test failed, so acceptance is :failed even though a secret was redacted.
+    verification = verification_result([test_result("tests/sample_test.exs::passes", "failed")])
+
+    result =
+      Recorder.record!(fixture.run_attempt, patch_set, acceptance_criteria, verification,
+        blob_root: fixture.blob_root,
+        projection_root: fixture.projection_root
+      )
+
+    run_dir = Path.join(fixture.projection_root, fixture.run_attempt.id)
+    evidence_json = Path.join(run_dir, "evidence.json") |> File.read!() |> Jason.decode!()
+
+    assert result.security_findings != []
+    # The non-blocking redaction must not mask the failed acceptance.
+    assert evidence_json["status"] == "failed"
+  end
+
   defp evidence_fixture!(label) do
     repo_path = git_workspace!(label)
     base_commit = git!(repo_path, ["rev-parse", "HEAD"])

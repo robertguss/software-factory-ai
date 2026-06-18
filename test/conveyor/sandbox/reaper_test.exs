@@ -57,6 +57,44 @@ defmodule Conveyor.Sandbox.ReaperTest do
     assert updated.cleaned_at
   end
 
+  test "reaps the full workspace root for subdirectory projects" do
+    fixture = create_artifact_run!(blob_root: temp_dir!("reaper-root-blobs"))
+    root_path = temp_dir!("reaper-root")
+    project_path = Path.join(root_path, "project")
+    File.mkdir_p!(project_path)
+    # A sibling of the project subdir that only disappears if the whole root is removed.
+    File.write!(Path.join(root_path, "checkout.tar"), "archive\n")
+    File.write!(Path.join(project_path, "file.txt"), "orphan\n")
+    parent = self()
+
+    workspace =
+      Ash.create!(
+        WorkspaceMaterialization,
+        %{
+          run_spec_id: fixture.run_attempt.run_spec_id,
+          station_run_id: fixture.station_run.id,
+          purpose: :implement,
+          base_commit: fixture.run_attempt.base_commit,
+          path: project_path,
+          root_path: root_path,
+          container_id: "container-subdir",
+          mount_mode: :read_write,
+          cleanup_policy: :delete,
+          cleanup_status: :pending
+        },
+        domain: Factory
+      )
+
+    result = Reaper.reap!(cmd: docker_rm(parent))
+
+    assert result.deleted == 1
+    # The reaper removes the whole temp root, not just the project subdirectory.
+    refute File.exists?(root_path)
+
+    updated = get_by_id!(WorkspaceMaterialization, workspace.id)
+    assert updated.cleanup_status == :deleted
+  end
+
   defp workspace!(fixture, attrs) do
     Ash.create!(
       WorkspaceMaterialization,

@@ -123,6 +123,36 @@ defmodule Conveyor.CodeQualityAdapterTest do
     assert Enum.any?(result["risks"], &String.contains?(&1, "select the Noop/LocalPython"))
   end
 
+  test "local python discovers project-relative paths and only classifies .py tests" do
+    root = temp_dir!("localpython-root")
+    File.mkdir_p!(Path.join(root, "tests/fixtures"))
+    File.write!(Path.join(root, "main.py"), "x = 1\n")
+    File.write!(Path.join(root, "tests/test_main.py"), "def test_x():\n    assert True\n")
+    File.write!(Path.join(root, "tests/fixtures/data.json"), "{}\n")
+
+    # An absolute-but-unclean local_path that Path.expand normalizes; this previously
+    # leaked absolute paths because relativization used the un-expanded root.
+    unclean_path = Path.join(root, "../#{Path.basename(root)}")
+
+    project = %Conveyor.Factory.Project{
+      id: Ash.UUID.generate(),
+      local_path: unclean_path,
+      code_quality_profile: "standard",
+      command_specs: []
+    }
+
+    result = LocalPython.scan(project)
+    discovered = result.metadata["python_files"] ++ result.metadata["test_files"]
+
+    # #11: discovered paths are project-relative, not absolute
+    assert "main.py" in result.metadata["python_files"]
+    assert "tests/test_main.py" in result.metadata["test_files"]
+    refute Enum.any?(discovered, &String.starts_with?(&1, "/"))
+
+    # #12: a non-.py file under tests/ is not classified as a test file
+    refute "tests/fixtures/data.json" in result.metadata["test_files"]
+  end
+
   test "result schema rejects invalid status" do
     assert_raise ArgumentError, ~r/status must be one of/, fn ->
       Result.new!(adapter: "bad", profile: "standard", status: :pending)

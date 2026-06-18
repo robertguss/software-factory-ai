@@ -146,6 +146,38 @@ defmodule Conveyor.Factory.EmbeddedSchemaValidationTest do
     assert [%{"observed_risk" => "high"}] = policy.risk_rules
   end
 
+  test "atom-keyed embedded maps accept a genuine boolean false", %{project: project} do
+    # Atom-keyed maps carrying `false` previously coalesced to nil in the validation
+    # helper and were rejected as "must be a boolean". These should now be accepted.
+    updated =
+      Ash.update!(
+        project,
+        %{command_specs: [%{command_spec() | "required" => false} |> atomize()]},
+        domain: Factory
+      )
+
+    assert [_] = updated.command_specs
+
+    policy =
+      Ash.create!(
+        ReviewPolicy,
+        %{
+          project_id: project.id,
+          name: "no-approval-risk-rule",
+          risk_rules: [%{risk_rule() | "require_human_approval" => false} |> atomize()],
+          default_required_review_kinds: [:general],
+          escalation_policy: :fail_closed
+        },
+        domain: Factory
+      )
+
+    assert [_] = policy.risk_rules
+  end
+
+  defp atomize(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {String.to_atom(k), v} end)
+  end
+
   defp agent_brief_attrs(slice_id, acceptance_criteria) do
     %{
       slice_id: slice_id,

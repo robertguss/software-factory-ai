@@ -102,6 +102,53 @@ defmodule Conveyor.PlanAuditorTest do
            )
   end
 
+  test "detects a contradiction even when the negative requirement has the smaller key", %{
+    contract_result: contract_result,
+    project: project
+  } do
+    contract_result = append_contradicting_requirements(contract_result)
+    plan = create_plan!(project, contract_result)
+    PlanImport.import_requirements_and_decisions!(plan, contract_result)
+
+    result = PlanAuditor.audit_plan!(plan)
+
+    assert result.decision == :blocked
+
+    assert Enum.any?(
+             result.findings,
+             &(&1["message"] == "Requirements REQ-901 and REQ-900 contradict each other.")
+           )
+  end
+
+  defp append_contradicting_requirements(%PlanContract.Result{} = contract_result) do
+    contract =
+      update_in(contract_result.contract, ["requirements"], fn requirements ->
+        requirements ++
+          [
+            %{
+              "key" => "REQ-900",
+              "text" => "Completed tasks must not appear in list responses.",
+              "risk" => "medium",
+              "source_ref" => "plan.md#requirement-req-900",
+              "status" => "open"
+            },
+            %{
+              "key" => "REQ-901",
+              "text" => "Completed tasks must appear in list responses.",
+              "risk" => "medium",
+              "source_ref" => "plan.md#requirement-req-901",
+              "status" => "open"
+            }
+          ]
+      end)
+
+    %PlanContract.Result{
+      contract_result
+      | contract: contract,
+        contract_sha256: "sha256:" <> String.duplicate("9", 64)
+    }
+  end
+
   defp create_plan!(project, contract_result) do
     Ash.create!(
       Plan,

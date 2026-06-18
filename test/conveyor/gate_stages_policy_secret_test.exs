@@ -104,6 +104,24 @@ defmodule Conveyor.GateStagesPolicySecretTest do
     assert [%{"category" => "unredacted_secret", "severity" => "warning"}] = result.findings
   end
 
+  test "secret safety blocks redacted findings when continuation is explicitly disallowed" do
+    result =
+      SecretSafety.run(%{
+        security_findings: [
+          %{
+            "category" => "secret_exposure",
+            "severity" => "warning",
+            "policy" => "redact",
+            "source" => "logs/verification.json"
+          }
+        ],
+        allow_redacted_continuation: false
+      })
+
+    assert result.status == :failed
+    assert [%{"category" => "unredacted_secret", "severity" => "blocking"}] = result.findings
+  end
+
   test "secret safety fails on quarantined artifacts even without duplicated content bytes" do
     result =
       SecretSafety.run(%{

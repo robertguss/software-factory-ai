@@ -164,6 +164,35 @@ defmodule ConveyorWeb.RunViewerLiveTest do
     assert render(view) =~ "not_integrated"
   end
 
+  test "an invalid mark-external submission does not crash the live view", %{conn: conn} do
+    fixture =
+      FactoryFixtures.create_artifact_run!(
+        blob_root: FactoryFixtures.temp_dir!("viewer-approval-invalid")
+      )
+
+    {:ok, view, _html} = live(conn, ~p"/runs")
+
+    # Neither an external commit nor not_integrated -> record!/1 raises ArgumentError.
+    # The LiveView must rescue it rather than crashing the process.
+    view
+    |> element("form#human-approval-#{fixture.run_attempt.id}")
+    |> render_submit(%{
+      "approval" => %{
+        "run_attempt_id" => fixture.run_attempt.id,
+        "actor" => "human@example.test",
+        "external_commit" => "",
+        "rationale" => ""
+      }
+    })
+
+    assert Process.alive?(view.pid)
+
+    assert [] ==
+             HumanApproval
+             |> Ash.read!(domain: Factory)
+             |> Enum.filter(&(&1.run_attempt_id == fixture.run_attempt.id))
+  end
+
   test "renders full run projection panels for the static report records", %{conn: conn} do
     %{project: project, run_attempt: run_attempt, station_run: station_run} =
       FactoryFixtures.create_artifact_run!(

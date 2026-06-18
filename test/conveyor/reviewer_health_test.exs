@@ -97,6 +97,18 @@ defmodule Conveyor.ReviewerHealthTest do
     assert length(Ash.read!(ReviewerHealthRecord, domain: Factory)) == 1
   end
 
+  test "rerunning the fixture suite refreshes the freshness timestamp" do
+    reviewer_profile_id = Ash.UUID.generate()
+
+    first = ReviewerHealth.run_fixture_suite!(reviewer_profile_id)
+    Process.sleep(2)
+    second = ReviewerHealth.run_fixture_suite!(reviewer_profile_id)
+
+    assert first.id == second.id
+    # checked_at must advance on the update path so re-running restores freshness.
+    assert DateTime.compare(second.checked_at, first.checked_at) == :gt
+  end
+
   defp passing_review(context) do
     %{
       "schema_version" => "conveyor.review@1",
