@@ -6,11 +6,24 @@ defmodule ConveyorWeb.RunViewerLive do
   use ConveyorWeb, :live_view
 
   alias Conveyor.Factory
+  alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.CodeQualityRun
+  alias Conveyor.Factory.ContextPack
   alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.Evidence
+  alias Conveyor.Factory.GateHealth
+  alias Conveyor.Factory.GateResult
+  alias Conveyor.Factory.HumanApproval
+  alias Conveyor.Factory.Incident
   alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
+  alias Conveyor.Factory.Review
+  alias Conveyor.Factory.RunAttempt
+  alias Conveyor.Factory.RunPrompt
   alias Conveyor.Factory.Slice
+  alias Conveyor.Factory.StationRun
+  alias Conveyor.HumanIntegration
 
   @impl true
   def mount(_params, _session, socket) do
@@ -23,6 +36,19 @@ defmodule ConveyorWeb.RunViewerLive do
 
   @impl true
   def handle_info({:ledger_event, _message}, socket) do
+    {:noreply, assign_run_data(socket)}
+  end
+
+  @impl true
+  def handle_event("mark_external", %{"approval" => approval}, socket) do
+    HumanIntegration.record!(
+      run_attempt_id: approval["run_attempt_id"],
+      actor: approval["actor"],
+      external_commit: approval["external_commit"],
+      not_integrated: approval["not_integrated"],
+      rationale: approval["rationale"]
+    )
+
     {:noreply, assign_run_data(socket)}
   end
 
@@ -263,6 +289,121 @@ defmodule ConveyorWeb.RunViewerLive do
           font-size: 13px;
         }
 
+        .approval {
+          border-bottom: 1px solid var(--line);
+          display: grid;
+          gap: 10px;
+          padding: 12px 14px;
+        }
+
+        .approval h6 {
+          font-size: 13px;
+          margin: 0;
+        }
+
+        .approval form {
+          align-items: center;
+          display: grid;
+          gap: 8px;
+          grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) auto auto;
+        }
+
+        .approval input[type="text"] {
+          border: 1px solid var(--line);
+          font: inherit;
+          min-width: 0;
+          padding: 8px;
+        }
+
+        .approval label {
+          align-items: center;
+          color: var(--muted);
+          display: inline-flex;
+          font-size: 13px;
+          gap: 6px;
+        }
+
+        .approval button {
+          background: var(--accent);
+          border: 1px solid var(--accent);
+          color: white;
+          font: inherit;
+          padding: 8px 10px;
+        }
+
+        .run-panel {
+          border-bottom: 1px solid var(--line);
+          padding: 12px 14px;
+        }
+
+        .run-panel h6 {
+          font-size: 13px;
+          margin: 0 0 8px;
+        }
+
+        .run-section-title {
+          display: block;
+          font-size: 12px;
+          font-weight: 700;
+          margin: 12px 0 6px;
+        }
+
+        .detail-grid {
+          display: grid;
+          gap: 8px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .detail {
+          border: 1px solid var(--line);
+          background: var(--panel);
+          min-width: 0;
+          padding: 8px;
+        }
+
+        .detail span {
+          color: var(--muted);
+          display: block;
+          font-size: 11px;
+          margin-bottom: 3px;
+        }
+
+        .detail strong,
+        .detail code {
+          overflow-wrap: anywhere;
+        }
+
+        .record-list {
+          display: grid;
+          gap: 8px;
+          margin: 0;
+          padding: 0;
+        }
+
+        .record {
+          border: 1px solid var(--line);
+          background: var(--panel);
+          display: grid;
+          gap: 6px;
+          list-style: none;
+          min-width: 0;
+          padding: 8px;
+        }
+
+        .record-title {
+          align-items: center;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          justify-content: space-between;
+        }
+
+        .inline-list {
+          color: var(--muted);
+          font-size: 12px;
+          overflow-wrap: anywhere;
+        }
+
         @media (max-width: 820px) {
           .run-viewer {
             padding: 16px;
@@ -291,6 +432,14 @@ defmodule ConveyorWeb.RunViewerLive do
           }
 
           .event {
+            grid-template-columns: 1fr;
+          }
+
+          .approval form {
+            grid-template-columns: 1fr;
+          }
+
+          .detail-grid {
             grid-template-columns: 1fr;
           }
         }
@@ -381,6 +530,200 @@ defmodule ConveyorWeb.RunViewerLive do
                 No ledger events yet.
               </p>
 
+              <section :if={slice.run_attempt} class="approval">
+                <div class="slice-header">
+                  <h6>Human approval</h6>
+                  <span :if={slice.human_approval} class="badge state">
+                    {slice.human_approval.decision}
+                  </span>
+                </div>
+
+                <.form
+                  for={%{}}
+                  id={"human-approval-#{slice.run_attempt.id}"}
+                  phx-submit="mark_external"
+                  as={:approval}
+                >
+                  <input type="hidden" name="approval[run_attempt_id]" value={slice.run_attempt.id} />
+                  <input type="text" name="approval[actor]" value="human" aria-label="Actor" />
+                  <input type="text" name="approval[external_commit]" aria-label="External commit" />
+                  <label>
+                    <input type="checkbox" name="approval[not_integrated]" value="true" />
+                    Not integrated
+                  </label>
+                  <button type="submit">Record</button>
+                </.form>
+              </section>
+
+              <section :if={slice.run_attempt} class="run-panel">
+                <h6>Run attempt</h6>
+                <div class="detail-grid">
+                  <div class="detail">
+                    <span>ID</span>
+                    <code>{slice.run_attempt.id}</code>
+                  </div>
+                  <div class="detail">
+                    <span>Status</span>
+                    <strong>{slice.run_attempt.status}</strong>
+                  </div>
+                  <div class="detail">
+                    <span>Outcome</span>
+                    <strong>{slice.run_attempt.outcome}</strong>
+                  </div>
+                  <div class="detail">
+                    <span>Trace</span>
+                    <code>{slice.run_attempt.trace_id}</code>
+                  </div>
+                  <div class="detail">
+                    <span>Base commit</span>
+                    <code>{slice.run_attempt.base_commit}</code>
+                  </div>
+                  <div class="detail">
+                    <span>Completed</span>
+                    <strong>{format_optional_time(slice.run_attempt.completed_at)}</strong>
+                  </div>
+                </div>
+
+                <div class="run-section-title">Station status</div>
+                <ul class="record-list">
+                  <li :for={station <- slice.station_runs} class="record">
+                    <div class="record-title">
+                      <strong>{station.station}</strong>
+                      <span class="badge state">{station.status}</span>
+                    </div>
+                    <div class="inline-list">
+                      heartbeat {format_optional_time(station.heartbeat_at)} · output {station.output_sha256 || "pending"}
+                    </div>
+                    <div class="inline-list">{format_list(station.artifact_refs)}</div>
+                  </li>
+                  <li :if={Enum.empty?(slice.station_runs)} class="record muted">No station runs.</li>
+                </ul>
+
+                <div class="run-section-title">ContextPack</div>
+                <ul class="record-list">
+                  <li :for={pack <- slice.context_packs} class="record">
+                    <div class="record-title">
+                      <strong>{pack.scout_version}</strong>
+                      <span class="badge">confidence {pack.confidence}</span>
+                    </div>
+                    <div class="inline-list">{format_file_refs(pack.relevant_files)}</div>
+                    <div class="inline-list">{format_list(pack.suggested_validation)}</div>
+                    <div class="inline-list">{format_list(pack.code_quality_refs)}</div>
+                  </li>
+                  <li :if={Enum.empty?(slice.context_packs)} class="record muted">No context packs.</li>
+                </ul>
+
+                <div class="run-section-title">RunPrompt</div>
+                <ul class="record-list">
+                  <li :for={prompt <- slice.run_prompts} class="record">
+                    <div class="record-title">
+                      <strong>{prompt.template_version}</strong>
+                      <code>{prompt.body_sha256}</code>
+                    </div>
+                    <div class="inline-list">{format_list(prompt.policy_refs)}</div>
+                    <div class="inline-list">{prompt.output_schema_version}</div>
+                  </li>
+                  <li :if={Enum.empty?(slice.run_prompts)} class="record muted">No run prompts.</li>
+                </ul>
+
+                <div class="run-section-title">Evidence</div>
+                <ul class="record-list">
+                  <li :for={evidence <- slice.evidence_records} class="record">
+                    <div class="record-title">
+                      <strong>{evidence.summary}</strong>
+                      <code>{evidence.diff_ref}</code>
+                    </div>
+                    <div class="inline-list">{format_acceptance_results(evidence.acceptance_results)}</div>
+                    <div class="inline-list">PR body {evidence.pr_body_ref || "missing"}</div>
+                    <div class="inline-list">{format_list(evidence.changed_files)}</div>
+                  </li>
+                  <li :if={Enum.empty?(slice.evidence_records)} class="record muted">No evidence records.</li>
+                </ul>
+
+                <div class="run-section-title">CodeScent Delta</div>
+                <ul class="record-list">
+                  <li :for={quality <- slice.code_quality_runs} class="record">
+                    <div class="record-title">
+                      <strong>{quality.adapter}</strong>
+                      <span class="badge state">{quality.status}</span>
+                    </div>
+                    <div class="inline-list">
+                      {quality.baseline_ref || "no baseline"} → {quality.result_ref}
+                    </div>
+                    <div class="inline-list">
+                      high risk findings: {quality.new_high_risk_findings} · {format_payload(quality.findings_summary)}
+                    </div>
+                  </li>
+                  <li :if={Enum.empty?(slice.code_quality_runs)} class="record muted">No code-quality runs.</li>
+                </ul>
+
+                <div class="run-section-title">Reviewer verdict</div>
+                <ul class="record-list">
+                  <li :for={review <- slice.reviews} class="record">
+                    <div class="record-title">
+                      <strong>{review.decision}</strong>
+                      <span class="badge">{review.recommendation}</span>
+                    </div>
+                    <div class="inline-list">{review.summary}</div>
+                    <div class="inline-list">{format_checks(review.checks)}</div>
+                  </li>
+                  <li :if={Enum.empty?(slice.reviews)} class="record muted">No reviews.</li>
+                </ul>
+
+                <div class="run-section-title">Gate stages</div>
+                <ul class="record-list">
+                  <li :for={gate <- slice.gate_results} class="record">
+                    <div class="record-title">
+                      <strong>{if gate.passed, do: "passed", else: "failed"}</strong>
+                      <span class="badge">{gate.gate_version}</span>
+                    </div>
+                    <div class="inline-list">{format_gate_stages(gate.stages)}</div>
+                    <div class="inline-list">{gate.canary_suite_version}</div>
+                  </li>
+                  <li :if={Enum.empty?(slice.gate_results)} class="record muted">No gate results.</li>
+                </ul>
+
+                <div class="run-section-title">Canary status</div>
+                <ul class="record-list">
+                  <li :for={health <- project.gate_health_checks} class="record">
+                    <div class="record-title">
+                      <strong>{health.canary_suite_version}</strong>
+                      <span class="badge state">{if health.passed, do: "passed", else: "failed"}</span>
+                    </div>
+                    <div class="inline-list">false negatives: {health.false_negative_count}</div>
+                    <div class="inline-list">{health.last_run_ref}</div>
+                  </li>
+                  <li :if={Enum.empty?(project.gate_health_checks)} class="record muted">No canary health checks.</li>
+                </ul>
+
+                <div class="run-section-title">Incidents</div>
+                <ul class="record-list">
+                  <li :for={incident <- slice.incidents} class="record">
+                    <div class="record-title">
+                      <strong>{incident.category}</strong>
+                      <span class={"badge risk-#{incident.severity}"}>{incident.severity}</span>
+                    </div>
+                    <div class="inline-list">{incident.description}</div>
+                    <div class="inline-list">{format_list(incident.evidence_refs)}</div>
+                  </li>
+                  <li :if={Enum.empty?(slice.incidents)} class="record muted">No incidents.</li>
+                </ul>
+
+                <div class="run-section-title">Export controls</div>
+                <ul class="record-list">
+                  <li class="record">
+                    <div class="record-title">
+                      <strong>Static report artifacts</strong>
+                      <span class="badge">{length(slice.artifacts)} recorded</span>
+                    </div>
+                    <div class="inline-list">
+                      manifest.json · dossier.md · evidence.json · review.json · gate.json · diff.patch · pr_body.md
+                    </div>
+                    <div class="inline-list">{format_artifact_paths(slice.artifacts)}</div>
+                  </li>
+                </ul>
+              </section>
+
               <ol :if={not Enum.empty?(slice.ledger_events)} class="timeline">
                 <li :for={event <- slice.ledger_events} class="event" id={"event-#{event.id}"}>
                   <time datetime={DateTime.to_iso8601(event.occurred_at)}>
@@ -407,6 +750,18 @@ defmodule ConveyorWeb.RunViewerLive do
     epics = read_all(Epic)
     slices = read_all(Slice)
     events = read_all(LedgerEvent)
+    run_attempts = read_all(RunAttempt)
+    approvals = read_all(HumanApproval)
+    station_runs = read_all(StationRun)
+    context_packs = read_all(ContextPack)
+    run_prompts = read_all(RunPrompt)
+    evidence_records = read_all(Evidence)
+    reviews = read_all(Review)
+    gate_results = read_all(GateResult)
+    gate_health_checks = read_all(GateHealth)
+    code_quality_runs = read_all(CodeQualityRun)
+    incidents = read_all(Incident)
+    artifacts = read_all(Artifact)
 
     events_by_slice =
       events
@@ -418,7 +773,21 @@ defmodule ConveyorWeb.RunViewerLive do
       slices
       |> Enum.sort_by(& &1.position)
       |> Enum.map(fn slice ->
-        Map.put(slice, :ledger_events, Map.get(events_by_slice, slice.id, []))
+        run_attempt = latest_run_attempt(run_attempts, slice.id)
+
+        slice
+        |> Map.put(:ledger_events, Map.get(events_by_slice, slice.id, []))
+        |> Map.put(:run_attempt, run_attempt)
+        |> Map.put(:human_approval, latest_approval(approvals, run_attempt))
+        |> Map.put(:station_runs, records_for_run(station_runs, run_attempt))
+        |> Map.put(:context_packs, records_for_slice(context_packs, slice.id))
+        |> Map.put(:run_prompts, records_for_slice(run_prompts, slice.id))
+        |> Map.put(:evidence_records, records_for_run(evidence_records, run_attempt))
+        |> Map.put(:reviews, records_for_run(reviews, run_attempt))
+        |> Map.put(:gate_results, records_for_run(gate_results, run_attempt))
+        |> Map.put(:code_quality_runs, records_for_run(code_quality_runs, run_attempt))
+        |> Map.put(:incidents, incidents_for_slice(incidents, slice.id, run_attempt))
+        |> Map.put(:artifacts, records_for_run(artifacts, run_attempt))
       end)
       |> Enum.group_by(& &1.epic_id)
 
@@ -441,11 +810,51 @@ defmodule ConveyorWeb.RunViewerLive do
     projects
     |> Enum.sort_by(& &1.name)
     |> Enum.map(fn project ->
-      Map.put(project, :plans, Map.get(plans_by_project, project.id, []))
+      project
+      |> Map.put(:plans, Map.get(plans_by_project, project.id, []))
+      |> Map.put(:gate_health_checks, records_for_project(gate_health_checks, project.id))
     end)
   end
 
   defp read_all(resource), do: Ash.read!(resource, domain: Factory)
+
+  defp latest_run_attempt(run_attempts, slice_id) do
+    run_attempts
+    |> Enum.filter(&(&1.slice_id == slice_id))
+    |> Enum.sort_by(& &1.attempt_no, :desc)
+    |> List.first()
+  end
+
+  defp latest_approval(_approvals, nil), do: nil
+
+  defp latest_approval(approvals, run_attempt) do
+    approvals
+    |> Enum.filter(&(&1.run_attempt_id == run_attempt.id))
+    |> Enum.sort_by(&DateTime.to_unix(&1.created_at, :microsecond), :desc)
+    |> List.first()
+  end
+
+  defp records_for_run(_records, nil), do: []
+
+  defp records_for_run(records, run_attempt) do
+    Enum.filter(records, &(&1.run_attempt_id == run_attempt.id))
+  end
+
+  defp records_for_slice(records, slice_id) do
+    Enum.filter(records, &(&1.slice_id == slice_id))
+  end
+
+  defp records_for_project(records, project_id) do
+    Enum.filter(records, &(&1.project_id == project_id))
+  end
+
+  defp incidents_for_slice(incidents, slice_id, nil) do
+    Enum.filter(incidents, &(&1.slice_id == slice_id))
+  end
+
+  defp incidents_for_slice(incidents, slice_id, run_attempt) do
+    Enum.filter(incidents, &(&1.slice_id == slice_id or &1.run_attempt_id == run_attempt.id))
+  end
 
   defp assign_run_data(socket) do
     projects = load_projects()
@@ -479,11 +888,53 @@ defmodule ConveyorWeb.RunViewerLive do
 
   defp format_time(datetime), do: Calendar.strftime(datetime, "%Y-%m-%d %H:%M:%S UTC")
 
+  defp format_optional_time(nil), do: "pending"
+  defp format_optional_time(datetime), do: format_time(datetime)
+
   defp format_payload(payload) when payload == %{}, do: "{}"
 
   defp format_payload(payload) do
     Jason.encode!(payload, pretty: true)
   rescue
     _ -> inspect(payload, pretty: true)
+  end
+
+  defp format_list([]), do: "none"
+  defp format_list(values), do: Enum.join(values, ", ")
+
+  defp format_file_refs(files) do
+    files
+    |> Enum.map(fn file -> Map.get(file, "path", inspect(file)) end)
+    |> format_list()
+  end
+
+  defp format_acceptance_results(results) do
+    results
+    |> Enum.map(fn result ->
+      "#{Map.get(result, "id", "unknown")}: #{Map.get(result, "status", "unknown")}"
+    end)
+    |> format_list()
+  end
+
+  defp format_checks(checks) do
+    checks
+    |> Enum.map(fn check ->
+      "#{Map.get(check, "name", "check")}: #{Map.get(check, "passed", false)}"
+    end)
+    |> format_list()
+  end
+
+  defp format_gate_stages(stages) do
+    stages
+    |> Enum.map(fn stage ->
+      "#{Map.get(stage, "key", "stage")}: #{Map.get(stage, "status", "unknown")}"
+    end)
+    |> format_list()
+  end
+
+  defp format_artifact_paths(artifacts) do
+    artifacts
+    |> Enum.map(& &1.projection_path)
+    |> format_list()
   end
 end
