@@ -1,0 +1,82 @@
+schema_version: conveyor.plan@1
+project:
+  key: sample_tasks
+  base_ref: main
+goal: Extend the sample tasks API so tasks can be marked complete.
+non_goals:
+  - Authentication
+  - Pagination
+  - Un-completing a task
+  - Bulk updates
+  - Deployment or production hardening
+requirements:
+  - key: REQ-001
+    text: New tasks expose completed:false by default.
+    risk: low
+    source_ref: plan.md#requirement-req-001
+    status: covered
+  - key: REQ-002
+    text: A client can mark an existing task complete through PATCH /tasks/{id}.
+    risk: low
+    source_ref: plan.md#requirement-req-002
+    status: covered
+  - key: REQ-003
+    text: Completed state is returned by GET /tasks.
+    risk: low
+    source_ref: plan.md#requirement-req-003
+    status: covered
+  - key: REQ-004
+    text: Patching an unknown task id returns 404.
+    risk: low
+    source_ref: plan.md#requirement-req-004
+    status: covered
+acceptance_criteria:
+  - key: AC-001
+    text: New tasks include completed:false.
+    requirement_refs: [REQ-001]
+    required_test_refs:
+      - tests/test_tasks_api.py::test_create_defaults_completed_false
+  - key: AC-002
+    text: PATCH /tasks/{id} with completed:true returns 200 and the updated task.
+    requirement_refs: [REQ-002]
+    required_test_refs:
+      - tests/test_tasks_api.py::test_complete_task
+  - key: AC-003
+    text: Completed state is reflected in GET /tasks.
+    requirement_refs: [REQ-003]
+    required_test_refs:
+      - tests/test_tasks_api.py::test_completed_state_visible_in_list
+  - key: AC-004
+    text: PATCH on a non-existent task id returns 404.
+    requirement_refs: [REQ-004]
+    required_test_refs:
+      - tests/test_tasks_api.py::test_complete_unknown_task_returns_404
+  - key: AC-005
+    text: Existing create/list behavior is unchanged.
+    requirement_refs: [REQ-001, REQ-003]
+    required_test_refs:
+      - tests/test_tasks_api.py::test_list_tasks_starts_empty
+      - tests/test_tasks_api.py::test_create_task_returns_new_task
+      - tests/test_tasks_api.py::test_created_tasks_are_listed_in_creation_order
+verification_commands:
+  - key: pytest
+    argv: ["pytest", "-q"]
+    profile: verify
+decisions:
+  - key: DEC-001
+    decision: Keep Phase 1 focused on completion state only.
+    rationale: Authentication, pagination, un-complete flows, bulk updates, and deployment do not improve the tracer-bullet evidence.
+  - key: DEC-002
+    decision: Use one L1 implementation slice for the sample app change.
+    rationale: The behavior is small, local to the task model/API, and covered by locked pytest acceptance cases.
+slices:
+  - key: SLICE-001
+    title: Add complete-a-task behavior
+    requirement_refs: [REQ-001, REQ-002, REQ-003, REQ-004]
+    likely_files:
+      - tasks_service/main.py
+      - tests/test_tasks_api.py
+    conflict_domains:
+      - tasks_api
+      - in_memory_task_store
+    autonomy_ceiling: L1
