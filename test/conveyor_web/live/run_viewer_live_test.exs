@@ -12,8 +12,8 @@ defmodule ConveyorWeb.RunViewerLiveTest do
   alias Conveyor.Factory.Evidence
   alias Conveyor.Factory.GateHealth
   alias Conveyor.Factory.GateResult
-  alias Conveyor.Factory.Incident
   alias Conveyor.Factory.HumanApproval
+  alias Conveyor.Factory.Incident
   alias Conveyor.Factory.PatchSet
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
