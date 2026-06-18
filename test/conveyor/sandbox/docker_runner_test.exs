@@ -88,6 +88,7 @@ defmodule Conveyor.Sandbox.DockerRunnerTest do
     workspace = get_by_id!(WorkspaceMaterialization, materialized.workspace.id)
     assert workspace.cleanup_status == :deleted
     assert workspace.cleaned_at
+    assert workspace.head_tree_sha256 =~ ~r/^sha256:[0-9a-f]{64}$/
   end
 
   defp normalized_command(argv, workspace_root) do

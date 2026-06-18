@@ -16,6 +16,7 @@ defmodule Conveyor.Sandbox.DockerRunner do
   alias Conveyor.Sandbox.DockerProfile
   alias Conveyor.Sandbox.Materialized
   alias Conveyor.Sandbox.Runner
+  alias Conveyor.Sandbox.WorkspaceCleanup
 
   @workspace_mount "/workspace"
 
@@ -60,26 +61,9 @@ defmodule Conveyor.Sandbox.DockerRunner do
 
   @impl true
   def destroy(%Materialized{} = materialized, opts \\ []) do
-    remove_container(materialized.container_id, opts)
-    File.rm_rf(materialized.root_path)
-
-    cleanup_status =
-      if File.exists?(materialized.root_path) do
-        :failed
-      else
-        :deleted
-      end
-
-    Ash.update!(
-      materialized.workspace,
-      %{cleanup_status: cleanup_status, cleaned_at: DateTime.utc_now(:microsecond)},
-      domain: Factory
-    )
-
-    if cleanup_status == :deleted do
-      :ok
-    else
-      {:error, :workspace_cleanup_failed}
+    case WorkspaceCleanup.cleanup(materialized, opts) do
+      {:ok, _workspace} -> :ok
+      {:error, _reason} = error -> error
     end
   end
 
@@ -196,6 +180,7 @@ defmodule Conveyor.Sandbox.DockerRunner do
           path: project_path,
           container_id: container_id,
           mount_mode: Keyword.get(opts, :mount_mode, :read_write),
+          head_tree_sha256: WorkspaceCleanup.tree_sha256(project_path),
           cleanup_policy: Keyword.get(opts, :cleanup_policy, :delete),
           cleanup_status: :pending
         },
@@ -205,13 +190,6 @@ defmodule Conveyor.Sandbox.DockerRunner do
     {:ok, workspace}
   rescue
     error -> {:error, error}
-  end
-
-  defp remove_container(nil, _opts), do: :ok
-
-  defp remove_container(container_id, opts) do
-    cmd!("docker", ["rm", "-f", container_id], opts)
-    :ok
   end
 
   defp container_cwd(materialized, command) do
