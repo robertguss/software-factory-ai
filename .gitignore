@@ -8,10 +8,22 @@
 /deps/
 
 # Project-local Mix/Hex caches used by agents and containers.
+/.hex-home/
+/.hex-home_*/
 /.hex_home/
 /.hex_home_*/
+/.mix-home/
+/.mix-home_*/
 /.mix_home/
 /.mix_home_*/
+
+# Editor, language-server, and OS-local files.
+/.elixir_ls/
+/.vscode/
+/.idea/
+.DS_Store
+*.swp
+*.swo
 
 # Where 3rd-party dependencies like ExDoc output generated docs.
 /doc/
@@ -30,6 +42,16 @@ erl_crash.dump
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Phoenix/asset build outputs.
+/assets/node_modules/
+/priv/static/assets/
+/priv/static/cache/
+
+# Local environment and runtime files.
+/.env
+/.env.*
+!.env.example
 
 # Ignore package tarball (built via "mix hex.build").
 conveyor-*.tar
