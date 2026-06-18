@@ -145,6 +145,12 @@ defmodule Conveyor.Jobs.RunGateCanary do
   defp ci_exit_code(%{"false_positive_count" => fp_count}) when fp_count > 0,
     do: ExitCodes.fetch!(:deterministic_gate_failed)
 
+  # A mutant rejected for the wrong reason (not the expected category/stage, nor a valid
+  # stricter one) makes summary["passed"] false; surface it as a deterministic gate failure
+  # rather than success.
+  defp ci_exit_code(%{"unexpected_rejection_count" => ur_count}) when ur_count > 0,
+    do: ExitCodes.fetch!(:deterministic_gate_failed)
+
   defp ci_exit_code(_summary), do: ExitCodes.fetch!(:success)
 
   defp maybe_write_artifact(summary, opts) do
