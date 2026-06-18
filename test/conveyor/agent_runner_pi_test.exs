@@ -6,6 +6,7 @@ defmodule Conveyor.AgentRunnerPiTest do
   alias Conveyor.AgentRunner.Capabilities
   alias Conveyor.AgentRunner.Pi
   alias Conveyor.AgentRunner.RawRunResult
+  alias Conveyor.AgentRunner.SessionLimits
   alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentBrief
@@ -37,6 +38,28 @@ defmodule Conveyor.AgentRunnerPiTest do
     assert observe_only.diff_capture == :git_diff
     assert "L1" == Capabilities.autonomy_ceiling(observe_only)
     assert :no_pre_exec_interception in observe_only.known_limitations
+  end
+
+  test "session limits report idle and wall-clock exhaustion as structured findings" do
+    idle_limits = SessionLimits.new(max_idle_ms: 10, now_ms: 100)
+
+    assert {:halt, idle_finding, idle_measurements} =
+             SessionLimits.observe(idle_limits, %{type: "heartbeat", observed_at_ms: 111})
+
+    assert idle_finding["category"] == "agent_session_limit"
+    assert idle_finding["exceeded_cap"] == "max_idle_ms"
+    assert idle_measurements.idle_ms == 11
+
+    wall_limits = SessionLimits.new(max_wall_clock_ms: 20, now_ms: 200)
+
+    assert {:ok, wall_limits} =
+             SessionLimits.observe(wall_limits, %{type: "heartbeat", observed_at_ms: 205})
+
+    assert {:halt, wall_finding, wall_measurements} =
+             SessionLimits.observe(wall_limits, %{type: "heartbeat", observed_at_ms: 221})
+
+    assert wall_finding["exceeded_cap"] == "max_wall_clock_ms"
+    assert wall_measurements.wall_clock_ms == 21
   end
 
   test "runs Pi RPC client, streams events, and captures a fresh-base diff" do
@@ -133,6 +156,66 @@ defmodule Conveyor.AgentRunnerPiTest do
     assert session.adapter_session_id == "pi-session-123"
     assert session.status == :succeeded
     assert session.raw_result_ref == result.metadata["raw_transcript_ref"]
+  end
+
+  test "output flood stops the Pi session and records cancel acknowledgement" do
+    workspace_path = git_workspace!("agent-runner-pi-output-limit")
+    base_commit = git!(workspace_path, ["rev-parse", "HEAD"])
+    blob_root = temp_dir!("pi-output-limit-blobs")
+    fixture = create_prompt_fixture!(workspace_path, base_commit)
+    parent = self()
+
+    rpc_client = fn _request, emit ->
+      emit.(%{
+        "type" => "message_delta",
+        "payload" => %{"text" => String.duplicate("x", 200)}
+      })
+
+      flunk("output limit should stop the session")
+    end
+
+    canceller = fn session_id ->
+      send(parent, {:cancelled, session_id})
+      :ok
+    end
+
+    assert {:error, finding} =
+             Pi.run(
+               fixture.run_prompt,
+               %{path: workspace_path, base_commit: base_commit},
+               policy(),
+               agent_session_id: fixture.agent_session.id,
+               blob_root: blob_root,
+               max_output_bytes: 80,
+               session_id: "pi-output-limit",
+               rpc_client: rpc_client,
+               canceller: canceller
+             )
+
+    assert finding["exceeded_cap"] == "max_output_bytes"
+    assert_received {:cancelled, "pi-output-limit"}
+
+    events =
+      LedgerEvent
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.agent_session_id == fixture.agent_session.id))
+      |> Enum.sort_by(& &1.payload["sequence_no"])
+
+    assert Enum.map(events, & &1.payload["event_type"]) == [
+             "cancel_requested",
+             "cancel_acknowledged"
+           ]
+
+    assert Enum.map(events, & &1.payload["sequence_no"]) == [1, 2]
+    assert Enum.all?(events, & &1.payload["raw_ref"])
+
+    session =
+      AgentSession
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.id == fixture.agent_session.id))
+
+    assert session.status == :failed
+    assert session.adapter_session_id == "pi-output-limit"
   end
 
   defp create_prompt_fixture!(workspace_path, base_commit) do

@@ -13,11 +13,13 @@ defmodule Conveyor.AgentRunner.Pi do
   alias Conveyor.AgentRunner.Capabilities
   alias Conveyor.AgentRunner.EventRecorder
   alias Conveyor.AgentRunner.RawRunResult
+  alias Conveyor.AgentRunner.SessionLimits
   alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentSession
   alias Conveyor.Factory.Policy
   alias Conveyor.Factory.RunPrompt
+  alias Conveyor.Policy.RunBudgetGuard
 
   @adapter "pi"
   @host_controlled_tools :pi_host_controlled_tools
@@ -60,28 +62,57 @@ defmodule Conveyor.AgentRunner.Pi do
     agent_session_id = Keyword.fetch!(opts, :agent_session_id)
     blob_opts = Keyword.take(opts, [:blob_root])
 
-    recorder = event_recorder(agent_session_id, session_id, blob_opts)
+    limits = SessionLimits.new(session_limit_opts(opts))
+    recorder = event_recorder(agent_session_id, session_id, blob_opts, limits)
     request = request(run_prompt, workspace_path, policy, profile, session_id, opts)
     rpc_client = Keyword.get(opts, :rpc_client, &run_port_rpc/2)
 
-    with {:ok, rpc_result} <- rpc_client.(request, recorder) do
-      final_sequence = record_terminal_events!(recorder, rpc_result)
-      raw_transcript_ref = raw_transcript_ref(rpc_result, blob_opts)
-      diff_ref = capture_diff!(workspace_path, base_commit, blob_opts)
-      result = raw_run_result(rpc_result, diff_ref, raw_transcript_ref, profile, final_sequence)
+    try do
+      with {:ok, rpc_result} <- rpc_client.(request, recorder) do
+        final_sequence = record_terminal_events!(recorder, rpc_result)
+        raw_transcript_ref = raw_transcript_ref(rpc_result, blob_opts)
+        diff_ref = capture_diff!(workspace_path, base_commit, blob_opts)
+        result = raw_run_result(rpc_result, diff_ref, raw_transcript_ref, profile, final_sequence)
 
-      update_agent_session!(agent_session_id, session_id, result, raw_transcript_ref)
+        update_agent_session!(agent_session_id, session_id, result, raw_transcript_ref)
 
-      {:ok, result}
+        {:ok, result}
+      end
+    catch
+      {:agent_session_stopped, finding, measurements} ->
+        record_budget_exhaustion(opts, finding, measurements)
+        update_agent_session_failed!(agent_session_id, session_id, finding)
+
+        cancel(session_id,
+          agent_session_id: agent_session_id,
+          blob_root: Keyword.get(opts, :blob_root),
+          profile: profile,
+          reason: finding["exceeded_cap"],
+          canceller: Keyword.get(opts, :canceller, fn _session_id -> :ok end)
+        )
+
+        {:error, finding}
     end
   end
 
   @impl true
-  def cancel(session_id) when is_binary(session_id) and session_id != "" do
-    case System.find_executable("pi") do
-      nil -> {:error, :pi_executable_not_found}
-      _path -> :ok
+  def cancel(session_id), do: cancel(session_id, [])
+
+  @spec cancel(String.t(), keyword()) :: :ok | {:error, term()}
+  def cancel(session_id, opts) when is_binary(session_id) and session_id != "" do
+    agent_session_id = Keyword.get(opts, :agent_session_id)
+    blob_opts = Keyword.take(opts, [:blob_root])
+    reason = Keyword.get(opts, :reason, "operator_requested")
+    profile = opts |> Keyword.get(:profile, @host_controlled_tools) |> normalize_profile!()
+    cancellation = capabilities(profile).cancellation
+
+    if agent_session_id do
+      record_cancel_events!(agent_session_id, session_id, reason, cancellation, blob_opts)
     end
+
+    opts
+    |> Keyword.get(:canceller, &default_cancel/1)
+    |> then(& &1.(session_id))
   end
 
   @spec run_port_rpc(rpc_request(), (rpc_event() -> any())) :: {:ok, map()} | {:error, term()}
@@ -170,10 +201,23 @@ defmodule Conveyor.AgentRunner.Pi do
     }
   end
 
-  defp event_recorder(agent_session_id, session_id, blob_opts) do
+  defp event_recorder(agent_session_id, session_id, blob_opts, limits) do
     sequence = :counters.new(1, [])
+    :counters.add(sequence, 1, EventRecorder.next_sequence_no(agent_session_id) - 1)
+    limits_key = {__MODULE__, make_ref()}
+    Process.put(limits_key, limits)
 
     fn event ->
+      limit_state = Process.get(limits_key)
+
+      case SessionLimits.observe(limit_state, event) do
+        {:ok, next_limits} ->
+          Process.put(limits_key, next_limits)
+
+        {:halt, finding, measurements} ->
+          throw({:agent_session_stopped, finding, measurements})
+      end
+
       :counters.add(sequence, 1, 1)
       sequence_no = :counters.get(sequence, 1)
 
@@ -183,6 +227,10 @@ defmodule Conveyor.AgentRunner.Pi do
 
       sequence_no
     end
+  end
+
+  defp session_limit_opts(opts) do
+    Keyword.take(opts, [:max_wall_clock_ms, :max_idle_ms, :max_output_bytes, :now_ms])
   end
 
   defp normalize_event(event, sequence_no, agent_session_id, session_id) do
@@ -280,6 +328,85 @@ defmodule Conveyor.AgentRunner.Pi do
           },
           domain: Factory
         )
+    end
+  end
+
+  defp update_agent_session_failed!(agent_session_id, session_id, finding) do
+    AgentSession
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(&(&1.id == agent_session_id))
+    |> case do
+      nil ->
+        :ok
+
+      session ->
+        Ash.update!(
+          session,
+          %{
+            adapter_session_id: session.adapter_session_id || session_id,
+            status: :failed,
+            completed_at: DateTime.utc_now(:microsecond),
+            raw_result_ref: finding["exceeded_cap"]
+          },
+          domain: Factory
+        )
+    end
+  end
+
+  defp record_budget_exhaustion(opts, finding, measurements) do
+    case Keyword.get(opts, :run_budget_id) do
+      nil ->
+        :ok
+
+      run_budget_id ->
+        RunBudgetGuard.record!(
+          run_budget_id,
+          Map.put(measurements, :reason, finding["message"]),
+          Keyword.take(opts, [:run_attempt_id, :slice_id, :project_id])
+        )
+    end
+  end
+
+  defp record_cancel_events!(agent_session_id, session_id, reason, cancellation, blob_opts) do
+    first_sequence = EventRecorder.next_sequence_no(agent_session_id)
+
+    EventRecorder.record!(
+      %{
+        agent_session_id: agent_session_id,
+        adapter: @adapter,
+        session_id: session_id,
+        sequence_no: first_sequence,
+        event_type: "cancel_requested",
+        payload: %{
+          "reason" => reason,
+          "cancellation" => Atom.to_string(cancellation)
+        },
+        raw: %{"reason" => reason, "cancellation" => Atom.to_string(cancellation)}
+      },
+      blob_opts
+    )
+
+    EventRecorder.record!(
+      %{
+        agent_session_id: agent_session_id,
+        adapter: @adapter,
+        session_id: session_id,
+        sequence_no: first_sequence + 1,
+        event_type: "cancel_acknowledged",
+        payload: %{
+          "reason" => reason,
+          "cancellation" => Atom.to_string(cancellation)
+        },
+        raw: %{"acknowledged" => true}
+      },
+      blob_opts
+    )
+  end
+
+  defp default_cancel(_session_id) do
+    case System.find_executable("pi") do
+      nil -> {:error, :pi_executable_not_found}
+      _path -> :ok
     end
   end
 
