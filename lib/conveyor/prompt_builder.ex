@@ -304,7 +304,8 @@ defmodule Conveyor.PromptBuilder do
     ContextPack
     |> read_all()
     |> Enum.filter(&(&1.slice_id == slice_id))
-    |> List.last() ||
+    |> Enum.sort_by(&DateTime.to_unix(&1.created_at, :microsecond), :desc)
+    |> List.first() ||
       raise ArgumentError, "slice #{slice_id} has no context pack"
   end
 
