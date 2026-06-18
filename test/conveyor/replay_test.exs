@@ -3,6 +3,7 @@ defmodule Conveyor.ReplayTest do
 
   alias Conveyor.Factory
   alias Conveyor.Factory.Project
+  alias Conveyor.FactoryFixtures
   alias Conveyor.Ledger
   alias Conveyor.Replay
 
@@ -46,6 +47,29 @@ defmodule Conveyor.ReplayTest do
     assert [line] = String.split(output, "\n")
     assert %{"id" => id, "type" => "replay.format"} = Jason.decode!(line)
     assert id == event.id
+  end
+
+  test "r1 replay regenerates artifacts for a run attempt" do
+    blob_root = FactoryFixtures.temp_dir!("replay-blobs")
+    projection_root = FactoryFixtures.temp_dir!("replay-projection")
+
+    %{artifact_content: content, projection_path: projection_path, run_attempt: run_attempt} =
+      FactoryFixtures.create_artifact_run!(
+        blob_root: blob_root,
+        artifact_content: "r1 replay artifact\n",
+        projection_path: "logs/r1.txt"
+      )
+
+    result =
+      Replay.project_run!(run_attempt.id,
+        blob_root: blob_root,
+        projection_root: projection_root
+      )
+
+    projected_file = Path.join([projection_root, run_attempt.id, projection_path])
+    assert File.read!(projected_file) == content
+    assert result.run_attempt_id == run_attempt.id
+    assert result.artifact_count == 1
   end
 
   defp write_event!(project, label, occurred_at) do
