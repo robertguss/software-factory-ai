@@ -235,10 +235,18 @@ defmodule Conveyor.Artifacts.ProjectorTest do
         projection_root: projection_root
       )
 
-    manifest = File.read!(Path.join(run_dir, "manifest.json")) |> Jason.decode!()
-    projection_paths = Enum.map(manifest["artifacts"], & &1["projection_path"])
+    manifest_path = Path.join(run_dir, "manifest.json")
+    manifest_json = File.read!(manifest_path)
+    manifest = Jason.decode!(manifest_json)
+    projection_paths = Enum.map(manifest["entries"], & &1["path"])
 
+    assert manifest["schema_version"] == "conveyor.run_bundle@1"
+    assert manifest["run_attempt_id"] == run_attempt.id
     assert projection_paths == ["gate/result.json", "review/result.txt"]
+    assert Enum.map(manifest["entries"], & &1["kind"]) == ["gate", "review"]
+    assert Enum.all?(manifest["entries"], &(&1["sha256"] =~ ~r/^[0-9a-f]{64}$/))
+    assert manifest["bundle_root_sha256"] == bundle_root_sha256(manifest["entries"])
+    assert first.manifest_sha256 == digest_bytes(manifest_json)
     assert first_tree == tree_snapshot(run_dir)
     refute File.exists?(Path.join(run_dir, "stale.txt"))
     assert second.manifest_sha256 == first.manifest_sha256
@@ -307,6 +315,33 @@ defmodule Conveyor.Artifacts.ProjectorTest do
       {relative_path, File.read!(path) |> digest_bytes()}
     end)
   end
+
+  defp bundle_root_sha256(entries) do
+    entries
+    |> Enum.map(
+      &Map.take(&1, ["path", "kind", "sha256", "size_bytes", "sensitivity", "schema_version"])
+    )
+    |> canonical_json()
+    |> digest_bytes()
+  end
+
+  defp canonical_json(value) when is_map(value) do
+    body =
+      value
+      |> Enum.sort_by(fn {key, _value} -> to_string(key) end)
+      |> Enum.map(fn {key, nested} ->
+        Jason.encode!(to_string(key)) <> ":" <> canonical_json(nested)
+      end)
+      |> Enum.join(",")
+
+    "{" <> body <> "}"
+  end
+
+  defp canonical_json(value) when is_list(value) do
+    "[" <> Enum.map_join(value, ",", &canonical_json/1) <> "]"
+  end
+
+  defp canonical_json(value), do: Jason.encode!(value)
 
   defp run_spec_attrs(slice_id) do
     run_spec_sha256 = digest("run-spec-projector")

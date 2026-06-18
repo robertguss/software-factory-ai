@@ -13,6 +13,7 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
   alias Conveyor.Factory.RunBundle
 
   @schema_version "conveyor.run_bundle@1"
+  @manifest_entry_kinds ~w(evidence review gate manifest pr_body provenance log diff)
 
   @impl Projector
   def project_run!(%RunAttempt{} = run_attempt, opts \\ []) do
@@ -22,10 +23,11 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
 
     artifacts = artifacts_for(run_attempt.id)
     verified = Enum.map(artifacts, &verify_artifact_blob!(&1, blob_root))
-    manifest = manifest(run_attempt, artifacts)
+    entries = manifest_entries(artifacts)
+    bundle_root_sha256 = bundle_root_sha256(entries)
+    manifest = manifest(run_attempt, entries, bundle_root_sha256)
     manifest_json = canonical_json(manifest)
     manifest_sha256 = sha256(manifest_json)
-    bundle_root_sha256 = bundle_root_sha256(manifest)
 
     write_projection!(run_dir, verified, manifest_json)
     upsert_run_bundle!(run_attempt, run_dir, manifest_sha256, bundle_root_sha256)
@@ -55,27 +57,39 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
     %{artifact: artifact, content: blob.content}
   end
 
-  defp manifest(run_attempt, artifacts) do
+  defp manifest(run_attempt, entries, bundle_root_sha256) do
     %{
       "schema_version" => @schema_version,
       "run_attempt_id" => run_attempt.id,
-      "artifacts" =>
-        Enum.map(artifacts, fn artifact ->
-          %{
-            "id" => artifact.id,
-            "kind" => artifact.kind,
-            "media_type" => artifact.media_type,
-            "projection_path" => artifact.projection_path,
-            "blob_ref" => artifact.blob_ref,
-            "sha256" => artifact.sha256,
-            "size_bytes" => artifact.size_bytes,
-            "subject_kind" => artifact.subject_kind,
-            "producer" => artifact.producer,
-            "schema_version" => artifact.schema_version,
-            "sensitivity" => Atom.to_string(artifact.sensitivity)
-          }
-        end)
+      "entries" => entries,
+      "bundle_root_sha256" => bundle_root_sha256
     }
+  end
+
+  defp manifest_entries(artifacts) do
+    Enum.map(artifacts, fn artifact ->
+      %{
+        "path" => artifact.projection_path,
+        "kind" => manifest_kind(artifact),
+        "sha256" => raw_sha256(artifact.sha256),
+        "size_bytes" => artifact.size_bytes,
+        "sensitivity" => Atom.to_string(artifact.sensitivity),
+        "schema_version" => artifact.schema_version
+      }
+    end)
+  end
+
+  defp manifest_kind(%{kind: kind}) when kind in @manifest_entry_kinds, do: kind
+
+  defp manifest_kind(%{projection_path: projection_path}) do
+    cond do
+      String.contains?(projection_path, "evidence") -> "evidence"
+      String.contains?(projection_path, "review") -> "review"
+      String.contains?(projection_path, "gate") -> "gate"
+      String.contains?(projection_path, "provenance") -> "provenance"
+      String.ends_with?(projection_path, ".patch") -> "diff"
+      true -> "log"
+    end
   end
 
   defp write_projection!(run_dir, verified_artifacts, manifest_json) do
@@ -140,10 +154,11 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
     |> List.first()
   end
 
-  defp bundle_root_sha256(manifest) do
-    manifest
-    |> Map.fetch!("artifacts")
-    |> Enum.map(&Map.take(&1, ["projection_path", "sha256", "size_bytes"]))
+  defp bundle_root_sha256(entries) do
+    entries
+    |> Enum.map(
+      &Map.take(&1, ["path", "kind", "sha256", "size_bytes", "sensitivity", "schema_version"])
+    )
     |> canonical_json()
     |> sha256()
   end
@@ -187,6 +202,9 @@ defmodule Conveyor.Artifacts.Projector.LocalDisk do
   end
 
   defp canonical_json(value), do: Jason.encode!(value)
+
+  defp raw_sha256("sha256:" <> digest), do: raw_sha256(digest)
+  defp raw_sha256(digest), do: digest
 
   defp sha256(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 end
