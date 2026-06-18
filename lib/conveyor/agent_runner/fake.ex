@@ -272,7 +272,7 @@ defmodule Conveyor.AgentRunner.Fake do
   end
 
   defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 
   defp field(struct, primary, fallback) do
     field(struct, primary) || field(struct, fallback)
@@ -285,6 +285,12 @@ defmodule Conveyor.AgentRunner.Fake do
   end
 
   defp git_diff!(workspace_path, base_commit) do
+    # Stage untracked files as intent-to-add so newly created files appear in the
+    # diff, mirroring Conveyor.AgentRunner.PatchCapture.include_untracked!/1.
+    System.cmd("git", ["-C", workspace_path, "add", "--intent-to-add", "--", "."],
+      stderr_to_stdout: true
+    )
+
     case System.cmd("git", ["-C", workspace_path, "diff", "--binary", base_commit, "--"],
            stderr_to_stdout: true
          ) do
