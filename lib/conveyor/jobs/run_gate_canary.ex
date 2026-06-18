@@ -6,8 +6,11 @@ defmodule Conveyor.Jobs.RunGateCanary do
   use Oban.Worker, queue: :gate, max_attempts: 1
 
   alias Conveyor.Artifacts.BlobStore
+  alias Conveyor.CLI.ExitCodes
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.GateHealth
+  alias Conveyor.Gate.Stages.CanaryFreshness
   alias Conveyor.Jobs.RunGate
 
   @schema_version "conveyor.gate_canary_run@1"
@@ -41,10 +44,13 @@ defmodule Conveyor.Jobs.RunGateCanary do
 
     summary = summary(manifest, manifest_path, known_good, mutants)
     artifact = maybe_write_artifact(summary, opts)
+    gate_health = maybe_update_gate_health(summary, artifact, base_context, opts)
 
     summary
     |> Map.put("artifact_ref", value(artifact, :projection_path))
     |> Map.put("blob_ref", value(artifact, :blob_ref))
+    |> Map.put("gate_health_id", value(gate_health, :id))
+    |> Map.put("ci_exit_code", ci_exit_code(summary))
   end
 
   defp run_case!(fixture, kind, base_context, stages, gate_opts) do
@@ -133,6 +139,14 @@ defmodule Conveyor.Jobs.RunGateCanary do
     }
   end
 
+  defp ci_exit_code(%{"false_negative_count" => fn_count}) when fn_count > 0,
+    do: ExitCodes.fetch!(:canary_or_eval_false_negative)
+
+  defp ci_exit_code(%{"false_positive_count" => fp_count}) when fp_count > 0,
+    do: ExitCodes.fetch!(:canary_or_eval_false_negative)
+
+  defp ci_exit_code(_summary), do: ExitCodes.fetch!(:success)
+
   defp maybe_write_artifact(summary, opts) do
     run_attempt_id = value(opts, :run_attempt_id)
     blob_root = value(opts, :blob_root)
@@ -160,6 +174,53 @@ defmodule Conveyor.Jobs.RunGateCanary do
         domain: Factory
       )
     end
+  end
+
+  defp maybe_update_gate_health(summary, artifact, context, opts) do
+    project_id =
+      value(opts, :project_id) || value(context, :project_id) ||
+        value(value(context, :project), :id)
+
+    if project_id do
+      attrs = gate_health_attrs(project_id, summary, artifact, context)
+
+      case existing_gate_health(project_id, attrs.freshness_key_sha256) do
+        nil -> Ash.create!(GateHealth, attrs, domain: Factory)
+        gate_health -> Ash.update!(gate_health, attrs, domain: Factory)
+      end
+    end
+  end
+
+  defp gate_health_attrs(project_id, summary, artifact, context) do
+    %{
+      project_id: project_id,
+      freshness_key_sha256: CanaryFreshness.freshness_key_sha256(context),
+      gate_version: value(context, :gate_version) || "gate@1",
+      gate_code_sha256: value(context, :gate_code_sha256),
+      policy_sha256: value(context, :policy_sha256),
+      test_pack_sha256:
+        value(context, :test_pack_sha256) || value(value(context, :run_spec), :test_pack_sha256),
+      container_image_digest:
+        value(context, :container_image_digest) ||
+          value(value(context, :run_spec), :container_image_digest),
+      code_quality_profile_sha256:
+        value(context, :code_quality_profile_sha256) || value(context, :code_quality_profile),
+      canary_suite_version: summary["suite_version"],
+      runcheck_schema_version:
+        value(context, :runcheck_schema_version) || "conveyor.run_bundle@1",
+      last_run_ref: value(artifact, :projection_path) || summary["manifest_ref"],
+      passed: summary["passed"],
+      false_negative_count: summary["false_negative_count"]
+    }
+  end
+
+  defp existing_gate_health(project_id, freshness_key_sha256) do
+    GateHealth
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(
+      &(value(&1, :project_id) == project_id and
+          value(&1, :freshness_key_sha256) == freshness_key_sha256)
+    )
   end
 
   defp load_manifest!(manifest_path) do
