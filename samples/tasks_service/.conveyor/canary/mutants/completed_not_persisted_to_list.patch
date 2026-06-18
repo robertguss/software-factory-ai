@@ -1,0 +1,11 @@
+diff --git a/samples/tasks_service/tasks_service/main.py b/samples/tasks_service/tasks_service/main.py
+--- a/samples/tasks_service/tasks_service/main.py
++++ b/samples/tasks_service/tasks_service/main.py
+@@ -37,7 +37,6 @@
+             for index, task in enumerate(self._tasks):
+                 if task.id == task_id:
+                     updated = task.model_copy(update={"completed": task.completed or completed})
+-                    self._tasks[index] = updated
+                     return updated
+             return None
+ 

@@ -1,0 +1,30 @@
+[policy]
+name = "maintenance"
+profile = "maintenance"
+autonomy_ceiling = "L0"
+network = "none"
+future_gated = true
+
+allowlist = []
+
+denylist = [
+  "rm -rf",
+  "recursive chmod",
+  "recursive chown",
+  "git reset --hard",
+  "git clean -fd",
+  "git push --force",
+  "sudo",
+  "curl | sh",
+  "wget | sh",
+  "deploy",
+  "kubectl apply",
+  "terraform apply"
+]
+
+[policy.env]
+allowlist = []
+deny_production_secrets = true
+
+[policy.budget]
+max_tool_calls = 0

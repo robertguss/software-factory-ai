@@ -1,0 +1,11 @@
+Plan audit: blocked
+Clarity: 100%
+Acceptance coverage: 100%
+Testability: 50%
+Requirement traceability: 100%
+Architecture decisions: 100%
+Autonomy readiness: 100%
+Decision: blocked
+Blocking findings:
+- Acceptance criterion AC-001 has no required tests.
+  NextAction: Add required_test_refs for AC-001.

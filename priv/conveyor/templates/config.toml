@@ -1,0 +1,36 @@
+[project]
+name = "sample_tasks"
+repo_path = "."
+default_branch = "main"
+dev_branch = "conveyor/dev"
+default_autonomy_level = "L1"
+policies_dir = ".conveyor/policies"
+prompts_dir = ".conveyor/prompts"
+runs_dir = ".conveyor/runs"
+blobs_dir = ".conveyor/blobs"
+quality_adapter = "noop"
+
+[[project.command_specs]]
+key = "pytest"
+argv = ["pytest", "-q"]
+cwd = "."
+profile = "verify"
+required = true
+timeout_ms = 120000
+network = "none"
+env_allowlist = ["PYTHONPATH"]
+output_limit_bytes = 2000000
+result_format = "junit"
+result_adapter = "Conveyor.TestResultAdapter.JUnit"
+
+[[project.command_specs]]
+key = "format"
+argv = ["ruff", "format", "--check", "."]
+cwd = "."
+profile = "verify"
+required = false
+timeout_ms = 120000
+network = "none"
+env_allowlist = []
+output_limit_bytes = 1000000
+result_format = "stdout"

@@ -1,0 +1,20 @@
+diff --git a/samples/tasks_service/tasks_service/main.py b/samples/tasks_service/tasks_service/main.py
+--- a/samples/tasks_service/tasks_service/main.py
++++ b/samples/tasks_service/tasks_service/main.py
+@@ -16,7 +16,6 @@
+ class Task(BaseModel):
+     id: int
+     title: str
+-    completed: bool = False
+ 
+ 
+ class TaskStore:
+@@ -27,7 +26,7 @@
+ 
+     def create(self, title: str) -> Task:
+         with self._lock:
+-            task = Task(id=self._next_id, title=title, completed=False)
++            task = Task(id=self._next_id, title=title)
+             self._next_id += 1
+             self._tasks.append(task)
+             return task

@@ -1,0 +1,11 @@
+Plan audit: blocked
+Clarity: 100%
+Acceptance coverage: 100%
+Testability: 100%
+Requirement traceability: 100%
+Architecture decisions: 50%
+Autonomy readiness: 100%
+Decision: blocked
+Blocking findings:
+- Plan has an unresolved architecture decision: no decisions recorded.
+  NextAction: Record at least one DEC-* decision with rationale.

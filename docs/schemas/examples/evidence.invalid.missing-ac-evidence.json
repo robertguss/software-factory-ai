@@ -1,0 +1,20 @@
+{
+  "schema_version": "conveyor.evidence@1",
+  "run_spec_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "slice_id": "SLICE-001",
+  "commands": [
+    {
+      "key": "pytest",
+      "argv": ["pytest", "-q"],
+      "status": "passed",
+      "stdout_ref": "commands/pytest.stdout.log",
+      "stderr_ref": "commands/pytest.stderr.log"
+    }
+  ],
+  "artifacts": [],
+  "policy": {
+    "profile": "verify",
+    "violations": []
+  },
+  "known_risks": []
+}

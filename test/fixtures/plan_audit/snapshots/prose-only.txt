@@ -1,0 +1,2 @@
+Plan contract error: missing_normalized_contract
+missing conveyor.plan.yml sidecar or fenced conveyor-plan@1 block

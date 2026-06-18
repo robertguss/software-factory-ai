@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.run_spec@1.json",
+  "title": "Conveyor RunSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "slice_id",
+    "base_commit",
+    "autonomy_level",
+    "plan_contract_sha256",
+    "policy_profile",
+    "policy_sha256",
+    "runtime_versions",
+    "verification_commands",
+    "container_image",
+    "sandbox_profile",
+    "budget",
+    "schema_versions",
+    "station_plan_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.run_spec@1" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "base_commit": { "$ref": "#/$defs/sha" },
+    "autonomy_level": { "enum": ["L0", "L1", "L2", "L3", "L4"] },
+    "plan_contract_sha256": { "$ref": "#/$defs/sha256" },
+    "requirement_digest": { "$ref": "#/$defs/sha256" },
+    "human_decision_digest": { "$ref": "#/$defs/sha256" },
+    "agent_brief_sha256": { "$ref": "#/$defs/sha256" },
+    "contract_lock_sha256": { "$ref": "#/$defs/sha256" },
+    "agents_md_sha256": { "$ref": "#/$defs/sha256" },
+    "policy_profile": { "enum": ["explore", "implement", "verify", "release", "maintenance"] },
+    "policy_sha256": { "$ref": "#/$defs/sha256" },
+    "diff_policy_sha256": { "$ref": "#/$defs/sha256" },
+    "runtime_versions": { "$ref": "#/$defs/runtime_versions" },
+    "verification_commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/command_spec" }
+    },
+    "required_test_pack_sha256": { "$ref": "#/$defs/sha256" },
+    "prompt_template_version": { "type": "string", "minLength": 1 },
+    "agent_profile": { "type": "object" },
+    "container_image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "digest"],
+      "properties": {
+        "ref": { "type": "string", "minLength": 1 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sbom_ref": { "type": "string" }
+      }
+    },
+    "sandbox_profile": { "enum": ["explore", "implement", "verify", "release", "maintenance"] },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_wall_clock_ms", "max_output_bytes"],
+      "properties": {
+        "max_wall_clock_ms": { "type": "integer", "minimum": 1 },
+        "max_output_bytes": { "type": "integer", "minimum": 1 },
+        "max_command_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "schema_versions": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^conveyor\\.[a-z_]+@[0-9]+$" }
+    },
+    "station_plan_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "image_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "runtime_versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elixir_version",
+        "otp_version",
+        "phoenix_version",
+        "ash_version",
+        "oban_version",
+        "docker_engine_version",
+        "sandbox_runner_version",
+        "agent_adapter_version",
+        "toolchain_image_digest"
+      ],
+      "properties": {
+        "elixir_version": { "type": "string", "minLength": 1 },
+        "otp_version": { "type": "string", "minLength": 1 },
+        "phoenix_version": { "type": "string", "minLength": 1 },
+        "ash_version": { "type": "string", "minLength": 1 },
+        "oban_version": { "type": "string", "minLength": 1 },
+        "docker_engine_version": { "type": "string", "minLength": 1 },
+        "sandbox_runner_version": { "type": "string", "minLength": 1 },
+        "agent_adapter_version": { "type": "string", "minLength": 1 },
+        "toolchain_image_digest": { "$ref": "#/$defs/image_digest" }
+      }
+    },
+    "command_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "argv", "profile"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "profile": { "enum": ["explore", "implement", "verify", "release", "maintenance"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+[policy]
+name = "explore"
+profile = "explore"
+autonomy_ceiling = "L0"
+network = "none"
+future_gated = false
+
+allowlist = [
+  "git diff",
+  "git status",
+  "rg"
+]
+
+denylist = [
+  "rm -rf",
+  "git reset --hard",
+  "git clean -fd",
+  "git push --force",
+  "sudo",
+  "curl | sh",
+  "wget | sh",
+  "deploy",
+  "kubectl apply",
+  "terraform apply"
+]
+
+[policy.env]
+allowlist = []
+deny_production_secrets = true
+
+[policy.budget]
+max_tool_calls = 100

@@ -1,0 +1,29 @@
+{
+  "schema_version": "conveyor.run_spec@1",
+  "project_id": "sample_tasks",
+  "slice_id": "SLICE-001",
+  "autonomy_level": "L1",
+  "plan_contract_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "policy_profile": "verify",
+  "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "verification_commands": [
+    {
+      "key": "pytest",
+      "argv": ["pytest", "-q"],
+      "profile": "verify"
+    }
+  ],
+  "container_image": {
+    "ref": "ghcr.io/conveyor/sample-python-runner:2026-06-01",
+    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "sandbox_profile": "verify",
+  "budget": {
+    "max_wall_clock_ms": 120000,
+    "max_output_bytes": 1048576
+  },
+  "schema_versions": {
+    "evidence": "conveyor.evidence@1"
+  },
+  "station_plan_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

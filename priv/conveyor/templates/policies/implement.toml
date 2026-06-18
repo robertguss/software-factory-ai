@@ -1,0 +1,25 @@
+[policy]
+name = "implement"
+profile = "implement"
+autonomy_ceiling = "L1"
+network = "none"
+
+allowlist = [
+  "git diff",
+  "git status",
+  "mix test",
+  "pytest",
+  "rg"
+]
+
+denylist = [
+  "rm -rf /",
+  "sudo",
+  "docker run --privileged",
+  "curl | sh",
+  "wget | sh"
+]
+
+[policy.env]
+allowlist = ["MIX_ENV", "PYTHONPATH"]
+deny_production_secrets = true

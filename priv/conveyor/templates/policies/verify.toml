@@ -1,0 +1,25 @@
+[policy]
+name = "verify"
+profile = "verify"
+autonomy_ceiling = "L1"
+network = "none"
+
+allowlist = [
+  "mix test",
+  "mix format --check-formatted",
+  "mix credo --strict",
+  "mix dialyzer",
+  "pytest"
+]
+
+denylist = [
+  "sudo",
+  "deploy",
+  "kubectl apply",
+  "terraform apply",
+  "docker run --privileged"
+]
+
+[policy.env]
+allowlist = ["MIX_ENV", "PYTHONPATH"]
+deny_production_secrets = true

@@ -1,0 +1,28 @@
+[policy]
+name = "release"
+profile = "release"
+autonomy_ceiling = "L0"
+network = "none"
+future_gated = true
+
+allowlist = []
+
+denylist = [
+  "deploy",
+  "release",
+  "publish",
+  "package-upload",
+  "kubectl apply",
+  "terraform apply",
+  "git push --force",
+  "sudo",
+  "curl | sh",
+  "wget | sh"
+]
+
+[policy.env]
+allowlist = []
+deny_production_secrets = true
+
+[policy.budget]
+max_tool_calls = 0

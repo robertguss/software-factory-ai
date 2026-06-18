@@ -2814,3 +2814,72 @@ Phase 1 is successful only if it answers these questions with evidence:
 Only once the gate proves honest and the single-Slice loop proves real do we
 earn Phase 3's parallelism. More agents before trust would only make the system
 faster at producing untrusted diffs.
+
+---
+
+## 29. Revisions applied (bead review — 2026-06-17)
+
+This section records the structural changes applied to the **bead graph**
+(`.beads/`) after a deep review of the Phase 0/1 beads against this plan. The
+plan body above is intentionally left unchanged (low-churn); this addendum is
+the source of truth for what diverged. Full rationale and the change table live
+in `docs/2_implementation_plans/PHASE-0-1-BEAD-REVIEW.md`. Changes were applied
+with the `br` CLI (the tool that owns the current `.beads` SQLite store); a
+migration to the Go `bd`/Dolt backend is parked as a separate task.
+
+**New beads**
+
+- **`q19.6.8` (P0.5.8) — Station execution behaviour + StationRun
+  lease/idempotency/effect contract.** Extracts the §8 station-job execution
+  contract (the 8 rules + idempotency-key formula + lease/heartbeat +
+  declare-effect-before-exec) into a reusable `Conveyor.Station` behaviour that
+  every station builds on, instead of leaving it implicit inside the final
+  orchestrator bead. Blocked by `q19.6.3` (Ledger), `q19.6.4` (Outbox),
+  `q19.4.6` (StationRun/StationEffect); blocks `iqb.5` and `iqb.7` (the two
+  station-chain roots). _[finding A1]_
+- **`iqb.12.6` (P1.12.6) — Design-law invariant test suite.** Tests the §3
+  design laws as executable invariants (the plan requires this; previously only
+  emergent across feature beads). _[finding C1]_
+- **`iqb.15.4` (P1.15.4) — Threat-matrix completeness audit.** Verifies every
+  §12.0 threat class has at least one Phase-1 test/canary/doctor check.
+  _[finding C2]_
+- **`iqb.14.7` (P1.14.7) — StationEffect declare/reconcile +
+  ReconcileStaleEffects worker.** Split out of `iqb.14.1` so crash-recovery
+  reconciliation is separate from happy-path orchestration. Blocked by
+  `iqb.14.1`. _[finding D1]_
+
+**Changed beads**
+
+- **`iqb.14.1`** narrowed to the RunSlice orchestrator (happy-path); estimate
+  600→360m; the station-execution contract moved to `q19.6.8`, reconciliation to
+  `iqb.14.7`, and SandboxReaper ownership clarified to `iqb.7.3`. _[D1/B2/A1]_
+- **`iqb.5` / `iqb.5.1` / `iqb.5.2`** raised P2→P1 (on the P1 tracer critical
+  path; resolves the lone priority inversion). The minimal scout is
+  TRACER*REQUIRED; only the advanced CodeScent adapter (`iqb.5.3`, P3) is
+  cut-first. *[finding B1]\_
+- **`iqb.11.1`** — the gate must be invocable in gate-only mode so the canary
+  reuses the exact gate code path; **`iqb.12.2`** calls that entry point.
+  _[finding A2]_
+- **`iqb.7.3`** — sole owner of SandboxReaper (dedup vs `iqb.14.1`). _[finding
+  B2]_
+- **`iqb.14.3`** — add `mix conveyor.show SLICE_ID` as an explicit deliverable.
+  _[finding C3]_
+- **`q19.4.12`** — add explicit ACs for the "at most one active RunAttempt per
+  slice" constraint and immutable-field-mutation rejection. _[finding C4]_
+
+Each changed bead carries a dated `Bead-review revision …` note in `br`.
+
+**Considered but NOT applied** (review defaults): kept the horizontal build
+order (no vertical-slice resequencing — A3); kept implementation/test beads
+separate (D4); kept the 7 redundant transitive blocks edges as self-documenting
+(B3); did not split `q19.4.11` / `iqb.11.9` (D2/D3, medium-confidence — left for
+a later pass). The one task without an estimate (`sgp.8`) is a deferred roadmap
+placeholder, intentionally left unestimated (E).
+
+> **Note on `br` vs `bd`.** The current `.beads/` is a `br` (Rust/SQLite) store.
+> Under `br`, child tasks are gated by their parent epic's blockers, so the
+> epic-level dependency wiring already orders the work (9 ready / 149 blocked).
+> If this later migrates to the Go `bd` (Dolt) backend, note that `bd`'s
+> readiness does **not** propagate epic blockers to children — task-level edges
+> would then be required to order the work. Migration via `issues.jsonl` is
+> verified lossless for IDs, the dependency graph, labels, and priorities.

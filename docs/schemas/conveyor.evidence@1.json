@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.evidence@1.json",
+  "title": "Conveyor Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_spec_sha256",
+    "slice_id",
+    "runtime_versions",
+    "acceptance_criteria_evidence",
+    "commands",
+    "artifacts",
+    "policy",
+    "known_risks"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.evidence@1" },
+    "run_spec_sha256": { "$ref": "#/$defs/sha256" },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "runtime_versions": { "$ref": "#/$defs/runtime_versions" },
+    "acceptance_criteria_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion_ref", "status", "evidence_refs"],
+        "properties": {
+          "criterion_ref": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["passed", "failed", "blocked"] },
+          "evidence_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "argv", "status", "stdout_ref", "stderr_ref"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "status": { "enum": ["passed", "failed", "skipped"] },
+          "stdout_ref": { "type": "string" },
+          "stderr_ref": { "type": "string" }
+        }
+      }
+    },
+    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact_ref" } },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "violations"],
+      "properties": {
+        "profile": { "enum": ["explore", "implement", "verify", "release", "maintenance"] },
+        "violations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "known_risks": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "image_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "runtime_versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elixir_version",
+        "otp_version",
+        "phoenix_version",
+        "ash_version",
+        "oban_version",
+        "docker_engine_version",
+        "sandbox_runner_version",
+        "agent_adapter_version",
+        "toolchain_image_digest"
+      ],
+      "properties": {
+        "elixir_version": { "type": "string", "minLength": 1 },
+        "otp_version": { "type": "string", "minLength": 1 },
+        "phoenix_version": { "type": "string", "minLength": 1 },
+        "ash_version": { "type": "string", "minLength": 1 },
+        "oban_version": { "type": "string", "minLength": 1 },
+        "docker_engine_version": { "type": "string", "minLength": 1 },
+        "sandbox_runner_version": { "type": "string", "minLength": 1 },
+        "agent_adapter_version": { "type": "string", "minLength": 1 },
+        "toolchain_image_digest": { "$ref": "#/$defs/image_digest" }
+      }
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "schema_version"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "schema_version": { "type": "string", "pattern": "^conveyor\\.[a-z_]+@[0-9]+$" }
+      }
+    }
+  }
+}

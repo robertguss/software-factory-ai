@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.review@1.json",
+  "title": "Conveyor Review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_spec_sha256",
+    "dossier_sha256",
+    "reviewer",
+    "rubric_version",
+    "decision",
+    "recommendation",
+    "summary",
+    "findings",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.review@1" },
+    "run_spec_sha256": { "$ref": "#/$defs/sha256" },
+    "dossier_sha256": { "$ref": "#/$defs/sha256" },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_id", "profile_id"],
+      "properties": {
+        "actor_id": { "type": "string", "minLength": 1 },
+        "profile_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rubric_version": { "type": "string", "minLength": 1 },
+    "decision": { "enum": ["accepted", "needs_rework", "rejected"] },
+    "recommendation": { "enum": ["merge", "rework", "ask_human", "archive"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "checks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/check" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "category", "message", "artifact_refs", "next_actions"],
+      "properties": {
+        "severity": { "enum": ["blocking", "warning", "note"] },
+        "category": {
+          "enum": ["brief", "context", "execution", "validation", "review", "policy"]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "artifact_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "next_actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/next_action" }
+        }
+      }
+    },
+    "next_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "label"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "edit_plan",
+            "edit_brief",
+            "fix_policy",
+            "rerun_station",
+            "inspect_artifact",
+            "record_human_decision"
+          ]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "evidence_refs", "summary"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["pass", "fail", "not_applicable"] },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
