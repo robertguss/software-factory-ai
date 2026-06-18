@@ -5,9 +5,8 @@
 > **Purpose:** synthesize the living strategy, the Phase 0/1 implementation
 > plan, and all three advanced-capability documents into the next coherent body
 > of work after Phase 0/1. This is intentionally opinionated. It preserves the
-> long-term ambition while resisting the temptation to build the fleet,
-> autonomy machinery, or a planning IDE before the plan-to-contract boundary is
-> proven.
+> long-term ambition while resisting the temptation to build the fleet, autonomy
+> machinery, or a planning IDE before the plan-to-contract boundary is proven.
 >
 > **Working product name for the phase:** **The Contract Foundry**.
 >
@@ -24,10 +23,10 @@ The next implementation should be **Phase 2: Plan Compiler & Contract Foundry**,
 preceded by a short **Phase-1 qualification checkpoint** using several real
 Slices.
 
-Do **not** go directly from one sterile FastAPI tracer Slice to a parallel fleet.
-Do **not** attempt to implement every capability assigned to “Phase 2” across
-all advanced documents. That would turn the most important trust boundary in
-Conveyor into a sprawling platform project.
+Do **not** go directly from one sterile FastAPI tracer Slice to a parallel
+fleet. Do **not** attempt to implement every capability assigned to “Phase 2”
+across all advanced documents. That would turn the most important trust boundary
+in Conveyor into a sprawling platform project.
 
 The immediate sequence should be:
 
@@ -37,8 +36,8 @@ The immediate sequence should be:
 2. **Add immutable plan revisioning and a planning execution capsule.** Agentic
    planning work must be as reproducible and auditable as implementation work.
 3. **Build a deterministic plan compiler around stochastic proposal agents.**
-   Agents may propose questions, decompositions, contracts, tests, and critiques;
-   only the deterministic compiler may materialize execution truth.
+   Agents may propose questions, decompositions, contracts, tests, and
+   critiques; only the deterministic compiler may materialize execution truth.
 4. **Build the Contract Foundry.** Separate Decomposer, Test Architect, and
    Contract Critic roles create and pressure-test each Slice contract.
 5. **Present one approval package.** The human reviews all agent-inferred
@@ -186,8 +185,8 @@ Phase 2 is complete when Conveyor can take a multi-Epic plan and:
 2. produce one consolidated clarification batch, with every agent-inferred
    assumption made visible;
 3. compile a schema-valid, acyclic work graph with typed dependency edges;
-4. create Agent Briefs, structured interfaces, DiffPolicies, risks,
-   archetypes, acceptance criteria, and test specifications for every Slice;
+4. create Agent Briefs, structured interfaces, DiffPolicies, risks, archetypes,
+   acceptance criteria, and test specifications for every Slice;
 5. have a separate Test Architect create locked TestPacks where executable tests
    are appropriate;
 6. calibrate every TestPack against the base repository and reject invalid,
@@ -274,8 +273,9 @@ shape and evidence preservation.
 
 1. **Agents propose; the compiler materializes.** No planning agent writes
    directly to execution resources or changes state.
-2. **No hidden inference.** Every generated fact not copied from an authoritative
-   human source is tagged as inferred, with provenance and confidence.
+2. **No hidden inference.** Every generated fact not copied from an
+   authoritative human source is tagged as inferred, with provenance and
+   confidence.
 3. **No plan mutation in place.** Any meaningful change creates a new immutable
    `PlanRevision`.
 4. **No approval without a digest.** Human approval binds to one canonical
@@ -337,9 +337,9 @@ Immutable PlanRevision + PlanningSpec
 ```
 
 The architecture is a compiler pipeline, not a chat among agents. Every
-stochastic station emits a typed proposal artifact. Deterministic code validates,
-normalizes, assigns identities, computes digests, and decides whether the next
-station is allowed to run.
+stochastic station emits a typed proposal artifact. Deterministic code
+validates, normalizes, assigns identities, computes digests, and decides whether
+the next station is allowed to run.
 
 ---
 
@@ -703,13 +703,13 @@ Rules:
 Human answers become `HumanDecision` records. Accepting proposed defaults is a
 human decision, not silent model authority.
 
-Any answer changing the normalized contract creates a new `PlanRevision` and
-new `PlanningSpec`. The prior interrogation remains historical evidence.
+Any answer changing the normalized contract creates a new `PlanRevision` and new
+`PlanningSpec`. The prior interrogation remains historical evidence.
 
 ### P2-S5 — Planning Context Scout
 
-Before decomposition, build a repository-level planning context artifact.
-This is broader than the per-Slice ContextPack.
+Before decomposition, build a repository-level planning context artifact. This
+is broader than the per-Slice ContextPack.
 
 Contents:
 
@@ -813,9 +813,9 @@ approval aid.
 
 ### P2-S9 — Contract Forge
 
-For each Slice, a contract-authoring pass produces a full Agent Brief.
-The Decomposer may seed it, but the Contract Forge normalizes it against the
-actual contract schema.
+For each Slice, a contract-authoring pass produces a full Agent Brief. The
+Decomposer may seed it, but the Contract Forge normalizes it against the actual
+contract schema.
 
 Every contract includes:
 
@@ -964,13 +964,13 @@ For invalid proposals or critic findings:
 - the generator may change only the rejected artifact scope;
 - every revision gets a new digest and comparison artifact;
 - repeated non-progress or oscillation stops and routes to the human;
-- material plan changes cannot be repaired silently; they become an amendment
-  or clarification decision.
+- material plan changes cannot be repaired silently; they become an amendment or
+  clarification decision.
 
 ### P2-S14 — Prompt dry-compile
 
-Before approval, run the existing PromptBuilder in dry mode for every Slice.
-A contract is incomplete if Conveyor cannot render a valid future RunPrompt
+Before approval, run the existing PromptBuilder in dry mode for every Slice. A
+contract is incomplete if Conveyor cannot render a valid future RunPrompt
 without placeholders or unresolved references.
 
 Validate:
@@ -1201,9 +1201,9 @@ Each dimension is `pass | warn | fail | not_assessed` with evidence.
 
 ### 10.1 Phase-2 UI posture
 
-The Workbench should be **read-only plus structured actions** first. Do not build
-freeform graph editing, drag-and-drop dependency rewiring, collaborative cursors,
-or a general planning editor.
+The Workbench should be **read-only plus structured actions** first. Do not
+build freeform graph editing, drag-and-drop dependency rewiring, collaborative
+cursors, or a general planning editor.
 
 Views:
 
@@ -1235,8 +1235,8 @@ Attention Queue.
 
 ### 10.3 Static approval report
 
-Everything available in LiveView must be available in
-`approval_summary.md` and machine JSON. Headless/OSS usage remains first-class.
+Everything available in LiveView must be available in `approval_summary.md` and
+machine JSON. Headless/OSS usage remains first-class.
 
 ---
 
@@ -1350,8 +1350,8 @@ Conveyor.Conductor.Supervisor
     └── Conveyor.Jobs.ApplyPlanAmendment
 ```
 
-Each station uses the existing `StationRun`/`StationEffect` model and PlanningSpec
-digests. Idempotency key:
+Each station uses the existing `StationRun`/`StationEffect` model and
+PlanningSpec digests. Idempotency key:
 
 ```text
 planning_run_id + station_key + station_spec_sha256 + attempt_no
@@ -1375,14 +1375,14 @@ contract_critic
 
 Policy matrix:
 
-| Role | Repo access | Source writes | Test-pack writes | Network | Authority |
-| --- | --- | --- | --- | --- | --- |
-| Interrogator | none/read-only context | no | no | provider only | asks questions |
-| Planning Scout | read-only | no | no | none/provider as configured | context only |
-| Decomposer | read-only planning context | no | no | provider only | proposal only |
-| Contract Author | read-only | no | no | provider only | proposal only |
-| Test Architect | read-only source | no | isolated test workspace only | none/provider | test proposal only |
-| Contract Critic | planning bundle read-only | no | no | provider only | findings only |
+| Role            | Repo access                | Source writes | Test-pack writes             | Network                     | Authority          |
+| --------------- | -------------------------- | ------------- | ---------------------------- | --------------------------- | ------------------ |
+| Interrogator    | none/read-only context     | no            | no                           | provider only               | asks questions     |
+| Planning Scout  | read-only                  | no            | no                           | none/provider as configured | context only       |
+| Decomposer      | read-only planning context | no            | no                           | provider only               | proposal only      |
+| Contract Author | read-only                  | no            | no                           | provider only               | proposal only      |
+| Test Architect  | read-only source           | no            | isolated test workspace only | none/provider               | test proposal only |
+| Contract Critic | planning bundle read-only  | no            | no                           | provider only               | findings only      |
 
 No role can approve, lock, or directly write execution truth.
 
@@ -1731,20 +1731,20 @@ go/no-go recorded.
 
 ## 20. Risks and mitigations
 
-| Risk | Why it matters | Mitigation |
-| --- | --- | --- |
-| Automating a bad manual schema | One tracer Slice may hide missing concepts | Phase-1 qualification corpus before compiler work |
-| Agent decomposition looks plausible but is structurally wrong | Human may approve polished nonsense | deterministic compiler, provenance, structural dry-run, critic |
-| Workbench becomes a planning IDE | Scope explodes before core value is known | read-only plus structured actions; static report first |
-| Test Architect writes weak tests | Gate trust becomes synthetic | calibration, integrity, adversarial critic, role separation |
-| Mutation-at-lock creates circular reference solution | Spec author quietly becomes implementer | make full code mutation conditional; do not generate hidden universal reference solutions |
-| Interface locking overconstrains implementation | Contracts become brittle and agents dispute them | lock only public/cross-Slice surfaces; explicit lock levels |
-| Too many active Ash resources | Phase 0/1 complexity compounds | artifacts/embedded schemas by default; active only for lifecycle/query |
-| Repair loops burn money or weaken contracts | Stochastic churn hides quality loss | max rounds, diff classes, weakening requires human decision |
-| Human approval is still overwhelming | 10+ contracts may be too much to read | inference-first/risk-first ordering, one batch, canonical summaries |
-| Stable IDs drift across revisions | Evidence and dependencies become uninterpretable | compiler-owned identity and `supersedes` links |
-| Agentic interrogation annoys users | False questions reduce trust | deterministic checks first, precision metric, soft defaults, one batch |
-| Phase 2 silently grows into Phase 3 | Scheduler concerns leak into compiler | structural dry-run only; explicit non-goals and cutline |
+| Risk                                                          | Why it matters                                   | Mitigation                                                                                |
+| ------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Automating a bad manual schema                                | One tracer Slice may hide missing concepts       | Phase-1 qualification corpus before compiler work                                         |
+| Agent decomposition looks plausible but is structurally wrong | Human may approve polished nonsense              | deterministic compiler, provenance, structural dry-run, critic                            |
+| Workbench becomes a planning IDE                              | Scope explodes before core value is known        | read-only plus structured actions; static report first                                    |
+| Test Architect writes weak tests                              | Gate trust becomes synthetic                     | calibration, integrity, adversarial critic, role separation                               |
+| Mutation-at-lock creates circular reference solution          | Spec author quietly becomes implementer          | make full code mutation conditional; do not generate hidden universal reference solutions |
+| Interface locking overconstrains implementation               | Contracts become brittle and agents dispute them | lock only public/cross-Slice surfaces; explicit lock levels                               |
+| Too many active Ash resources                                 | Phase 0/1 complexity compounds                   | artifacts/embedded schemas by default; active only for lifecycle/query                    |
+| Repair loops burn money or weaken contracts                   | Stochastic churn hides quality loss              | max rounds, diff classes, weakening requires human decision                               |
+| Human approval is still overwhelming                          | 10+ contracts may be too much to read            | inference-first/risk-first ordering, one batch, canonical summaries                       |
+| Stable IDs drift across revisions                             | Evidence and dependencies become uninterpretable | compiler-owned identity and `supersedes` links                                            |
+| Agentic interrogation annoys users                            | False questions reduce trust                     | deterministic checks first, precision metric, soft defaults, one batch                    |
+| Phase 2 silently grows into Phase 3                           | Scheduler concerns leak into compiler            | structural dry-run only; explicit non-goals and cutline                                   |
 
 ---
 
@@ -1753,29 +1753,29 @@ go/no-go recorded.
 The advanced documents should be normalized into capability families before
 implementation. Suggested canonical families:
 
-| Canonical family | Source ideas consolidated |
-| --- | --- |
-| `PLAN-INTERROGATION` | Spec Interrogator |
-| `PLAN-WORKBENCH` | Executable Plan Workbench |
-| `PLAN-SIMULATION` | Plan Simulator + Swarm Dry-Run Simulator |
-| `CONTRACT-QUALITY` | Mutation-Tested Contracts + Test Integrity Sentinel |
-| `CONTRACT-EVOLUTION` | Plan Amendments + Micro-Negotiation |
-| `EVIDENCE-FORENSICS` | Evidence Time Machine + contract/run diff |
-| `FAILURE-TRIAGE` | Failure Triage Autopilot + existing taxonomy |
-| `INTERFACE-RISK` | Semantic Interface Firewall + Scope/Blast Radius + Verification Planner |
-| `GATE-LEARNING` | Regression Mutants + Self-Play + Lessons-to-Rules |
-| `AUTONOMY-READINESS` | Merge Trust Score + Autonomy Readiness Control Center |
-| `MODEL-ROUTING` | Outcome Router + Agent Skill Graph |
-| `SCOUT-LEARNING` | Self-Training Context Scout |
-| `TRUNK-GUARDIAN` | Auto-Bisect/Auto-Revert |
-| `SPECULATIVE-EXECUTION` | Best-of-N + Patch Shrinker |
-| `BROWNFIELD-SAFETY` | Brownfield Onboarding + Runtime Trace-to-Contract + Behavior Lock |
-| `PRODUCT-GATE` | Standalone PR Reviewer |
-| `HUMAN-ATTENTION` | Expected-Value Human Attention Queue |
-| `GATE-TUTOR` | Continuous in-container feedback |
+| Canonical family        | Source ideas consolidated                                               |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `PLAN-INTERROGATION`    | Spec Interrogator                                                       |
+| `PLAN-WORKBENCH`        | Executable Plan Workbench                                               |
+| `PLAN-SIMULATION`       | Plan Simulator + Swarm Dry-Run Simulator                                |
+| `CONTRACT-QUALITY`      | Mutation-Tested Contracts + Test Integrity Sentinel                     |
+| `CONTRACT-EVOLUTION`    | Plan Amendments + Micro-Negotiation                                     |
+| `EVIDENCE-FORENSICS`    | Evidence Time Machine + contract/run diff                               |
+| `FAILURE-TRIAGE`        | Failure Triage Autopilot + existing taxonomy                            |
+| `INTERFACE-RISK`        | Semantic Interface Firewall + Scope/Blast Radius + Verification Planner |
+| `GATE-LEARNING`         | Regression Mutants + Self-Play + Lessons-to-Rules                       |
+| `AUTONOMY-READINESS`    | Merge Trust Score + Autonomy Readiness Control Center                   |
+| `MODEL-ROUTING`         | Outcome Router + Agent Skill Graph                                      |
+| `SCOUT-LEARNING`        | Self-Training Context Scout                                             |
+| `TRUNK-GUARDIAN`        | Auto-Bisect/Auto-Revert                                                 |
+| `SPECULATIVE-EXECUTION` | Best-of-N + Patch Shrinker                                              |
+| `BROWNFIELD-SAFETY`     | Brownfield Onboarding + Runtime Trace-to-Contract + Behavior Lock       |
+| `PRODUCT-GATE`          | Standalone PR Reviewer                                                  |
+| `HUMAN-ATTENTION`       | Expected-Value Human Attention Queue                                    |
+| `GATE-TUTOR`            | Continuous in-container feedback                                        |
 
-Do not delete the original labels; preserve them as aliases in the registry.
-New ADRs, schemas, tickets, and commits should use canonical family names.
+Do not delete the original labels; preserve them as aliases in the registry. New
+ADRs, schemas, tickets, and commits should use canonical family names.
 
 ---
 
@@ -1809,8 +1809,8 @@ fleet, merge queue, and verification pyramid have real evidence.
   free.**
 - **The Test Architect is separate and writes into an isolated test-only
   workspace.**
-- **Contract criticism explicitly searches for the cheapest wrong
-  implementation that could pass.**
+- **Contract criticism explicitly searches for the cheapest wrong implementation
+  that could pass.**
 - **Prompt dry-compilation proves every work packet can reach the existing
   execution loop.**
 - **Mutation-at-lock is conditional, not circular theater.**
@@ -1818,7 +1818,6 @@ fleet, merge queue, and verification pyramid have real evidence.
   place.**
 - **Generated plans prove themselves by executing real Slices sequentially
   before Conveyor earns a fleet.**
-
 
 ---
 
@@ -1835,16 +1834,16 @@ model to reinvent contract structure every time.
 
 Examples:
 
-| Archetype | Required contract obligations |
-| --- | --- |
-| `bugfix_regression` | reproduction test, cause hypothesis, unchanged-behavior list |
-| `crud_endpoint` | request/response interface, negative status cases, persistence reflection |
-| `schema_migration` | forward/backward compatibility, data preservation, rollback/irreversibility decision |
-| `pure_refactor` | behavior-preservation oracle, public-interface freeze, no feature ACs |
-| `dependency_update` | lockfile scope, advisory/security rationale, regression and rollback plan |
-| `security_hardening` | threat scenario, abuse case, negative tests, mandatory security review |
-| `performance` | workload, baseline, threshold, variance policy, regression budget |
-| `configuration` | default, override precedence, invalid value behavior, secret handling |
+| Archetype            | Required contract obligations                                                        |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `bugfix_regression`  | reproduction test, cause hypothesis, unchanged-behavior list                         |
+| `crud_endpoint`      | request/response interface, negative status cases, persistence reflection            |
+| `schema_migration`   | forward/backward compatibility, data preservation, rollback/irreversibility decision |
+| `pure_refactor`      | behavior-preservation oracle, public-interface freeze, no feature ACs                |
+| `dependency_update`  | lockfile scope, advisory/security rationale, regression and rollback plan            |
+| `security_hardening` | threat scenario, abuse case, negative tests, mandatory security review               |
+| `performance`        | workload, baseline, threshold, variance policy, regression budget                    |
+| `configuration`      | default, override precedence, invalid value behavior, secret handling                |
 
 Templates should be deterministic policy, not hidden prompt lore. A Slice can
 use `custom`, but that increases approval scrutiny.
@@ -1875,9 +1874,9 @@ A good decomposition minimizes total expected work, not Slice size alone.
 
 ### 24.3 Atomicity groups — recommended seam
 
-Some requirements should not be split even if they look separable: schema
-change plus data backfill, authorization check plus audit log, or transaction
-write plus outbox event.
+Some requirements should not be split even if they look separable: schema change
+plus data backfill, authorization check plus audit log, or transaction write
+plus outbox event.
 
 Allow:
 
@@ -1894,8 +1893,8 @@ technically mergeable but operationally unsafe.
 ### 24.4 Contract falsifiability proof — recommended for critic rubric
 
 For every AC, the Test Architect or Critic must provide at least one concrete
-counterexample that would fail it. If no counterexample can be described, the
-AC is likely aesthetic, tautological, or untestable.
+counterexample that would fail it. If no counterexample can be described, the AC
+is likely aesthetic, tautological, or untestable.
 
 ### 24.5 Alternate-decomposition shadow pass — experimental
 
@@ -1955,8 +1954,8 @@ model “helpfully” inventing features.
 
 Alongside ordinary examples, preserve a small `challenge_cases[]` list created
 by the Critic. These are not necessarily executable tests yet; they are the
-specific adversarial situations most likely to expose a too-weak contract.
-They later seed red-team and mutation suites.
+specific adversarial situations most likely to expose a too-weak contract. They
+later seed red-team and mutation suites.
 
 ### 24.10 Interface consistency solver — later
 
@@ -2023,9 +2022,9 @@ will show whether the model knows when it is guessing.
 ### 24.17 Contract provenance graph — later visualization
 
 The inference ledger can become a graph showing exactly which plan paragraphs,
-repo observations, human decisions, and agent inferences produced each
-contract field. Useful for audits, but the Phase-2 Workbench can start with
-source links and badges rather than a separate graph engine.
+repo observations, human decisions, and agent inferences produced each contract
+field. Useful for audits, but the Phase-2 Workbench can start with source links
+and badges rather than a separate graph engine.
 
 ### 24.18 Approval shadow predictor — do not build yet
 
@@ -2059,8 +2058,8 @@ loop. Keep as a post-Phase-4 parallel track.
 
 **Strategically important, technically premature.** Real repositories are the
 market, but characterization and behavior-lock machinery depend on a stable
-verification pyramid. The Phase-1 qualification corpus should include real
-repos without promising automated brownfield onboarding.
+verification pyramid. The Phase-1 qualification corpus should include real repos
+without promising automated brownfield onboarding.
 
 ### Alternative E — build only a read-only Workbench next
 
@@ -2074,4 +2073,3 @@ projection.
 criticism, and approval evidence merely moves manual ambiguity into generated
 JSON. The smallest honest unit is the full Contract Foundry loop, with a strict
 cutline around it.
-
