@@ -6,7 +6,9 @@ defmodule Conveyor.Ledger do
   use Conveyor.Conductor.Child
 
   alias Conveyor.Factory
+  alias Conveyor.Factory.EventOutbox
   alias Conveyor.Factory.LedgerEvent
+  alias Conveyor.Repo
 
   @spec write!(map(), keyword()) :: struct() | {struct(), list()}
   def write!(attrs, opts \\ []) when is_map(attrs) do
@@ -67,18 +69,61 @@ defmodule Conveyor.Ledger do
   end
 
   defp create_event(attrs, return_notifications?) do
-    event_attrs =
-      attrs
-      |> Map.put_new(:payload, %{})
-      |> Map.put_new_lazy(:occurred_at, fn -> DateTime.utc_now(:microsecond) end)
+    Repo.transaction(fn ->
+      event_attrs =
+        attrs
+        |> Map.put_new(:payload, %{})
+        |> Map.put_new_lazy(:occurred_at, fn -> DateTime.utc_now(:microsecond) end)
 
-    {:ok,
-     Ash.create!(
-       LedgerEvent,
-       event_attrs,
-       domain: Factory,
-       return_notifications?: return_notifications?
-     )}
+      {event, event_notifications} =
+        Ash.create!(
+          LedgerEvent,
+          event_attrs,
+          domain: Factory,
+          return_notifications?: true
+        )
+
+      {_outbox, outbox_notifications} =
+        Ash.create!(
+          EventOutbox,
+          %{
+            ledger_event_id: event.id,
+            topic: "ledger_events",
+            message: outbox_message(event)
+          },
+          domain: Factory,
+          return_notifications?: true
+        )
+
+      {event, event_notifications ++ outbox_notifications}
+    end)
+    |> case do
+      {:ok, {event, notifications}} when return_notifications? ->
+        {:ok, {event, notifications}}
+
+      {:ok, {event, notifications}} ->
+        Ash.Notifier.notify(notifications)
+        {:ok, event}
+
+      {:error, error} ->
+        raise error
+    end
+  end
+
+  defp outbox_message(event) do
+    %{
+      "ledger_event_id" => event.id,
+      "type" => event.type,
+      "payload" => event.payload,
+      "project_id" => event.project_id,
+      "slice_id" => event.slice_id,
+      "run_attempt_id" => event.run_attempt_id,
+      "agent_session_id" => event.agent_session_id,
+      "station_run_id" => event.station_run_id,
+      "trace_id" => event.trace_id,
+      "span_id" => event.span_id,
+      "occurred_at" => DateTime.to_iso8601(event.occurred_at)
+    }
   end
 
   defp existing_event(nil, _return_notifications?), do: {:ok, nil}

@@ -52,5 +52,6 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.ExternalChange
     resource Conveyor.Factory.PatchEquivalence
     resource Conveyor.Factory.LedgerEvent
+    resource Conveyor.Factory.EventOutbox
   end
 end
