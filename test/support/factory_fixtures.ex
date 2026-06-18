@@ -1,0 +1,176 @@
+defmodule Conveyor.FactoryFixtures do
+  @moduledoc false
+
+  alias Conveyor.Factory
+  alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.Plan
+  alias Conveyor.Factory.Project
+  alias Conveyor.Factory.RunAttempt
+  alias Conveyor.Factory.RunSpec
+  alias Conveyor.Factory.Slice
+  alias Conveyor.Factory.StationRun
+
+  def create_artifact_run!(opts \\ []) do
+    blob_root = Keyword.fetch!(opts, :blob_root)
+    artifact_content = Keyword.get(opts, :artifact_content, "artifact\n")
+    projection_path = Keyword.get(opts, :projection_path, "evidence.json")
+    sha256 = digest_bytes(artifact_content)
+
+    project =
+      Ash.create!(
+        Project,
+        %{
+          name: Keyword.get(opts, :project_name, "Replay fixture"),
+          local_path: Keyword.get(opts, :local_path, "/tmp/replay-fixture"),
+          default_branch: "main"
+        },
+        domain: Factory
+      )
+
+    plan =
+      Ash.create!(
+        Plan,
+        %{
+          project_id: project.id,
+          title: "Replay fixture plan",
+          intent: "Regenerate artifacts.",
+          source_document: "docs/plan.md",
+          normalized_contract: %{"schema_version" => "conveyor.plan@1"},
+          contract_sha256: digest("plan")
+        },
+        domain: Factory
+      )
+
+    epic =
+      Ash.create!(
+        Epic,
+        %{plan_id: plan.id, title: "Replay fixture epic", description: "Artifacts."},
+        domain: Factory
+      )
+
+    slice =
+      Ash.create!(Slice, %{epic_id: epic.id, title: "Replay fixture slice", position: 1},
+        domain: Factory
+      )
+
+    run_spec = Ash.create!(RunSpec, run_spec_attrs(slice.id), domain: Factory)
+
+    run_attempt =
+      Ash.create!(
+        RunAttempt,
+        %{
+          slice_id: slice.id,
+          run_spec_id: run_spec.id,
+          attempt_no: 1,
+          base_commit: "abc123",
+          status: :planned,
+          outcome: :none,
+          orchestrator_version: "conveyor@0.1.0",
+          trace_id: "trace-replay"
+        },
+        domain: Factory
+      )
+
+    station_run =
+      Ash.create!(
+        StationRun,
+        %{
+          run_attempt_id: run_attempt.id,
+          slice_id: slice.id,
+          station: "artifact",
+          attempt_no: 1,
+          station_spec_sha256: digest("station"),
+          idempotency_key: "#{run_attempt.id}:artifact:#{digest("station")}:1",
+          input_sha256: digest("input")
+        },
+        domain: Factory
+      )
+
+    write_blob!(blob_root, sha256, artifact_content)
+
+    artifact =
+      Ash.create!(
+        Artifact,
+        %{
+          run_attempt_id: run_attempt.id,
+          station_run_id: station_run.id,
+          kind: "run-log",
+          media_type: "text/plain",
+          projection_path: projection_path,
+          blob_ref: "cas/#{sha256}",
+          sha256: sha256,
+          size_bytes: byte_size(artifact_content),
+          subject_kind: "run_attempt",
+          producer: "gate",
+          schema_version: "conveyor.artifact@1",
+          sensitivity: :internal
+        },
+        domain: Factory
+      )
+
+    %{
+      artifact: artifact,
+      artifact_content: artifact_content,
+      project: project,
+      projection_path: projection_path,
+      run_attempt: run_attempt,
+      station_run: station_run
+    }
+  end
+
+  def temp_dir!(label) do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "conveyor-#{label}-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(path)
+    path
+  end
+
+  defp write_blob!(blob_root, sha256, content) do
+    path = Path.join([blob_root, "cas", sha256])
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, content)
+  end
+
+  defp run_spec_attrs(slice_id) do
+    run_spec_sha256 = digest("run-spec-replay")
+
+    %{
+      slice_id: slice_id,
+      attempt_no: 1,
+      run_spec_json_ref: "artifacts/run-specs/attempt-1.json",
+      run_spec_sha256: run_spec_sha256,
+      base_commit: "abc123",
+      contract_lock_sha256: digest("contract-lock"),
+      prompt_template_version: "implementation-prompt@1",
+      agent_profile_snapshot: %{"adapter" => "pi"},
+      policy_sha256: digest("policy"),
+      diff_policy_sha256: digest("diff-policy"),
+      test_pack_sha256: digest("test-pack"),
+      station_plan: %{
+        "schema_version" => "conveyor.station_plan@1",
+        "stations" => [
+          %{
+            "key" => "artifact",
+            "input" => %{"run_spec_sha256" => run_spec_sha256},
+            "output" => %{"run_spec_sha256" => run_spec_sha256}
+          }
+        ]
+      },
+      station_plan_sha256: digest("station-plan"),
+      container_image_ref: "ghcr.io/conveyor/sample-python-runner:2026-06-01",
+      container_image_digest: digest("image"),
+      sandbox_profile: "verify",
+      budget_sha256: digest("budget"),
+      code_quality_profile: "standard",
+      canary_suite_version: "canary@1"
+    }
+  end
+
+  defp digest(label), do: "sha256:" <> digest_bytes(label)
+  defp digest_bytes(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
+end

@@ -3,8 +3,10 @@ defmodule Conveyor.Replay do
   R0 replay helpers for rebuilding the human timeline from the append-only ledger.
   """
 
+  alias Conveyor.Artifacts.Projector
   alias Conveyor.Factory
   alias Conveyor.Factory.LedgerEvent
+  alias Conveyor.Factory.RunAttempt
 
   @spec timeline!() :: [map()]
   def timeline! do
@@ -19,6 +21,24 @@ defmodule Conveyor.Replay do
     entries
     |> Enum.map(&Jason.encode!/1)
     |> Enum.join("\n")
+  end
+
+  @spec project_run!(String.t(), keyword()) :: Projector.Result.t()
+  def project_run!(run_attempt_id, opts \\ []) when is_binary(run_attempt_id) do
+    run_attempt_id
+    |> run_attempt!()
+    |> Projector.project_run!(opts)
+  end
+
+  @spec format_project_result(Projector.Result.t()) :: map()
+  def format_project_result(%Projector.Result{} = result) do
+    %{
+      "run_attempt_id" => result.run_attempt_id,
+      "projection_path" => result.projection_path,
+      "artifact_count" => result.artifact_count,
+      "manifest_sha256" => result.manifest_sha256,
+      "bundle_root_sha256" => result.bundle_root_sha256
+    }
   end
 
   defp timeline_entry(event) do
@@ -36,5 +56,15 @@ defmodule Conveyor.Replay do
       "idempotency_key" => event.idempotency_key,
       "payload" => event.payload
     }
+  end
+
+  defp run_attempt!(run_attempt_id) do
+    RunAttempt
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(&(&1.id == run_attempt_id))
+    |> case do
+      nil -> raise ArgumentError, "unknown run_attempt_id #{inspect(run_attempt_id)}"
+      run_attempt -> run_attempt
+    end
   end
 end
