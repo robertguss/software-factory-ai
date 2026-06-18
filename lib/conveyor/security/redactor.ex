@@ -148,7 +148,7 @@ defmodule Conveyor.Security.Redactor do
         before_match = binary_part(content, last_offset, match.offset - last_offset)
         token = redaction_token(match)
         next_offset = match.offset + match.length
-        {[before_match, token | chunks], next_offset}
+        {[token, before_match | chunks], next_offset}
       end)
 
     tail = binary_part(content, last_offset, byte_size(content) - last_offset)
