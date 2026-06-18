@@ -6,6 +6,7 @@ defmodule Conveyor.EvidenceRecorderTest do
   alias Conveyor.AgentRunner.PatchCapture
   alias Conveyor.Evidence.Recorder
   alias Conveyor.Factory
+  alias Conveyor.Factory.Artifact
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.Evidence
   alias Conveyor.Factory.Plan
@@ -68,6 +69,64 @@ defmodule Conveyor.EvidenceRecorderTest do
     assert second.projection.bundle_root_sha256 == first.projection.bundle_root_sha256
     assert length(Ash.read!(Evidence, domain: Factory)) == 1
     assert length(Ash.read!(RunBundle, domain: Factory)) == 1
+  end
+
+  test "redacts secrets from projected evidence while preserving digest provenance" do
+    fixture = evidence_fixture!("evidence-recorder-redaction")
+
+    File.write!(
+      Path.join(fixture.repo_path, "sample.txt"),
+      "OPENAI_API_KEY=sk-test-secret123\n"
+    )
+
+    patch_set =
+      PatchCapture.capture!(%{path: fixture.repo_path, base_commit: fixture.base_commit},
+        run_attempt_id: fixture.run_attempt.id,
+        blob_root: fixture.blob_root
+      )
+
+    acceptance_criteria = [criterion("AC-001", ["tests/sample_test.exs::passes"])]
+
+    verification =
+      verification_result(
+        [test_result("tests/sample_test.exs::passes", "passed")],
+        "GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz\n"
+      )
+
+    result =
+      Recorder.record!(fixture.run_attempt, patch_set, acceptance_criteria, verification,
+        blob_root: fixture.blob_root,
+        projection_root: fixture.projection_root
+      )
+
+    run_dir = Path.join(fixture.projection_root, fixture.run_attempt.id)
+    projected_diff = File.read!(Path.join(run_dir, "diff.patch"))
+    projected_logs = File.read!(Path.join(run_dir, "logs/verification.json"))
+    projected_evidence = File.read!(Path.join(run_dir, "evidence.json"))
+
+    refute projected_diff =~ "sk-test-secret123"
+    refute projected_logs =~ "ghp_abcdefghijklmnopqrstuvwxyz"
+    refute projected_evidence =~ "sk-test-secret123"
+    refute projected_evidence =~ "ghp_abcdefghijklmnopqrstuvwxyz"
+    assert projected_diff =~ "[REDACTED:"
+    assert projected_logs =~ "[REDACTED:"
+    assert result.security_findings != []
+
+    artifacts = Ash.read!(Artifact, domain: Factory)
+    diff_artifact = Enum.find(artifacts, &(&1.projection_path == "diff.patch"))
+    log_artifact = Enum.find(artifacts, &(&1.projection_path == "logs/verification.json"))
+
+    assert diff_artifact.sensitivity == :redacted
+    assert log_artifact.sensitivity == :redacted
+    assert diff_artifact.raw_sha256 != diff_artifact.redacted_sha256
+    assert log_artifact.raw_sha256 != log_artifact.redacted_sha256
+    assert diff_artifact.sha256 == diff_artifact.redacted_sha256
+    assert log_artifact.sha256 == log_artifact.redacted_sha256
+    assert [%{"category" => "secret_exposure"} | _] = diff_artifact.redaction_findings
+    assert [%{"category" => "secret_exposure"} | _] = log_artifact.redaction_findings
+
+    assert [evidence] = Ash.read!(Evidence, domain: Factory)
+    assert Enum.any?(evidence.risks, &(&1["category"] == "secret_exposure"))
   end
 
   defp evidence_fixture!(label) do
@@ -162,8 +221,8 @@ defmodule Conveyor.EvidenceRecorderTest do
     }
   end
 
-  defp verification_result(tests) do
-    %{"suites" => [%{"commands" => [%{"attempts" => [%{"tests" => tests}]}]}]}
+  defp verification_result(tests, stdout \\ "") do
+    %{"suites" => [%{"commands" => [%{"stdout" => stdout, "attempts" => [%{"tests" => tests}]}]}]}
   end
 
   defp test_result(id, status), do: %{"id" => id, "name" => id, "status" => status}
