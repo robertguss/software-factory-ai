@@ -133,6 +133,37 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
              "gated",
              "reported"
            ]
+
+    assert length(run_attempt_events(attempt.id)) == 5
+  end
+
+  test "run attempt off-ramp transitions are legal and audited", %{slice: slice} do
+    cases = [
+      {[], :cancel, :cancelled},
+      {[], :mark_stale, :stale},
+      {[:start], :cancel, :cancelled},
+      {[:start], :mark_stale, :stale},
+      {[:start], :fail, :failed},
+      {[:start, :record_evidence], :request_rework, :needs_rework},
+      {[:start, :record_evidence, :review], :reject, :rejected}
+    ]
+
+    Enum.with_index(cases, 10)
+    |> Enum.each(fn {{setup_actions, action, expected_status}, attempt_no} ->
+      attempt = create_attempt!(slice, attempt_no)
+      transitioned = Enum.reduce(setup_actions, attempt, &transition_for_test(&2, &1))
+
+      updated =
+        RunAttemptLifecycle.transition!(transitioned, action,
+          actor: "runner",
+          reason: "off-ramp coverage"
+        )
+
+      assert updated.status == expected_status
+
+      assert List.last(run_attempt_events(updated.id)).payload["status"] ==
+               Atom.to_string(expected_status)
+    end)
   end
 
   test "retry creation requires a failed attempt and next-number fresh run spec", %{
@@ -156,6 +187,13 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
 
     assert_raise ArgumentError, ~r/fresh/, fn ->
       RunAttemptLifecycle.create_retry_attempt!(failed, run_spec)
+    end
+
+    wrong_number_run_spec =
+      Ash.create!(RunSpec, run_spec_attrs(slice.id, "run-spec-3", 3), domain: Factory)
+
+    assert_raise ArgumentError, ~r/attempt_no must be 2/, fn ->
+      RunAttemptLifecycle.create_retry_attempt!(failed, wrong_number_run_spec)
     end
   end
 
@@ -261,6 +299,24 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
       orchestrator_version: "conveyor@0.1.0",
       trace_id: "trace-#{attempt_no}"
     }
+  end
+
+  defp create_attempt!(slice, attempt_no) do
+    run_spec =
+      Ash.create!(
+        RunSpec,
+        run_spec_attrs(slice.id, "run-spec-off-ramp-#{attempt_no}", attempt_no),
+        domain: Factory
+      )
+
+    Ash.create!(RunAttempt, run_attempt_attrs(slice.id, run_spec.id, attempt_no), domain: Factory)
+  end
+
+  defp transition_for_test(attempt, action) do
+    RunAttemptLifecycle.transition!(attempt, action,
+      actor: "runner",
+      reason: "setup #{action}"
+    )
   end
 
   defp station_run_attrs(slice_id, run_attempt_id, agent_session_id, station) do

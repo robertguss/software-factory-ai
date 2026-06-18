@@ -4,6 +4,7 @@ defmodule Conveyor.SliceLifecycleTest do
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentBrief
   alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.EventOutbox
   alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
@@ -110,6 +111,7 @@ defmodule Conveyor.SliceLifecycleTest do
            ]
 
     assert List.last(events).payload["previous_state"] == "integrated"
+    assert_outbox_rows_for_events!(events)
   end
 
   test "illegal state transitions fail", %{slice: slice} do
@@ -218,6 +220,18 @@ defmodule Conveyor.SliceLifecycleTest do
     end
   end
 
+  test "guard failures do not write ledger events or outbox rows", %{slice: slice} do
+    assert ledger_event_count() == 0
+    assert outbox_count() == 0
+
+    assert_raise ArgumentError, ~r/locked AgentBrief/, fn ->
+      SliceLifecycle.transition!(slice, :mark_ready, actor: "architect")
+    end
+
+    assert ledger_event_count() == 0
+    assert outbox_count() == 0
+  end
+
   test "autonomy policy guard rejects slices above project default", %{epic: epic} do
     slice =
       Ash.create!(
@@ -252,6 +266,32 @@ defmodule Conveyor.SliceLifecycleTest do
 
     assert SliceLifecycle.transition!(rework_slice, :request_rework, actor: "reviewer").state ==
              :needs_rework
+
+    parked_slice =
+      Ash.create!(
+        Slice,
+        %{epic_id: slice.epic_id, title: "Parked slice", position: 5, state: :approved},
+        domain: Factory
+      )
+
+    create_brief!(parked_slice, locked_by: "architect")
+
+    assert SliceLifecycle.transition!(parked_slice, :park, actor: "operator").state ==
+             :parked
+
+    failed_slice =
+      Ash.create!(
+        Slice,
+        %{epic_id: slice.epic_id, title: "Failed slice", position: 6, state: :ready},
+        domain: Factory
+      )
+
+    create_brief!(failed_slice, locked_by: "architect")
+
+    assert failed_slice
+           |> SliceLifecycle.transition!(:start, actor: "implementer")
+           |> SliceLifecycle.transition!(:fail, actor: "gate")
+           |> Map.fetch!(:state) == :failed
   end
 
   defp create_brief!(slice, opts) do
@@ -283,6 +323,30 @@ defmodule Conveyor.SliceLifecycleTest do
     |> Ash.read!(domain: Factory)
     |> Enum.filter(&(&1.slice_id == slice_id and &1.type == "slice.transitioned"))
     |> Enum.sort_by(&DateTime.to_unix(&1.occurred_at, :microsecond))
+  end
+
+  defp assert_outbox_rows_for_events!(events) do
+    event_ids = events |> Enum.map(& &1.id) |> Enum.sort()
+
+    outbox_event_ids =
+      EventOutbox
+      |> Ash.read!(domain: Factory)
+      |> Enum.map(& &1.ledger_event_id)
+      |> Enum.sort()
+
+    assert outbox_event_ids == event_ids
+  end
+
+  defp ledger_event_count do
+    LedgerEvent
+    |> Ash.read!(domain: Factory)
+    |> length()
+  end
+
+  defp outbox_count do
+    EventOutbox
+    |> Ash.read!(domain: Factory)
+    |> length()
   end
 
   defp acceptance_criterion do
