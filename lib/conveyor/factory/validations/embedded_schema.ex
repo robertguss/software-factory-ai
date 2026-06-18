@@ -215,5 +215,5 @@ defmodule Conveyor.Factory.Validations.EmbeddedSchema do
 
   defp enum_value?(_value, _allowed), do: false
 
-  defp get(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp get(map, key), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 end
