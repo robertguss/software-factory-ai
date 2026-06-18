@@ -26,8 +26,13 @@ defmodule Conveyor.Factory.ReviewerHealth do
     attribute :passed, :boolean, allow_nil?: false, public?: true
     attribute :failures, {:array, :map}, allow_nil?: false, default: [], public?: true
 
-    # update_timestamp (not create_timestamp) so re-running the fixture suite via
-    # ReviewerHealth.upsert_health!/5 refreshes freshness on the update path.
-    update_timestamp :checked_at
+    # Defaults like a create_timestamp, but is writable so ReviewerHealth.upsert_health!/5
+    # can set it explicitly on update too. That is required because re-running the fixture
+    # suite with an identical passing result is a no-op update, on which neither a
+    # create_timestamp nor an update_timestamp would refresh the freshness clock.
+    attribute :checked_at, :utc_datetime_usec,
+      allow_nil?: false,
+      default: &DateTime.utc_now/0,
+      public?: true
   end
 end
