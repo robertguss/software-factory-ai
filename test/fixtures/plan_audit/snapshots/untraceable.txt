@@ -1,0 +1,13 @@
+Plan audit: blocked
+Clarity: 100%
+Acceptance coverage: 100%
+Testability: 100%
+Requirement traceability: 50%
+Architecture decisions: 100%
+Autonomy readiness: 100%
+Decision: blocked
+Blocking findings:
+- Requirement REQ-002 has no Slice or Brief coverage.
+  NextAction: Map REQ-002 to a Slice or AgentBrief acceptance criterion.
+- Slice SLICE-002 has no source requirement, decision, bug, or improvement.
+  NextAction: Add a requirement_ref or source_ref for SLICE-002.

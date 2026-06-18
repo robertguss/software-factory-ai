@@ -1,0 +1,13 @@
+Plan audit: blocked
+Clarity: 60%
+Acceptance coverage: 100%
+Testability: 100%
+Requirement traceability: 100%
+Architecture decisions: 100%
+Autonomy readiness: 100%
+Decision: blocked
+Blocking findings:
+- Plan goal uses unmeasurable wording.
+  NextAction: Rewrite the goal with measurable behavior.
+- Requirement REQ-001 uses unmeasurable wording.
+  NextAction: Rewrite REQ-001 with measurable behavior.
