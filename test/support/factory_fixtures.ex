@@ -55,7 +55,7 @@ defmodule Conveyor.FactoryFixtures do
         domain: Factory
       )
 
-    run_spec = Ash.create!(RunSpec, run_spec_attrs(slice.id), domain: Factory)
+    run_spec = Ash.create!(RunSpec, run_spec_attrs(slice.id, opts), domain: Factory)
 
     run_attempt =
       Ash.create!(
@@ -64,7 +64,7 @@ defmodule Conveyor.FactoryFixtures do
           slice_id: slice.id,
           run_spec_id: run_spec.id,
           attempt_no: 1,
-          base_commit: "abc123",
+          base_commit: run_spec.base_commit,
           status: :planned,
           outcome: :none,
           orchestrator_version: "conveyor@0.1.0",
@@ -131,15 +131,16 @@ defmodule Conveyor.FactoryFixtures do
     path
   end
 
-  defp run_spec_attrs(slice_id) do
+  defp run_spec_attrs(slice_id, opts) do
     run_spec_sha256 = digest("run-spec-replay")
+    base_commit = Keyword.get(opts, :base_commit, "abc123")
 
     %{
       slice_id: slice_id,
       attempt_no: 1,
       run_spec_json_ref: "artifacts/run-specs/attempt-1.json",
       run_spec_sha256: run_spec_sha256,
-      base_commit: "abc123",
+      base_commit: base_commit,
       contract_lock_sha256: digest("contract-lock"),
       prompt_template_version: "implementation-prompt@1",
       agent_profile_snapshot: %{"adapter" => "pi"},
