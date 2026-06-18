@@ -46,7 +46,7 @@ defmodule Conveyor.PromptBuilder do
       safety_policy: Keyword.get(opts, :safety_policy, default_safety_policy())
     }
 
-    body = render_prompt(attrs)
+    body = attrs |> render_prompt() |> normalize_body()
 
     Repo.transaction(fn ->
       {prompt, prompt_notifications} =
@@ -58,6 +58,7 @@ defmodule Conveyor.PromptBuilder do
             context_pack_id: context_pack.id,
             template_version: attrs.template_version,
             body: body,
+            body_sha256: body_sha256(body),
             policy_refs: attrs.policy_refs,
             memory_refs: attrs.memory_refs,
             output_schema_version: attrs.output_schema_version
@@ -88,6 +89,46 @@ defmodule Conveyor.PromptBuilder do
 
   @spec output_schema_version() :: String.t()
   def output_schema_version, do: @output_schema_version
+
+  @spec output_schema() :: map()
+  def output_schema do
+    %{
+      "schema_version" => @output_schema_version,
+      "type" => "object",
+      "required" => [
+        "summary",
+        "files_changed",
+        "commands_attempted",
+        "acceptance_mapping",
+        "known_risks",
+        "blocker"
+      ],
+      "properties" => %{
+        "summary" => %{"type" => "string"},
+        "files_changed" => %{"type" => "array", "items" => %{"type" => "string"}},
+        "commands_attempted" => %{"type" => "array", "items" => %{"type" => "string"}},
+        "acceptance_mapping" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "required" => ["acceptance_criterion", "evidence", "status"],
+            "properties" => %{
+              "acceptance_criterion" => %{"type" => "string"},
+              "evidence" => %{"type" => "string"},
+              "status" => %{"enum" => ["met", "not_met", "blocked"]}
+            }
+          }
+        },
+        "known_risks" => %{"type" => "array", "items" => %{"type" => "string"}},
+        "blocker" => %{"type" => ["string", "null"]}
+      }
+    }
+  end
+
+  @spec body_sha256(String.t()) :: String.t()
+  def body_sha256(body) when is_binary(body) do
+    "sha256:" <> Base.encode16(:crypto.hash(:sha256, body), case: :lower)
+  end
 
   defp render_prompt(attrs) do
     """
@@ -170,9 +211,11 @@ defmodule Conveyor.PromptBuilder do
 
     # Required Output Schema
 
-    Return a JSON object with keys: summary, files_changed, commands_attempted, acceptance_mapping, known_risks, blocker.
+    #{json_block(output_schema())}
     """
   end
+
+  defp normalize_body(body), do: String.trim(body)
 
   defp instruction_sources(attrs, body) do
     [

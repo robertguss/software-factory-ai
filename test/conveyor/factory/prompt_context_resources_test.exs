@@ -116,6 +116,7 @@ defmodule Conveyor.Factory.PromptContextResourcesTest do
     slice: slice
   } do
     pack = Ash.create!(ContextPack, context_pack_attrs(slice.id), domain: Factory)
+    body = "# Role\n\nImplement exactly one slice."
 
     prompt =
       Ash.create!(
@@ -125,7 +126,8 @@ defmodule Conveyor.Factory.PromptContextResourcesTest do
           brief_id: brief.id,
           context_pack_id: pack.id,
           template_version: "implementation-prompt@1",
-          body: "# Role\n\nImplement exactly one slice.",
+          body: body,
+          body_sha256: digest(body),
           policy_refs: ["policies/implement.yml"],
           memory_refs: [],
           output_schema_version: "conveyor.agent_output@1"

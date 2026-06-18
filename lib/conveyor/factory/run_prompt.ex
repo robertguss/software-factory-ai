@@ -14,7 +14,7 @@ defmodule Conveyor.Factory.RunPrompt do
   end
 
   actions do
-    defaults [:read, :destroy, create: :*, update: :*]
+    defaults [:read, create: :*]
   end
 
   attributes do
@@ -22,6 +22,7 @@ defmodule Conveyor.Factory.RunPrompt do
 
     attribute :template_version, :string, allow_nil?: false, public?: true
     attribute :body, :string, allow_nil?: false, public?: true
+    attribute :body_sha256, :string, allow_nil?: false, public?: true
     attribute :policy_refs, {:array, :string}, allow_nil?: false, default: [], public?: true
     attribute :memory_refs, {:array, :string}, allow_nil?: false, default: [], public?: true
     attribute :output_schema_version, :string, allow_nil?: false, public?: true

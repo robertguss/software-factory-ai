@@ -122,6 +122,7 @@ defmodule Conveyor.PromptBuilderTest do
     assert %RunPrompt{} = prompt
     assert prompt.template_version == "implementation-prompt@1"
     assert prompt.output_schema_version == "conveyor.agent_output@1"
+    assert prompt.body_sha256 == PromptBuilder.body_sha256(prompt.body)
     assert prompt.policy_refs == ["policies/implement.toml"]
 
     for heading <- [
@@ -143,7 +144,10 @@ defmodule Conveyor.PromptBuilderTest do
 
     assert prompt.body =~ "Use br for all implementation work."
     assert prompt.body =~ "Conveyor.PromptBuilder.build!/2"
-    assert prompt.body =~ "summary, files_changed, commands_attempted"
+    assert prompt.body =~ "\"schema_version\": \"conveyor.agent_output@1\""
+
+    assert prompt_snapshot(prompt.body) ==
+             snapshot!("test/fixtures/prompt_builder/implementation_prompt_v1.json")
 
     sources =
       InstructionSource
@@ -159,6 +163,32 @@ defmodule Conveyor.PromptBuilderTest do
     assert trust_for(sources, :tool_output, "codescent/before.json") == :untrusted
     assert Enum.all?(sources, & &1.included_in_prompt)
     assert Enum.all?(sources, &String.starts_with?(&1.digest, "sha256:"))
+
+    assert_raise RuntimeError, ~r/Required primary update action/, fn ->
+      Ash.update!(prompt, %{body: "changed"}, domain: Factory)
+    end
+
+    assert_raise Ash.Error.Invalid, ~r/No primary action of type :destroy/, fn ->
+      Ash.destroy!(prompt, domain: Factory)
+    end
+  end
+
+  defp prompt_snapshot(body) do
+    %{
+      "template_version" => PromptBuilder.template_version(),
+      "output_schema_version" => PromptBuilder.output_schema_version(),
+      "sections" =>
+        ~r/^# .+$/m
+        |> Regex.scan(body)
+        |> Enum.map(fn [heading] -> heading end),
+      "required_output_fields" => PromptBuilder.output_schema()["required"]
+    }
+  end
+
+  defp snapshot!(path) do
+    path
+    |> File.read!()
+    |> Jason.decode!()
   end
 
   defp trust_for(sources, source_kind, source_ref) do
