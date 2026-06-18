@@ -56,6 +56,13 @@ defmodule Conveyor.AgentRunner.EventRecorder do
   @spec event_types() :: [String.t()]
   def event_types, do: @event_types
 
+  @spec next_sequence_no(String.t()) :: pos_integer()
+  def next_sequence_no(agent_session_id) when is_binary(agent_session_id) do
+    agent_session_id
+    |> max_sequence_no()
+    |> Kernel.+(1)
+  end
+
   defp append_event!(attrs, opts, context, sequence_no, idempotency_key) do
     occurred_at = Map.get(attrs, :occurred_at, DateTime.utc_now(:microsecond))
     raw_ref = raw_ref(attrs, opts)
@@ -124,12 +131,7 @@ defmodule Conveyor.AgentRunner.EventRecorder do
   end
 
   defp require_monotonic_sequence!(agent_session_id, sequence_no) do
-    max_seen =
-      agent_session_id
-      |> events_for_session()
-      |> Enum.map(&get_in(&1.payload, ["sequence_no"]))
-      |> Enum.filter(&is_integer/1)
-      |> Enum.max(fn -> 0 end)
+    max_seen = max_sequence_no(agent_session_id)
 
     if sequence_no <= max_seen do
       raise ArgumentError,
@@ -147,6 +149,14 @@ defmodule Conveyor.AgentRunner.EventRecorder do
     LedgerEvent
     |> Ash.read!(domain: Factory)
     |> Enum.filter(&(&1.agent_session_id == agent_session_id and &1.type == "agent.event"))
+  end
+
+  defp max_sequence_no(agent_session_id) do
+    agent_session_id
+    |> events_for_session()
+    |> Enum.map(&get_in(&1.payload, ["sequence_no"]))
+    |> Enum.filter(&is_integer/1)
+    |> Enum.max(fn -> 0 end)
   end
 
   defp event_type!(attrs) do
