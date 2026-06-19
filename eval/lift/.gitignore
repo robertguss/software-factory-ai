@@ -1,0 +1,3 @@
+# Generated full conveyor.eval_lift@1 reports (written by the lift-duel eval).
+# Projected to scorecard inputs by `mix conveyor.eval.lift`; not committed.
+*.json

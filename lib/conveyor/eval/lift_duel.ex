@@ -45,6 +45,7 @@ defmodule Conveyor.Eval.LiftDuel do
   """
 
   alias Conveyor.AgentRunner.RawRunResult
+  alias Conveyor.CanonicalJson
   alias Conveyor.Eval.{CassetteBridge, Schema, Scorecard, ToolchainRunner, Workspace}
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Statistics
@@ -54,6 +55,7 @@ defmodule Conveyor.Eval.LiftDuel do
   @confidence 0.95
   @baseline_arm "vanilla"
   @treatment_arm "conveyor"
+  @reports_dir "eval/lift"
 
   # The IDENTICAL gate, shared by every arm (mirrors GoldenThread; the contract
   # hashes are tracer-scoped placeholders pending the P2-B Contract Forge).
@@ -191,6 +193,40 @@ defmodule Conveyor.Eval.LiftDuel do
   def emit!(report) do
     Scorecard.write_input!(@suite, metrics(report))
     report
+  end
+
+  @doc "Directory holding full `conveyor.eval_lift@1` reports (the duel produces these; `mix conveyor.eval.lift` projects them to the scorecard)."
+  @spec reports_dir() :: String.t()
+  def reports_dir, do: @reports_dir
+
+  @doc """
+  Write a full `conveyor.eval_lift@1` report to `eval/lift/<name>.json` (canonical
+  JSON; `:name` defaults to the suite). This is the rich artifact; the scorecard
+  metrics are a projection of it (see `metrics/1`). Returns the path.
+  """
+  @spec write_report!(map(), keyword()) :: String.t()
+  def write_report!(report, opts \\ []) do
+    File.mkdir_p!(@reports_dir)
+    path = Path.join(@reports_dir, Keyword.get(opts, :name, @suite) <> ".json")
+    File.write!(path, CanonicalJson.encode(report))
+    path
+  end
+
+  @doc "Load every report under `dir` as `{name, report}` (sorted; missing dir → [])."
+  @spec load_reports(String.t()) :: [{String.t(), map()}]
+  def load_reports(dir \\ @reports_dir) do
+    case File.ls(dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".json"))
+        |> Enum.sort()
+        |> Enum.map(
+          &{Path.basename(&1, ".json"), dir |> Path.join(&1) |> File.read!() |> Jason.decode!()}
+        )
+
+      {:error, _} ->
+        []
+    end
   end
 
   # --- internals ------------------------------------------------------------

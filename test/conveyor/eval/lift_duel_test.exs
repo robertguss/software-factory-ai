@@ -60,7 +60,7 @@ defmodule Conveyor.Eval.LiftDuelTest do
     assert [lo, hi] = treatment["ci"]
     assert lo > 0.0 and hi == 1.0
 
-    # Verified ACs: only the fixed arm restores the acceptance test.
+    # Verified ACs (delivered through an accepted gate): only the fixed arm restores them.
     assert treatment["verified_acs_total"] > 0
     assert vanilla["verified_acs_total"] == 0
 
@@ -69,32 +69,53 @@ defmodule Conveyor.Eval.LiftDuelTest do
     assert report["lift"]["pass_at_1_delta"] == 1.0
     assert report["lift"]["verified_acs_delta"] > 0
 
-    # Schema-valid (report/2 already validated; assert explicitly for clarity).
+    # Schema-valid, and the report persists as the rich artifact.
     assert Schema.validate(report, "conveyor.eval_lift@1") == :ok
+    path = LiftDuel.write_report!(report)
+    assert File.exists?(path)
   end
 
-  test "emit! writes the lift_duel scorecard inputs (lift_vs_vanilla, pass_at_1, cost_per_verified_ac)" do
+  test "mix conveyor.eval.lift projects a report into scorecard inputs (DB-free)" do
+    # A synthesized, schema-valid report (no agent run needed) exercises the
+    # measurement→reporting seam the CI step relies on.
+    cell = fn task, passed, verified ->
+      %{
+        "task" => task,
+        "gate_passed" => passed,
+        "false_pass" => false,
+        "verified_acs" => verified,
+        "tokens" => 1200,
+        "cost_usd" => 0.01,
+        "latency_ms" => 9000,
+        "reasoning_effort" => "medium"
+      }
+    end
+
     treatment =
-      LiftDuel.summarize_arm(
-        "conveyor",
-        "reference_solution",
-        arm_cells("conveyor", &mutant/1, true)
-      )
+      LiftDuel.summarize_arm("conveyor", "codex", Enum.map(@tasks, &cell.(&1, true, 4)))
 
     vanilla =
-      LiftDuel.summarize_arm(
-        "vanilla",
-        "reference_solution",
-        arm_cells("vanilla", fn _ -> @known_good end, false)
-      )
+      LiftDuel.summarize_arm("vanilla", "codex", Enum.map(@tasks, &cell.(&1, false, 0)))
 
-    report = LiftDuel.report([vanilla, treatment], tasks: @tasks, reasoning_effort: "high")
-    LiftDuel.emit!(report)
+    report = LiftDuel.report([vanilla, treatment], tasks: @tasks, reasoning_effort: "medium")
+    LiftDuel.write_report!(report)
+
+    Mix.Tasks.Conveyor.Eval.Lift.run([])
 
     path = Path.join(Scorecard.inputs_dir(), "lift_duel.json")
     assert File.exists?(path)
 
-    keys = path |> File.read!() |> Jason.decode!() |> Enum.map(& &1["key"]) |> Enum.sort()
-    assert keys == ["cost_per_verified_ac", "lift_vs_vanilla", "pass_at_1"]
+    metrics = path |> File.read!() |> Jason.decode!()
+
+    assert Enum.map(metrics, & &1["key"]) |> Enum.sort() == [
+             "cost_per_verified_ac",
+             "lift_vs_vanilla",
+             "pass_at_1"
+           ]
+
+    assert Enum.all?(metrics, &(&1["suite"] == "lift_duel"))
+    # cost-per-verified-AC is honest: the failing vanilla arm delivered 0 ACs.
+    assert vanilla["cost_per_verified_ac"] == nil
+    assert treatment["cost_per_verified_ac"] == Float.round(0.03 / 12, 6)
   end
 end

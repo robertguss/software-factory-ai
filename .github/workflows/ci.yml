@@ -81,6 +81,13 @@ jobs:
         # Replays cassettes recorded by `mix test` (DB-free); emits replay_fidelity.
         run: MIX_ENV=test mix conveyor.eval.replay --all
 
+      - name: Project lift-duel report (emit lift_vs_vanilla)
+        # The R5 lift duel runs during `mix test` (it needs the DB-backed agent-session
+        # chain) and writes a full conveyor.eval_lift@1 report to eval/lift/. This
+        # DB-free step projects it into scorecard inputs (lift_vs_vanilla, pass_at_1,
+        # cost_per_verified_ac). Degrades to a no-op when no report is present.
+        run: MIX_ENV=test mix conveyor.eval.lift
+
       - name: Eval scorecard gate
         # Aggregates eval/scorecards/inputs/*.json into conveyor.eval_scorecard@1
         # and exits non-zero if any blocking metric (false_pass_rate>0, etc.) is
