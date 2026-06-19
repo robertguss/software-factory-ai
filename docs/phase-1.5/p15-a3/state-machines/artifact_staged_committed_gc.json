@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "artifact_staged_committed_gc",
+  "kind": "state-machine",
+  "proves": "artifact staged -> committed -> GC/tombstone",
+  "states": ["absent", "staged", "committed", "referenced_by_authority", "tombstoned", "gc_eligible"],
+  "transitions": [
+    { "from": "absent", "event": "stage_blob", "to": "staged" },
+    { "from": "staged", "event": "verify_digest_and_commit_pointer", "to": "committed" },
+    { "from": "committed", "event": "authority_event_references_artifact", "to": "referenced_by_authority" },
+    { "from": "committed", "event": "retention_expires_without_authority_ref", "to": "gc_eligible" },
+    { "from": "gc_eligible", "event": "secure_delete", "to": "tombstoned" }
+  ],
+  "invariants": [
+    "A digest mismatch never reaches committed.",
+    "An artifact referenced by active authority is not GC eligible."
+  ],
+  "counterexample_traces": [
+    ["stage_blob", "verify_digest_and_commit_pointer", "authority_event_references_artifact", "secure_delete"]
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "run_attempt_terminal_new",
+  "kind": "state-machine",
+  "proves": "RunAttempt terminal / new-attempt semantics",
+  "states": ["attempt_open", "terminal_success", "terminal_failure", "new_spec_locked", "new_attempt_open"],
+  "transitions": [
+    { "from": "attempt_open", "event": "complete_success", "to": "terminal_success" },
+    { "from": "attempt_open", "event": "complete_failure", "to": "terminal_failure" },
+    { "from": "terminal_success", "event": "lock_new_spec", "to": "new_spec_locked" },
+    { "from": "terminal_failure", "event": "lock_new_spec", "to": "new_spec_locked" },
+    { "from": "new_spec_locked", "event": "create_new_attempt_id", "to": "new_attempt_open" }
+  ],
+  "invariants": [
+    "Terminal attempts are immutable.",
+    "A new lock/spec creates a new RunAttempt and never reuses the old attempt id."
+  ],
+  "counterexample_traces": [
+    ["complete_failure", "lock_new_spec", "reuse_old_attempt_id"]
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "admission_permit_checkpoint_renewal",
+  "kind": "state-machine",
+  "proves": "AdmissionPermit checkpoint + renewal across a long attempt",
+  "states": ["waiting", "permit_active", "checkpoint_valid", "renewal_required", "permit_renewed", "attempt_denied"],
+  "transitions": [
+    { "from": "waiting", "event": "grant_permit", "to": "permit_active" },
+    { "from": "permit_active", "event": "checkpoint_before_effect", "to": "checkpoint_valid" },
+    { "from": "checkpoint_valid", "event": "long_attempt_nears_expiry", "to": "renewal_required" },
+    { "from": "renewal_required", "event": "renew_with_policy_allow", "to": "permit_renewed" },
+    { "from": "renewal_required", "event": "renew_with_policy_deny", "to": "attempt_denied" }
+  ],
+  "invariants": [
+    "Every effect attempt starts after a valid admission checkpoint.",
+    "A long-running attempt either renews before expiry or stops before effect."
+  ],
+  "counterexample_traces": [
+    ["grant_permit", "checkpoint_before_effect", "long_attempt_nears_expiry", "effect_after_expiry_without_renewal"]
+  ]
+}

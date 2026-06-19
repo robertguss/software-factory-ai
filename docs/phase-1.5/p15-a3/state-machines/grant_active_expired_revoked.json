@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "grant_active_expired_revoked",
+  "kind": "state-machine",
+  "proves": "grant active -> expired/revoked/superseded",
+  "states": ["draft", "active", "expired", "revoked", "superseded", "denied"],
+  "transitions": [
+    { "from": "draft", "event": "activate_with_policy_allow", "to": "active" },
+    { "from": "active", "event": "ttl_expires", "to": "expired" },
+    { "from": "active", "event": "actor_revokes", "to": "revoked" },
+    { "from": "active", "event": "newer_grant_activated", "to": "superseded" },
+    { "from": "expired", "event": "attempt_use", "to": "denied" }
+  ],
+  "invariants": [
+    "Only active grants authorize work.",
+    "Expired, revoked, and superseded grants fail closed."
+  ],
+  "counterexample_traces": [
+    ["activate_with_policy_allow", "ttl_expires", "attempt_use"]
+  ]
+}

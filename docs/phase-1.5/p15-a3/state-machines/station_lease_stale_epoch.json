@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "station_lease_stale_epoch",
+  "kind": "state-machine",
+  "proves": "station lease acquisition + stale-epoch rejection",
+  "states": ["idle", "leased_epoch_n", "leased_epoch_n_plus_1", "stale_rejected", "authority_published"],
+  "transitions": [
+    { "from": "idle", "event": "claim_with_valid_admission_permit", "to": "leased_epoch_n" },
+    { "from": "leased_epoch_n", "event": "heartbeat_before_expiry", "to": "leased_epoch_n" },
+    { "from": "leased_epoch_n", "event": "new_worker_claims_after_expiry", "to": "leased_epoch_n_plus_1" },
+    { "from": "leased_epoch_n_plus_1", "event": "old_worker_write_with_epoch_n", "to": "stale_rejected" },
+    { "from": "leased_epoch_n_plus_1", "event": "current_worker_write_with_epoch_n_plus_1", "to": "authority_published" }
+  ],
+  "invariants": [
+    "Every authority write carries the current lease_epoch.",
+    "A stale epoch can only transition to stale_rejected, never authority_published."
+  ],
+  "counterexample_traces": [
+    ["claim_with_valid_admission_permit", "new_worker_claims_after_expiry", "old_worker_write_with_epoch_n"]
+  ]
+}
