@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.permit_checkpoint@1",
+  "id": "permit_checkpoint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "admission_permit_id": "admission_permit:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "subject_ref": "station-run-001",
+  "station_run_id": "station-run-001",
+  "checkpoint_kind": "before_external_effect",
+  "validated_inputs_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "result": "valid",
+  "reason_codes": [],
+  "policy_decision_id": "policy-decision-001",
+  "checked_at": "2026-06-19T00:01:00Z",
+  "trace_id": "trace-001"
+}

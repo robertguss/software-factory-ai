@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.qualification_scope_lattice@1.json",
+  "title": "Conveyor QualificationScopeLattice",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "scope_ref",
+    "scope_digest",
+    "direct_evidence_strata",
+    "inherited_evidence_strata",
+    "supporting_evidence_strata",
+    "inheritance_rule_refs",
+    "inheritance_default",
+    "unassessed_strata",
+    "worst_required_stratum_result"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.qualification_scope_lattice@1" },
+    "id": { "type": "string", "pattern": "^qualification_scope_lattice:sha256:[0-9a-f]{64}$" },
+    "scope_ref": { "type": "string", "minLength": 1 },
+    "scope_digest": { "$ref": "#/$defs/digest" },
+    "direct_evidence_strata": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence_stratum" }
+    },
+    "inherited_evidence_strata": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence_stratum" }
+    },
+    "supporting_evidence_strata": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence_stratum" }
+    },
+    "inheritance_rule_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "inheritance_default": { "const": "none" },
+    "unassessed_strata": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "worst_required_stratum_result": { "enum": ["pass", "fail", "unassessed"] }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "evidence_stratum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stratum", "evidence_refs", "result"],
+      "properties": {
+        "stratum": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "result": { "enum": ["pass", "fail", "unassessed"] }
+      }
+    }
+  }
+}

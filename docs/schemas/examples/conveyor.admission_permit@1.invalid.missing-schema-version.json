@@ -1,0 +1,16 @@
+{
+  "id": "admission_permit:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subject_kind": "station_run",
+  "subject_id": "station-run-001",
+  "spec_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "qualification_grant_id": "qualification_grant:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "effective_capability_set_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "authority_root_digests": ["sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"],
+  "policy_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "environment_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "budget_reservation_ids": ["budget-reservation-001"],
+  "control_generation": 7,
+  "issued_at": "2026-06-19T00:00:00Z",
+  "expires_at": "2026-06-19T00:15:00Z",
+  "permit_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

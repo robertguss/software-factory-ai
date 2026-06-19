@@ -1,0 +1,24 @@
+{
+  "id": "qualification_scope_lattice:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "scope_ref": "qualification-scope:p2-static-planning",
+  "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "direct_evidence_strata": [
+    {
+      "stratum": "hard_blockers",
+      "evidence_refs": ["battery-run:p15-b8-hard-blockers"],
+      "result": "pass"
+    }
+  ],
+  "inherited_evidence_strata": [],
+  "supporting_evidence_strata": [
+    {
+      "stratum": "live_quality_sample",
+      "evidence_refs": ["battery-sample:p15-b7-live-quality"],
+      "result": "pass"
+    }
+  ],
+  "inheritance_rule_refs": [],
+  "inheritance_default": "none",
+  "unassessed_strata": ["production_deployment"],
+  "worst_required_stratum_result": "pass"
+}

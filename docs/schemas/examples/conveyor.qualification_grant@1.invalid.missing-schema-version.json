@@ -1,0 +1,33 @@
+{
+  "id": "qualification_grant:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "project_id": "software-factory-ai",
+  "qualification_gate_run_id": "qualification-gate-run-001",
+  "evidence_root_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "scope_ref": "qualification-scope:p2-static-planning",
+  "scope_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "adapter_class": "offline",
+  "agent_class": "codex",
+  "archetype_class": "planning",
+  "change_class": "static_compiler",
+  "toolchain_class": "mix",
+  "risk_class": "local_dev",
+  "policy_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "environment_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "deployment_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "max_autonomy": "local_dev",
+  "success_rate_bands": [
+    {
+      "capability": "QUALIFICATION-GRANTS",
+      "lower_bound": 0.95,
+      "upper_bound": 1.0,
+      "sample_count": 40,
+      "policy_ref": "docs/phase-1.5/p15-b7/live-quality-policy.json"
+    }
+  ],
+  "limitations": ["offline-only sample; no production deployment authority"],
+  "waiver_refs": [],
+  "issued_at": "2026-06-19T00:00:00Z",
+  "expires_at": "2026-07-19T00:00:00Z",
+  "invalidation_triggers": ["policy_digest_changed", "scope_digest_changed"],
+  "status": "active"
+}
