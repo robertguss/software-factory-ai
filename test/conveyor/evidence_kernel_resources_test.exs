@@ -45,6 +45,7 @@ defmodule Conveyor.EvidenceKernelResourcesTest do
     conveyor.context_ground_truth@1
     conveyor.plan_source_snapshot@1
     conveyor.plan_revision@1
+    conveyor.planning_run@1
     conveyor.constraint_set@1
     conveyor.source_anchor@1
     conveyor.claim_set@1
