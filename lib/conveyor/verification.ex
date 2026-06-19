@@ -14,6 +14,20 @@ defmodule Conveyor.Verification do
   @evidence_kinds ~w(specification calibration harness_validation candidate_result hermeticity repeatability adversarial_challenge mutation_assessment human_observation environment_attestation)
   @validity_states ~w(valid suspect invalid expired)
 
+  @evidence_dimensions ~w(specification_present base_calibration harness_validity candidate_result hermeticity repeatability adversarial_challenge mutation_assessment human_observation environment_freshness)
+  @dimension_evidence_kinds %{
+    "specification_present" => "specification",
+    "base_calibration" => "calibration",
+    "harness_validity" => "harness_validation",
+    "candidate_result" => "candidate_result",
+    "hermeticity" => "hermeticity",
+    "repeatability" => "repeatability",
+    "adversarial_challenge" => "adversarial_challenge",
+    "mutation_assessment" => "mutation_assessment",
+    "human_observation" => "human_observation",
+    "environment_freshness" => "environment_attestation"
+  }
+
   @waiver_statuses ~w(active expired revoked superseded)
 
   @spec obligation_kinds() :: [String.t()]
@@ -21,6 +35,9 @@ defmodule Conveyor.Verification do
 
   @spec evidence_kinds() :: [String.t()]
   def evidence_kinds, do: @evidence_kinds
+
+  @spec evidence_dimensions() :: [String.t()]
+  def evidence_dimensions, do: @evidence_dimensions
 
   @spec validity_states() :: [String.t()]
   def validity_states, do: @validity_states
@@ -65,6 +82,56 @@ defmodule Conveyor.Verification do
     Map.put(evidence, "id", "verification_evidence:sha256:#{digest(evidence)}")
   end
 
+  @spec new_evidence_requirement!(map()) :: map()
+  def new_evidence_requirement!(attrs) when is_map(attrs) do
+    required_dimensions = required_enum_list(attrs, :required_dimensions, @evidence_dimensions)
+
+    requirement =
+      %{
+        "schema_version" => "conveyor.evidence_requirement@1",
+        "verification_obligation_id" => required_string(attrs, :verification_obligation_id),
+        "required_dimensions" => required_dimensions,
+        "dimension_predicates" => Map.new(required_dimensions, &{&1, dimension_predicate(&1)}),
+        "created_at" => required_string(attrs, :created_at)
+      }
+
+    requirement_digest = "sha256:#{digest(requirement)}"
+
+    requirement
+    |> Map.put("requirement_digest", requirement_digest)
+    |> Map.put("id", "evidence_requirement:#{requirement_digest}")
+  end
+
+  @spec evaluate_requirement(map(), [map()], keyword()) :: map()
+  def evaluate_requirement(requirement, evidence, opts)
+      when is_map(requirement) and is_list(evidence) and is_list(opts) do
+    dimension_results =
+      requirement
+      |> Map.fetch!("required_dimensions")
+      |> Map.new(fn dimension ->
+        {dimension, evaluate_dimension(requirement, evidence, dimension)}
+      end)
+
+    waived? = active_waiver?(Keyword.get(opts, :waiver), requirement)
+    result = satisfaction_result(dimension_results, waived?)
+    dimension_results = apply_waiver(dimension_results, result)
+
+    satisfaction =
+      %{
+        "schema_version" => "conveyor.obligation_satisfaction@1",
+        "verification_obligation_id" => Map.fetch!(requirement, "verification_obligation_id"),
+        "evidence_requirement_digest" => Map.fetch!(requirement, "requirement_digest"),
+        "consumed_evidence_ids" => consumed_evidence_ids(requirement, dimension_results, result),
+        "dimension_results" => dimension_results,
+        "result" => result,
+        "policy_decision_id" => Keyword.fetch!(opts, :policy_decision_id),
+        "evaluated_at" => Keyword.fetch!(opts, :evaluated_at)
+      }
+      |> maybe_put_waiver(Keyword.get(opts, :waiver), result)
+
+    Map.put(satisfaction, "satisfaction_digest", "sha256:#{digest(satisfaction)}")
+  end
+
   @spec new_waiver!(map()) :: map()
   def new_waiver!(attrs) when is_map(attrs) do
     status = required_enum(attrs, :status, @waiver_statuses)
@@ -104,6 +171,89 @@ defmodule Conveyor.Verification do
 
   defp validate_active_waiver!(_attrs, _status), do: :ok
 
+  defp dimension_predicate(dimension) do
+    %{
+      "evidence_kind" => Map.fetch!(@dimension_evidence_kinds, dimension),
+      "validity" => "valid"
+    }
+  end
+
+  defp evaluate_dimension(requirement, evidence, dimension) do
+    predicate = get_in(requirement, ["dimension_predicates", dimension])
+    required_kind = Map.fetch!(predicate, "evidence_kind")
+
+    matching =
+      Enum.filter(evidence, fn evidence_item ->
+        evidence_item["verification_obligation_id"] == requirement["verification_obligation_id"] and
+          evidence_item["evidence_kind"] == required_kind
+      end)
+
+    valid = Enum.filter(matching, &(&1["validity"] == "valid"))
+
+    cond do
+      valid != [] ->
+        %{
+          "status" => "satisfied",
+          "required_evidence_kind" => required_kind,
+          "evidence_ids" => Enum.map(valid, & &1["id"])
+        }
+
+      matching != [] ->
+        %{
+          "status" => "blocked",
+          "required_evidence_kind" => required_kind,
+          "evidence_ids" => Enum.map(matching, & &1["id"]),
+          "blocking_validities" => matching |> Enum.map(& &1["validity"]) |> Enum.uniq()
+        }
+
+      true ->
+        %{
+          "status" => "missing",
+          "required_evidence_kind" => required_kind,
+          "evidence_ids" => []
+        }
+    end
+  end
+
+  defp satisfaction_result(dimension_results, waived?) do
+    statuses = dimension_results |> Map.values() |> Enum.map(& &1["status"])
+
+    cond do
+      Enum.all?(statuses, &(&1 == "satisfied")) -> "satisfied"
+      waived? -> "waived"
+      Enum.any?(statuses, &(&1 == "blocked")) -> "blocked"
+      true -> "not_assessed"
+    end
+  end
+
+  defp apply_waiver(dimension_results, "waived") do
+    Map.new(dimension_results, fn
+      {dimension, %{"status" => "satisfied"} = result} -> {dimension, result}
+      {dimension, result} -> {dimension, %{result | "status" => "waived"}}
+    end)
+  end
+
+  defp apply_waiver(dimension_results, _result), do: dimension_results
+
+  defp consumed_evidence_ids(_requirement, _dimension_results, "waived"), do: []
+  defp consumed_evidence_ids(_requirement, _dimension_results, "not_assessed"), do: []
+
+  defp consumed_evidence_ids(requirement, dimension_results, _result) do
+    requirement["required_dimensions"]
+    |> Enum.flat_map(&get_in(dimension_results, [&1, "evidence_ids"]))
+    |> Enum.uniq()
+  end
+
+  defp maybe_put_waiver(satisfaction, %{"id" => waiver_id}, "waived"),
+    do: Map.put(satisfaction, "waiver_id", waiver_id)
+
+  defp maybe_put_waiver(satisfaction, _waiver, _result), do: satisfaction
+
+  defp active_waiver?(%{"status" => "active"} = waiver, requirement),
+    do: waiver["verification_obligation_id"] == requirement["verification_obligation_id"]
+
+  defp active_waiver?(_waiver, _requirement), do: false
+
   defp required_enum(attrs, key, allowed) do
     value = value(attrs, key)
     normalized = normalize_enum(value)
@@ -112,6 +262,24 @@ defmodule Conveyor.Verification do
       normalized
     else
       raise ArgumentError, "#{key} must be one of #{Enum.join(allowed, ", ")}"
+    end
+  end
+
+  defp required_enum_list(attrs, key, allowed) do
+    case value(attrs, key) do
+      values when is_list(values) and values != [] ->
+        Enum.map(values, fn item ->
+          normalized = normalize_enum(item)
+
+          if normalized in allowed do
+            normalized
+          else
+            raise ArgumentError, "#{key} must contain only #{Enum.join(allowed, ", ")}"
+          end
+        end)
+
+      _other ->
+        raise ArgumentError, "#{key} must be a non-empty list"
     end
   end
 
@@ -179,5 +347,11 @@ defmodule Conveyor.Verification do
   defp canonical(values) when is_list(values), do: Enum.map(values, &canonical/1)
   defp canonical(value), do: value
 
-  defp value(map, key), do: Map.get(map, key) || Map.get(map, to_string(key))
+  defp value(map, key) do
+    cond do
+      Map.has_key?(map, key) -> Map.get(map, key)
+      Map.has_key?(map, to_string(key)) -> Map.get(map, to_string(key))
+      true -> nil
+    end
+  end
 end
