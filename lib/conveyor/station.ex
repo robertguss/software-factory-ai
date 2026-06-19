@@ -146,17 +146,90 @@ defmodule Conveyor.Station do
 
   @spec heartbeat!(StationRun.t(), keyword()) :: StationRun.t()
   def heartbeat!(%StationRun{} = station_run, opts \\ []) do
+    current_station_run = current_lease!(station_run)
     now = Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:microsecond) end)
     lease_seconds = Keyword.get(opts, :lease_seconds, 60)
 
     Ash.update!(
-      station_run,
+      current_station_run,
       %{
         heartbeat_at: now,
         lease_expires_at: DateTime.add(now, lease_seconds, :second)
       },
       domain: Factory
     )
+  end
+
+  @spec fencing_token(StationRun.t()) :: String.t()
+  def fencing_token(%StationRun{id: id, lease_epoch: lease_epoch}) do
+    "#{id}:#{lease_epoch}"
+  end
+
+  @spec ensure_current_lease!(StationRun.t(), StationRun.t()) :: :ok
+  def ensure_current_lease!(
+        %StationRun{id: id, lease_epoch: candidate_epoch},
+        %StationRun{id: id, lease_epoch: current_epoch}
+      ) do
+    if candidate_epoch == current_epoch do
+      :ok
+    else
+      raise ArgumentError,
+            "stale lease_epoch #{candidate_epoch} for StationRun #{id}; current epoch is #{current_epoch}"
+    end
+  end
+
+  def ensure_current_lease!(%StationRun{id: candidate_id}, %StationRun{id: current_id}) do
+    raise ArgumentError,
+          "cannot fence StationRun #{candidate_id} against current StationRun #{current_id}"
+  end
+
+  @spec validate_claim_controls!(map()) :: :ok
+  def validate_claim_controls!(controls) when is_map(controls) do
+    permit = Map.get(controls, :admission_permit, Map.get(controls, "admission_permit", %{}))
+    permit_status = Map.get(permit, :status, Map.get(permit, "status", :active))
+
+    permit_generation =
+      Map.get(permit, :control_generation, Map.get(permit, "control_generation"))
+
+    control_generation =
+      Map.get(controls, :control_generation, Map.get(controls, "control_generation"))
+
+    cond do
+      permit_status != :active and permit_status != "active" ->
+        raise ArgumentError, "admission permit is not active"
+
+      not is_nil(permit_generation) and not is_nil(control_generation) and
+          permit_generation != control_generation ->
+        raise ArgumentError,
+              "control generation mismatch: permit #{permit_generation}, requested #{control_generation}"
+
+      Map.get(controls, :emergency_stop, Map.get(controls, "emergency_stop", :clear)) in [
+        :engaged,
+        "engaged"
+      ] ->
+        raise ArgumentError, "emergency stop is engaged"
+
+      Map.get(controls, :grant_status, Map.get(controls, "grant_status", :active)) not in [
+        :active,
+        "active"
+      ] ->
+        raise ArgumentError, "grant is not active"
+
+      Map.get(controls, :budget_status, Map.get(controls, "budget_status", :reserved)) not in [
+        :reserved,
+        "reserved"
+      ] ->
+        raise ArgumentError, "budget is not reserved"
+
+      Map.get(controls, :prerequisites, Map.get(controls, "prerequisites", :satisfied)) not in [
+        :satisfied,
+        "satisfied"
+      ] ->
+        raise ArgumentError, "prerequisites are not satisfied"
+
+      true ->
+        :ok
+    end
   end
 
   @spec idempotency_key(Ecto.UUID.t(), String.t(), String.t(), pos_integer()) :: String.t()
@@ -173,6 +246,10 @@ defmodule Conveyor.Station do
     station_key = station_module.station_key()
     station_spec_sha256 = station_module.station_spec_sha256(input)
 
+    opts
+    |> Keyword.get(:claim_controls, %{})
+    |> validate_claim_controls!()
+
     attrs = %{
       run_attempt_id: run_attempt.id,
       slice_id: run_attempt.slice_id,
@@ -183,6 +260,8 @@ defmodule Conveyor.Station do
         idempotency_key(run_attempt.id, station_key, station_spec_sha256, run_attempt.attempt_no),
       input_sha256: station_module.input_sha256(input),
       status: :queued,
+      lease_epoch: 0,
+      trace_id: run_attempt.trace_id,
       artifact_refs: []
     }
 
@@ -207,8 +286,12 @@ defmodule Conveyor.Station do
         %{
           status: :running,
           lease_owner: lease_owner,
+          lease_owner_instance_id: Keyword.get(opts, :lease_owner_instance_id, lease_owner),
+          lease_epoch: station_run.lease_epoch + 1,
+          lease_acquired_at: now,
           lease_expires_at: DateTime.add(now, lease_seconds, :second),
           heartbeat_at: now,
+          trace_id: Keyword.get(opts, :trace_id, run_attempt.trace_id),
           started_at: station_run.started_at || now
         },
         domain: Factory
@@ -252,6 +335,8 @@ defmodule Conveyor.Station do
   end
 
   defp complete_station!(station_run, run_attempt, output, opts) do
+    station_run = current_lease!(station_run)
+
     Repo.transaction(fn ->
       {artifacts, artifact_notifications} =
         write_artifacts!(
@@ -296,6 +381,7 @@ defmodule Conveyor.Station do
               "station" => station_run.station,
               "station_run_id" => station_run.id,
               "run_attempt_id" => run_attempt.id,
+              "fencing_token" => fencing_token(station_run),
               "output_sha256" => output_sha256,
               "artifact_refs" => artifact_refs
             },
@@ -326,6 +412,7 @@ defmodule Conveyor.Station do
   end
 
   defp fail_station!(station_run, run_attempt, reason, opts) do
+    station_run = current_lease!(station_run)
     failed_at = Keyword.get_lazy(opts, :completed_at, fn -> DateTime.utc_now(:microsecond) end)
     message = Exception.message(normalize_error(reason))
 
@@ -355,6 +442,7 @@ defmodule Conveyor.Station do
           "station" => station_run.station,
           "station_run_id" => station_run.id,
           "run_attempt_id" => run_attempt.id,
+          "fencing_token" => fencing_token(station_run),
           "error_message" => message
         },
         occurred_at: failed_at
@@ -446,6 +534,12 @@ defmodule Conveyor.Station do
     |> Ash.read!(domain: Factory)
     |> Enum.find(&(&1.id == id)) ||
       raise ArgumentError, "#{inspect(resource)} #{id} was not found"
+  end
+
+  defp current_lease!(%StationRun{} = station_run) do
+    current_station_run = get_by_id!(StationRun, station_run.id)
+    ensure_current_lease!(station_run, current_station_run)
+    current_station_run
   end
 
   defp find_one(resource, predicate) do
