@@ -1,0 +1,41 @@
+{
+  "schema_version": "conveyor.schema_pass_compatibility@1",
+  "unknown_schema_failure": "unsupported_schema_version",
+  "expected_pass_graph_digest": "sha256:d82e193dc746f1a4cd5bece012ddeb462ec75ee1bd55232fe4eb6b9d7735b6a4",
+  "canonical_semantic_input": {
+    "plan_revision_id": "plan-revision-compat",
+    "constraint_set_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "qualification_grant_id": "grant-compat",
+    "pass_graph": ["parse", "claim", "constraint", "plan"],
+    "policy_bundle_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "prompt_template_versions": { "planner": "planner@1" },
+    "agent_profile_snapshots": ["agent-profile-compat"],
+    "repository_base_commit": "0123456789abcdef0123456789abcdef01234567",
+    "environment_fingerprint_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "planning_width": 2,
+    "budgets": { "max_tokens": 100000 },
+    "trace_id": "trace-compat",
+    "admission": { "mode": "agentic_planning", "approval_authority": true },
+    "schema_versions": ["conveyor.planning_spec@1"]
+  },
+  "canonical_semantic_input_reordered": {
+    "schema_versions": ["conveyor.planning_spec@1"],
+    "admission": { "approval_authority": true, "mode": "agentic_planning" },
+    "trace_id": "trace-compat",
+    "budgets": { "max_tokens": 100000 },
+    "planning_width": 2,
+    "environment_fingerprint_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "repository_base_commit": "0123456789abcdef0123456789abcdef01234567",
+    "agent_profile_snapshots": ["agent-profile-compat"],
+    "prompt_template_versions": { "planner": "planner@1" },
+    "policy_bundle_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "pass_graph": ["parse", "claim", "constraint", "plan"],
+    "qualification_grant_id": "grant-compat",
+    "constraint_set_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "plan_revision_id": "plan-revision-compat"
+  },
+  "unknown_schema_input": {
+    "schema_version": "conveyor.planning_spec@999",
+    "plan_revision_id": "plan-revision-compat"
+  }
+}
