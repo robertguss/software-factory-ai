@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.work_graph@2.json",
+  "title": "Conveyor WorkGraph (IR)",
+  "description": "The work_graph@2 IR produced by Conveyor.Planning.WorkGraphLowering.build_graph/2. An intermediate representation, NOT executable (P2-B lowers Work -> Contract). Materialized by E7 to close a doc-drift gap; the runtime contract is build_graph/2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_revision_digest",
+    "constraint_set_digest",
+    "selected_candidate_digest",
+    "claim_set_ref",
+    "epics",
+    "atomicity_groups",
+    "slices",
+    "work_dependencies",
+    "interface_contracts",
+    "interface_bindings",
+    "decision_blocks",
+    "constraint_status",
+    "scope_delta",
+    "derivation_manifest_ref"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.work_graph@2" },
+    "plan_revision_digest": { "$ref": "#/$defs/digest" },
+    "constraint_set_digest": { "$ref": "#/$defs/digest" },
+    "selected_candidate_digest": { "$ref": "#/$defs/digest" },
+    "claim_set_ref": { "type": "string", "minLength": 1 },
+    "derivation_manifest_ref": { "type": "string", "minLength": 1 },
+    "scope_delta": { "type": "string", "minLength": 1 },
+    "epics": { "type": "array" },
+    "decision_blocks": { "type": "array" },
+    "constraint_status": { "type": "array" },
+    "interface_contracts": { "type": "array", "items": { "type": "object" } },
+    "interface_bindings": { "type": "array", "items": { "type": "object" } },
+    "atomicity_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "member_keys"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "member_keys": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "slices": { "type": "array", "items": { "$ref": "#/$defs/slice" } },
+    "work_dependencies": { "type": "array", "items": { "$ref": "#/$defs/work_dependency" } }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "slice": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["stable_key", "status"],
+      "properties": {
+        "stable_key": { "type": "string", "minLength": 1 },
+        "status": { "type": "string" },
+        "acceptance_refs": { "type": "array" },
+        "requirement_refs": { "type": "array" },
+        "title": { "type": "string" },
+        "why_this_slice": { "type": "string" }
+      }
+    },
+    "work_dependency": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["from", "to", "kind"],
+      "properties": {
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

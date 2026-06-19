@@ -17,6 +17,23 @@ defmodule Conveyor.Eval.Scorecard do
   alias Conveyor.Eval.Schema
 
   @schema_version "conveyor.eval_scorecard@1"
+  @inputs_dir "eval/scorecards/inputs"
+
+  @doc "The default directory eval suites write their metric inputs to."
+  @spec inputs_dir() :: String.t()
+  def inputs_dir, do: @inputs_dir
+
+  @doc """
+  Write a suite's metrics (`conveyor.eval_metric@1` maps) to
+  `eval/scorecards/inputs/<name>.json` (canonical JSON). Returns the path.
+  """
+  @spec write_input!(String.t(), [map()]) :: String.t()
+  def write_input!(name, metrics) when is_list(metrics) do
+    File.mkdir_p!(@inputs_dir)
+    path = Path.join(@inputs_dir, name <> ".json")
+    File.write!(path, CanonicalJson.encode(metrics))
+    path
+  end
 
   @doc """
   Aggregate eval metric maps (`conveyor.eval_metric@1`) into one deterministic
@@ -39,6 +56,43 @@ defmodule Conveyor.Eval.Scorecard do
     Map.put(base, "scorecard_digest", CanonicalJson.digest(base))
   end
 
+  @doc """
+  Build a `conveyor.eval_metric@1` map. Status is derived from `value` vs `target`
+  unless given explicitly: equal → `"ok"`; otherwise `"blocking"` if `blocking:`
+  else `"warn"`. Opts: `:blocking` (bool), `:status`, `:detail`, `:ci`.
+  """
+  @spec metric(
+          String.t(),
+          String.t(),
+          number() | String.t() | boolean(),
+          number() | String.t() | boolean(),
+          keyword()
+        ) ::
+          map()
+  def metric(key, suite, value, target, opts \\ []) do
+    blocking = Keyword.get(opts, :blocking, false)
+
+    status =
+      cond do
+        opts[:status] -> opts[:status]
+        value == target -> "ok"
+        blocking -> "blocking"
+        true -> "warn"
+      end
+
+    %{
+      "schema_version" => "conveyor.eval_metric@1",
+      "key" => key,
+      "suite" => suite,
+      "value" => value,
+      "target" => target,
+      "blocking" => blocking,
+      "status" => status
+    }
+    |> put_optional("detail", opts[:detail])
+    |> put_optional("ci", opts[:ci])
+  end
+
   @doc "Whether the scorecard has no blocking metric (the `--gate` predicate)."
   @spec healthy?(map()) :: boolean()
   def healthy?(scorecard), do: scorecard["healthy?"] == true
@@ -55,10 +109,17 @@ defmodule Conveyor.Eval.Scorecard do
         files
         |> Enum.filter(&String.ends_with?(&1, ".json"))
         |> Enum.sort()
-        |> Enum.map(&(dir |> Path.join(&1) |> File.read!() |> Jason.decode!()))
+        |> Enum.flat_map(&decode_metrics(Path.join(dir, &1)))
 
       {:error, _} ->
         []
+    end
+  end
+
+  defp decode_metrics(path) do
+    case path |> File.read!() |> Jason.decode!() do
+      list when is_list(list) -> list
+      map when is_map(map) -> [map]
     end
   end
 

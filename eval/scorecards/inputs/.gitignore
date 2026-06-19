@@ -1,0 +1,3 @@
+# Generated eval metric inputs (written by eval suites / mix conveyor.eval.* tasks).
+# Regenerated in CI before `mix conveyor.eval.scorecard --gate`; not committed.
+*.json
