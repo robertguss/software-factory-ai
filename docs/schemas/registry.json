@@ -39,6 +39,7 @@
     { "schema_version": "conveyor.battery_sample_result@1", "file": "conveyor.battery_sample_result@1.json", "owner": "P15-B1", "writer_status": "current" },
     { "schema_version": "conveyor.battery_case_result@1", "file": "conveyor.battery_case_result@1.json", "owner": "P15-B1", "writer_status": "current" },
     { "schema_version": "conveyor.human_review_rubric@1", "file": "conveyor.human_review_rubric@1.json", "owner": "P15-B1", "writer_status": "current" },
+    { "schema_version": "conveyor.context_ground_truth@1", "file": "conveyor.context_ground_truth@1.json", "owner": "P15-B7", "writer_status": "current" },
     { "schema_version": "conveyor.plan_source_snapshot@1", "file": "conveyor.plan_source_snapshot@1.json", "owner": "P2-A0", "writer_status": "current" },
     { "schema_version": "conveyor.plan_revision@1", "file": "conveyor.plan_revision@1.json", "owner": "P2-A0", "writer_status": "current" },
     { "schema_version": "conveyor.capability_claim@1", "file": "conveyor.capability_claim@1.json", "owner": "P15-B2", "writer_status": "current" },

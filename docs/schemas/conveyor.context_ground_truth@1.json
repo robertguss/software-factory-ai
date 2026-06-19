@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.context_ground_truth@1.json",
+  "title": "Conveyor ContextGroundTruth",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "necessary_source_refs",
+    "useful_source_refs",
+    "forbidden_or_irrelevant_source_refs",
+    "annotation_provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.context_ground_truth@1" },
+    "case_id": { "type": "string", "minLength": 1 },
+    "necessary_source_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "useful_source_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "forbidden_or_irrelevant_source_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "annotation_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["annotator_ref", "annotation_method", "source_revision_ref"],
+      "properties": {
+        "annotator_ref": { "type": "string", "minLength": 1 },
+        "annotation_method": { "type": "string", "minLength": 1 },
+        "source_revision_ref": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}
