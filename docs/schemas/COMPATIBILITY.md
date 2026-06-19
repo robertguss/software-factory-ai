@@ -46,6 +46,14 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.budget_envelope@1` | `conveyor.budget_envelope@1.json` | `examples/conveyor.budget_envelope@1.valid.json` | `examples/conveyor.budget_envelope@1.invalid.missing-schema-version.json` |
 | `conveyor.budget_reservation@1` | `conveyor.budget_reservation@1.json` | `examples/conveyor.budget_reservation@1.valid.json` | `examples/conveyor.budget_reservation@1.invalid.missing-schema-version.json` |
 | `conveyor.adapter_health_state@1` | `conveyor.adapter_health_state@1.json` | `examples/conveyor.adapter_health_state@1.valid.json` | `examples/conveyor.adapter_health_state@1.invalid.missing-schema-version.json` |
+| `conveyor.battery_case@1` | `conveyor.battery_case@1.json` | `examples/conveyor.battery_case@1.valid.json` | `examples/conveyor.battery_case@1.invalid.missing-schema-version.json` |
+| `conveyor.sampling_policy@1` | `conveyor.sampling_policy@1.json` | `examples/conveyor.sampling_policy@1.valid.json` | `examples/conveyor.sampling_policy@1.invalid.missing-schema-version.json` |
+| `conveyor.battery_run@1` | `conveyor.battery_run@1.json` | `examples/conveyor.battery_run@1.valid.json` | `examples/conveyor.battery_run@1.invalid.missing-schema-version.json` |
+| `conveyor.battery_sample_result@1` | `conveyor.battery_sample_result@1.json` | `examples/conveyor.battery_sample_result@1.valid.json` | `examples/conveyor.battery_sample_result@1.invalid.missing-schema-version.json` |
+| `conveyor.battery_case_result@1` | `conveyor.battery_case_result@1.json` | `examples/conveyor.battery_case_result@1.valid.json` | `examples/conveyor.battery_case_result@1.invalid.missing-schema-version.json` |
+| `conveyor.human_review_rubric@1` | `conveyor.human_review_rubric@1.json` | `examples/conveyor.human_review_rubric@1.valid.json` | `examples/conveyor.human_review_rubric@1.invalid.missing-schema-version.json` |
+| `conveyor.plan_source_snapshot@1` | `conveyor.plan_source_snapshot@1.json` | `examples/conveyor.plan_source_snapshot@1.valid.json` | `examples/conveyor.plan_source_snapshot@1.invalid.missing-schema-version.json` |
+| `conveyor.plan_revision@1` | `conveyor.plan_revision@1.json` | `examples/conveyor.plan_revision@1.valid.json` | `examples/conveyor.plan_revision@1.invalid.missing-schema-version.json` |
 
 ## Compatibility Policy
 

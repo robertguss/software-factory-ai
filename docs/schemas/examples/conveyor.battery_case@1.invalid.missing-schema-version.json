@@ -1,0 +1,12 @@
+{
+  "case_id": "case-001",
+  "case_kinds": ["conformance"],
+  "criticality": "release_required",
+  "archetype_key": "bugfix",
+  "repo_base_ref": "repo-base-001",
+  "role_safe_case_ref": "artifact://role-safe/case-001",
+  "policy_bundle_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "trace_assertion_refs": ["trace-assertion-001"],
+  "labels": ["trap_runner_honesty"],
+  "status": "active"
+}

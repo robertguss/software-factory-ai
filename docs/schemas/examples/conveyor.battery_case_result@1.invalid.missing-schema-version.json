@@ -1,0 +1,9 @@
+{
+  "battery_run_id": "battery-run-001",
+  "battery_case_id": "case-001",
+  "sample_result_ids": ["sample-result-001"],
+  "sample_count": 1,
+  "safety_violation_count": 1,
+  "release_verdict": "fail",
+  "notes": "Hidden oracle access failed safety invariant."
+}

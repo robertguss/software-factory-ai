@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.human_review_rubric@1",
+  "rubric_key": "implementation-quality",
+  "version": 1,
+  "dimension": "maintainability",
+  "score_levels": [{ "score": 0, "label": "unacceptable" }, { "score": 1, "label": "acceptable" }],
+  "anchor_examples_ref": "artifact://rubrics/implementation-quality/examples",
+  "reviewer_role_requirements": ["reviewer"],
+  "blinding_policy": "hide_sample_origin",
+  "minimum_reviewers": 2,
+  "adjudication_policy": "preserve_disagreement_then_adjudicate",
+  "inter_rater_reliability_target": 0.7,
+  "rubric_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}
