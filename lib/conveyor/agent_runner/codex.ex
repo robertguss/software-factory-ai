@@ -3,13 +3,19 @@ defmodule Conveyor.AgentRunner.Codex do
   Real coding-agent adapter (Rung 2, R2a) driving the **OpenAI Codex CLI** in
   non-interactive mode:
 
-      codex exec --cd <workspace> --sandbox workspace-write --json [-m <model>] "<prompt>"
+      codex exec --cd <ws> --sandbox workspace-write --json --ephemeral \
+        --skip-git-repo-check [-m <model>] [-c model_reasoning_effort="<level>"] "<prompt>"
 
   Auth is the user's ChatGPT/Codex **subscription** (the CLI's saved login) — no API
   key, ~$0 marginal cost. `--json` streams JSONL whose `turn.completed.usage` carries
   token counts (input/output/reasoning/cached) and `item.completed`/`agent_message`
   carries the final message; the workspace edits are captured as a diff via the same
   `PatchCapture` path the deterministic adapters use.
+
+  Headless gotcha: `codex exec` reads stdin as "additional input", so under
+  `System.cmd` (which leaves stdin open) it blocks forever — the default exec runs it
+  through an `sh` wrapper that closes stdin (`</dev/null`). `--ephemeral` skips session
+  rollout persistence; reasoning effort is held constant across lift-duel arms.
 
   Determinism / cost control: `run/4` takes an injectable `:codex_exec`
   `(prompt, workspace_path, opts) -> {jsonl_stdout, exit_code}`. The default drives
@@ -172,11 +178,27 @@ defmodule Conveyor.AgentRunner.Codex do
   # --- codex exec --------------------------------------------------------------
 
   defp default_exec(prompt, ws_path, opts) do
+    # `--ephemeral`: don't persist session rollout files to disk (recommended for
+    # automation / repeated eval runs; we never resume these sessions).
     args =
-      ["exec", "--cd", ws_path, "--sandbox", "workspace-write", "--json", "--skip-git-repo-check"] ++
+      [
+        "exec",
+        "--cd",
+        ws_path,
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--ephemeral",
+        "--skip-git-repo-check"
+      ] ++
         model_args(opts) ++ reasoning_args(opts) ++ [prompt]
 
-    System.cmd("codex", args)
+    # `codex exec` reads stdin for "additional input" and blocks forever when stdin
+    # never EOFs (System.cmd leaves the child's stdin open). Run it through a tiny sh
+    # wrapper that closes stdin so codex proceeds with just the prompt arg. No shell
+    # injection: codex and its args are passed as positional params ($0/$@), never
+    # interpolated into the script.
+    System.cmd("/bin/sh", ["-c", ~s(exec "$0" "$@" </dev/null), "codex" | args])
   end
 
   defp model_args(opts) do

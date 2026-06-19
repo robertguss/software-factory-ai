@@ -69,9 +69,11 @@ defmodule Conveyor.Eval.LiftDuelTest do
     assert report["lift"]["pass_at_1_delta"] == 1.0
     assert report["lift"]["verified_acs_delta"] > 0
 
-    # Schema-valid, and the report persists as the rich artifact.
+    # Schema-valid, and the report persists as the rich artifact (throwaway dir so the
+    # deterministic run never collides with the committed real seed CI projects).
     assert Schema.validate(report, "conveyor.eval_lift@1") == :ok
-    path = LiftDuel.write_report!(report)
+    dir = Path.join(System.tmp_dir!(), "lift-report-#{System.unique_integer([:positive])}")
+    path = LiftDuel.write_report!(report, dir: dir)
     assert File.exists?(path)
   end
 
@@ -98,11 +100,16 @@ defmodule Conveyor.Eval.LiftDuelTest do
       LiftDuel.summarize_arm("vanilla", "codex", Enum.map(@tasks, &cell.(&1, false, 0)))
 
     report = LiftDuel.report([vanilla, treatment], tasks: @tasks, reasoning_effort: "medium")
-    LiftDuel.write_report!(report)
 
-    Mix.Tasks.Conveyor.Eval.Lift.run([])
+    # Project from a throwaway dir under a self-test name, and clean the scorecard
+    # input on exit — so this never competes with the committed real seed
+    # (eval/lift/seed.json), which is CI's sole lift source.
+    dir = Path.join(System.tmp_dir!(), "lift-report-#{System.unique_integer([:positive])}")
+    LiftDuel.write_report!(report, dir: dir, name: "lift_duel_selftest")
+    path = Path.join(Scorecard.inputs_dir(), "lift_duel_selftest.json")
+    on_exit(fn -> File.rm(path) end)
 
-    path = Path.join(Scorecard.inputs_dir(), "lift_duel.json")
+    Mix.Tasks.Conveyor.Eval.Lift.run([dir])
     assert File.exists?(path)
 
     metrics = path |> File.read!() |> Jason.decode!()

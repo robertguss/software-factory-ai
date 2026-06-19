@@ -183,10 +183,17 @@ defmodule Conveyor.Eval.LiftDuel do
       Scorecard.metric("cost_per_verified_ac", @suite, t["cost_per_verified_ac"] || 0, 0,
         status: "ok",
         detail:
-          "$#{fmt(t["cost_usd_total"])} / #{t["verified_acs_total"]} verified ACs (estimated; tokens=#{t["tokens_total"]})"
+          "$#{fmt(t["cost_usd_total"])} / #{t["verified_acs_total"]} verified ACs, #{t["tokens_total"]} tokens (estimated)#{cost_ratio_detail(lift)}"
       )
     ]
   end
+
+  # Surface the efficiency lift (the v1 finding when correctness lift is ~0): the
+  # treatment's cost-per-verified-AC as a multiple of the baseline's. <1.0 → cheaper.
+  defp cost_ratio_detail(%{"cost_per_verified_ac_ratio" => r}) when is_number(r),
+    do: "; #{fmt(r)}× vs vanilla"
+
+  defp cost_ratio_detail(_lift), do: ""
 
   @doc "Write the duel's metrics to the scorecard inputs dir; returns the report."
   @spec emit!(map()) :: map()
@@ -200,14 +207,15 @@ defmodule Conveyor.Eval.LiftDuel do
   def reports_dir, do: @reports_dir
 
   @doc """
-  Write a full `conveyor.eval_lift@1` report to `eval/lift/<name>.json` (canonical
-  JSON; `:name` defaults to the suite). This is the rich artifact; the scorecard
-  metrics are a projection of it (see `metrics/1`). Returns the path.
+  Write a full `conveyor.eval_lift@1` report to `<dir>/<name>.json` (canonical JSON;
+  `:dir` defaults to `eval/lift`, `:name` to the suite). This is the rich artifact; the
+  scorecard metrics are a projection of it (see `metrics/1`). Returns the path.
   """
   @spec write_report!(map(), keyword()) :: String.t()
   def write_report!(report, opts \\ []) do
-    File.mkdir_p!(@reports_dir)
-    path = Path.join(@reports_dir, Keyword.get(opts, :name, @suite) <> ".json")
+    dir = Keyword.get(opts, :dir, @reports_dir)
+    File.mkdir_p!(dir)
+    path = Path.join(dir, Keyword.get(opts, :name, @suite) <> ".json")
     File.write!(path, CanonicalJson.encode(report))
     path
   end

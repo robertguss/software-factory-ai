@@ -6,13 +6,13 @@ defmodule Mix.Tasks.Conveyor.Eval.Lift do
   `lift_vs_vanilla` / `pass_at_1` / `cost_per_verified_ac` metrics to
   `eval/scorecards/inputs/` for `mix conveyor.eval.scorecard`. DB-free.
 
-      mix conveyor.eval.lift
+      mix conveyor.eval.lift [reports_dir]   # defaults to eval/lift/
 
-  The reports are produced by the R5 lift-duel eval during `mix test` (the duel needs
-  the DB-backed agent-session chain, so it runs as a test — like the Golden Thread),
-  or, once a cassette corpus exists, by replaying it (B4). This task is the DB-free
-  measurement→reporting seam: with no report present it degrades gracefully (emits
-  nothing), mirroring `mix conveyor.eval.replay` on an empty corpus.
+  In CI the report is the committed real seed (`eval/lift/seed.json`) from the
+  `:live_agent` duel — so CI projects the *real* lift numbers for $0, deterministically.
+  This task is the DB-free measurement→reporting seam: with no report present it
+  degrades gracefully (emits nothing), mirroring `mix conveyor.eval.replay` on an empty
+  corpus.
   """
 
   use Mix.Task
@@ -21,12 +21,12 @@ defmodule Mix.Tasks.Conveyor.Eval.Lift do
   alias Conveyor.Eval.{LiftDuel, Scorecard}
 
   @impl Mix.Task
-  def run(_args) do
-    case LiftDuel.load_reports() do
+  def run(args) do
+    dir = List.first(args) || LiftDuel.reports_dir()
+
+    case LiftDuel.load_reports(dir) do
       [] ->
-        Mix.shell().info(
-          "no lift reports under #{LiftDuel.reports_dir()}/ — run the lift-duel eval first"
-        )
+        Mix.shell().info("no lift reports under #{dir}/ — run the lift-duel eval first")
 
       reports ->
         Enum.each(reports, &project/1)
