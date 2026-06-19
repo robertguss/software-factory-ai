@@ -53,6 +53,7 @@
     { "schema_version": "conveyor.verification_waiver@1", "file": "conveyor.verification_waiver@1.json", "owner": "P15-B4", "writer_status": "current" },
     { "schema_version": "conveyor.test_integrity_run@1", "file": "conveyor.test_integrity_run@1.json", "owner": "P15-B4", "writer_status": "current" },
     { "schema_version": "conveyor.test_quarantine@1", "file": "conveyor.test_quarantine@1.json", "owner": "P15-B4", "writer_status": "current" },
+    { "schema_version": "conveyor.behavior_lock_run@1", "file": "conveyor.behavior_lock_run@1.json", "owner": "P15-B5", "writer_status": "current" },
     { "schema_version": "conveyor.incident_record@1", "file": "conveyor.incident_record@1.json", "owner": "P15-B6", "writer_status": "current" },
     { "schema_version": "conveyor.evidence_comparison@1", "file": "conveyor.evidence_comparison@1.json", "owner": "P15-B6", "writer_status": "current" },
     { "schema_version": "conveyor.failure_diagnosis@1", "file": "conveyor.failure_diagnosis@1.json", "owner": "P15-B6", "writer_status": "current" },
