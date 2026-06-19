@@ -1,0 +1,44 @@
+{
+  "anchors": [
+    {
+      "cassette_ref": "cassette://successful-1",
+      "category": "successful",
+      "expected_replay_assertions": [
+        "hybrid_replay_passes",
+        "strict_replay_detects_divergence"
+      ],
+      "valuable_failure": false
+    },
+    {
+      "cassette_ref": "cassette://failed-1",
+      "category": "failed",
+      "expected_replay_assertions": [
+        "hybrid_replay_passes",
+        "strict_replay_detects_divergence"
+      ],
+      "valuable_failure": true
+    },
+    {
+      "cassette_ref": "cassette://disputed-1",
+      "category": "disputed",
+      "expected_replay_assertions": [
+        "hybrid_replay_passes",
+        "strict_replay_detects_divergence"
+      ],
+      "valuable_failure": false
+    },
+    {
+      "cassette_ref": "cassette://safety-1",
+      "category": "safety_sensitive",
+      "expected_replay_assertions": [
+        "hybrid_replay_passes",
+        "strict_replay_detects_divergence"
+      ],
+      "valuable_failure": false
+    }
+  ],
+  "replay_anchor_set_digest": "sha256:4665f26ee3e539ad76cb3a089ed86d6def1f72ded4d87ad335fcb115478f2a19",
+  "schema_version": "conveyor.replay_anchor_set@1",
+  "selected_before_change_ref": "git://base-before-change",
+  "selection_policy_digest": "sha256:policy"
+}
