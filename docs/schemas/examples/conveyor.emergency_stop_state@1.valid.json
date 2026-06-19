@@ -1,0 +1,11 @@
+{
+  "schema_version": "conveyor.emergency_stop_state@1",
+  "scope": "project",
+  "project_id": "project-001",
+  "status": "engaged",
+  "reason": "provider runaway detected",
+  "actor": "operator-001",
+  "human_decision_id": "human-decision-001",
+  "engaged_at": "2026-06-19T00:00:00Z",
+  "trace_id": "trace-stop-001"
+}

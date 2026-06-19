@@ -42,6 +42,10 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.artifact_address@1` | `conveyor.artifact_address@1.json` | `examples/conveyor.artifact_address@1.valid.json` | `examples/conveyor.artifact_address@1.invalid.missing-schema-version.json` |
 | `conveyor.station_run_lease_ext@1` | `conveyor.station_run_lease_ext@1.json` | `examples/conveyor.station_run_lease_ext@1.valid.json` | `examples/conveyor.station_run_lease_ext@1.invalid.missing-schema-version.json` |
 | `conveyor.dependency_resolution_manifest@1` | `conveyor.dependency_resolution_manifest@1.json` | `examples/conveyor.dependency_resolution_manifest@1.valid.json` | `examples/conveyor.dependency_resolution_manifest@1.invalid.missing-schema-version.json` |
+| `conveyor.emergency_stop_state@1` | `conveyor.emergency_stop_state@1.json` | `examples/conveyor.emergency_stop_state@1.valid.json` | `examples/conveyor.emergency_stop_state@1.invalid.missing-schema-version.json` |
+| `conveyor.budget_envelope@1` | `conveyor.budget_envelope@1.json` | `examples/conveyor.budget_envelope@1.valid.json` | `examples/conveyor.budget_envelope@1.invalid.missing-schema-version.json` |
+| `conveyor.budget_reservation@1` | `conveyor.budget_reservation@1.json` | `examples/conveyor.budget_reservation@1.valid.json` | `examples/conveyor.budget_reservation@1.invalid.missing-schema-version.json` |
+| `conveyor.adapter_health_state@1` | `conveyor.adapter_health_state@1.json` | `examples/conveyor.adapter_health_state@1.valid.json` | `examples/conveyor.adapter_health_state@1.invalid.missing-schema-version.json` |
 
 ## Compatibility Policy
 

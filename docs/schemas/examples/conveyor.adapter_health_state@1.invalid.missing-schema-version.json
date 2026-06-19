@@ -1,0 +1,8 @@
+{
+  "adapter": "openai.responses",
+  "capability_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "state": "open",
+  "reason_codes": ["transport_failure"],
+  "consecutive_failures": 3,
+  "affected_grant_ids": ["grant-001"]
+}

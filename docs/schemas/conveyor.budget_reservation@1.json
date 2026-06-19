@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.budget_reservation@1.json",
+  "title": "Conveyor BudgetReservation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "budget_envelope_id", "subject", "reserved_at", "expires_at", "status", "policy_decision_id", "trace_id"],
+  "properties": {
+    "schema_version": { "const": "conveyor.budget_reservation@1" },
+    "budget_envelope_id": { "type": "string", "minLength": 1 },
+    "subject": { "type": "object" },
+    "requested_tokens": { "type": "integer", "minimum": 0 },
+    "requested_cost": { "type": "number", "minimum": 0 },
+    "reserved_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "committed_actuals": { "type": "object" },
+    "status": { "enum": ["reserved", "committed", "released", "expired", "denied"] },
+    "policy_decision_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 }
+  }
+}

@@ -28,7 +28,11 @@
     { "schema_version": "conveyor.artifact_input@1", "file": "conveyor.artifact_input@1.json", "owner": "P15-A3", "writer_status": "current" },
     { "schema_version": "conveyor.artifact_address@1", "file": "conveyor.artifact_address@1.json", "owner": "P15-A3", "writer_status": "current" },
     { "schema_version": "conveyor.station_run_lease_ext@1", "file": "conveyor.station_run_lease_ext@1.json", "owner": "P15-A3", "writer_status": "current" },
-    { "schema_version": "conveyor.dependency_resolution_manifest@1", "file": "conveyor.dependency_resolution_manifest@1.json", "owner": "P15-A3", "writer_status": "current" }
+    { "schema_version": "conveyor.dependency_resolution_manifest@1", "file": "conveyor.dependency_resolution_manifest@1.json", "owner": "P15-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.emergency_stop_state@1", "file": "conveyor.emergency_stop_state@1.json", "owner": "P15-A4", "writer_status": "current" },
+    { "schema_version": "conveyor.budget_envelope@1", "file": "conveyor.budget_envelope@1.json", "owner": "P15-A4", "writer_status": "current" },
+    { "schema_version": "conveyor.budget_reservation@1", "file": "conveyor.budget_reservation@1.json", "owner": "P15-A4", "writer_status": "current" },
+    { "schema_version": "conveyor.adapter_health_state@1", "file": "conveyor.adapter_health_state@1.json", "owner": "P15-A4", "writer_status": "current" }
   ],
   "vocabularies": [
     { "key": "materiality_class", "values": ["nonmaterial", "review_only", "material", "breaking"] },
