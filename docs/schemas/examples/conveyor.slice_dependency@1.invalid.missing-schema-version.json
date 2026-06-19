@@ -1,0 +1,9 @@
+{
+  "from_slice_key": "SLC-SCHEMA",
+  "to_slice_key": "SLC-FILTER",
+  "kind": "execution_hard",
+  "rationale": "The query cannot be implemented safely before persisted state exists.",
+  "source_anchor_refs": ["SRC-REQ-001"],
+  "origin": "deterministic_derived",
+  "confidence": 1.0
+}
