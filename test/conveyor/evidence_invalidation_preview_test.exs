@@ -159,4 +159,35 @@ defmodule Conveyor.Evidence.InvalidationPreviewTest do
              }
            ]
   end
+
+  test "review-only presentation changes do not invalidate authority roots" do
+    preview =
+      InvalidationPreview.preview_invalidation(%{
+        change_set_id: "changeset:review-erratum",
+        impact_confidence: 0.94,
+        changed_subjects: [
+          %{subject_kind: "rendered_review", subject_id: "review-typo"}
+        ],
+        artifact_inputs: [
+          %{
+            consumer_artifact_id: "review:checkout",
+            input_subject_kind: "rendered_review",
+            input_subject_id: "review-typo",
+            role: "presentation",
+            invalidation_policy: "ignore_after_capture"
+          }
+        ],
+        approval_roots: [
+          %{
+            root_id: "approval_root:checkout-epic",
+            root_kind: "epic_authority",
+            subject_kind: "interface_contract",
+            subject_id: "payments-api"
+          }
+        ]
+      })
+
+    assert preview["confidence_status"] == "selective"
+    assert preview["affected_subjects"] == []
+  end
 end
