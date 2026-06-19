@@ -1,0 +1,50 @@
+{
+  "schema_version": "conveyor.context_ground_truth_fixtures@1",
+  "scope": "battery_only",
+  "labelled_cases": [
+    {
+      "case_id": "battery-context-structural-audit",
+      "necessary_source_refs": [
+        "docs/phase-2/p2-a0/acceptance-gate.md#hard-constraints",
+        "lib/conveyor/planning/structural_audit.ex"
+      ],
+      "useful_source_refs": [
+        "test/conveyor/planning_structural_audit_test.exs"
+      ],
+      "forbidden_or_irrelevant_source_refs": [
+        "docs/BRAINSTORM.md#marketing-ideas"
+      ],
+      "selected_source_refs": [
+        "docs/phase-2/p2-a0/acceptance-gate.md#hard-constraints",
+        "test/conveyor/planning_structural_audit_test.exs"
+      ],
+      "patch_source_refs": [
+        "lib/conveyor/planning/structural_audit.ex"
+      ],
+      "opened_source_refs": [
+        "docs/phase-2/p2-a0/acceptance-gate.md#hard-constraints",
+        "test/conveyor/planning_structural_audit_test.exs",
+        "docs/notes/unneeded.md"
+      ],
+      "post_failure_missing_context": false,
+      "budget_exhausted": false,
+      "critical_context_shed": false
+    }
+  ],
+  "unlabelled_proxy_cases": [
+    {
+      "case_id": "live-work-unlabelled-context-budget",
+      "selected_source_refs": [
+        "lib/conveyor/planning/context_assembly_manifest.ex"
+      ],
+      "patch_source_refs": [],
+      "opened_source_refs": [
+        "lib/conveyor/planning/context_assembly_manifest.ex",
+        "docs/phase-2/p2-a1/context-ground-truth-fixtures.json"
+      ],
+      "post_failure_missing_context": true,
+      "budget_exhausted": true,
+      "critical_context_shed": true
+    }
+  ]
+}
