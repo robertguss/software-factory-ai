@@ -8,8 +8,11 @@ defmodule Conveyor.Station do
   """
 
   alias Conveyor.Artifacts.BlobStore
+  alias Conveyor.Effects.Attempts
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.EffectAttempt
+  alias Conveyor.Factory.EffectReceipt
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
@@ -110,7 +113,7 @@ defmodule Conveyor.Station do
       }
     else
       reject_unknown_effects!(station_run)
-      effects = declare_effects!(station_module, station_run, input)
+      effects = declare_effects!(station_module, station_run, input, opts)
 
       context = %Context{
         run_attempt: run_attempt,
@@ -140,6 +143,10 @@ defmodule Conveyor.Station do
       raise ArgumentError,
             "StationRun #{station_run.id} has unknown StationEffect records; reconcile before retry"
     end
+
+    station_run
+    |> effect_receipts_for_station_run()
+    |> Attempts.ensure_retry_allowed!()
 
     :ok
   end
@@ -299,18 +306,47 @@ defmodule Conveyor.Station do
     end
   end
 
-  defp declare_effects!(station_module, station_run, input) do
+  defp declare_effects!(station_module, station_run, input, opts) do
     input
     |> station_module.effects()
     |> Enum.with_index(1)
     |> Enum.map(fn {effect, index} ->
       attrs = effect_attrs(effect, station_run.id, index)
 
-      case find_one(StationEffect, &(&1.idempotency_key == attrs.idempotency_key)) do
-        nil -> Ash.create!(StationEffect, attrs, domain: Factory)
-        existing -> existing
-      end
+      station_effect =
+        case find_one(StationEffect, &(&1.idempotency_key == attrs.idempotency_key)) do
+          nil -> Ash.create!(StationEffect, attrs, domain: Factory)
+          existing -> existing
+        end
+
+      record_effect_attempt!(station_run, station_effect, opts)
+      station_effect
     end)
+  end
+
+  defp record_effect_attempt!(station_run, station_effect, opts) do
+    idempotency_key = Attempts.attempt_idempotency_key(station_run.id, station_effect.id)
+
+    attrs = %{
+      station_run_id: station_run.id,
+      station_effect_id: station_effect.id,
+      fencing_token: fencing_token(station_run),
+      admission_permit_id: admission_permit_id(opts),
+      idempotency_key: idempotency_key,
+      request_digest:
+        digest(%{
+          "station_effect_id" => station_effect.id,
+          "effect_kind" => station_effect.effect_kind,
+          "station_run_id" => station_run.id
+        }),
+      started_at: Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:microsecond) end),
+      status: :started
+    }
+
+    case find_one(EffectAttempt, &(&1.idempotency_key == idempotency_key)) do
+      nil -> Ash.create!(EffectAttempt, attrs, domain: Factory)
+      existing -> existing
+    end
   end
 
   defp effect_attrs(effect_kind, station_run_id, index) when is_atom(effect_kind) do
@@ -507,6 +543,25 @@ defmodule Conveyor.Station do
     |> Ash.read!(domain: Factory)
     |> Enum.filter(&(&1.station_run_id == station_run_id))
     |> Enum.sort_by(& &1.idempotency_key)
+  end
+
+  defp effect_receipts_for_station_run(station_run) do
+    attempt_ids =
+      EffectAttempt
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.station_run_id == station_run.id))
+      |> MapSet.new(& &1.id)
+
+    EffectReceipt
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.effect_attempt_id in attempt_ids))
+  end
+
+  defp admission_permit_id(opts) do
+    opts
+    |> Keyword.get(:claim_controls, %{})
+    |> then(&Map.get(&1, :admission_permit, Map.get(&1, "admission_permit", %{})))
+    |> then(&Map.get(&1, :id, Map.get(&1, "id", "local-dev-admission-permit")))
   end
 
   defp artifacts_for(station_run_id) do
