@@ -83,7 +83,11 @@ defmodule Conveyor.Telemetry.Conventions do
                                "status",
                                "failure_category",
                                "policy_profile",
-                               "suite_kind"
+                               "suite_kind",
+                               # Eval program dimensions ([:conveyor, :eval, :result]).
+                               "eval_suite",
+                               "eval_case",
+                               "archetype"
                              ])
 
   @required_trace_subjects [

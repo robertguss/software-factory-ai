@@ -66,6 +66,12 @@ jobs:
       - name: Run tests
         run: MIX_ENV=test mix test
 
+      - name: Eval scorecard gate
+        # Aggregates eval/scorecards/inputs/*.json into conveyor.eval_scorecard@1
+        # and exits non-zero if any blocking metric (false_pass_rate>0, etc.) is
+        # present. DB-free. See docs/3_evals/IMPLEMENTATION-PLAN-RUNGS-0-1.md (F2).
+        run: MIX_ENV=test mix conveyor.eval.scorecard --gate
+
       - name: Run Credo
         run: mix credo --strict
 

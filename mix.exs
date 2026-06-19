@@ -54,6 +54,11 @@ defmodule Conveyor.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.12"},
       {:lazy_html, ">= 0.1.0", only: :test},
+      # Direct dep (was transitive via Ash): property-based eval tests must not
+      # rely on a transitive dependency. No `:only` restriction — Ash depends on
+      # stream_data unconditionally (all envs), so an env-scoped decl diverges.
+      # See docs/3_evals/IMPLEMENTATION-PLAN-RUNGS-0-1.md (F0).
+      {:stream_data, "~> 1.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]

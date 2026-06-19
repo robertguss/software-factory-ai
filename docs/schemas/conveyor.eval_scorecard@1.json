@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.eval_scorecard@1.json",
+  "title": "Conveyor Eval Scorecard",
+  "description": "Deterministic aggregation of every eval suite's metrics into one CI-gating report. `canonical_blockers` is the structured list of blocking metrics so a prose summary can never hide a blocker.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_for",
+    "metrics",
+    "canonical_blockers",
+    "healthy?",
+    "scorecard_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.eval_scorecard@1" },
+    "generated_for": {
+      "type": "string",
+      "description": "The git revision the scorecard was generated for.",
+      "minLength": 1
+    },
+    "metrics": { "type": "array", "items": { "$ref": "#/$defs/metric" } },
+    "canonical_blockers": { "type": "array", "items": { "$ref": "#/$defs/metric" } },
+    "healthy?": { "type": "boolean" },
+    "scorecard_digest": {
+      "type": "string",
+      "description": "Canonical-JSON sha256 digest of the scorecard sans this field (Conveyor.CanonicalJson.digest/1).",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "suite", "value", "target", "blocking", "status"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "suite": { "type": "string", "minLength": 1 },
+        "value": { "type": ["number", "string", "boolean"] },
+        "target": { "type": ["number", "string", "boolean"] },
+        "blocking": { "type": "boolean" },
+        "status": { "enum": ["ok", "warn", "blocking"] },
+        "detail": { "type": "string" },
+        "ci": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    }
+  }
+}
