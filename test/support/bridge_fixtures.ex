@@ -33,6 +33,9 @@ defmodule Conveyor.Eval.BridgeFixtures do
   Build a bridge fixture. `opts`:
     * `:patch_ref` — repo-root-relative canary patch the agent will apply (required
       for the agent station; defaults to known_good).
+    * `:break_with` — a repo-root-relative mutant patch applied **and committed** so
+      the workspace starts broken (base_commit = broken). The R5 lift duel uses this
+      to make each mutant a broken→fix task (the bare sample is correct/green).
     * `:adapter_name` — recorded on the fixture (default "reference_solution").
     * `:label` — temp-dir label.
   """
@@ -45,7 +48,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
 
     adapter_name = Keyword.get(opts, :adapter_name, "reference_solution")
 
-    workspace_path = git_sample_workspace!(label)
+    workspace_path = git_sample_workspace!(label, Keyword.get(opts, :break_with))
     base_commit = git!(workspace_path, ["rev-parse", "HEAD"])
     blob_root = Conveyor.FactoryFixtures.temp_dir!("#{label}-blobs")
 
@@ -213,7 +216,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
     %{base | "stations" => stations}
   end
 
-  defp git_sample_workspace!(label) do
+  defp git_sample_workspace!(label, break_with) do
     path = Conveyor.FactoryFixtures.temp_dir!(label)
 
     {_, 0} =
@@ -236,7 +239,21 @@ defmodule Conveyor.Eval.BridgeFixtures do
     git!(path, ["config", "user.name", "Conveyor Test"])
     git!(path, ["add", "."])
     git!(path, ["commit", "-m", "base"])
+    maybe_break!(path, break_with)
     path
+  end
+
+  # Apply and commit a mutant so the workspace starts broken (base_commit = broken).
+  defp maybe_break!(_path, nil), do: :ok
+
+  defp maybe_break!(path, patch_ref) do
+    patch_abs = Path.expand(patch_ref, File.cwd!())
+
+    {_, 0} =
+      System.cmd("patch", ["-p3", "-f", "-d", path, "-i", patch_abs], stderr_to_stdout: true)
+
+    git!(path, ["add", "."])
+    git!(path, ["commit", "-m", "break: " <> Path.basename(patch_ref)])
   end
 
   defp git!(path, args) do

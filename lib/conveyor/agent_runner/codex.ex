@@ -111,6 +111,7 @@ defmodule Conveyor.AgentRunner.Codex do
         "patch_set_id" => patch_capture.patch_set_id,
         "raw_transcript_ref" => raw_transcript_ref,
         "model" => Keyword.get(opts, :codex_model),
+        "reasoning_effort" => Keyword.get(opts, :codex_reasoning_effort),
         "exit_code" => exit_code,
         "usage" => usage,
         "cost_usd_estimated" => cost_usd,
@@ -171,17 +172,29 @@ defmodule Conveyor.AgentRunner.Codex do
   # --- codex exec --------------------------------------------------------------
 
   defp default_exec(prompt, ws_path, opts) do
-    model_args =
-      case Keyword.get(opts, :codex_model) do
-        nil -> []
-        model -> ["-m", model]
-      end
-
     args =
       ["exec", "--cd", ws_path, "--sandbox", "workspace-write", "--json", "--skip-git-repo-check"] ++
-        model_args ++ [prompt]
+        model_args(opts) ++ reasoning_args(opts) ++ [prompt]
 
     System.cmd("codex", args)
+  end
+
+  defp model_args(opts) do
+    case Keyword.get(opts, :codex_model) do
+      nil -> []
+      model -> ["-m", model]
+    end
+  end
+
+  # Reasoning/thinking effort is a first-class performance lever (and, in the lift
+  # duel, a confound that must be held constant across arms). Mapped to Codex's
+  # `model_reasoning_effort` config (minimal | low | medium | high). The value is
+  # quoted so Codex's TOML config parser reads it as a string.
+  defp reasoning_args(opts) do
+    case Keyword.get(opts, :codex_reasoning_effort) do
+      nil -> []
+      effort -> ["-c", ~s(model_reasoning_effort="#{effort}")]
+    end
   end
 
   defp parse_jsonl(stdout) do

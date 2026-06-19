@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.eval_lift@1.json",
+  "title": "Conveyor Eval Lift Report",
+  "description": "The R5 'Lift Duel' report: the same broken->fix tasks run through >=2 arms (the full Conveyor loop vs a vanilla one-shot), graded by the IDENTICAL gate, with per-arm pass@1 + exact (Clopper-Pearson) confidence intervals and the cost-per-verified-AC. The headline `lift` is the treatment-minus-baseline delta. Reasoning effort is recorded as a duel-level constant because it is a confound held identical across arms.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "confidence", "tasks", "arms", "lift"],
+  "properties": {
+    "schema_version": { "const": "conveyor.eval_lift@1" },
+    "confidence": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "reasoning_effort": {
+      "type": ["string", "null"],
+      "description": "Duel-level reasoning/thinking effort held identical across all arms (the controlled confound). Null for adapters that do not expose it."
+    },
+    "k": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Samples per (task, arm). 1 for pass@1; >1 enables pass@k."
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "The broken->fix task ids (>=3 for the R5 acceptance bar)."
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/arm" }
+    },
+    "lift": { "$ref": "#/$defs/lift" }
+  },
+  "$defs": {
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm",
+        "adapter",
+        "trials",
+        "passes",
+        "pass_at_1",
+        "ci",
+        "verified_acs_total",
+        "cost_usd_total",
+        "tokens_total",
+        "cost_per_verified_ac",
+        "false_pass_total",
+        "cells"
+      ],
+      "properties": {
+        "arm": { "type": "string", "minLength": 1 },
+        "adapter": { "type": "string", "minLength": 1 },
+        "trials": { "type": "integer", "minimum": 0 },
+        "passes": { "type": "integer", "minimum": 0 },
+        "pass_at_1": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ci": {
+          "type": "array",
+          "description": "Exact [p_low, p_high] from Conveyor.Statistics.clopper_pearson_interval/3.",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "verified_acs_total": { "type": "integer", "minimum": 0 },
+        "cost_usd_total": { "type": "number", "minimum": 0 },
+        "tokens_total": { "type": "integer", "minimum": 0 },
+        "cost_per_verified_ac": {
+          "type": ["number", "null"],
+          "description": "cost_usd_total / verified_acs_total; null when no AC was verified (undefined)."
+        },
+        "false_pass_total": { "type": "integer", "minimum": 0 },
+        "cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cell" }
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task",
+        "gate_passed",
+        "false_pass",
+        "verified_acs",
+        "tokens",
+        "cost_usd",
+        "latency_ms"
+      ],
+      "properties": {
+        "task": { "type": "string", "minLength": 1 },
+        "gate_passed": { "type": "boolean" },
+        "false_pass": {
+          "type": "boolean",
+          "description": "Gate PASSed while the acceptance suite was actually red (a graded-correct-but-broken escape). Always false when the gate consumes the real verification result, but carried for parity with the static-stage arms (P2-B)."
+        },
+        "verified_acs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Acceptance tests passing AND delivered through an accepted gate. 0 when the gate rejected the change (a rejected change delivers nothing, even if untouched tests still pass)."
+        },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "reasoning_effort": { "type": ["string", "null"] }
+      }
+    },
+    "lift": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_arm",
+        "treatment_arm",
+        "pass_at_1_delta",
+        "false_pass_delta",
+        "verified_acs_delta",
+        "cost_per_verified_ac_ratio"
+      ],
+      "properties": {
+        "baseline_arm": { "type": "string", "minLength": 1 },
+        "treatment_arm": { "type": "string", "minLength": 1 },
+        "pass_at_1_delta": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "description": "pass_at_1(treatment) - pass_at_1(baseline). The headline lift_vs_vanilla."
+        },
+        "false_pass_delta": { "type": "integer" },
+        "verified_acs_delta": { "type": "integer" },
+        "cost_per_verified_ac_ratio": {
+          "type": ["number", "null"],
+          "description": "cost_per_verified_ac(treatment) / cost_per_verified_ac(baseline); null when undefined."
+        }
+      }
+    }
+  }
+}
