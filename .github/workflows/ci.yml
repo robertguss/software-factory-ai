@@ -77,6 +77,10 @@ jobs:
         # E1/E7/E8 -> eval/scorecards/inputs/*.json (DB-free; uses the venv pytest).
         run: MIX_ENV=test mix conveyor.eval.rung0
 
+      - name: Replay cassette corpus (emit replay_fidelity)
+        # Replays cassettes recorded by `mix test` (DB-free); emits replay_fidelity.
+        run: MIX_ENV=test mix conveyor.eval.replay --all
+
       - name: Eval scorecard gate
         # Aggregates eval/scorecards/inputs/*.json into conveyor.eval_scorecard@1
         # and exits non-zero if any blocking metric (false_pass_rate>0, etc.) is

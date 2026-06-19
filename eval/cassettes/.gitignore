@@ -1,0 +1,2 @@
+# Sealed cassettes are recorded by the eval tests and replayed in CI; not committed.
+*.json
