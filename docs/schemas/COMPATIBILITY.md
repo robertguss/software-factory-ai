@@ -23,6 +23,12 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.attestation_statement@1` | `conveyor.attestation_statement@1.json` | `examples/conveyor.attestation_statement@1.valid.json` | `examples/conveyor.attestation_statement@1.invalid.missing-schema-version.json` |
 | `conveyor.lifecycle_contract@1` | `conveyor.lifecycle_contract@1.json` | `examples/conveyor.lifecycle_contract@1.valid.json` | `examples/conveyor.lifecycle_contract@1.invalid.missing-schema-version.json` |
 | `conveyor.root_manifest@1` | `conveyor.root_manifest@1.json` | `examples/conveyor.root_manifest@1.valid.json` | `examples/conveyor.root_manifest@1.invalid.missing-schema-version.json` |
+| `conveyor.policy_bundle@1` | `conveyor.policy_bundle@1.json` | `examples/conveyor.policy_bundle@1.valid.json` | `examples/conveyor.policy_bundle@1.invalid.missing-schema-version.json` |
+| `conveyor.decision_contract@1` | `conveyor.decision_contract@1.json` | `examples/conveyor.decision_contract@1.valid.json` | `examples/conveyor.decision_contract@1.invalid.missing-schema-version.json` |
+| `conveyor.policy_decision@1` | `conveyor.policy_decision@1.json` | `examples/conveyor.policy_decision@1.valid.json` | `examples/conveyor.policy_decision@1.invalid.missing-schema-version.json` |
+| `conveyor.tool_contract@1` | `conveyor.tool_contract@1.json` | `examples/conveyor.tool_contract@1.valid.json` | `examples/conveyor.tool_contract@1.invalid.missing-schema-version.json` |
+| `conveyor.role_view@1` | `conveyor.role_view@1.json` | `examples/conveyor.role_view@1.valid.json` | `examples/conveyor.role_view@1.invalid.missing-schema-version.json` |
+| `conveyor.enforcement_profile@1` | `conveyor.enforcement_profile@1.json` | `examples/conveyor.enforcement_profile@1.valid.json` | `examples/conveyor.enforcement_profile@1.invalid.missing-schema-version.json` |
 
 ## Compatibility Policy
 

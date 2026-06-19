@@ -9,7 +9,13 @@
     { "schema_version": "conveyor.attestation_statement@1", "file": "conveyor.attestation_statement@1.json", "owner": "P15-A1", "writer_status": "current" },
     { "schema_version": "conveyor.lifecycle_contract@1", "file": "conveyor.lifecycle_contract@1.json", "owner": "P15-A1", "writer_status": "current" },
     { "schema_version": "conveyor.root_manifest@1", "file": "conveyor.root_manifest@1.json", "owner": "P15-A1", "writer_status": "current" },
-    { "schema_version": "conveyor.phase_next_decision@1", "file": "conveyor.phase_next_decision@1.json", "owner": "P15-A0", "writer_status": "current" }
+    { "schema_version": "conveyor.phase_next_decision@1", "file": "conveyor.phase_next_decision@1.json", "owner": "P15-A0", "writer_status": "current" },
+    { "schema_version": "conveyor.policy_bundle@1", "file": "conveyor.policy_bundle@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.decision_contract@1", "file": "conveyor.decision_contract@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.policy_decision@1", "file": "conveyor.policy_decision@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.tool_contract@1", "file": "conveyor.tool_contract@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.role_view@1", "file": "conveyor.role_view@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.enforcement_profile@1", "file": "conveyor.enforcement_profile@1.json", "owner": "P15-A2", "writer_status": "current" }
   ],
   "vocabularies": [
     { "key": "materiality_class", "values": ["nonmaterial", "review_only", "material", "breaking"] },

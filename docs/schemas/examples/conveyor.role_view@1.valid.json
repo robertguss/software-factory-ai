@@ -1,0 +1,26 @@
+{
+  "schema_version": "conveyor.role_view@1",
+  "role": "implementer",
+  "subject_refs": [
+    {
+      "schema_version": "conveyor.subject_ref@1",
+      "kind": "slice",
+      "id_or_key": "SLICE-001"
+    }
+  ],
+  "included_field_selectors": ["requirements[*]", "acceptance_criteria[*]"],
+  "redacted_field_selectors": ["scorer_only_oracles[*]"],
+  "hidden_subject_classes": ["reference_solution", "scorer_private_notes"],
+  "tool_contract_keys": ["mix.test"],
+  "maximum_information_labels": ["internal"],
+  "effective_policy_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "view_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

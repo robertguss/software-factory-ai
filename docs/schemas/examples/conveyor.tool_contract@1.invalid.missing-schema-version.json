@@ -1,0 +1,17 @@
+{
+  "tool_key": "mix.test",
+  "input_schema_ref": "conveyor.tool_invocation@future",
+  "output_schema_ref": "conveyor.tool_result@future",
+  "effect_class": "process",
+  "delivery_semantics": "at_most_once",
+  "fence_support": true,
+  "replay_mode": "recorded",
+  "authorization_action": "tool.invoke",
+  "limits": { "timeout_ms": 120000 },
+  "sensitivity_profile": "internal",
+  "allowed_input_labels": ["trusted_plan"],
+  "output_label_rules": ["strip_active_content"],
+  "enforcement_profile_ref": "docs/schemas/examples/conveyor.enforcement_profile@1.valid.json",
+  "ambiguity_policy": "require_human",
+  "status": "active"
+}

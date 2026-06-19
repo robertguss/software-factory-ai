@@ -1,0 +1,15 @@
+{
+  "schema_version": "conveyor.enforcement_profile@1",
+  "filesystem_mounts": ["repo:ro", "workspace:rw"],
+  "writable_paths": ["workspace"],
+  "network_egress_rules": ["none"],
+  "credential_scopes": [],
+  "process_and_syscall_policy": "default-local",
+  "cpu_memory_pids_limits": { "cpu": 2, "memory_mb": 2048, "pids": 128 },
+  "output_limits": { "max_bytes": 1048576, "max_depth": 20 },
+  "profile_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  }
+}
