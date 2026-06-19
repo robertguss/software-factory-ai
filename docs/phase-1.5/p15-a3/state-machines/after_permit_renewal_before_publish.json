@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "after_permit_renewal_before_publish",
+  "kind": "crash-test",
+  "proves": "crash after permit renewal before station publication parks safely",
+  "states": ["permit_near_expiry", "renewal_committed", "crashed_before_publish", "parked_for_recheck", "published_after_recheck"],
+  "transitions": [
+    { "from": "permit_near_expiry", "event": "renew_permit", "to": "renewal_committed" },
+    { "from": "renewal_committed", "event": "process_crashes_before_station_publish", "to": "crashed_before_publish" },
+    { "from": "crashed_before_publish", "event": "recover_and_check_control_generation", "to": "parked_for_recheck" },
+    { "from": "parked_for_recheck", "event": "policy_and_generation_still_valid", "to": "published_after_recheck" },
+    { "from": "published_after_recheck", "event": "repeat_recovery", "to": "published_after_recheck" }
+  ],
+  "invariants": [
+    "A renewed permit does not publish station output without a fresh recovery check.",
+    "Recovery parks safely if policy, stop state, or control generation changed."
+  ],
+  "counterexample_traces": [
+    ["renew_permit", "process_crashes_before_station_publish", "publish_without_recheck"]
+  ]
+}

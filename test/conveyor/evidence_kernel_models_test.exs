@@ -41,6 +41,30 @@ defmodule Conveyor.EvidenceKernelModelsTest do
     "before_external_call" => %{
       "kind" => "crash-test",
       "proves" => "crash before the external call leaves a deterministic retry state"
+    },
+    "after_accept_before_receipt" => %{
+      "kind" => "crash-test",
+      "proves" => "crash after external accept before receipt is reconciled, not lost"
+    },
+    "after_receipt_before_pointer_commit" => %{
+      "kind" => "crash-test",
+      "proves" => "crash after receipt before artifact-pointer commit recovers"
+    },
+    "after_blob_staged_before_db_commit" => %{
+      "kind" => "crash-test",
+      "proves" => "crash after blob staged before DB commit is swept (no orphan)"
+    },
+    "after_db_commit_before_outbox" => %{
+      "kind" => "crash-test",
+      "proves" => "crash after DB commit before outbox publish republishes from outbox"
+    },
+    "after_outbox_before_ack" => %{
+      "kind" => "crash-test",
+      "proves" => "crash after outbox publish before worker ack is idempotent"
+    },
+    "after_permit_renewal_before_publish" => %{
+      "kind" => "crash-test",
+      "proves" => "crash after permit renewal before station publication parks safely"
     }
   }
 
