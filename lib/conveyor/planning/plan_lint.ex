@@ -154,7 +154,10 @@ defmodule Conveyor.Planning.PlanLint do
 
   defp critical_context_findings(contract) do
     budget =
-      Map.get(contract, "context_budget") || Map.get(contract, "critical_context_budget") || %{}
+      case Map.get(contract, "context_budget") || Map.get(contract, "critical_context_budget") do
+        budget when is_map(budget) -> budget
+        _other -> %{}
+      end
 
     required =
       Map.get(budget, "critical_required_tokens") ||

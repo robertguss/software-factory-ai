@@ -92,9 +92,12 @@ defmodule Conveyor.Qualification.Bundle do
   defp require_non_empty(values, _reason) when is_list(values) and values != [], do: :ok
   defp require_non_empty(_values, reason), do: {:error, %{reason: reason}}
 
-  defp require_waivers_available([], _availability), do: :ok
-
-  defp require_waivers_available(waiver_refs, availability) when is_list(availability) do
+  defp require_waivers_available(waiver_refs, availability) do
+    # verify_offline accepts externally-supplied bundles; tolerate a missing/non-list
+    # availability (no waivers available) and missing waiver_refs (nothing to require)
+    # instead of crashing with FunctionClauseError.
+    waiver_refs = List.wrap(waiver_refs)
+    availability = if is_list(availability), do: availability, else: []
     by_ref = Map.new(availability, fn item -> {value(item, :waiver_ref), item} end)
 
     missing =

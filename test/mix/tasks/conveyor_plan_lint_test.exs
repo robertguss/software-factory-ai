@@ -71,6 +71,36 @@ defmodule Mix.Tasks.ConveyorPlanLintTest do
     Process.delete(:conveyor_plan_prepare_exit_fun)
   end
 
+  test "plan_lint exits with the malformed-input code on an unknown --format" do
+    path = write_json!(clean_contract())
+    put_exit_fun(:conveyor_plan_lint_exit_fun)
+
+    capture_io(:stderr, fn ->
+      Mix.Task.reenable("conveyor.plan_lint")
+      Mix.Task.run("conveyor.plan_lint", [path, "--format", "xml"])
+    end)
+
+    assert_received {:exit_code, code}
+    assert code == Conveyor.Planning.PlanLintCLI.malformed_exit_code()
+  after
+    Process.delete(:conveyor_plan_lint_exit_fun)
+  end
+
+  test "plan_prepare exits with the malformed-input code on an unknown --format" do
+    path = write_json!(clean_contract())
+    put_exit_fun(:conveyor_plan_prepare_exit_fun)
+
+    capture_io(:stderr, fn ->
+      Mix.Task.reenable("conveyor.plan_prepare")
+      Mix.Task.run("conveyor.plan_prepare", [path, "--no-agents", "--format", "sarif"])
+    end)
+
+    assert_received {:exit_code, code}
+    assert code == Conveyor.Planning.PlanLintCLI.malformed_exit_code()
+  after
+    Process.delete(:conveyor_plan_prepare_exit_fun)
+  end
+
   defp put_exit_fun(key) do
     test_pid = self()
     Process.put(key, fn code -> send(test_pid, {:exit_code, code}) end)

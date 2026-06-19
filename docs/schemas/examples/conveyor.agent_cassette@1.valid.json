@@ -7,13 +7,24 @@
   "provider_model_id": "provider-model",
   "provider_model_revision": "rev-2026-06-19",
   "provider_identity_confidence": "exact",
-  "provider_parameters_ref": "artifact://provider-parameters",
-  "agent_event_stream_ref": "artifact://agent-events",
-  "tool_transcript_ref": "artifact://tool-transcript",
-  "primary_output_refs": ["artifact://primary-output"],
+  "provider_parameters": { "temperature": 0.1 },
+  "agent_event_stream": [{ "event_type": "message_completed" }],
+  "tool_transcript": [{ "tool": "shell", "result": "ok" }],
+  "primary_outputs": ["token=[REDACTED:openai_api_key:0001]"],
+  "primary_output_refs": [
+    "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  ],
   "patch_set_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-  "redaction_report_ref": "artifact://redaction-report",
-  "seal_status": "sealed",
+  "recorded_diagnostics_ref": null,
+  "redaction_report": {
+    "findings": [{ "category": "secret_exposure" }],
+    "sensitivity": "redacted",
+    "raw_sha256": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "redacted_sha256": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "redaction_report_ref": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "retention_class": "qualification",
+  "expires_at": null,
+  "seal_status": "sealed",
   "recorded_at": "2026-06-19T00:00:00Z"
 }

@@ -22,6 +22,9 @@ defmodule Conveyor.Battery.TraceAssertions do
         {"always", matches} when length(matches) == length(records) -> :passed
         {"always", _matches} -> :failed
         {"bounded_count", matches} -> bounded_count_result(assertion, length(matches))
+        # Unknown/typo'd operator: fail that one assertion cleanly instead of crashing the
+        # whole RunBattery evaluation with a CaseClauseError.
+        {_operator, _matches} -> :failed
       end
 
     %{
@@ -68,6 +71,7 @@ defmodule Conveyor.Battery.TraceAssertions do
   defp failure_reason("always", :failed), do: :not_all_records_matched
   defp failure_reason("bounded_count", :failed), do: :count_out_of_bounds
   defp failure_reason(_operator, :passed), do: nil
+  defp failure_reason(_operator, :failed), do: :unknown_operator
 
   defp bounded_count_result(assertion, count) do
     min_count = Map.get(assertion, "min_count", 0)

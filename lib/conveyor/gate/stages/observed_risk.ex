@@ -410,10 +410,7 @@ defmodule Conveyor.Gate.Stages.ObservedRisk do
   defp evidence_refs(nil), do: []
   defp evidence_refs(patch_set), do: Enum.reject([value(patch_set, :patch_ref)], &is_nil/1)
 
-  defp digest(classification) do
-    encoded = :erlang.term_to_binary(classification)
-    "sha256:" <> Base.encode16(:crypto.hash(:sha256, encoded), case: :lower)
-  end
+  defp digest(classification), do: Conveyor.CanonicalJson.digest(classification)
 
   defp get(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
   defp get(_value, _key), do: nil

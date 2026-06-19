@@ -83,7 +83,14 @@ defmodule Conveyor.Artifacts.ArtifactStore.S3Compatible do
   @impl true
   def list_segments!(%__MODULE__{} = backend) do
     pattern =
-      Path.join([backend.root, backend.bucket, backend.prefix, backend.trust_domain_id, "*"])
+      Path.join([
+        backend.root,
+        backend.bucket,
+        backend.prefix,
+        backend.trust_domain_id,
+        "objects",
+        "*"
+      ])
 
     pattern
     |> Path.wildcard()
@@ -121,6 +128,12 @@ defmodule Conveyor.Artifacts.ArtifactStore.S3Compatible do
   end
 
   defp path_for!(%__MODULE__{} = backend, %Address{} = address) do
+    if address.trust_domain_id != backend.trust_domain_id do
+      raise ArgumentError,
+            "artifact address trust domain #{inspect(address.trust_domain_id)} " <>
+              "does not match backend trust domain #{inspect(backend.trust_domain_id)}"
+    end
+
     "s3://" <> rest = address.opaque_storage_key
     [bucket | key_parts] = String.split(rest, "/", trim: true)
 
@@ -128,9 +141,11 @@ defmodule Conveyor.Artifacts.ArtifactStore.S3Compatible do
       raise ArgumentError, "artifact address bucket #{bucket} does not match backend bucket"
     end
 
+    # Path.join/1 over the full list nests the segments; Path.join/2 with a list argument would
+    # flatten them into one mangled filename (which put!/get! tolerate but list_segments! cannot).
     path =
-      backend.root
-      |> Path.join([bucket | key_parts])
+      [backend.root, bucket | key_parts]
+      |> Path.join()
       |> Path.expand()
 
     ensure_under_root!(path, backend.root)

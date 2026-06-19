@@ -72,6 +72,7 @@
     { "schema_version": "conveyor.admission_permit@1", "file": "conveyor.admission_permit@1.json", "owner": "P15-B8", "writer_status": "current" },
     { "schema_version": "conveyor.permit_checkpoint@1", "file": "conveyor.permit_checkpoint@1.json", "owner": "P15-B8", "writer_status": "current" },
     { "schema_version": "conveyor.qualification_impact@1", "file": "conveyor.qualification_impact@1.json", "owner": "P15-B8", "writer_status": "current" },
+    { "schema_version": "conveyor.adapter_capability_drift_signal@1", "file": "conveyor.adapter_capability_drift_signal@1.json", "owner": "P15-B8", "writer_status": "current" },
     { "schema_version": "conveyor.constraint_set@1", "file": "conveyor.constraint_set@1.json", "owner": "P2-A0", "writer_status": "current" },
     { "schema_version": "conveyor.source_anchor@1", "file": "conveyor.source_anchor@1.json", "owner": "P2-A0", "writer_status": "current" },
     { "schema_version": "conveyor.claim_set@1", "file": "conveyor.claim_set@1.json", "owner": "P2-A0", "writer_status": "current" },

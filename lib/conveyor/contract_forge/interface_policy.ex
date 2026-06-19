@@ -64,30 +64,25 @@ defmodule Conveyor.ContractForge.InterfacePolicy do
   defp maybe_require_rollout(findings, interface) do
     rollout = Map.get(interface, "rollout", %{})
 
-    cond do
-      not present?(rollout["environment"]) ->
-        [
-          finding(
-            "interface_rollout_environment_missing",
-            interface["interface_key"],
-            "rollout environment is required"
-          )
-          | findings
-        ]
+    # Accumulate a finding per missing field (matching migration_findings), instead of a cond
+    # that reports only the first gap and hides the others until the first is fixed.
+    findings
+    |> maybe_add_rollout_field(
+      rollout["environment"],
+      "interface_rollout_environment_missing",
+      interface["interface_key"],
+      "rollout environment is required"
+    )
+    |> maybe_add_rollout_field(
+      rollout["intent"],
+      "interface_rollout_intent_missing",
+      interface["interface_key"],
+      "rollout intent is required"
+    )
+  end
 
-      not present?(rollout["intent"]) ->
-        [
-          finding(
-            "interface_rollout_intent_missing",
-            interface["interface_key"],
-            "rollout intent is required"
-          )
-          | findings
-        ]
-
-      true ->
-        findings
-    end
+  defp maybe_add_rollout_field(findings, value, rule_key, subject_key, message) do
+    if present?(value), do: findings, else: [finding(rule_key, subject_key, message) | findings]
   end
 
   defp migration_findings(profile) do

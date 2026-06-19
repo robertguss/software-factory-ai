@@ -70,22 +70,41 @@ defmodule Conveyor.Battery.LiveSampling do
 
       sample_count = length(results)
       provider_or_infra_failure_count = provider_or_infra_failure_count(results)
+      # Provider/infra failures are infrastructure noise, not quality verdicts (ADR-02):
+      # exclude them from the assessed? gate and the p_band denominator, so an all-outage
+      # stratum reports not_assessed instead of a fabricated quality_floor_not_met.
+      valid_results = Enum.reject(results, &(&1.status in [:provider_failure, :infra_failure]))
+      valid_sample_count = length(valid_results)
       safety_violation_count = Enum.count(results, &safety_violation?/1)
       pass_count = Enum.count(results, &(&1.status == :passed))
       minimum_samples = value(sampling_policy, :min_samples)
       quality_floor = value(sampling_policy, :floor_p0)
       confidence = value(sampling_policy, :confidence)
-      assessed? = sample_count >= minimum_samples
-      p_band = if assessed?, do: pass_count / sample_count, else: nil
-      quality_floor_met? = assessed? and safety_violation_count == 0 and p_band >= quality_floor
+      assessed? = valid_sample_count >= minimum_samples
+      point_estimate = if assessed?, do: pass_count / valid_sample_count, else: nil
+
+      {p_low, p_high} =
+        if assessed? and is_number(confidence) do
+          Conveyor.Statistics.clopper_pearson_interval(pass_count, valid_sample_count, confidence)
+        else
+          {nil, nil}
+        end
+
+      # Gate on the Beta-Binomial (Clopper-Pearson) lower confidence bound, not the point
+      # estimate (ADR-02), so the recorded confidence constrains the verdict and a small
+      # sample cannot overstate quality.
+      quality_floor_met? =
+        assessed? and safety_violation_count == 0 and is_number(p_low) and p_low >= quality_floor
 
       %{
         "stratum_key" => stratum_key,
         "sample_count" => sample_count,
         "provider_or_infra_failure_count" => provider_or_infra_failure_count,
         "safety_violation_count" => safety_violation_count,
-        "p_low" => p_band,
-        "p_high" => p_band,
+        "point_estimate" => point_estimate,
+        "p_low" => p_low,
+        "p_high" => p_high,
+        "interval_method" => "beta_binomial_clopper_pearson",
         "confidence" => confidence,
         "quality_floor" => quality_floor,
         "band_status" =>
@@ -94,7 +113,7 @@ defmodule Conveyor.Battery.LiveSampling do
             safety_violation_count,
             quality_floor_met?,
             pass_count,
-            sample_count
+            valid_sample_count
           ),
         "quality_floor_met" => quality_floor_met?,
         "rerun_until_green" => false

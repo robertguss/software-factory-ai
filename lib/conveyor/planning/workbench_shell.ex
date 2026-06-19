@@ -79,7 +79,11 @@ defmodule Conveyor.Planning.WorkbenchShell do
   end
 
   defp sort_rows(rows) do
-    Enum.sort_by(rows, fn row -> value(row, :id, inspect(row)) end)
+    # Rows may be scalars (list/1 stringifies non-map rows); only maps carry an :id.
+    Enum.sort_by(rows, fn
+      row when is_map(row) -> value(row, :id, inspect(row))
+      row -> inspect(row)
+    end)
   end
 
   defp list(values) when is_list(values), do: Enum.map(values, &stringify_value/1)

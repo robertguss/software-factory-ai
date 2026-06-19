@@ -52,27 +52,28 @@ defmodule Conveyor.EvidenceComparatorTest do
     assert comparison.right_subject_id == "policy-bundle:v2"
   end
 
-  test "unavailable or authority-invalid subjects are incomparable" do
+  test "unavailable or authority-invalid subjects are incomparable with the specific reason" do
     left = subject("evidence:old", digest: "sha256:left")
 
-    for invalid_right <- [
-          subject("evidence:missing", digest: "sha256:right", available?: false),
-          subject("evidence:unauthorized", digest: "sha256:right", authorized?: false),
-          subject("evidence:erased", digest: "sha256:right", availability: :erased),
-          subject("evidence:digest-mismatch", digest: "sha256:right", digest_verified?: false)
-        ] do
+    cases = [
+      {subject("evidence:missing", digest: "sha256:right", available?: false),
+       "subject_unavailable"},
+      {subject("evidence:unauthorized", digest: "sha256:right", authorized?: false),
+       "subject_unauthorized"},
+      {subject("evidence:erased", digest: "sha256:right", availability: :erased),
+       "subject_erased"},
+      {subject("evidence:digest-mismatch", digest: "sha256:right", digest_verified?: false),
+       "subject_digest_mismatch"}
+    ]
+
+    for {invalid_right, expected_reason} <- cases do
       comparison = Comparator.compare(left, invalid_right)
 
       assert comparison.materiality_labels == ["incomparable"]
       assert comparison.dominant_label == "incomparable"
       assert comparison.summary_status == "incomparable"
-
-      assert comparison.incomparable_reason in [
-               "subject_unavailable",
-               "subject_unauthorized",
-               "subject_erased",
-               "subject_digest_mismatch"
-             ]
+      # Pin each invalid subject to its specific reason so a mis-mapped reason is caught.
+      assert comparison.incomparable_reason == expected_reason
     end
   end
 

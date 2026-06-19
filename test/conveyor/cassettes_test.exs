@@ -57,6 +57,15 @@ defmodule Conveyor.CassettesTest do
     assert cassette["provider_model_revision"] == "rev-2026-06-19"
     assert ["token=[REDACTED:openai_api_key:" <> _rest] = cassette["primary_outputs"]
     assert [%{"category" => "secret_exposure"}] = cassette["redaction_report"]["findings"]
+
+    # The sealed cassette must actually conform to the schema it stamps (inline shape).
+    schema =
+      "docs/schemas/conveyor.agent_cassette@1.json"
+      |> File.read!()
+      |> Jason.decode!()
+      |> JSV.build!()
+
+    assert {:ok, _validated} = JSV.validate(cassette, schema)
   end
 
   test "blocked redaction or missing integrity input rejects a cassette instead of sealing it" do

@@ -48,6 +48,9 @@ defmodule Conveyor.ContractAuthorTest do
     assert result.role_view["claims"] == ["CLAIM-001"]
     assert result.contract["schema_version"] == "conveyor.agent_brief_contract@1"
     assert result.contract["source_refs"]["claims"] == ["CLAIM-001"]
+    # bounded_context is partitioned by ref class, not duplicated into both arrays.
+    assert result.contract["source_refs"]["requirements"] == ["REQ-001"]
+    assert result.contract["source_refs"]["decisions"] == ["DEC-001"]
 
     assert [%{"schema_version" => "conveyor.verification_obligation@1"}] =
              result.verification_obligations

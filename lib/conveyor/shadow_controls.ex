@@ -34,12 +34,21 @@ defmodule Conveyor.ShadowControls do
   end
 
   defp retry_decision(attrs) do
-    %{
-      "schema_version" => "conveyor.retry_escalation_shadow@1",
-      "decision" => "new_attempt_with_next_profile",
-      "next_profile" => next_profile(attrs),
-      "consumes_tier" => true
-    }
+    case next_profile(attrs) do
+      nil ->
+        # No higher profile to escalate to (top of ladder, or unknown/nil current profile):
+        # route without consuming an escalation tier rather than claiming a tier-consuming
+        # escalation to a nonexistent profile.
+        no_escalation_decision()
+
+      next ->
+        %{
+          "schema_version" => "conveyor.retry_escalation_shadow@1",
+          "decision" => "new_attempt_with_next_profile",
+          "next_profile" => next,
+          "consumes_tier" => true
+        }
+    end
   end
 
   defp no_escalation_decision do
@@ -54,9 +63,11 @@ defmodule Conveyor.ShadowControls do
   defp next_profile(attrs) do
     profiles = list(attrs, :profiles)
     current_profile = value(attrs, :current_profile)
-    current_index = Enum.find_index(profiles, &(&1 == current_profile)) || -1
-
-    Enum.at(profiles, current_index + 1)
+    case Enum.find_index(profiles, &(&1 == current_profile)) do
+      # Unknown/nil current profile: do not silently reset to the smallest profile.
+      nil -> nil
+      index -> Enum.at(profiles, index + 1)
+    end
   end
 
   defp list(map, key) do

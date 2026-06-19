@@ -86,13 +86,14 @@ defmodule Conveyor.Planning.InterfaceGraph do
   defp constraint_satisfied?(version, "<" <> expected), do: version < parse_version(expected)
   defp constraint_satisfied?(version, expected), do: version == parse_version(expected)
 
-  defp parse_version(version) when is_integer(version), do: version
+  # Compare all numeric segments, not just the major. Elixir compares lists element-wise,
+  # so [2, 0] < [2, 1] and [1, 5] > [1], giving correct multi-segment version verdicts.
+  defp parse_version(version) when is_integer(version), do: [version]
 
   defp parse_version(version) when is_binary(version) do
     version
-    |> String.split(".", parts: 2)
-    |> hd()
-    |> String.to_integer()
+    |> String.split(".", trim: true)
+    |> Enum.map(&String.to_integer/1)
   end
 
   defp normalize_value(%{} = map) do

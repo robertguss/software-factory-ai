@@ -143,23 +143,5 @@ defmodule Conveyor.FailureDiagnosis do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
 
-  defp digest(value) do
-    digest_input =
-      value
-      |> normalize_for_digest()
-      |> :erlang.term_to_binary()
-
-    "sha256:" <> Base.encode16(:crypto.hash(:sha256, digest_input), case: :lower)
-  end
-
-  defp normalize_for_digest(%{} = map) do
-    map
-    |> Enum.map(fn {key, value} -> {to_string(key), normalize_for_digest(value)} end)
-    |> Enum.sort_by(&elem(&1, 0))
-  end
-
-  defp normalize_for_digest(values) when is_list(values),
-    do: Enum.map(values, &normalize_for_digest/1)
-
-  defp normalize_for_digest(value), do: value
+  defp digest(value), do: Conveyor.CanonicalJson.digest(value)
 end

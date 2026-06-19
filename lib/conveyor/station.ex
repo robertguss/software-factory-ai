@@ -481,7 +481,7 @@ defmodule Conveyor.Station do
         slice_id: run_attempt.slice_id,
         run_attempt_id: run_attempt.id,
         station_run_id: station_run.id,
-        idempotency_key: "station:#{station_run.id}:failed",
+        idempotency_key: "station:#{station_run.id}:#{station_run.lease_epoch}:failed",
         type: "station.failed",
         payload: %{
           "station" => station_run.station,

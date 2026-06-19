@@ -76,6 +76,47 @@ defmodule Conveyor.PlanningInterfaceGraphTest do
            } in result.diagnostics
   end
 
+  test "compares all version segments, not only the major component" do
+    result =
+      InterfaceGraph.analyze(%{
+        contracts: [contract("db.tasks.completed", "SLC-SCHEMA", "2.0")],
+        bindings: [
+          %{
+            slice_key: "SLC-FILTER",
+            interface_key: "db.tasks.completed",
+            direction: "requires",
+            required_version_range: ">=2.1"
+          }
+        ]
+      })
+
+    # 2.0 does NOT satisfy >=2.1 (a major-only comparison would wrongly mark it :ready).
+    assert result.status == :blocked
+
+    assert %{
+             rule_key: "interface_version_incompatible",
+             severity: :blocking,
+             subject_key: "SLC-FILTER -> db.tasks.completed"
+           } in result.diagnostics
+  end
+
+  test "a higher minor satisfies a lower-bound constraint" do
+    result =
+      InterfaceGraph.analyze(%{
+        contracts: [contract("db.tasks.completed", "SLC-SCHEMA", "1.5")],
+        bindings: [
+          %{
+            slice_key: "SLC-FILTER",
+            interface_key: "db.tasks.completed",
+            direction: "requires",
+            required_version_range: ">1"
+          }
+        ]
+      })
+
+    assert result.status == :ready
+  end
+
   defp contract(interface_key, owner_slice_key, version) do
     %{
       interface_key: interface_key,

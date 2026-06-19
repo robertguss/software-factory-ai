@@ -58,4 +58,30 @@ defmodule Conveyor.PlanningStructuralDryRunTest do
     assert preview.affected_artifact_ids == ["agent_brief:SLC-A", "work_graph:1"]
     assert preview.reason == :low_confidence
   end
+
+  test "terminates with a residual wave when the work graph contains a cycle" do
+    result =
+      StructuralDryRun.run(%{
+        slices: [%{stable_key: "A"}, %{stable_key: "B"}],
+        work_edges: [
+          %{from: "A", to: "B", kind: :execution_hard},
+          %{from: "B", to: "A", kind: :execution_hard}
+        ]
+      })
+
+    # Must return (not hang); cyclic nodes are emitted as a terminal residual wave.
+    assert result.status == :ok
+    assert result.waves == [["A", "B"]]
+  end
+
+  test "does not crash on an edge whose target is not a known slice" do
+    result =
+      StructuralDryRun.run(%{
+        slices: [%{stable_key: "A"}],
+        work_edges: [%{from: "A", to: "GHOST", kind: :execution_hard}]
+      })
+
+    assert result.status == :ok
+    assert result.waves == [["A"]]
+  end
 end

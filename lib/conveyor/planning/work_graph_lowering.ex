@@ -125,6 +125,10 @@ defmodule Conveyor.Planning.WorkGraphLowering do
   end
 
   defp normalize_value(values) when is_list(values), do: Enum.map(values, &normalize_value/1)
+  # Preserve booleans and nil as-is; only genuine (non-boolean) atoms are stringified.
+  # Stringifying true/false/nil would corrupt the materialized work_graph@2 IR (e.g. a
+  # slice's oracle_feasible? flag) and break downstream boolean comparisons.
+  defp normalize_value(value) when value in [true, false, nil], do: value
   defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_value(value), do: value
 
@@ -154,6 +158,9 @@ defmodule Conveyor.Planning.WorkGraphLowering do
   defp canonical_json(values) when is_list(values),
     do: "[" <> Enum.map_join(values, ",", &canonical_json/1) <> "]"
 
+  # Encode nil/true/false as JSON literals (null/true/false) so they cannot collide with
+  # their string spellings ("nil"/"true"/"false") in the content-addressed candidate digest.
+  defp canonical_json(value) when value in [nil, true, false], do: Jason.encode!(value)
   defp canonical_json(value) when is_atom(value), do: value |> Atom.to_string() |> Jason.encode!()
   defp canonical_json(value), do: Jason.encode!(value)
 end

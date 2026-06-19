@@ -46,6 +46,7 @@ defmodule Conveyor.ContractForge.ContractAuthor do
     template = ArchetypeTemplates.fetch!(archetype)
     acceptance_criteria = Map.fetch!(input, "acceptance_criteria")
     obligations = obligation_refs(acceptance_criteria)
+    bounded_context = Map.get(role_view, "bounded_context", [])
 
     base = %{
       "schema_version" => "conveyor.agent_brief_contract@1",
@@ -53,8 +54,11 @@ defmodule Conveyor.ContractForge.ContractAuthor do
       "slice_id" => Map.fetch!(input, "slice_id"),
       "behavior" => Map.fetch!(input, "behavior"),
       "source_refs" => %{
-        "requirements" => Map.get(role_view, "bounded_context", []),
-        "decisions" => Map.get(role_view, "bounded_context", []),
+        # Partition the bounded context by ref class so the requirements and decisions arrays
+        # are not cross-contaminated (REQ-* vs DEC-*).
+        "requirements" =>
+          Enum.filter(bounded_context, &String.starts_with?(to_string(&1), "REQ-")),
+        "decisions" => Enum.filter(bounded_context, &String.starts_with?(to_string(&1), "DEC-")),
         "constraints" => Map.get(role_view, "constraints", []),
         "claims" => Map.get(role_view, "claims", [])
       },

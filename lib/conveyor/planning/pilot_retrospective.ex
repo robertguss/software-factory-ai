@@ -39,9 +39,11 @@ defmodule Conveyor.Planning.PilotRetrospective do
     input
     |> list(:manual_interventions)
     |> Enum.any?(fn intervention ->
+      # ADR-22: a from-scratch manual contract reconstruction is a release failure on its
+      # own, regardless of how the actor labels it. Gating on counts_as_generated_success
+      # let the honest (label=false) case escape the gate entirely.
       value(intervention, :intervention_kind) == "contract_edit" and
-        value(intervention, :reconstruction_kind) == "from_scratch" and
-        value(intervention, :counts_as_generated_success) == true
+        value(intervention, :reconstruction_kind) == "from_scratch"
     end)
   end
 

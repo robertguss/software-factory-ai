@@ -36,6 +36,27 @@ defmodule Conveyor.Artifacts.ArtifactStoreS3CompatibleTest do
     assert copied.opaque_storage_key != address.opaque_storage_key
   end
 
+  test "list_segments! enumerates stored artifact addresses for the trust domain" do
+    root = temp_dir!("s3-list")
+
+    backend =
+      S3Compatible.new(
+        root: root,
+        bucket: "artifact-bucket",
+        prefix: "tenant-a",
+        trust_domain_id: "td-a"
+      )
+
+    a1 = S3Compatible.put!(backend, "one")
+    a2 = S3Compatible.put!(backend, "two")
+
+    listed = S3Compatible.list_segments!(backend)
+    digests = listed |> Enum.map(& &1.content_digest) |> Enum.sort()
+
+    assert digests == Enum.sort([a1.content_digest, a2.content_digest])
+    assert Enum.all?(listed, &(&1.trust_domain_id == "td-a"))
+  end
+
   defp temp_dir!(label) do
     path = Path.join(System.tmp_dir!(), "conveyor-#{label}-#{System.unique_integer([:positive])}")
     File.mkdir_p!(path)

@@ -64,6 +64,35 @@ defmodule Conveyor.BatterySecondaryConfirmationTest do
     end
   end
 
+  test "declared representative cases absent from the manifest are reported as missing" do
+    policy = sampling_policy()
+
+    manifest = %{
+      "primary_adapter_id" => "adapter:primary",
+      "secondary_adapter_id" => "adapter:secondary-materially-different",
+      "representative_case_ids" => ["LIVE-BUGFIX-001", "LIVE-GHOST-404"],
+      "cases" => [
+        %{
+          "case_id" => "LIVE-BUGFIX-001",
+          "grant_scope" => %{"adapter" => "primary", "archetype" => "bugfix"},
+          "expected_terminal_outcome" => "gated",
+          "trace_assertions" => []
+        }
+      ]
+    }
+
+    report =
+      SecondaryConfirmation.run!(manifest, policy,
+        agent_runner: fn _case_fixture, _sample_no ->
+          {:ok,
+           %{terminal_outcome: "gated", run_attempt_id: "a", events: [], effect_receipts: []}}
+        end
+      )
+
+    assert report["selected_case_ids"] == ["LIVE-BUGFIX-001", "LIVE-GHOST-404"]
+    assert report["missing_case_ids"] == ["LIVE-GHOST-404"]
+  end
+
   defp sampling_policy do
     %{
       "method" => "stratified",

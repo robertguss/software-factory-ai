@@ -20,7 +20,7 @@ defmodule Mix.Tasks.Conveyor.PlanPrepare do
     with [] <- invalid,
          [path] <- rest,
          true <- Keyword.get(opts, :no_agents, false),
-         format <- prepare_format(Keyword.get(opts, :format)),
+         {:ok, format} <- prepare_format(Keyword.get(opts, :format)),
          {:ok, contract} <- PlanLintCLI.load_contract(path) do
       result = PlanLint.prepare(contract)
       result |> render(format) |> PlanLintCLI.print_result(format)
@@ -35,9 +35,10 @@ defmodule Mix.Tasks.Conveyor.PlanPrepare do
     end
   end
 
-  defp prepare_format(nil), do: :human
-  defp prepare_format("human"), do: :human
-  defp prepare_format("json"), do: :json
+  defp prepare_format(nil), do: {:ok, :human}
+  defp prepare_format("human"), do: {:ok, :human}
+  defp prepare_format("json"), do: {:ok, :json}
+  defp prepare_format(other), do: {:error, "unsupported --format: #{other} (expected human|json)"}
 
   defp render(result, :json), do: result
 

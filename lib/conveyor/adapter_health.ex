@@ -61,7 +61,7 @@ defmodule Conveyor.AdapterHealth do
         "reason" => "capability_drift"
       })
 
-    {opened, qualification_impact(opened, observed_digest, detected_at)}
+    {opened, capability_drift_signal(opened, observed_digest, detected_at)}
   end
 
   def record_transient_outage(state, opts) do
@@ -82,9 +82,12 @@ defmodule Conveyor.AdapterHealth do
     end
   end
 
-  defp qualification_impact(state, observed_digest, detected_at) do
+  # Circuit-health drift signal emitted by the adapter breaker. This is NOT a
+  # conveyor.qualification_impact@1 (it lacks the changed-subject/requalification analysis
+  # that schema requires); it carries its own registered schema describing the drift event.
+  defp capability_drift_signal(state, observed_digest, detected_at) do
     %{
-      "schema_version" => "conveyor.qualification_impact@1",
+      "schema_version" => "conveyor.adapter_capability_drift_signal@1",
       "adapter" => state.adapter,
       "reason" => "capability_drift",
       "previous_capability_snapshot_digest" => state.capability_snapshot_digest,

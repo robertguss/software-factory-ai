@@ -79,16 +79,28 @@ defmodule Conveyor.Planning.StructuralDryRun do
       |> Enum.filter(&(Map.fetch!(incoming, &1) == 0))
       |> Enum.sort()
 
-    next_remaining = remaining -- current
+    if current == [] do
+      # No node has zero in-degree but nodes remain: the residual forms a dependency cycle.
+      # Emit it as a terminal residual wave instead of recursing forever with unchanged
+      # arguments. Cycles themselves are reported separately (SliceDependency
+      # "work_graph_cycle"); this pass only needs to terminate and report topology.
+      Enum.reverse([Enum.sort(remaining) | waves])
+    else
+      next_remaining = remaining -- current
 
-    next_incoming =
-      Enum.reduce(current, incoming, fn node, counts ->
-        edges
-        |> Enum.filter(&(&1.from == node))
-        |> Enum.reduce(counts, fn edge, acc -> Map.update!(acc, edge.to, &(&1 - 1)) end)
-      end)
+      next_incoming =
+        Enum.reduce(current, incoming, fn node, counts ->
+          edges
+          |> Enum.filter(&(&1.from == node))
+          |> Enum.reduce(counts, fn edge, acc ->
+            # Ignore edges whose target is not a known node (dangling edge) rather than
+            # crashing on Map.update!/3, consistent with fan_in/fan_out/critical_path.
+            if Map.has_key?(acc, edge.to), do: Map.update!(acc, edge.to, &(&1 - 1)), else: acc
+          end)
+        end)
 
-    wave_loop(next_remaining, next_incoming, edges, [current | waves])
+      wave_loop(next_remaining, next_incoming, edges, [current | waves])
+    end
   end
 
   defp fan_in(node_keys, edges), do: Map.new(node_keys, &{&1, incoming_count(&1, edges)})

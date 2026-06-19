@@ -42,7 +42,7 @@ defmodule Conveyor.EvidenceRequirementTest do
     assert satisfaction["verification_obligation_id"] == @obligation_id
     assert satisfaction["evidence_requirement_digest"] == requirement["requirement_digest"]
     assert satisfaction["result"] == "satisfied"
-    assert satisfaction["consumed_evidence_ids"] == Enum.map(evidence, & &1["id"])
+    assert satisfaction["consumed_evidence_ids"] == evidence |> Enum.map(& &1["id"]) |> Enum.sort()
     assert satisfaction["dimension_results"]["hermeticity"]["status"] == "satisfied"
   end
 

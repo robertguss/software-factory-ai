@@ -3,7 +3,17 @@ defmodule Conveyor.EmergencyStop do
   Pure emergency-stop state transitions.
   """
 
-  @blocked_actions MapSet.new([:run_attempt, :planning_run, :effect, :budget_reservation])
+  # ADR-11 requires an engaged stop to block new station starts, provider calls, tool calls,
+  # claim publication, and external effects (not just runs/effects/reservations).
+  @blocked_actions MapSet.new([
+                     :run_attempt,
+                     :planning_run,
+                     :provider_call,
+                     :tool_call,
+                     :claim_publish,
+                     :effect,
+                     :budget_reservation
+                   ])
 
   @spec engage(atom(), String.t(), keyword()) :: map()
   def engage(scope, scope_id, opts) do
@@ -37,4 +47,37 @@ defmodule Conveyor.EmergencyStop do
       Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:microsecond) end)
     )
   end
+
+  @doc """
+  Projects the in-memory stop state onto a `conveyor.emergency_stop_state@1` record.
+
+  The in-memory map keeps atoms (`status: :engaged`, `scope: :project`) for `blocks?/2` and
+  `clear/2` pattern-matching; this is the schema-conformant wire/persistence shape: string
+  enums, `project_id` for project scope, and a single `actor` (the most recent operator).
+  """
+  @spec to_record(map()) :: map()
+  def to_record(state) when is_map(state) do
+    %{
+      "schema_version" => "conveyor.emergency_stop_state@1",
+      "scope" => to_string(state.scope),
+      "status" => to_string(state.status),
+      "reason" => state.reason,
+      "actor" => Map.get(state, :cleared_by) || state.actor,
+      "trace_id" => state.trace_id
+    }
+    |> put_present("project_id", project_id(state))
+    |> put_present("human_decision_id", Map.get(state, :human_decision_id))
+    |> put_present("engaged_at", iso8601(Map.get(state, :engaged_at)))
+    |> put_present("cleared_at", iso8601(Map.get(state, :cleared_at)))
+  end
+
+  defp project_id(%{scope: :project, scope_id: scope_id}), do: scope_id
+  defp project_id(_state), do: nil
+
+  defp put_present(map, _key, nil), do: map
+  defp put_present(map, key, value), do: Map.put(map, key, value)
+
+  defp iso8601(nil), do: nil
+  defp iso8601(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
+  defp iso8601(value) when is_binary(value), do: value
 end

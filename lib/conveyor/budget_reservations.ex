@@ -42,6 +42,6 @@ defmodule Conveyor.BudgetReservations do
 
   def before_spend(nil), do: {:deny, :reservation_required}
   def before_spend(%{status: :reserved}), do: :ok
-  def before_spend(%{status: :committed}), do: :ok
+  def before_spend(%{status: :committed}), do: {:deny, :reservation_consumed}
   def before_spend(_reservation), do: {:deny, :reservation_required}
 end

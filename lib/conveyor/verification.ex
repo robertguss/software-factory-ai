@@ -336,7 +336,7 @@ defmodule Conveyor.Verification do
         %{
           "status" => "satisfied",
           "required_evidence_kind" => required_kind,
-          "evidence_ids" => Enum.map(valid, & &1["id"])
+          "evidence_ids" => valid |> Enum.map(& &1["id"]) |> Enum.sort()
         }
         |> with_quarantine_ids(quarantine_ids)
 
@@ -344,7 +344,7 @@ defmodule Conveyor.Verification do
         %{
           "status" => "blocked",
           "required_evidence_kind" => required_kind,
-          "evidence_ids" => Enum.map(quarantined, & &1["id"]),
+          "evidence_ids" => quarantined |> Enum.map(& &1["id"]) |> Enum.sort(),
           "blocking_validities" => ["quarantined"],
           "quarantine_ids" => quarantine_ids
         }
@@ -353,8 +353,8 @@ defmodule Conveyor.Verification do
         %{
           "status" => "blocked",
           "required_evidence_kind" => required_kind,
-          "evidence_ids" => Enum.map(available, & &1["id"]),
-          "blocking_validities" => available |> Enum.map(& &1["validity"]) |> Enum.uniq()
+          "evidence_ids" => available |> Enum.map(& &1["id"]) |> Enum.sort(),
+          "blocking_validities" => available |> Enum.map(& &1["validity"]) |> Enum.uniq() |> Enum.sort()
         }
         |> with_quarantine_ids(quarantine_ids)
 
@@ -425,6 +425,7 @@ defmodule Conveyor.Verification do
     requirement["required_dimensions"]
     |> Enum.flat_map(&get_in(dimension_results, [&1, "evidence_ids"]))
     |> Enum.uniq()
+    |> Enum.sort()
   end
 
   defp maybe_put_waiver(satisfaction, %{"id" => waiver_id}, "waived"),

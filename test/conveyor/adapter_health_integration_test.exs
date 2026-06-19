@@ -35,13 +35,22 @@ defmodule Conveyor.AdapterHealthIntegrationTest do
     assert opened.output_fence["artifact_ref"] == "artifact://adapter/output-1"
     assert opened.output_fence["reason"] == "capability_drift"
 
-    assert impact["schema_version"] == "conveyor.qualification_impact@1"
+    assert impact["schema_version"] == "conveyor.adapter_capability_drift_signal@1"
     assert impact["reason"] == "capability_drift"
     assert impact["adapter"] == "primary-live"
     assert impact["previous_capability_snapshot_digest"] == @snapshot
     assert impact["observed_capability_snapshot_digest"] == @observed
     assert impact["affected_grant_ids"] == ["grant-1"]
     assert impact["suspend_new_permits"] == true
+
+    # The emitted projection must actually conform to the schema it stamps.
+    schema =
+      "docs/schemas/conveyor.adapter_capability_drift_signal@1.json"
+      |> File.read!()
+      |> Jason.decode!()
+      |> JSV.build!()
+
+    assert {:ok, _validated} = JSV.validate(impact, schema)
   end
 
   test "transient outage suspends execution without rewriting historical capability evidence" do

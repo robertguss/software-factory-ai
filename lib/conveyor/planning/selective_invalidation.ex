@@ -9,6 +9,7 @@ defmodule Conveyor.Planning.SelectiveInvalidation do
       input
       |> list(:changes)
       |> Enum.flat_map(&change_outcomes/1)
+      |> Enum.reject(&is_nil/1)
       |> Enum.uniq()
       |> Enum.sort_by(&{&1["subject_ref"], &1["action"], &1["reason"]})
 

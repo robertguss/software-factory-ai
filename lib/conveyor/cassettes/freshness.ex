@@ -60,6 +60,9 @@ defmodule Conveyor.Cassettes.Freshness do
     |> Map.new(fn {key, value} -> {key, canonical(value)} end)
   end
 
+  # Recurse into lists too (matches causal_transcript/replay_engine), so a list-of-maps surface
+  # value is canonicalized rather than passing through Jason.encode! in insertion order.
+  defp canonical(values) when is_list(values), do: Enum.map(values, &canonical/1)
   defp canonical(value), do: value
 
   defp value(map, key), do: Map.get(map, key) || Map.get(map, to_string(key))

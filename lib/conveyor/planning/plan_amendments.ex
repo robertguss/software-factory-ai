@@ -77,8 +77,6 @@ defmodule Conveyor.Planning.PlanAmendments do
     |> Enum.map(&ref("epic", &1))
   end
 
-  defp grant_refs(_input, []), do: []
-
   defp grant_refs(input, downstream_refs) do
     downstream_subjects = subject_strings(downstream_refs)
 

@@ -92,12 +92,31 @@ defmodule Conveyor.Artifacts.ArtifactStore.LocalCAS do
   end
 
   defp path_for!(%__MODULE__{} = backend, %Address{} = address) do
+    ensure_trust_domain!(backend, address)
+
     path =
       backend.root
       |> Path.join(address.opaque_storage_key)
       |> Path.expand()
 
     ensure_under_root!(path, backend.root)
+  end
+
+  # Isolation must not rest on directory naming alone: a backend for one trust domain must
+  # refuse to resolve another domain's address (ADR-09 trust-domain-isolated addresses).
+  defp ensure_trust_domain!(%__MODULE__{} = backend, %Address{} = address) do
+    cond do
+      address.trust_domain_id != backend.trust_domain_id ->
+        raise ArgumentError,
+              "artifact address trust domain #{inspect(address.trust_domain_id)} " <>
+                "does not match backend trust domain #{inspect(backend.trust_domain_id)}"
+
+      hd(Path.split(to_string(address.opaque_storage_key))) != backend.trust_domain_id ->
+        raise ArgumentError, "artifact storage key escapes its trust domain"
+
+      true ->
+        :ok
+    end
   end
 
   defp ensure_under_root!(path, root) do

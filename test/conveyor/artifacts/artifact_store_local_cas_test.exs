@@ -39,7 +39,12 @@ defmodule Conveyor.Artifacts.ArtifactStoreLocalCASTest do
       LocalCAS.get!(backend, address)
     end
 
-    assert LocalCAS.get!(backend, copied) == "artifact bytes"
+    # The td-b copy is readable only through a backend scoped to td-b: trust-domain isolation
+    # means a td-a backend must not resolve a td-b address (ADR-09 authorize-before-reveal).
+    td_b_backend = %{backend | trust_domain_id: "td-b"}
+    assert LocalCAS.get!(td_b_backend, copied) == "artifact bytes"
+
+    assert_raise ArgumentError, fn -> LocalCAS.get!(backend, copied) end
   end
 
   defp temp_dir!(label) do

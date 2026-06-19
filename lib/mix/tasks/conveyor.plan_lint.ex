@@ -18,7 +18,7 @@ defmodule Mix.Tasks.Conveyor.PlanLint do
 
     with [] <- invalid,
          [path] <- rest,
-         format <- PlanLintCLI.parse_format(Keyword.get(opts, :format)),
+         {:ok, format} <- PlanLintCLI.parse_format(Keyword.get(opts, :format)),
          {:ok, contract} <- PlanLintCLI.load_contract(path) do
       result = PlanLint.lint(contract)
       result |> PlanLint.render(format: format) |> PlanLintCLI.print_result(format)

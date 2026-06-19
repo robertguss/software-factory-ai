@@ -241,12 +241,7 @@ defmodule Conveyor.Gate.Stages.CodeQualityDelta do
     |> Enum.uniq()
   end
 
-  defp digest(value) do
-    "sha256:" <>
-      (:sha256
-       |> :crypto.hash(:erlang.term_to_binary(value))
-       |> Base.encode16(case: :lower))
-  end
+  defp digest(value), do: Conveyor.CanonicalJson.digest(value)
 
   defp normalize_status(nil), do: nil
   defp normalize_status(status) when is_atom(status), do: Atom.to_string(status)

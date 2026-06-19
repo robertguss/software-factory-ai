@@ -68,11 +68,19 @@ defmodule Conveyor.Planning.Admission do
     if requested in covered, do: reasons, else: [reason | reasons]
   end
 
+  defp require_autonomy(reasons, nil, _covered), do: reasons
+
   defp require_autonomy(reasons, requested, covered) do
-    if autonomy_rank(covered) >= autonomy_rank(requested) do
-      reasons
-    else
-      [:autonomy_not_covered | reasons]
+    case Map.get(@autonomy_order, to_string(requested)) do
+      nil ->
+        # Explicitly-supplied but unsupported autonomy must fail closed (ADR-06), not be
+        # treated as rank -1 (the lowest requirement, which any active grant would satisfy).
+        [:autonomy_not_covered | reasons]
+
+      requested_rank ->
+        if autonomy_rank(covered) >= requested_rank,
+          do: reasons,
+          else: [:autonomy_not_covered | reasons]
     end
   end
 

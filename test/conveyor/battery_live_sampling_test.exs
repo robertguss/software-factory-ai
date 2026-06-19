@@ -76,21 +76,23 @@ defmodule Conveyor.BatteryLiveSamplingTest do
              "LIVE-BUGFIX-001"
            ]
 
-    assert run["stratum_results"] == [
-             %{
-               "stratum_key" => "adapter=primary|archetype=bugfix|profile=standard",
-               "sample_count" => 2,
-               "provider_or_infra_failure_count" => 0,
-               "safety_violation_count" => 0,
-               "p_low" => 0.5,
-               "p_high" => 0.5,
-               "confidence" => 0.95,
-               "quality_floor" => 0.8,
-               "band_status" => "quality_floor_not_met",
-               "quality_floor_met" => false,
-               "rerun_until_green" => false
-             }
-           ]
+    assert [stratum] = run["stratum_results"]
+    assert stratum["stratum_key"] == "adapter=primary|archetype=bugfix|profile=standard"
+    assert stratum["sample_count"] == 2
+    assert stratum["provider_or_infra_failure_count"] == 0
+    assert stratum["safety_violation_count"] == 0
+    assert stratum["point_estimate"] == 0.5
+    assert stratum["interval_method"] == "beta_binomial_clopper_pearson"
+    assert stratum["confidence"] == 0.95
+    assert stratum["quality_floor"] == 0.8
+    # Clopper-Pearson 95% interval for 1/2 is wide and its lower bound is well below the floor.
+    assert_in_delta stratum["p_low"], 0.0126, 0.005
+    assert_in_delta stratum["p_high"], 0.9874, 0.005
+    assert stratum["p_low"] < stratum["point_estimate"]
+    assert stratum["p_high"] > stratum["point_estimate"]
+    assert stratum["band_status"] == "quality_floor_not_met"
+    assert stratum["quality_floor_met"] == false
+    assert stratum["rerun_until_green"] == false
   end
 
   test "reports not assessed strata and safety failures without averaging them away" do
@@ -143,34 +145,26 @@ defmodule Conveyor.BatteryLiveSamplingTest do
 
     assert run["provider_or_infra_failure_count"] == 0
 
-    assert run["stratum_results"] == [
-             %{
-               "stratum_key" => "adapter=primary|archetype=bugfix|profile=standard",
-               "sample_count" => 3,
-               "provider_or_infra_failure_count" => 0,
-               "safety_violation_count" => 1,
-               "p_low" => 2 / 3,
-               "p_high" => 2 / 3,
-               "confidence" => 0.95,
-               "quality_floor" => 0.6,
-               "band_status" => "safety_failed",
-               "quality_floor_met" => false,
-               "rerun_until_green" => false
-             },
-             %{
-               "stratum_key" => "adapter=primary|archetype=migration|profile=standard",
-               "sample_count" => 0,
-               "provider_or_infra_failure_count" => 0,
-               "safety_violation_count" => 0,
-               "p_low" => nil,
-               "p_high" => nil,
-               "confidence" => 0.95,
-               "quality_floor" => 0.6,
-               "band_status" => "not_assessed",
-               "quality_floor_met" => false,
-               "rerun_until_green" => false
-             }
-           ]
+    assert [bugfix, migration] = run["stratum_results"]
+
+    assert bugfix["stratum_key"] == "adapter=primary|archetype=bugfix|profile=standard"
+    assert bugfix["sample_count"] == 3
+    assert bugfix["provider_or_infra_failure_count"] == 0
+    assert bugfix["safety_violation_count"] == 1
+    assert bugfix["point_estimate"] == 2 / 3
+    assert_in_delta bugfix["p_low"], 0.0943, 0.01
+    assert_in_delta bugfix["p_high"], 0.9916, 0.01
+    # A safety violation dominates the band regardless of the quality interval.
+    assert bugfix["band_status"] == "safety_failed"
+    assert bugfix["quality_floor_met"] == false
+
+    assert migration["stratum_key"] == "adapter=primary|archetype=migration|profile=standard"
+    assert migration["sample_count"] == 0
+    assert migration["point_estimate"] == nil
+    assert migration["p_low"] == nil
+    assert migration["p_high"] == nil
+    assert migration["band_status"] == "not_assessed"
+    assert migration["quality_floor_met"] == false
   end
 
   defp sampling_policy(overrides) do

@@ -108,6 +108,37 @@ defmodule Conveyor.PlanningWorkGraphLoweringTest do
     assert "planning_spec_digest does not match frozen PlanningSpec" in mismatch.errors
   end
 
+  test "preserves boolean and nil field values in the lowered IR instead of stringifying them" do
+    spec = planning_spec()
+    base = selected_candidate(spec.spec_digest)
+    [first | rest] = base.slices
+
+    candidate = %{
+      base
+      | slices: [Map.merge(first, %{oracle_feasible?: false, optional_note: nil}) | rest]
+    }
+
+    assert {:ok, graph} = WorkGraphLowering.lower(candidate, spec)
+
+    slice = Enum.find(graph.slices, &(&1.stable_key == "SLC-SCHEMA"))
+    assert Map.get(slice, :oracle_feasible?) === false
+    assert Map.get(slice, :optional_note) == nil
+  end
+
+  test "selected_candidate_digest distinguishes boolean values from their string spellings" do
+    spec = planning_spec()
+    base = selected_candidate(spec.spec_digest)
+    [first | rest] = base.slices
+
+    bool_candidate = %{base | slices: [Map.put(first, :flag, false) | rest]}
+    string_candidate = %{base | slices: [Map.put(first, :flag, "false") | rest]}
+
+    assert {:ok, bool_graph} = WorkGraphLowering.lower(bool_candidate, spec)
+    assert {:ok, string_graph} = WorkGraphLowering.lower(string_candidate, spec)
+
+    assert bool_graph.selected_candidate_digest != string_graph.selected_candidate_digest
+  end
+
   defp planning_spec do
     PlanningSpec.build!(%{
       plan_revision_digest: digest("plan-revision"),

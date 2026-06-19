@@ -22,10 +22,17 @@ defmodule Conveyor.Planning.PreliminaryVerification do
 
     {obligations, diagnostics} =
       Enum.map_reduce(entries, [], fn entry, diagnostics ->
-        if present?(Map.get(entry, :slice_key)) do
-          {obligation(entry), diagnostics}
-        else
-          {nil, [missing_slice_diagnostic(entry) | diagnostics]}
+        cond do
+          not present?(Map.get(entry, :slice_key)) ->
+            {nil, [missing_slice_diagnostic(entry) | diagnostics]}
+
+          not valid_obligation_kind?(entry) ->
+            # Report, don't crash (ADR-16): an unknown obligation_kind would raise inside
+            # Verification.new_obligation!, aborting the whole preliminary-verification pass.
+            {nil, [invalid_kind_diagnostic(entry) | diagnostics]}
+
+          true ->
+            {obligation(entry), diagnostics}
         end
       end)
 
@@ -55,6 +62,18 @@ defmodule Conveyor.Planning.PreliminaryVerification do
   defp missing_slice_diagnostic(entry) do
     %{
       rule_key: "verification_obligation_missing_slice",
+      severity: :blocking,
+      subject_key: Map.get(entry, :key, "unknown")
+    }
+  end
+
+  defp valid_obligation_kind?(entry) do
+    Map.get(entry, :obligation_kind, "example") in Verification.obligation_kinds()
+  end
+
+  defp invalid_kind_diagnostic(entry) do
+    %{
+      rule_key: "verification_obligation_invalid_kind",
       severity: :blocking,
       subject_key: Map.get(entry, :key, "unknown")
     }

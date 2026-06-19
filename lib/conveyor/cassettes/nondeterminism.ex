@@ -16,9 +16,22 @@ defmodule Conveyor.Cassettes.Nondeterminism do
 
   @spec new(keyword()) :: t()
   def new(opts \\ []) do
+    clock_start = Keyword.get(opts, :clock_start, "1970-01-01T00:00:00Z")
+
+    # Reject a malformed clock_start at the contract boundary rather than silently degrading
+    # to a frozen (non-advancing) virtual clock that breaks deterministic replay (ADR-12).
+    case DateTime.from_iso8601(clock_start) do
+      {:ok, _datetime, _offset} ->
+        :ok
+
+      _other ->
+        raise ArgumentError,
+              "clock_start must be an ISO-8601 datetime, got: #{inspect(clock_start)}"
+    end
+
     %__MODULE__{
       seed: Keyword.fetch!(opts, :seed),
-      clock_start: Keyword.get(opts, :clock_start, "1970-01-01T00:00:00Z")
+      clock_start: clock_start
     }
   end
 

@@ -132,12 +132,7 @@ defmodule Conveyor.Gate.Stages.PolicyCompliance do
     |> Regex.match?(path)
   end
 
-  defp digest(value) do
-    "sha256:" <>
-      (:sha256
-       |> :crypto.hash(:erlang.term_to_binary(value))
-       |> Base.encode16(case: :lower))
-  end
+  defp digest(value), do: Conveyor.CanonicalJson.digest(value)
 
   defp stringify(nil), do: nil
   defp stringify(value) when is_atom(value), do: Atom.to_string(value)

@@ -1,6 +1,11 @@
 defmodule Conveyor.Planning.Claims do
   @moduledoc """
-  Compiles deterministic source anchors into a ClaimSet.
+  Compiles deterministic source anchors into a pointer-keyed intermediate claim map.
+
+  Note: `compile/2` returns a pre-serialization, pointer-keyed representation
+  (`claims_by_pointer`), NOT the wire `conveyor.claim_set@1` artifact. A separate serializer
+  must flatten it into the schema's `claims` array and add `schema_version`/`subject` before
+  persisting or validating against `conveyor.claim_set@1`.
   """
 
   @spec compile(map(), [map()]) :: map()

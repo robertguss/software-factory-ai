@@ -53,7 +53,8 @@ defmodule Conveyor.PlanningPlanAmendmentsTest do
           ],
           interface_bindings: [],
           verification_obligations: [],
-          approval_roots: []
+          approval_roots: [],
+          grant_impacts: []
         )
       )
 
@@ -62,6 +63,25 @@ defmodule Conveyor.PlanningPlanAmendmentsTest do
     assert proposal["downstream_refs"] == []
     assert proposal["invalidated_artifact_refs"] == []
     assert_schema_valid!(proposal)
+  end
+
+  test "declared grant impacts surface in affected_refs even when there are no downstream refs" do
+    proposal =
+      PlanAmendments.propose(
+        sample_input(
+          dispute_kind: "nonmaterial_correction",
+          materiality: "nonmaterial",
+          changed_subjects: [%{subject_kind: "rendered_review", subject_id: "review-typo"}],
+          artifact_inputs: [],
+          interface_bindings: [],
+          verification_obligations: [],
+          approval_roots: [],
+          grant_impacts: [%{grant_id: "grant:standalone", action: "recheck_scope"}]
+        )
+      )
+
+    assert proposal["downstream_refs"] == []
+    assert ref("qualification_grant", "grant:standalone") in proposal["affected_refs"]
   end
 
   defp assert_schema_valid!(resource) do

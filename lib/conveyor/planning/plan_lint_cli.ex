@@ -3,11 +3,12 @@ defmodule Conveyor.Planning.PlanLintCLI do
 
   alias Conveyor.CLI.ExitCodes
 
-  @spec parse_format(String.t() | nil) :: :human | :json | :sarif
-  def parse_format(nil), do: :human
-  def parse_format("human"), do: :human
-  def parse_format("json"), do: :json
-  def parse_format("sarif"), do: :sarif
+  @spec parse_format(String.t() | nil) :: {:ok, :human | :json | :sarif} | {:error, String.t()}
+  def parse_format(nil), do: {:ok, :human}
+  def parse_format("human"), do: {:ok, :human}
+  def parse_format("json"), do: {:ok, :json}
+  def parse_format("sarif"), do: {:ok, :sarif}
+  def parse_format(_other), do: {:error, "--format must be human, json, or sarif"}
 
   @spec load_contract(Path.t()) :: {:ok, map()} | {:error, String.t()}
   def load_contract(path) do

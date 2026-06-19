@@ -124,7 +124,7 @@ defmodule Conveyor.Planning.FactoryChronicle do
 
   defp blockers(input) do
     input
-    |> list(:canonical_blockers)
+    |> canonical_blockers()
     |> Enum.map(fn blocker ->
       %{
         "blocker_id" => value(blocker, :blocker_id),
@@ -135,6 +135,28 @@ defmodule Conveyor.Planning.FactoryChronicle do
     |> Enum.sort_by(fn blocker ->
       {blocker["blocker_id"], blocker["source"], blocker["reason"]}
     end)
+  end
+
+  # The completeness canary must fail wide: a present-but-malformed (non-list) canonical_blockers
+  # must surface a blocker, never be silently coerced to "no blockers" (which would let the
+  # chronicle render status "passed" while a real blocker exists).
+  defp canonical_blockers(input) do
+    case value(input, :canonical_blockers, []) do
+      blockers when is_list(blockers) ->
+        blockers
+
+      nil ->
+        []
+
+      _malformed ->
+        [
+          %{
+            "blocker_id" => "MALFORMED_BLOCKERS",
+            "source" => "factory_chronicle",
+            "reason" => "canonical_blockers was not a list"
+          }
+        ]
+    end
   end
 
   defp sorted_strings(input, key) do
