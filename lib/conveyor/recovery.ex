@@ -87,12 +87,67 @@ defmodule Conveyor.Recovery do
     }
   end
 
+  @safe_auto_criteria [
+    "deterministic_precondition",
+    "current_fence",
+    "active_grant",
+    "budget_reserved",
+    "idempotent",
+    "bounded_retry"
+  ]
+
+  @spec safe_auto_action_decision(map(), map()) :: map()
+  def safe_auto_action_decision(proposal, evidence)
+      when is_map(proposal) and is_map(evidence) do
+    action_key = required(proposal, :action_key)
+
+    unless Map.has_key?(@actions, action_key) do
+      raise ArgumentError, "unknown recovery action_key: #{action_key}"
+    end
+
+    satisfied =
+      @safe_auto_criteria
+      |> Enum.filter(&criterion_satisfied?(&1, proposal, evidence))
+
+    failed = @safe_auto_criteria -- satisfied
+    human_gates = human_gated_reasons(proposal)
+    auto_apply? = failed == [] and human_gates == []
+
+    %{
+      "schema_version" => "conveyor.safe_auto_action_decision@1",
+      "proposal_digest" => required(proposal, :proposal_digest),
+      "action_key" => action_key,
+      "decision" => if(auto_apply?, do: "auto_applicable", else: "human_required"),
+      "auto_apply" => auto_apply?,
+      "requires_human" => not auto_apply?,
+      "satisfied_criteria" => satisfied,
+      "failed_criteria" => failed,
+      "human_gated_reasons" => human_gates
+    }
+  end
+
   defp required(map, key) do
     value(map, key) || raise ArgumentError, "#{key} is required"
   end
 
   defp value(map, key, default \\ nil) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+    string_key = to_string(key)
+    atom_key = existing_atom_key(key)
+
+    cond do
+      Map.has_key?(map, key) -> Map.fetch!(map, key)
+      Map.has_key?(map, string_key) -> Map.fetch!(map, string_key)
+      not is_nil(atom_key) and Map.has_key?(map, atom_key) -> Map.fetch!(map, atom_key)
+      true -> default
+    end
+  end
+
+  defp existing_atom_key(key) when is_atom(key), do: key
+
+  defp existing_atom_key(key) do
+    String.to_existing_atom(to_string(key))
+  rescue
+    ArgumentError -> nil
   end
 
   defp list_value(map, key) do
@@ -107,6 +162,21 @@ defmodule Conveyor.Recovery do
       value when is_boolean(value) -> value
       other -> raise ArgumentError, "#{key} must be a boolean, got: #{inspect(other)}"
     end
+  end
+
+  defp criterion_satisfied?("idempotent", proposal, _evidence),
+    do: value(proposal, :idempotent) == true
+
+  defp criterion_satisfied?(criterion, _proposal, evidence),
+    do: value(evidence, criterion) == true
+
+  defp human_gated_reasons(proposal) do
+    [
+      {value(proposal, :requires_human) == true, "requires_human"},
+      {value(proposal, :requires_new_spec) == true, "requires_new_spec"}
+    ]
+    |> Enum.filter(&elem(&1, 0))
+    |> Enum.map(&elem(&1, 1))
   end
 
   defp digest(value) do
