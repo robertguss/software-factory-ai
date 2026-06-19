@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.slice_decision_block@1.json",
+  "title": "Conveyor SliceDecisionBlock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "slice_key", "human_decision_ref", "reason"],
+  "properties": {
+    "schema_version": { "const": "conveyor.slice_decision_block@1" },
+    "slice_key": { "type": "string", "minLength": 1 },
+    "human_decision_ref": { "type": "string", "minLength": 1 },
+    "reason": { "type": "string", "minLength": 1 },
+    "claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  }
+}

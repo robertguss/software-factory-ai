@@ -48,6 +48,7 @@
     { "schema_version": "conveyor.slice_dependency@1", "file": "conveyor.slice_dependency@1.json", "owner": "P2-A3", "writer_status": "current" },
     { "schema_version": "conveyor.interface_contract@1", "file": "conveyor.interface_contract@1.json", "owner": "P2-A3", "writer_status": "current" },
     { "schema_version": "conveyor.slice_interface_binding@1", "file": "conveyor.slice_interface_binding@1.json", "owner": "P2-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.slice_decision_block@1", "file": "conveyor.slice_decision_block@1.json", "owner": "P2-A3", "writer_status": "current" },
     { "schema_version": "conveyor.capability_claim@1", "file": "conveyor.capability_claim@1.json", "owner": "P15-B2", "writer_status": "current" },
     { "schema_version": "conveyor.effective_capability_set@1", "file": "conveyor.effective_capability_set@1.json", "owner": "P15-B2", "writer_status": "current" },
     { "schema_version": "conveyor.cassette_series@1", "file": "conveyor.cassette_series@1.json", "owner": "P15-B3", "writer_status": "current" },
