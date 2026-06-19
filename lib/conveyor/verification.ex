@@ -29,6 +29,9 @@ defmodule Conveyor.Verification do
   }
 
   @waiver_statuses ~w(active expired revoked superseded)
+  @quarantine_reasons ~w(flaky non_hermetic vacuous order_dependent infrastructure_sensitive)
+  @quarantine_statuses ~w(quarantined rehabilitated retired)
+  @quarantine_exclusions ~w(advisory ordinary_execution both)
 
   @spec obligation_kinds() :: [String.t()]
   def obligation_kinds, do: @obligation_kinds
@@ -44,6 +47,9 @@ defmodule Conveyor.Verification do
 
   @spec waiver_statuses() :: [String.t()]
   def waiver_statuses, do: @waiver_statuses
+
+  @spec quarantine_reasons() :: [String.t()]
+  def quarantine_reasons, do: @quarantine_reasons
 
   @spec new_obligation!(map()) :: map()
   def new_obligation!(attrs) when is_map(attrs) do
@@ -109,7 +115,8 @@ defmodule Conveyor.Verification do
       requirement
       |> Map.fetch!("required_dimensions")
       |> Map.new(fn dimension ->
-        {dimension, evaluate_dimension(requirement, evidence, dimension)}
+        {dimension,
+         evaluate_dimension(requirement, evidence, dimension, Keyword.get(opts, :quarantines, []))}
       end)
 
     waived? = active_waiver?(Keyword.get(opts, :waiver), requirement)
@@ -130,6 +137,26 @@ defmodule Conveyor.Verification do
       |> maybe_put_waiver(Keyword.get(opts, :waiver), result)
 
     Map.put(satisfaction, "satisfaction_digest", "sha256:#{digest(satisfaction)}")
+  end
+
+  @spec new_quarantine!(map()) :: map()
+  def new_quarantine!(attrs) when is_map(attrs) do
+    quarantine =
+      %{
+        "schema_version" => "conveyor.test_quarantine@1",
+        "test_pack_id" => required_string(attrs, :test_pack_id),
+        "test_id" => required_string(attrs, :test_id),
+        "reason" => required_enum(attrs, :reason, @quarantine_reasons),
+        "required_for_obligation_ids" =>
+          required_string_list(attrs, :required_for_obligation_ids),
+        "status" => required_enum(attrs, :status, @quarantine_statuses),
+        "excluded_from" => required_enum(attrs, :excluded_from, @quarantine_exclusions),
+        "human_decision_id" => optional_string(attrs, :human_decision_id),
+        "evidence_ref" => required_string(attrs, :evidence_ref),
+        "created_at" => required_string(attrs, :created_at)
+      }
+
+    Map.put(quarantine, "id", "test_quarantine:sha256:#{digest(quarantine)}")
   end
 
   @spec new_waiver!(map()) :: map()
@@ -178,7 +205,7 @@ defmodule Conveyor.Verification do
     }
   end
 
-  defp evaluate_dimension(requirement, evidence, dimension) do
+  defp evaluate_dimension(requirement, evidence, dimension, quarantines) do
     predicate = get_in(requirement, ["dimension_predicates", dimension])
     required_kind = Map.fetch!(predicate, "evidence_kind")
 
@@ -188,7 +215,11 @@ defmodule Conveyor.Verification do
           evidence_item["evidence_kind"] == required_kind
       end)
 
-    valid = Enum.filter(matching, &(&1["validity"] == "valid"))
+    {quarantined, available} =
+      Enum.split_with(matching, &quarantined_evidence?(&1, quarantines, requirement))
+
+    valid = Enum.filter(available, &(&1["validity"] == "valid"))
+    quarantine_ids = quarantine_ids(quarantined, quarantines, requirement)
 
     cond do
       valid != [] ->
@@ -197,14 +228,25 @@ defmodule Conveyor.Verification do
           "required_evidence_kind" => required_kind,
           "evidence_ids" => Enum.map(valid, & &1["id"])
         }
+        |> with_quarantine_ids(quarantine_ids)
 
-      matching != [] ->
+      quarantined != [] ->
         %{
           "status" => "blocked",
           "required_evidence_kind" => required_kind,
-          "evidence_ids" => Enum.map(matching, & &1["id"]),
-          "blocking_validities" => matching |> Enum.map(& &1["validity"]) |> Enum.uniq()
+          "evidence_ids" => Enum.map(quarantined, & &1["id"]),
+          "blocking_validities" => ["quarantined"],
+          "quarantine_ids" => quarantine_ids
         }
+
+      available != [] ->
+        %{
+          "status" => "blocked",
+          "required_evidence_kind" => required_kind,
+          "evidence_ids" => Enum.map(available, & &1["id"]),
+          "blocking_validities" => available |> Enum.map(& &1["validity"]) |> Enum.uniq()
+        }
+        |> with_quarantine_ids(quarantine_ids)
 
       true ->
         %{
@@ -212,8 +254,39 @@ defmodule Conveyor.Verification do
           "required_evidence_kind" => required_kind,
           "evidence_ids" => []
         }
+        |> with_quarantine_ids(quarantine_ids)
     end
   end
+
+  defp with_quarantine_ids(result, []), do: result
+
+  defp with_quarantine_ids(result, quarantine_ids),
+    do: Map.put(result, "quarantine_ids", quarantine_ids)
+
+  defp quarantined_evidence?(evidence, quarantines, requirement) do
+    Enum.any?(quarantines, &quarantine_matches?(&1, evidence, requirement))
+  end
+
+  defp quarantine_ids(evidence, quarantines, requirement) do
+    evidence
+    |> Enum.flat_map(fn evidence_item ->
+      quarantines
+      |> Enum.filter(&quarantine_matches?(&1, evidence_item, requirement))
+      |> Enum.map(& &1["id"])
+    end)
+    |> Enum.uniq()
+  end
+
+  defp quarantine_matches?(%{"status" => "quarantined"} = quarantine, evidence, requirement) do
+    obligation_id = requirement["verification_obligation_id"]
+
+    obligation_id in quarantine["required_for_obligation_ids"] and
+      (quarantine["evidence_ref"] == evidence["id"] or
+         quarantine["test_pack_id"] == evidence["producer_ref"] or
+         quarantine["test_id"] == evidence["producer_ref"])
+  end
+
+  defp quarantine_matches?(_quarantine, _evidence, _requirement), do: false
 
   defp satisfaction_result(dimension_results, waived?) do
     statuses = dimension_results |> Map.values() |> Enum.map(& &1["status"])

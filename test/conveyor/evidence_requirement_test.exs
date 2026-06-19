@@ -129,6 +129,98 @@ defmodule Conveyor.EvidenceRequirementTest do
     assert satisfaction["dimension_results"]["environment_freshness"]["status"] == "waived"
   end
 
+  test "TestQuarantine isolates suspect evidence without satisfying the obligation" do
+    requirement =
+      Verification.new_evidence_requirement!(%{
+        verification_obligation_id: @obligation_id,
+        required_dimensions: [:candidate_result],
+        created_at: "2026-06-19T00:00:00Z"
+      })
+
+    quarantined_evidence = evidence("candidate", :candidate_result, :valid)
+
+    quarantine =
+      Verification.new_quarantine!(%{
+        test_pack_id: "test-pack:unit",
+        test_id: "test:flaky-candidate",
+        reason: :flaky,
+        required_for_obligation_ids: [@obligation_id],
+        status: :quarantined,
+        excluded_from: :both,
+        human_decision_id: "human-decision:quarantine-1",
+        evidence_ref: quarantined_evidence["id"],
+        created_at: "2026-06-19T00:00:00Z"
+      })
+
+    assert Verification.quarantine_reasons() ==
+             ~w(flaky non_hermetic vacuous order_dependent infrastructure_sensitive)
+
+    assert quarantine["schema_version"] == "conveyor.test_quarantine@1"
+    assert quarantine["status"] == "quarantined"
+    assert quarantine["excluded_from"] == "both"
+
+    satisfaction =
+      Verification.evaluate_requirement(requirement, [quarantined_evidence],
+        policy_decision_id: "policy-decision:block",
+        quarantines: [quarantine],
+        evaluated_at: "2026-06-19T00:01:00Z"
+      )
+
+    assert satisfaction["result"] == "blocked"
+    assert satisfaction["consumed_evidence_ids"] == [quarantined_evidence["id"]]
+    assert satisfaction["dimension_results"]["candidate_result"]["status"] == "blocked"
+
+    assert satisfaction["dimension_results"]["candidate_result"]["blocking_validities"] == [
+             "quarantined"
+           ]
+
+    assert satisfaction["dimension_results"]["candidate_result"]["quarantine_ids"] == [
+             quarantine["id"]
+           ]
+  end
+
+  test "replacement valid evidence can satisfy an obligation while quarantined evidence remains isolated" do
+    requirement =
+      Verification.new_evidence_requirement!(%{
+        verification_obligation_id: @obligation_id,
+        required_dimensions: [:candidate_result],
+        created_at: "2026-06-19T00:00:00Z"
+      })
+
+    quarantined_evidence = evidence("candidate-old", :candidate_result, :valid)
+    replacement_evidence = evidence("candidate-new", :candidate_result, :valid)
+
+    quarantine =
+      Verification.new_quarantine!(%{
+        test_pack_id: "test-pack:unit",
+        test_id: "test:flaky-candidate",
+        reason: :flaky,
+        required_for_obligation_ids: [@obligation_id],
+        status: :quarantined,
+        excluded_from: :ordinary_execution,
+        evidence_ref: quarantined_evidence["id"],
+        created_at: "2026-06-19T00:00:00Z"
+      })
+
+    satisfaction =
+      Verification.evaluate_requirement(requirement, [quarantined_evidence, replacement_evidence],
+        policy_decision_id: "policy-decision:allow",
+        quarantines: [quarantine],
+        evaluated_at: "2026-06-19T00:01:00Z"
+      )
+
+    assert satisfaction["result"] == "satisfied"
+    assert satisfaction["consumed_evidence_ids"] == [replacement_evidence["id"]]
+
+    assert satisfaction["dimension_results"]["candidate_result"]["evidence_ids"] == [
+             replacement_evidence["id"]
+           ]
+
+    assert satisfaction["dimension_results"]["candidate_result"]["quarantine_ids"] == [
+             quarantine["id"]
+           ]
+  end
+
   defp evidence(label, kind, validity) do
     Verification.new_evidence!(%{
       verification_obligation_id: @obligation_id,
