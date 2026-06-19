@@ -11,6 +11,7 @@ defmodule Conveyor.Station do
   alias Conveyor.Effects.Attempts
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.AuthorityEvent
   alias Conveyor.Factory.EffectAttempt
   alias Conveyor.Factory.EffectReceipt
   alias Conveyor.Factory.Epic
@@ -426,6 +427,14 @@ defmodule Conveyor.Station do
           return_notifications?: true
         )
 
+      append_authority_event!(
+        station_run,
+        run_attempt,
+        ledger_event,
+        completed_at,
+        "station.succeeded"
+      )
+
       {updated_station_run, artifacts, ledger_event,
        artifact_notifications ++ station_notifications ++ ledger_notifications}
     end)
@@ -484,6 +493,8 @@ defmodule Conveyor.Station do
         occurred_at: failed_at
       })
 
+    append_authority_event!(station_run, run_attempt, ledger_event, failed_at, "station.failed")
+
     %Result{
       station_run: updated,
       effects: [],
@@ -492,6 +503,27 @@ defmodule Conveyor.Station do
       output: %{"error" => message},
       reused?: false
     }
+  end
+
+  defp append_authority_event!(station_run, run_attempt, ledger_event, committed_at, event_type) do
+    Ash.create!(
+      AuthorityEvent,
+      %{
+        event_id: "authority:#{ledger_event.id}",
+        stream_id: station_run.id,
+        stream_version: station_run.lease_epoch,
+        event_type: event_type,
+        subject_ref: %{"kind" => "station_run", "id_or_key" => station_run.id},
+        causation_id: nil,
+        correlation_id: run_attempt.trace_id,
+        trace_context: %{"trace_id" => run_attempt.trace_id},
+        payload_ref: %{"kind" => "ledger_event", "id_or_key" => ledger_event.id},
+        fencing_token: fencing_token(station_run),
+        policy_decision_id: "local-dev-policy-decision",
+        committed_at: committed_at
+      },
+      domain: Factory
+    )
   end
 
   defp write_artifacts!(station_run, run_attempt, artifacts, opts) do

@@ -30,6 +30,7 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.StationEffect
     resource Conveyor.Factory.EffectAttempt
     resource Conveyor.Factory.EffectReceipt
+    resource Conveyor.Factory.AuthorityEvent
     resource Conveyor.Factory.PatchSet
     resource Conveyor.Factory.RiskAssessment
     resource Conveyor.Factory.WorkspaceMaterialization
