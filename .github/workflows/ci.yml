@@ -40,6 +40,13 @@ jobs:
           elixir-version: "1.20.1"
           otp-version: "29.0"
 
+      - name: Set up Python
+        # Required by the eval Toolchain Runner (F1) / Mutant Gauntlet (E1), which
+        # build a venv from the sample's requirements.lock and run pytest.
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
       - name: Cache dependencies and PLTs
         uses: actions/cache@v4
         with:
@@ -65,6 +72,20 @@ jobs:
 
       - name: Run tests
         run: MIX_ENV=test mix test
+
+      - name: Run Rung-0 evals (emit scorecard inputs)
+        # E1/E7/E8 -> eval/scorecards/inputs/*.json (DB-free; uses the venv pytest).
+        run: MIX_ENV=test mix conveyor.eval.rung0
+
+      - name: Replay cassette corpus (emit replay_fidelity)
+        # Replays cassettes recorded by `mix test` (DB-free); emits replay_fidelity.
+        run: MIX_ENV=test mix conveyor.eval.replay --all
+
+      - name: Eval scorecard gate
+        # Aggregates eval/scorecards/inputs/*.json into conveyor.eval_scorecard@1
+        # and exits non-zero if any blocking metric (false_pass_rate>0, etc.) is
+        # present. DB-free. See docs/3_evals/IMPLEMENTATION-PLAN-RUNGS-0-1.md (F2).
+        run: MIX_ENV=test mix conveyor.eval.scorecard --gate
 
       - name: Run Credo
         run: mix credo --strict

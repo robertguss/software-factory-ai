@@ -50,6 +50,9 @@ defmodule Conveyor.TelemetryConventionsTest do
   test "allows only bounded metric dimensions" do
     assert Conventions.allowed_metric_dimensions() == [
              "adapter",
+             "archetype",
+             "eval_case",
+             "eval_suite",
              "failure_category",
              "policy_profile",
              "profile",

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.eval_metric@1.json",
+  "title": "Conveyor Eval Metric",
+  "description": "A single metric emitted by an eval suite into eval/scorecards/inputs/. Aggregated by conveyor.eval_scorecard@1. The emitting suite decides `status`; a `blocking` metric with status `blocking` fails the scorecard --gate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "key", "suite", "value", "target", "blocking", "status"],
+  "properties": {
+    "schema_version": { "const": "conveyor.eval_metric@1" },
+    "key": { "type": "string", "minLength": 1 },
+    "suite": { "type": "string", "minLength": 1 },
+    "value": { "type": ["number", "string", "boolean"] },
+    "target": { "type": ["number", "string", "boolean"] },
+    "blocking": { "type": "boolean" },
+    "status": { "enum": ["ok", "warn", "blocking"] },
+    "detail": { "type": "string" },
+    "ci": {
+      "type": "array",
+      "description": "Optional exact confidence interval [p_low, p_high] from Conveyor.Statistics.clopper_pearson_interval/3.",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
