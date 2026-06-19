@@ -1,0 +1,10 @@
+{
+  "station_run_id": "station-run-001",
+  "station_effect_id": "station-effect-001",
+  "fencing_token": "lease-7",
+  "admission_permit_id": "admission-permit-001",
+  "idempotency_key": "station-run-001:effect-001:lease-7",
+  "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "started_at": "2026-06-19T00:00:00Z",
+  "status": "started"
+}

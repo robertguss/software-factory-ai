@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.pilot_selection@1.json",
+  "title": "Conveyor PilotSelection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "planning_bundle_id",
+    "selection_policy_digest",
+    "selected_slice_ids",
+    "required_coverage_classes",
+    "excluded_slice_ids_with_reasons",
+    "selection_digest",
+    "frozen_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.pilot_selection@1" },
+    "planning_bundle_id": { "type": "string", "minLength": 1 },
+    "selection_policy_digest": { "$ref": "#/$defs/digest_ref" },
+    "selected_slice_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "required_coverage_classes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "root_slice",
+          "terminal_slice",
+          "dependency_pair",
+          "fork_join",
+          "public_interface",
+          "migration_compatibility",
+          "low_risk",
+          "high_risk",
+          "parked_path",
+          "human_verification",
+          "unchanged_contract",
+          "amendment_path",
+          "alternative_candidate"
+        ]
+      }
+    },
+    "excluded_slice_ids_with_reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slice_id", "reason"],
+        "properties": {
+          "slice_id": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "selection_digest": { "$ref": "#/$defs/digest_ref" },
+    "frozen_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "digest_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "value"],
+      "properties": {
+        "schema_version": { "const": "conveyor.digest_ref@1" },
+        "algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+      }
+    }
+  }
+}

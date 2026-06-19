@@ -1,0 +1,13 @@
+{
+  "schema_version": "conveyor.pilot_selection@1",
+  "planning_bundle_id": "planning-bundle:contract-foundry-pilot:r1",
+  "selection_policy_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "selected_slice_ids": ["slice:source-ingest"],
+  "required_coverage_classes": ["root_slice"],
+  "excluded_slice_ids_with_reasons": [],
+  "frozen_at": "2026-06-19T11:37:00Z"
+}

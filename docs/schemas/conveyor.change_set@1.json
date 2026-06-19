@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.change_set@1.json",
+  "title": "Conveyor ChangeSet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "base_revision_digest",
+    "operations",
+    "preconditions",
+    "materiality_labels",
+    "impact_preview_ref",
+    "change_set_digest",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.change_set@1" },
+    "subject": { "$ref": "#/$defs/resource_ref" },
+    "base_revision_digest": { "$ref": "#/$defs/digest_ref" },
+    "base_authority_root_digest": { "$ref": "#/$defs/digest_ref" },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["op", "path", "reason"],
+        "properties": {
+          "op": { "enum": ["add", "replace", "remove", "move", "copy", "test"] },
+          "path": { "type": "string", "minLength": 1 },
+          "from": { "type": "string", "minLength": 1 },
+          "value": {},
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "preconditions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind"],
+        "properties": {
+          "kind": { "enum": ["base_revision_digest", "base_authority_root_digest", "policy_digest", "approval_root_digest"] },
+          "ref": { "$ref": "#/$defs/resource_ref" },
+          "digest": { "$ref": "#/$defs/digest_ref" }
+        }
+      }
+    },
+    "materiality_labels": {
+      "type": "array",
+      "items": { "enum": ["nonmaterial", "review_only", "material", "breaking"] }
+    },
+    "impact_preview_ref": { "$ref": "#/$defs/resource_ref" },
+    "resulting_revision_digest": { "$ref": "#/$defs/digest_ref" },
+    "change_set_digest": { "$ref": "#/$defs/digest_ref" },
+    "status": { "enum": ["draft", "previewed", "applied", "rejected", "blocked"] }
+  },
+  "$defs": {
+    "digest_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "value"],
+      "properties": {
+        "schema_version": { "const": "conveyor.digest_ref@1" },
+        "algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+      }
+    },
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.resource_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest_ref" },
+        "project_id": { "type": "string", "minLength": 1 },
+        "trust_domain_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

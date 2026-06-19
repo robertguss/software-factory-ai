@@ -1,0 +1,8 @@
+{
+  "schema_version": "conveyor.slice_interface_binding@1",
+  "slice_key": "SLC-FILTER",
+  "interface_key": "db.tasks.completed",
+  "direction": "requires",
+  "required_version_range": ">=1 <2",
+  "claim_refs": ["CLM-BIND-001"]
+}

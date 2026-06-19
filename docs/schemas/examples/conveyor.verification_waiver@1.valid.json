@@ -1,0 +1,12 @@
+{
+  "schema_version": "conveyor.verification_waiver@1",
+  "id": "verification_waiver:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "verification_obligation_id": "verification_obligation:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "human_decision_id": "human-decision:waive-1",
+  "reason": "Temporary repeatability outage.",
+  "compensating_control_refs": ["control:manual-review"],
+  "max_autonomy": "observe_only",
+  "owner": "principal-engineer",
+  "expires_at": "2026-06-26T00:00:00Z",
+  "status": "active"
+}

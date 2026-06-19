@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.behavior_lock_run@1.json",
+  "title": "Conveyor BehaviorLockRun",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "run_attempt_id",
+    "slice_id",
+    "oracle_adapter",
+    "inputs_ref",
+    "baseline_output_ref",
+    "candidate_output_ref",
+    "normalization_policy_ref",
+    "divergences",
+    "status",
+    "equivalence_claim",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.behavior_lock_run@1" },
+    "id": { "type": "string", "minLength": 1 },
+    "run_attempt_id": { "type": "string", "minLength": 1 },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "oracle_adapter": { "type": "string", "minLength": 1 },
+    "inputs_ref": { "type": "string", "minLength": 1 },
+    "baseline_output_ref": { "type": "string", "minLength": 1 },
+    "candidate_output_ref": { "type": "string", "minLength": 1 },
+    "normalization_policy_ref": { "type": "string", "minLength": 1 },
+    "divergences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input_index",
+          "input_ref",
+          "baseline_observation_ref",
+          "candidate_observation_ref",
+          "summary"
+        ],
+        "properties": {
+          "input_index": { "type": "integer", "minimum": 0 },
+          "input_ref": { "type": "string", "minLength": 1 },
+          "baseline_observation_ref": { "type": "string", "minLength": 1 },
+          "candidate_observation_ref": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "status": { "enum": ["no_divergence_observed", "diverged", "inconclusive"] },
+    "equivalence_claim": { "const": "bounded_observation_only" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

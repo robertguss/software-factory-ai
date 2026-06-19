@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.admission_permit@1.json",
+  "title": "Conveyor AdmissionPermit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "subject_kind",
+    "subject_id",
+    "spec_digest",
+    "qualification_grant_id",
+    "effective_capability_set_digest",
+    "authority_root_digests",
+    "policy_digest",
+    "environment_digest",
+    "budget_reservation_ids",
+    "control_generation",
+    "issued_at",
+    "expires_at",
+    "permit_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.admission_permit@1" },
+    "id": { "type": "string", "pattern": "^admission_permit:sha256:[0-9a-f]{64}$" },
+    "subject_kind": { "type": "string", "minLength": 1 },
+    "subject_id": { "type": "string", "minLength": 1 },
+    "spec_digest": { "$ref": "#/$defs/digest" },
+    "qualification_grant_id": { "type": "string", "pattern": "^qualification_grant:sha256:[0-9a-f]{64}$" },
+    "effective_capability_set_digest": { "$ref": "#/$defs/digest" },
+    "authority_root_digests": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/digest" }
+    },
+    "policy_digest": { "$ref": "#/$defs/digest" },
+    "environment_digest": { "$ref": "#/$defs/digest" },
+    "budget_reservation_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "control_generation": { "type": "integer", "minimum": 0 },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "permit_digest": { "$ref": "#/$defs/digest" },
+    "supersedes_permit_id": { "type": "string", "pattern": "^admission_permit:sha256:[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

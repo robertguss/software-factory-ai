@@ -1,0 +1,12 @@
+{
+  "schema_version": "conveyor.budget_envelope@1",
+  "scope_kind": "project",
+  "scope_id": "project-001",
+  "currency": "USD",
+  "token_limit": 1000000,
+  "cost_limit": 100.0,
+  "concurrency_limit": 8,
+  "rolling_window_ms": 3600000,
+  "policy_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "active"
+}

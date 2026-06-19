@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.battery_case@1",
+  "case_id": "case-001",
+  "case_kinds": ["conformance", "safety_invariant", "outcome_quality", "operability"],
+  "criticality": "release_required",
+  "archetype_key": "bugfix",
+  "repo_base_ref": "repo-base-001",
+  "role_safe_case_ref": "artifact://role-safe/case-001",
+  "policy_bundle_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "sample_policy_ref": "sampling-policy-001",
+  "trace_assertion_refs": ["trace-assertion-001"],
+  "labels": ["trap_runner_honesty"],
+  "status": "active"
+}

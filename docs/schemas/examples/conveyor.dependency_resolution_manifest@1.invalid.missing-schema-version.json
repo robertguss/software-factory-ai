@@ -1,0 +1,12 @@
+{
+  "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "repository_base_commit": "abcdef1234567890abcdef1234567890abcdef12",
+  "package_manager": "mix",
+  "lockfile_digests": ["sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "registry_mirror_policy": "direct_locked",
+  "resolved_package_refs": ["hex:phoenix:1.8.0"],
+  "script_policy": "deny",
+  "network_policy": "allow_registry_only",
+  "cache_policy": "trusted_readonly",
+  "native_policy": "allow_pinned_toolchain"
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.replay_anchor_set@1.json",
+  "title": "Conveyor ReplayAnchorSet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "selection_policy_digest", "selected_before_change_ref", "anchors", "replay_anchor_set_digest"],
+  "properties": {
+    "schema_version": { "const": "conveyor.replay_anchor_set@1" },
+    "selection_policy_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "selected_before_change_ref": { "type": "string", "minLength": 1 },
+    "anchors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "cassette_ref", "valuable_failure", "expected_replay_assertions"],
+        "properties": {
+          "category": { "enum": ["successful", "failed", "disputed", "safety_sensitive"] },
+          "cassette_ref": { "type": "string", "minLength": 1 },
+          "valuable_failure": { "type": "boolean" },
+          "expected_replay_assertions": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "replay_anchor_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

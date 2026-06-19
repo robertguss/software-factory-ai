@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "after_db_commit_before_outbox",
+  "kind": "crash-test",
+  "proves": "crash after DB commit before outbox publish republishes from outbox",
+  "states": ["transaction_open", "db_committed_with_outbox_row", "crashed_before_publish", "outbox_replayed", "published"],
+  "transitions": [
+    { "from": "transaction_open", "event": "commit_authority_and_outbox", "to": "db_committed_with_outbox_row" },
+    { "from": "db_committed_with_outbox_row", "event": "process_crashes_before_publish", "to": "crashed_before_publish" },
+    { "from": "crashed_before_publish", "event": "outbox_poller_loads_unpublished_row", "to": "outbox_replayed" },
+    { "from": "outbox_replayed", "event": "publish_message", "to": "published" },
+    { "from": "published", "event": "mark_outbox_published", "to": "published" }
+  ],
+  "invariants": [
+    "Authority commit and outbox enqueue happen in the same transaction.",
+    "A committed outbox row is eventually publishable after process recovery."
+  ],
+  "counterexample_traces": [
+    ["commit_authority_and_outbox", "process_crashes_before_publish", "drop_unpublished_outbox_row"]
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.battery_run@1.json",
+  "title": "Conveyor BatteryRun",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "corpus_digest", "scoring_policy_digest", "requested_grant_scope_digest", "adapter", "agent_profile_id", "capability_digest", "environment_digest", "run_mode", "prompt_template_version", "trace_id", "status", "retention_class"],
+  "properties": {
+    "schema_version": { "const": "conveyor.battery_run@1" },
+    "corpus_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "scoring_policy_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "requested_grant_scope_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "adapter": { "type": "string", "minLength": 1 },
+    "agent_profile_id": { "type": "string", "minLength": 1 },
+    "capability_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "environment_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "run_mode": { "enum": ["dry_run", "shadow", "enforced", "replay"] },
+    "prompt_template_version": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["planned", "running", "succeeded", "failed", "cancelled"] },
+    "summary_ref": { "type": "string", "minLength": 1 },
+    "retention_class": { "enum": ["ephemeral", "project", "audit", "legal_hold"] }
+  }
+}

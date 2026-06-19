@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.adapter_capability_drift_signal@1.json",
+  "title": "Conveyor AdapterCapabilityDriftSignal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter",
+    "reason",
+    "previous_capability_snapshot_digest",
+    "observed_capability_snapshot_digest",
+    "affected_grant_ids",
+    "suspend_new_permits",
+    "detected_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.adapter_capability_drift_signal@1" },
+    "adapter": { "type": "string", "minLength": 1 },
+    "reason": { "const": "capability_drift" },
+    "previous_capability_snapshot_digest": { "type": ["string", "null"] },
+    "observed_capability_snapshot_digest": { "type": "string", "minLength": 1 },
+    "affected_grant_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "suspend_new_permits": { "type": "boolean" },
+    "detected_at": { "type": ["string", "null"] }
+  }
+}

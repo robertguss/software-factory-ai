@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.interface_contract@1",
+  "interface_key": "db.tasks.completed",
+  "kind": "db_column",
+  "stability": "internal_cross_slice",
+  "lock_level": "review_required",
+  "compatibility_policy": "migration_required",
+  "owner_slice_key": "SLC-SCHEMA",
+  "version": "1",
+  "schema_ref": "schema:tasks.completed@1",
+  "deprecation_policy": "review_required",
+  "affected_consumers": ["SLC-FILTER"],
+  "claim_refs": ["CLM-IFACE-001"]
+}

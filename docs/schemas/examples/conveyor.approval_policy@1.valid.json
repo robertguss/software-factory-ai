@@ -1,0 +1,18 @@
+{
+  "schema_version": "conveyor.approval_policy@1",
+  "policy_key": "local-threshold-one",
+  "version": 1,
+  "subject_scope": "planning_bundle",
+  "required_actor_roles": ["owner"],
+  "threshold": 1,
+  "separation_of_duties_rules": [],
+  "required_acknowledgement_keys": ["limitations_banner", "accepted_warnings"],
+  "expiry_policy": {
+    "mode": "root_change"
+  },
+  "policy_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}

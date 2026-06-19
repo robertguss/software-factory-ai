@@ -1,0 +1,105 @@
+# -*- coding: utf-8 -*-
+# Lightweight deferred capture of §24 ideas + §27 seams under the DEFERRED epic.
+# Phases 3–8 stay as the existing roadmap placeholders sgp.2..sgp.8 (not duplicated here).
+BEADS = []
+
+def d(label, title, when, summary, ref, status="deferred", extra_labels=None):
+    return dict(label=label, title=title, type="task", parent="DEFERRED",
+                deps=[], priority=4, status=status,
+                labels=["deferred", "roadmap"] + (extra_labels or []),
+                desc=(f"# {title}\n\n**Idea.** {summary}\n\n"
+                      f"**Disposition.** {when}.\n\n**Refs.** {ref}.\n\n"
+                      f"_Lightweight capture only (Correction I / §19 cutline); promote when prerequisite "
+                      f"evidence exists and the scope-control rule is met._"))
+
+# ── §24 additional high-leverage ideas ──
+IDEAS = [
+ ("24-01","Static archetype contract templates","recommended for core — reflected in P2-B1 archetype templates",
+  "Small controlled archetype vocabulary with deterministic minimum obligations instead of re-inventing contract structure per run.","§24.1, §9.6"),
+ ("24-02","Anti-overdecomposition budget","recommended for core — reflected in P2-A3 analyses",
+  "Reject both giant Slices and confetti graphs by edge density, shared oracles, fixed overhead, fan-in/out, risk crossings; optimize total expected work + independent verifiability.","§24.2"),
+ ("24-03","Atomicity groups","recommended for core — reflected in P2-A3",
+  "Model work that must integrate together (schema+backfill, authz+audit, write+outbox) to prevent unsafe intermediate states.","§24.3, §8.2"),
+ ("24-04","Contract falsifiability proof","promoted to core — see P2-B1",
+  "Every machine AC provides ≥1 concrete failing counterexample; if none can be articulated the AC is tautological/aesthetic/non-verifiable.","§24.4"),
+ ("24-05","Alternate-decomposition shadow pass","selective experiment — partial in P2-A2 shadow candidate",
+  "For high-risk/uncertain plans, run a second independent Decomposer and show material disagreement; never auto-merge.","§24.5, §6.6"),
+ ("24-06","Slice coalescer/splitter","later Phase-2 optimization",
+  "Propose graph patches merging Slices sharing an oracle/working-set, splitting risk/interface-spanning Slices, or downgrading false hard deps to hints.","§24.6"),
+ ("24-07","Approval cognitive-load budget","recommended metric — partial in P2-B5",
+  "Estimate review burden (inferred facts, high-risk surfaces, critic disagreement, contract length, candidate count, delta); segment approval when exceeded.","§24.7"),
+ ("24-08","Semantic scope-delta detector","recommended — reflected in P2-A3",
+  "Classify source intent vs generated graph (scope_preserved/added/removed/reinterpreted/unknown); every scope_added requires provenance + approval.","§24.8"),
+ ("24-09","Contract challenge cases","recommended — reflected in P2-B3",
+  "Preserve adversarial Critic situations as executable hidden tests or human-review scenarios; seed later red-team/mutation/behavior-lock corpora.","§24.9"),
+ ("24-10","Interface consistency solver","later",
+  "Validate provider/consumer agreement on identity/version/schema/errors/compatibility/lifecycle; start with a deterministic schema unifier, not a theorem prover.","§24.10"),
+ ("24-11","Human approval signatures","later trust upgrade",
+  "Teams/remote runners add local-key or Sigstore-compatible signatures; improves attribution not semantic correctness; must not delay the local OSS path.","§24.11"),
+ ("24-12","'Why this Slice?' capsule","recommended — reflected in WorkGraph why_this_slice",
+  "Concise compiler-generated explanation of why a Slice is separate, what verifies it, what it unlocks, and what merging would lose.","§24.12"),
+ ("24-13","Decision-debt meter","recommended projection",
+  "Track accepted defaults + deferred decisions in active contracts; high-impact aged debt can block autonomy or force re-approval.","§24.13, §6.4"),
+ ("24-14","Planning SARIF export","cheap integration — reflected in P2-A4 lint wedge",
+  "Export plan/contract findings as SARIF for IDE/CI source-linked problems; adoption nicety, not source of truth.","§24.14"),
+ ("24-15","Contract lint as a standalone command","promoted to P2-A core — see P2-A4",
+  "Deterministic plan_lint/contract_lint wedge: useful before agentic compilation is qualified, no provider cost, cannot create execution authority.","§24.15"),
+ ("24-16","Decomposition confidence calibration","learning seam",
+  "Record confidence per Slice/edge/interface/inference and compare with human edits/disputes/failures; calibration signal, never authority.","§24.16, §6.7"),
+ ("24-17","Contract provenance graph","later visualization",
+  "Render which plan paragraphs/decisions/observations/constraints/inferences produced each field; Phase 2 begins with source badges + links.","§24.17"),
+ ("24-18","Approval shadow predictor","defer",
+  "Predict which inferred items a human will reject; do not prioritize before enough approval history; risk-first deterministic ordering is safer.","§24.18"),
+ ("24-19","Code Impact Overlay","advisory Phase-2/3 accelerator — advisory seam in P2-A1",
+  "Project Slices onto modules/symbols/call-edges/routes/tables/tests/ownership via language adapters; never a hard dependency from an uncertain edge.","§24.19, §6.9"),
+ ("24-20","Compatibility Bridge & Deprecation Planner","later proposal engine",
+  "For intentional public-interface change, propose versioned routes/adapters/translation/deprecation/removal-dates; a proposal, not a guarantee.","§24.20"),
+ ("24-21","Ghost Context / evidence-grounded exemplars","guarded later feature",
+  "Retrieve prior successful dossiers/symbol-maps/minimal-diffs/lessons; provenance-labelled, untrusted context, paired with fresh discovery.","§24.21, §6.8"),
+ ("24-22","Deterministic fault-injection profiles","Phase-4/5 verification",
+  "Reproducible seeded profiles (network_unavailable, provider_timeout, db_drop, worker_kill, disk_full, clock_jump, rate_limit, malformed_payload) with expected resilience + cleanup.","§24.22"),
+ ("24-23","Ephemeral staging environments","later integration surface",
+  "Short-lived isolated env (pinned image, sanitized seed, config digest, preview URL) for integration/e2e/human-verify; a gate artifact, not a deploy shortcut.","§24.23"),
+ ("24-24","Migration Rehearsal Lab","high-value product track",
+  "Run schema/data migrations against a sanitized clone verifying forward/compat/backfill/rollback/restore/lock-budget; a syntactic down-migration is not reversibility evidence.","§24.24, §9.8"),
+ ("24-25","Architecture Decision Tournament","selective, human-decided",
+  "Independent proposals by reliability/simplicity/security/operability/cost lenses with assumptions+evidence+migration-cost; human or policy decides, no consensus score.","§24.25"),
+ ("24-26","AST-aware semantic merge assistant","advisory first",
+  "Classify conflicts by symbol/intent and propose parse-valid merges; rerun the full integration gate; textual Git remains the source mechanism.","§24.26"),
+ ("24-27","Feature-flag & dark-launch rollout","later authority layer",
+  "Contracts declare flag strategy/shadow/canary%/thresholds/instant-disable; needs runtime telemetry, deploy authority, stale-flag cleanup.","§24.27, §9.7"),
+ ("24-28","AST-guided context compression","experimental",
+  "Compress large files into signatures/invariants/call-summaries/spans with raw-source links; never compress contracts/policies/exact-error evidence.","§24.28"),
+ ("24-29","Provider economics & availability routing","Phase 6/7",
+  "Record price/latency/limits/capability/policy/outcome and route only after hard capability+trust filters; no real-time commodity hedging.","§24.29"),
+ ("24-30","Factory Chronicle & Academy","low-risk delight layer — core Chronicle in P2-B4",
+  "Evidence-grounded narrative after qualification/planning/execution; optional later model-written teaching layer, clearly non-authoritative.","§24.30, §10.9"),
+ ("24-31","Standalone gate & contract reviewer","post-Phase-4 product wedge",
+  "Package deterministic lint + the stable gate for ordinary human PRs; must consume the same kernel, not fork a second product.","§24.31"),
+ ("24-32","Inspectable project & user memory","later, explicit only",
+  "Editable provenance-labelled records (conventions/decisions/risks/defaults) with scope/confidence/TTL/delete; hidden sticky memory prohibited.","§24.32, §6.8"),
+ ("24-33","Tool Contracts & permission modes","promoted to P15-A core — see P15-A2",
+  "Every tool declares schema/effects/idempotency/replay/reconciliation/policy/sensitivity/capability; product exposes inspect/suggest/execute.","§24.33"),
+ ("24-34","Smart continuation","recovery-oriented product behavior — see P15-B6 §12.8",
+  "At terminal states derive a small set of evidence-grounded next actions citing required authority; not generic engagement prompts.","§24.34, §12.8"),
+ ("24-35","Partial artifact promotion & branching","later workbench feature",
+  "Promote a useful test-spec/interface/research-note/context-pack from a failed proposal into a new planning revision with preserved lineage.","§24.35"),
+ ("24-36","Multi-repository contract graph","defer until single-repo trust",
+  "Services/libraries with versioned interfaces/ownership/release-order/env constraints; follows a proven interface firewall + merge queue.","§24.36"),
+ ("24-37","Analytical archive & local query profile","optional operations track",
+  "Compact old non-authority event segments into columnar files (coarse partitions, 20–100MB, sorted row groups) for cost/latency analytics; non-authority unless equivalence-checked.","§24.37, §5.8"),
+ ("24-38","External broker threshold","explicit defer criterion",
+  "Consider Kafka/RabbitMQ/Redis only with measured evidence (sustained volume / multi-region / independent durability) Postgres/Oban/PubSub cannot meet; ADR must quantify the wall.","§24.38, §28.2"),
+]
+BEADS += [d(f"IDEA-{n.split('-')[1]}", f"§{n.replace('-','.',1).replace('24-','24.')} {t}", w, s, r, extra_labels=["idea"]) for (n,t,w,s,r) in IDEAS]
+
+# ── §27 future-architecture seams ──
+SEAMS = [
+ ("27-1","Phase-3 seam — parallel fleet & merge queue","Leave stable ready-pool queries, scoped grant admission per attempt, execution-hard/integration-order graph, InterfaceContracts/bindings, decision/atomicity blockers, fenced stations + receipts + cancellation + budgets, adapter health, hierarchical roots + merge-ready attestations, circuit/emergency events, calibrated serial duration/cost. Phase 3 adds Dispatcher/WorkerPool/merge only after rechecking grants/readiness/budgets/roots/gate freshness.","§27.1 (cf. roadmap sgp.2)"),
+ ("27-2","Phase-4 seam — verification pyramid","Contracts support Slice/Epic/Phase gate level, evidence requirements, challenge/held-out tests + mutation targets, behavior-oracle scopes, interface/compat checks, blast-radius/test-impact, deterministic fault injection, perf/security/rollout requirements, atomicity-group Epic verification intent.","§27.2 (cf. roadmap sgp.3)"),
+ ("27-3","Phase-5 seam — self-healing & trunk safety","Ledger/diagnosis distinguishes implementation/contract/policy/infra/adapter/merge/escaped-defect/rollout/decision-block/budget failures, each mapping to typed bounded retry/escalation/revert/flag-disable/mutant-mint/park; recovery stays separately authorized.","§27.3 (cf. roadmap sgp.4)"),
+ ("27-4","Phase-6 seam — economics & human attention","Record cost/duration by station/pass/adapter/model/archetype/outcome, critical-path/unblock data, human effort/wait, verification cost, prediction-vs-actual, budget lifecycle, context shedding/extraction cost, provider-health incidents. No Governor optimizes ahead of policy/grant/gate/quality floors.","§27.4 (cf. roadmap sgp.5)"),
+ ("27-5","Phase-7 seam — learning & memory","Preserve stable failure/rule/reason codes, context usage/ground-truth, claims/confidence vs edits/disputes, candidate/routing outcomes, accepted/rejected defaults, escaped defects/remediation, project-knowledge provenance, grant scope/outcome history. Learning begins advisory, passes held-out eval, graduates to deterministic policy only via explicit review.","§27.5 (cf. roadmap sgp.6)"),
+ ("27-6","Product-track seams","Standalone gate, brownfield onboarding, migration lab, rollout safety, multi-repo, analytical archive — each consumes the same policy/evidence/grant/artifact/effect/approval semantics rather than forking a product.","§27.6"),
+]
+BEADS += [d(f"SEAM-{n.split('-')[1]}", f"§{n.replace('-','.')} {t}", "future seam to preserve (do not build now)", s, r, extra_labels=["seam"]) for (n,t,s,r) in SEAMS]

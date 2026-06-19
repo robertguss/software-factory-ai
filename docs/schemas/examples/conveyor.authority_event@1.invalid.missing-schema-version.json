@@ -1,0 +1,19 @@
+{
+  "event_id": "authority-event-001",
+  "stream_id": "station-run-001",
+  "stream_version": 1,
+  "event_type": "station_run.effect_receipt_recorded",
+  "subject_ref": {
+    "schema_version": "conveyor.subject_ref@1",
+    "kind": "station_run",
+    "id_or_key": "station-run-001"
+  },
+  "correlation_id": "trace-effect-001",
+  "trace_context": { "trace_id": "trace-effect-001" },
+  "payload_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "effect_receipt",
+    "id_or_key": "effect-receipt-001"
+  },
+  "committed_at": "2026-06-19T00:00:05Z"
+}

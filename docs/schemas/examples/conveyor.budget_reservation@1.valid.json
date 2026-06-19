@@ -1,0 +1,13 @@
+{
+  "schema_version": "conveyor.budget_reservation@1",
+  "budget_envelope_id": "budget-envelope-001",
+  "subject": { "kind": "provider_call", "id": "effect-attempt-001" },
+  "requested_tokens": 4000,
+  "requested_cost": 0.75,
+  "reserved_at": "2026-06-19T00:00:00Z",
+  "expires_at": "2026-06-19T00:05:00Z",
+  "committed_actuals": { "tokens": 3500, "cost": 0.62 },
+  "status": "committed",
+  "policy_decision_id": "policy-decision-001",
+  "trace_id": "trace-budget-001"
+}

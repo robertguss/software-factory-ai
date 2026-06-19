@@ -1,0 +1,14 @@
+{
+  "subject": "run-attempt-001",
+  "primary_classification": "provider_timeout",
+  "contributing_factors": ["adapter_transport_error"],
+  "observations": ["Provider stream ended before terminal event."],
+  "competing_hypotheses": [],
+  "confidence": 0.82,
+  "confidence_basis": "deterministic adapter error",
+  "abstained": false,
+  "evidence_refs": ["artifact://diagnosis/evidence-001"],
+  "rule_bundle_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "diagnostic_version": "diagnosis-rules@1",
+  "diagnosis_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

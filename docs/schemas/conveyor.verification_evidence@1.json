@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.verification_evidence@1.json",
+  "title": "Conveyor VerificationEvidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "verification_obligation_id", "producer_kind", "producer_ref", "evidence_kind", "validity", "result_ref", "evidence_digest", "created_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.verification_evidence@1" },
+    "id": { "type": "string", "pattern": "^verification_evidence:sha256:[0-9a-f]{64}$" },
+    "verification_obligation_id": { "type": "string", "pattern": "^verification_obligation:sha256:[0-9a-f]{64}$" },
+    "producer_kind": { "type": "string", "minLength": 1 },
+    "producer_ref": { "type": "string", "minLength": 1 },
+    "evidence_kind": { "enum": ["specification", "calibration", "harness_validation", "candidate_result", "hermeticity", "repeatability", "adversarial_challenge", "mutation_assessment", "human_observation", "environment_attestation"] },
+    "validity": { "enum": ["valid", "suspect", "invalid", "expired"] },
+    "environment_fingerprint_digest": { "type": ["string", "null"] },
+    "result_ref": { "type": "string", "minLength": 1 },
+    "evidence_digest": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

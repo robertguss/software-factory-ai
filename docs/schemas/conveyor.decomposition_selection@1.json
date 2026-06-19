@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.decomposition_selection@1.json",
+  "title": "Conveyor DecompositionSelection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "planning_run_id",
+    "candidate_set_ref",
+    "candidate_set_digest",
+    "selection_actor",
+    "selection_rationale",
+    "comparison_ref",
+    "auto_blended"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.decomposition_selection@1" },
+    "planning_run_id": { "type": "string", "minLength": 1 },
+    "candidate_set_ref": { "type": "string", "minLength": 1 },
+    "candidate_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "selected_candidate_key": { "type": ["string", "null"], "minLength": 1 },
+    "selection_actor": { "enum": ["deterministic", "human"] },
+    "selection_rationale": { "type": "string", "minLength": 1 },
+    "comparison_ref": { "type": "string", "minLength": 1 },
+    "human_decision_id": { "type": ["string", "null"], "minLength": 1 },
+    "auto_blended": { "const": false }
+  }
+}

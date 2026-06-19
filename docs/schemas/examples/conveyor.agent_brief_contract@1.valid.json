@@ -1,0 +1,63 @@
+{
+  "schema_version": "conveyor.agent_brief_contract@1",
+  "id": "agent-brief-contract:SLC-001",
+  "slice_id": "SLC-001",
+  "behavior": {
+    "current": "Tasks can be created but list responses omit completion state.",
+    "desired": "List responses include each task's completion state."
+  },
+  "source_refs": {
+    "requirements": ["REQ-001"],
+    "decisions": ["DEC-001"],
+    "constraints": ["CON-001"],
+    "claims": ["CLAIM-001"]
+  },
+  "archetype": "crud_endpoint",
+  "change_class": "public_interface_change",
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "text": "List tasks returns completion state.",
+      "positive_examples": ["completed task includes completed=true"],
+      "negative_examples": ["missing completed field"],
+      "boundary_examples": ["empty task list"],
+      "abuse_examples": ["unknown fields are ignored"],
+      "non_goal_examples": ["authentication behavior"],
+      "falsifying_conditions": ["a created completed task is listed without completed=true"]
+    }
+  ],
+  "verification_obligations": [
+    {
+      "id": "VO-001",
+      "acceptance_criterion_id": "AC-001",
+      "obligation_kind": "unit",
+      "evidence_requirements": ["test/tasks_list_test.exs::completion_state"]
+    }
+  ],
+  "authorized_scope": {
+    "description": "Modify task list serialization only.",
+    "protected_paths": ["lib/tasks/**", "test/tasks/**"]
+  },
+  "risk": {
+    "level": "medium",
+    "required_review_lenses": ["api_compatibility", "test_integrity"]
+  },
+  "assumptions": ["task records already store completion state"],
+  "challenge_cases": ["legacy task without completion state"],
+  "rollout": {
+    "environment": "ci-linux",
+    "intent": "ship behind normal release checks"
+  },
+  "recovery": {
+    "intent": "revert serializer change if clients reject field",
+    "rollback_ref": "rollback:tasks-list-completion"
+  },
+  "out_of_scope": ["authentication", "database migrations"],
+  "claim_coverage": [
+    {
+      "field": "behavior.desired",
+      "claim_refs": ["CLAIM-001"]
+    }
+  ],
+  "contract_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

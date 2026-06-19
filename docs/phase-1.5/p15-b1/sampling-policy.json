@@ -1,0 +1,15 @@
+{
+  "cluster_key": "repo:case-cluster",
+  "confidence": 0.95,
+  "floor_p0": 0.8,
+  "max_samples": 20,
+  "max_samples_per_cluster": 2,
+  "method": "stratified",
+  "min_samples": 4,
+  "policy_digest": "sha256:f78917539c75bcec5209e1af1cb737c4d4453a493f55459e0f21e7d14f47a066",
+  "sampling_unit": "repository_case_cluster",
+  "schema_version": "conveyor.sampling_policy@1",
+  "sequential_validity": "predeclared",
+  "stopping_rule": "fixed-max-or-release-fail",
+  "strata": ["repo", "archetype", "criticality"]
+}

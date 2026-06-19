@@ -1,0 +1,12 @@
+{
+  "schema_version": "conveyor.adapter_health_state@1",
+  "adapter": "openai.responses",
+  "capability_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "state": "open",
+  "reason_codes": ["transport_failure", "capability_drift"],
+  "consecutive_failures": 3,
+  "last_probe_at": "2026-06-19T00:00:00Z",
+  "opened_at": "2026-06-19T00:01:00Z",
+  "next_probe_at": "2026-06-19T00:06:00Z",
+  "affected_grant_ids": ["grant-001"]
+}

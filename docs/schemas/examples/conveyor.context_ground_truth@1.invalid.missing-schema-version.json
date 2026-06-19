@@ -1,0 +1,11 @@
+{
+  "case_id": "case-context-001",
+  "necessary_source_refs": ["source://plan/spec#context-budget"],
+  "useful_source_refs": ["source://docs/notes#related-prior"],
+  "forbidden_or_irrelevant_source_refs": ["source://logs/unrelated-run"],
+  "annotation_provenance": {
+    "annotator_ref": "reviewer://battery-context-panel",
+    "annotation_method": "two-reviewer-adjudicated-label",
+    "source_revision_ref": "git:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

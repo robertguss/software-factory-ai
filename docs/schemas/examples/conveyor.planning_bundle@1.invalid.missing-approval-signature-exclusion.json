@@ -1,0 +1,48 @@
+{
+  "schema_version": "conveyor.planning_bundle@1",
+  "planning_run_id": "planning-run-1",
+  "plan_revision_id": "plan-revision-1",
+  "constraint_set_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "qualification_grant_id": "qualification_grant:local-dev",
+  "manifest_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "root_manifest",
+    "id_or_key": "planning-run-1/root-manifest"
+  },
+  "manifest_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "shared_authority_root_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "epic_authority_root_digests": [
+    {
+      "epic_key": "checkout",
+      "digest": {
+        "schema_version": "conveyor.digest_ref@1",
+        "algorithm": "sha256",
+        "value": "4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    }
+  ],
+  "review_root_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "5555555555555555555555555555555555555555555555555555555555555555"
+  },
+  "archive_bundle_root_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "6666666666666666666666666666666666666666666666666666666666666666"
+  },
+  "projection_path": "planning_bundle.json",
+  "status": "approval_ready"
+}

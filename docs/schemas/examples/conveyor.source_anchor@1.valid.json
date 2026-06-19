@@ -1,0 +1,11 @@
+{
+  "schema_version": "conveyor.source_anchor@1",
+  "kind": "plan_span",
+  "source_blob_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "path": "docs/plan.md",
+  "byte_start": 10,
+  "byte_end": 80,
+  "line_start": 2,
+  "line_end": 4,
+  "excerpt_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

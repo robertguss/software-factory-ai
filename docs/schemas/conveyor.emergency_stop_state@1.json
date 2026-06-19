@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.emergency_stop_state@1.json",
+  "title": "Conveyor EmergencyStopState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope", "status", "reason", "actor", "trace_id"],
+  "properties": {
+    "schema_version": { "const": "conveyor.emergency_stop_state@1" },
+    "scope": { "enum": ["system", "project"] },
+    "project_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["clear", "engaged"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "actor": { "type": "string", "minLength": 1 },
+    "human_decision_id": { "type": "string", "minLength": 1 },
+    "engaged_at": { "type": "string", "format": "date-time" },
+    "cleared_at": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string", "minLength": 1 }
+  }
+}

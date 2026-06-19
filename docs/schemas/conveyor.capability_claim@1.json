@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.capability_claim@1.json",
+  "title": "Conveyor CapabilityClaim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "capability_key", "version", "mode_or_value", "limits", "source", "evidence_ref", "known_degradations"],
+  "properties": {
+    "schema_version": { "const": "conveyor.capability_claim@1" },
+    "capability_key": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "mode_or_value": {},
+    "limits": { "type": "object" },
+    "source": { "enum": ["declared", "probed", "observed"] },
+    "evidence_ref": { "type": "string", "minLength": 1 },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "known_degradations": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  }
+}

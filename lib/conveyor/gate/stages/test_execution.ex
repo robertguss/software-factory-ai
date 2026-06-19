@@ -226,12 +226,7 @@ defmodule Conveyor.Gate.Stages.TestExecution do
   defp stringify_nested(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify_nested(value), do: value
 
-  defp digest(value) do
-    "sha256:" <>
-      (:sha256
-       |> :crypto.hash(:erlang.term_to_binary(value))
-       |> Base.encode16(case: :lower))
-  end
+  defp digest(value), do: Conveyor.CanonicalJson.digest(value)
 
   defp value(nil, _key), do: nil
 

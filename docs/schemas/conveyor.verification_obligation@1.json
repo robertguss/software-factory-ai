@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.verification_obligation@1.json",
+  "title": "Conveyor VerificationObligation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "slice_id", "acceptance_ref", "obligation_kind", "required", "oracle_definition_ref", "evidence_requirement_ref", "status"],
+  "properties": {
+    "schema_version": { "const": "conveyor.verification_obligation@1" },
+    "id": { "type": "string", "pattern": "^verification_obligation:sha256:[0-9a-f]{64}$" },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "acceptance_ref": { "type": "string", "minLength": 1 },
+    "obligation_kind": { "enum": ["example", "property", "interface", "differential", "metamorphic", "policy", "human_judgment"] },
+    "required": { "type": "boolean" },
+    "oracle_definition_ref": { "type": "string", "minLength": 1 },
+    "evidence_requirement_ref": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["open", "satisfied", "blocked", "waived", "superseded"] }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.battery_sample_result@1.json",
+  "title": "Conveyor BatterySampleResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "battery_run_id", "battery_case_id", "case_cluster_key", "sample_no", "run_attempt_ids", "terminal_outcome", "failure_classes", "trace_assertion_results", "forbidden_effect_count", "first_pass", "eventual_passed", "quality_dimensions", "cost", "wall_clock_ms", "status"],
+  "properties": {
+    "schema_version": { "const": "conveyor.battery_sample_result@1" },
+    "battery_run_id": { "type": "string", "minLength": 1 },
+    "battery_case_id": { "type": "string", "minLength": 1 },
+    "case_cluster_key": { "type": "string", "minLength": 1 },
+    "sample_no": { "type": "integer", "minimum": 1 },
+    "run_attempt_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "terminal_outcome": { "enum": ["passed", "failed", "blocked", "infra_failed"] },
+    "failure_classes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "trace_assertion_results": { "type": "array", "items": { "type": "object" } },
+    "forbidden_effect_count": { "type": "integer", "minimum": 0 },
+    "first_pass": { "type": "boolean" },
+    "eventual_passed": { "type": "boolean" },
+    "quality_dimensions": { "type": "object" },
+    "cost": { "type": "number", "minimum": 0 },
+    "wall_clock_ms": { "type": "integer", "minimum": 0 },
+    "cassette_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["included", "excluded", "quarantined"] }
+  }
+}

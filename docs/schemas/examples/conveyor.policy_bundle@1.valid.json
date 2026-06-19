@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.policy_bundle@1",
+  "policy_bundle_key": "default-local",
+  "version": 1,
+  "policy_ref": "priv/conveyor/templates/policies/implement.toml",
+  "digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "input_schema_refs": ["conveyor.decision_contract@1"],
+  "validation_report_ref": "docs/phase-1.5/p15-a2/policy-boundary-fixtures.md",
+  "status": "active"
+}

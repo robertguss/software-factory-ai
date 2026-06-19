@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.contract_audit@1.json",
+  "title": "Conveyor ContractAudit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "slice_id",
+    "agent_brief_id",
+    "test_pack_id",
+    "planning_run_id",
+    "compiler_version",
+    "decision",
+    "stages",
+    "quality_dimensions",
+    "report_ref",
+    "contract_audit_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.contract_audit@1" },
+    "id": { "type": "string", "pattern": "^contract_audit:sha256:[0-9a-f]{64}$" },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "agent_brief_id": { "type": "string", "minLength": 1 },
+    "test_pack_id": { "type": ["string", "null"], "minLength": 1 },
+    "planning_run_id": { "type": ["string", "null"], "minLength": 1 },
+    "compiler_version": { "type": "string", "minLength": 1 },
+    "decision": {
+      "enum": ["ready", "needs_revision", "blocked", "human_verification_required"]
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/stage" }
+    },
+    "quality_dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "traceability",
+        "claim_and_source_anchor_coverage",
+        "scope_boundedness",
+        "interface_clarity",
+        "interface_compatibility",
+        "dependency_clarity",
+        "atomicity_safety",
+        "acceptance_falsifiability"
+      ],
+      "properties": {
+        "traceability": { "$ref": "#/$defs/dimension_status" },
+        "claim_and_source_anchor_coverage": { "$ref": "#/$defs/dimension_status" },
+        "scope_boundedness": { "$ref": "#/$defs/dimension_status" },
+        "interface_clarity": { "$ref": "#/$defs/dimension_status" },
+        "interface_compatibility": { "$ref": "#/$defs/dimension_status" },
+        "dependency_clarity": { "$ref": "#/$defs/dimension_status" },
+        "atomicity_safety": { "$ref": "#/$defs/dimension_status" },
+        "acceptance_falsifiability": { "$ref": "#/$defs/dimension_status" }
+      }
+    },
+    "report_ref": { "type": "string", "minLength": 1 },
+    "contract_audit_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "dimension_status": {
+      "enum": ["passed", "needs_revision", "blocked", "not_assessed", "human_verification_required"]
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "status", "finding_refs"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "status": { "$ref": "#/$defs/dimension_status" },
+        "finding_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "test_integrity_run:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "test_pack_id": "test-pack:unit",
+  "integrity_spec_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "sample_no": 1,
+  "slice_id": "slice-1",
+  "probe_results": {},
+  "findings": [],
+  "verdict": "not_assessed",
+  "evaluated_at": "2026-06-19T00:00:00Z",
+  "integrity_run_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

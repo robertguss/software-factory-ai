@@ -60,11 +60,29 @@ defmodule Conveyor.Factory.StationRun do
       public? true
     end
 
+    attribute :lease_owner_instance_id, :string do
+      public? true
+    end
+
+    attribute :lease_epoch, :integer do
+      allow_nil? false
+      default 0
+      public? true
+    end
+
+    attribute :lease_acquired_at, :utc_datetime_usec do
+      public? true
+    end
+
     attribute :lease_expires_at, :utc_datetime_usec do
       public? true
     end
 
     attribute :heartbeat_at, :utc_datetime_usec do
+      public? true
+    end
+
+    attribute :trace_id, :string do
       public? true
     end
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": "conveyor.no_bypass_audit@1",
+  "verdict": "pass",
+  "bypasses": [],
+  "checked_paths": [
+    "Conveyor.Station",
+    "Conveyor.Effects.Attempts",
+    "Conveyor.AuthorityEvents",
+    "Conveyor.Events.EventRouter",
+    "Conveyor.Events.SegmentWriter",
+    "Conveyor.Events.DurableCatchUp",
+    "Conveyor.Artifacts.ArtifactStore",
+    "Conveyor.EmergencyStop",
+    "Conveyor.BudgetReservations",
+    "Conveyor.AdapterHealth",
+    "Conveyor.Retention",
+    "Conveyor.SealedRecorder"
+  ],
+  "canary_manifest": "docs/phase-1.5/p15-a4/control-plane-canaries.json"
+}

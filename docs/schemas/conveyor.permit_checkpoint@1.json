@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.permit_checkpoint@1.json",
+  "title": "Conveyor PermitCheckpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "admission_permit_id",
+    "subject_ref",
+    "checkpoint_kind",
+    "validated_inputs_digest",
+    "result",
+    "reason_codes",
+    "policy_decision_id",
+    "checked_at",
+    "trace_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.permit_checkpoint@1" },
+    "id": { "type": "string", "pattern": "^permit_checkpoint:sha256:[0-9a-f]{64}$" },
+    "admission_permit_id": { "type": "string", "pattern": "^admission_permit:sha256:[0-9a-f]{64}$" },
+    "subject_ref": { "type": "string", "minLength": 1 },
+    "station_run_id": { "type": "string", "minLength": 1 },
+    "checkpoint_kind": { "type": "string", "minLength": 1 },
+    "validated_inputs_digest": { "$ref": "#/$defs/digest" },
+    "result": { "enum": ["valid", "invalid", "suspended"] },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "policy_decision_id": { "type": "string", "minLength": 1 },
+    "checked_at": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

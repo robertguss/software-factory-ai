@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.phase_next_decision@1.json",
+  "title": "Conveyor Phase Next Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "phase0_1_report_ref",
+    "baseline_freeze_ref",
+    "selected_branches",
+    "evidence_refs",
+    "decision_digest",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.phase_next_decision@1" },
+    "phase0_1_report_ref": { "$ref": "#/$defs/ref" },
+    "baseline_freeze_ref": { "$ref": "#/$defs/ref" },
+    "vertical_tracer_report_ref": { "$ref": "#/$defs/ref" },
+    "selected_branches": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/branch_decision" }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "stop_the_line": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/branch_key" }
+    },
+    "requested_scope": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "qualification_grant_id": { "type": "string", "minLength": 1 },
+    "authorization_result": { "enum": ["authorized", "hardening_required"] },
+    "hardening_branch": {
+      "anyOf": [{ "$ref": "#/$defs/branch_key" }, { "type": "null" }]
+    },
+    "decision_digest": { "$ref": "#/$defs/sha256_ref" },
+    "status": { "enum": ["draft", "accepted", "amended", "superseded"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "amended_at": { "type": "string", "format": "date-time" },
+    "notes": { "type": "string" }
+  },
+  "$defs": {
+    "branch_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branch", "response", "blocks_requested_grant", "justification_refs"],
+      "properties": {
+        "branch": { "$ref": "#/$defs/branch_key" },
+        "response": { "type": "string", "minLength": 1 },
+        "blocks_requested_grant": { "type": "boolean" },
+        "justification_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ref" }
+        },
+        "closure_evidence_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ref" }
+        }
+      }
+    },
+    "branch_key": {
+      "enum": [
+        "gate_first",
+        "adapter_first",
+        "policy_sandbox_first",
+        "evidence_integrity_first",
+        "context_first",
+        "operability_first",
+        "contract_pipeline_first",
+        "plan_front",
+        "balanced"
+      ]
+    },
+    "ref": { "type": "string", "minLength": 1 },
+    "sha256_ref": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.human_review_rubric@1.json",
+  "title": "Conveyor HumanReviewRubric",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "rubric_key", "version", "dimension", "score_levels", "anchor_examples_ref", "reviewer_role_requirements", "blinding_policy", "minimum_reviewers", "adjudication_policy", "rubric_digest"],
+  "properties": {
+    "schema_version": { "const": "conveyor.human_review_rubric@1" },
+    "rubric_key": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "dimension": { "type": "string", "minLength": 1 },
+    "score_levels": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+    "anchor_examples_ref": { "type": "string", "minLength": 1 },
+    "reviewer_role_requirements": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "blinding_policy": { "type": "string", "minLength": 1 },
+    "minimum_reviewers": { "type": "integer", "minimum": 1 },
+    "adjudication_policy": { "type": "string", "minLength": 1 },
+    "inter_rater_reliability_target": { "type": "number", "minimum": 0, "maximum": 1 },
+    "rubric_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

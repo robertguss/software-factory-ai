@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "budget_reservation_lifecycle",
+  "kind": "state-machine",
+  "proves": "budget reservation/commit/release/expiry",
+  "states": ["available", "reserved", "committed", "released", "expired"],
+  "transitions": [
+    { "from": "available", "event": "reserve_budget", "to": "reserved" },
+    { "from": "reserved", "event": "commit_spend", "to": "committed" },
+    { "from": "reserved", "event": "release_unused", "to": "released" },
+    { "from": "reserved", "event": "ttl_expires", "to": "expired" },
+    { "from": "expired", "event": "attempt_commit", "to": "expired" }
+  ],
+  "invariants": [
+    "Committed spend never exceeds active reservations.",
+    "Expired reservations cannot later commit."
+  ],
+  "counterexample_traces": [
+    ["reserve_budget", "ttl_expires", "attempt_commit"]
+  ]
+}

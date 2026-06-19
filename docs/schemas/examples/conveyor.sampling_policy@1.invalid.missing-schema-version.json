@@ -1,0 +1,14 @@
+{
+  "method": "stratified",
+  "min_samples": 4,
+  "max_samples": 20,
+  "confidence": 0.95,
+  "floor_p0": 0.8,
+  "stopping_rule": "fixed-max-or-release-fail",
+  "sampling_unit": "repository_case_cluster",
+  "cluster_key": "repo:case-cluster",
+  "max_samples_per_cluster": 2,
+  "strata": ["repo", "archetype"],
+  "sequential_validity": "predeclared",
+  "policy_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

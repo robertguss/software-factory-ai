@@ -1,0 +1,17 @@
+{
+  "decision_key": "tool.invoke",
+  "version": 1,
+  "subject_kinds": ["tool_contract"],
+  "input_schema_ref": "conveyor.tool_contract@1",
+  "result_schema_ref": "conveyor.policy_decision@1",
+  "required_evidence_selectors": ["policy_bundle"],
+  "freshness_policy": "current_policy_bundle",
+  "default_result": "require_human",
+  "evaluator_ref": "docs/policies/decision-contracts.json",
+  "evaluator_version": "1",
+  "contract_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

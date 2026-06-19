@@ -1,0 +1,11 @@
+{
+  "incident_key": "incident-001",
+  "severity": "high",
+  "incident_class": "credential_revocation",
+  "affected_subject_refs": ["adapter:primary-live"],
+  "containment_actions": ["suspend-adapter"],
+  "evidence_refs": ["artifact://incident/evidence-001"],
+  "status": "open",
+  "owner": "ops",
+  "opened_at": "2026-06-19T00:00:00Z"
+}

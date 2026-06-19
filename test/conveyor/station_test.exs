@@ -48,6 +48,13 @@ defmodule Conveyor.StationTest do
     end
   end
 
+  defmodule FailingStation do
+    use Conveyor.Station, station: "failing"
+
+    @impl Conveyor.Station
+    def run(_input, _context), do: {:error, :sample_failure}
+  end
+
   setup do
     Process.put(:station_test_pid, self())
 
@@ -199,6 +206,39 @@ defmodule Conveyor.StationTest do
     assert refreshed.heartbeat_at == ~U[2026-06-18 00:01:00.000000Z]
     assert refreshed.lease_expires_at == ~U[2026-06-18 00:03:00.000000Z]
     assert length(Ash.read!(StationRun, domain: Factory)) == 1
+  end
+
+  test "a failed station can be retried and re-fails without crashing on duplicate authority events",
+       %{blob_root: blob_root, run_attempt: run_attempt} do
+    first =
+      FailingStation.execute!(run_attempt, %{"input" => "value"},
+        actor: "worker-1",
+        blob_root: blob_root
+      )
+
+    assert first.station_run.status == :failed
+    refute first.reused?
+
+    # Failed runs are not reused, so the retry re-runs and re-fails. This must NOT raise on a
+    # duplicate AuthorityEvent event_id (regression for per-attempt ledger/authority keys).
+    second =
+      FailingStation.execute!(run_attempt, %{"input" => "value"},
+        actor: "worker-1",
+        blob_root: blob_root
+      )
+
+    assert second.station_run.status == :failed
+    refute second.reused?
+
+    # Each attempt records its own distinct failed authority event (no dedup collision).
+    failed_events =
+      Conveyor.Factory.AuthorityEvent
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(
+        &(&1.stream_id == second.station_run.id and &1.event_type == "station.failed")
+      )
+
+    assert length(failed_events) == 2
   end
 
   defp station_events(station_run_id) do

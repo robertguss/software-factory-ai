@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.challenge_case@1.json",
+  "title": "Conveyor ChallengeCase",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "slice_id",
+    "challenge_id",
+    "verification_obligation_refs",
+    "acceptance_refs",
+    "compiler_falsifier_seed_refs",
+    "hidden_from_implementer",
+    "expected_on_candidate",
+    "reason",
+    "challenge_case_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.challenge_case@1" },
+    "id": { "type": "string", "pattern": "^challenge_case:sha256:[0-9a-f]{64}$" },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "challenge_id": { "type": "string", "minLength": 1 },
+    "verification_obligation_refs": { "$ref": "#/$defs/non_empty_string_array" },
+    "acceptance_refs": { "$ref": "#/$defs/non_empty_string_array" },
+    "compiler_falsifier_seed_refs": { "$ref": "#/$defs/string_array" },
+    "hidden_from_implementer": { "type": "boolean" },
+    "expected_on_candidate": { "enum": ["pass", "fail", "not_applicable"] },
+    "reason": { "type": "string", "minLength": 1 },
+    "challenge_case_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "non_empty_string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

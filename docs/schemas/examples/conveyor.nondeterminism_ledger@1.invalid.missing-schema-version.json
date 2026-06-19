@@ -1,0 +1,8 @@
+{
+  "rng_seed": "seed-1",
+  "clock_reads": [],
+  "id_allocations": [],
+  "env_reads": [],
+  "external_reads": [],
+  "tool_equivalence_policies": []
+}

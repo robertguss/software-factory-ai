@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.replay_anchor_set@1",
+  "selection_policy_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "selected_before_change_ref": "git://base-before-change",
+  "anchors": [
+    {
+      "category": "successful",
+      "cassette_ref": "cassette://successful-1",
+      "valuable_failure": false,
+      "expected_replay_assertions": ["hybrid_replay_passes"]
+    }
+  ],
+  "replay_anchor_set_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

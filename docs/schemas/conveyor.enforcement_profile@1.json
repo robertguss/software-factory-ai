@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.enforcement_profile@1.json",
+  "title": "Conveyor EnforcementProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "filesystem_mounts", "writable_paths", "network_egress_rules", "credential_scopes", "process_and_syscall_policy", "cpu_memory_pids_limits", "output_limits", "profile_digest"],
+  "properties": {
+    "schema_version": { "const": "conveyor.enforcement_profile@1" },
+    "filesystem_mounts": { "type": "array", "items": { "type": "string" } },
+    "writable_paths": { "type": "array", "items": { "type": "string" } },
+    "network_egress_rules": { "type": "array", "items": { "type": "string" } },
+    "credential_scopes": { "type": "array", "items": { "type": "string" } },
+    "process_and_syscall_policy": { "type": "string", "minLength": 1 },
+    "cpu_memory_pids_limits": { "type": "object" },
+    "output_limits": { "type": "object" },
+    "profile_digest": { "$ref": "#/$defs/digest_ref" }
+  },
+  "$defs": {
+    "digest_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "value"],
+      "properties": {
+        "schema_version": { "const": "conveyor.digest_ref@1" },
+        "algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+      }
+    }
+  }
+}

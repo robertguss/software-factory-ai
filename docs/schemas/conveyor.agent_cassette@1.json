@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.agent_cassette@1.json",
+  "title": "Conveyor AgentCassette",
+  "description": "AgentCassette carries inline generation surfaces (agent_event_stream, tool_transcript, provider_parameters, primary_outputs, redaction_report) alongside content-addressed refs. Replay reads the inline surfaces directly (ADR-12); see CassetteSeries.ReplayEngine.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "cassette_series_id",
+    "recording_no",
+    "provider_identity_confidence",
+    "provider_parameters",
+    "agent_event_stream",
+    "tool_transcript",
+    "primary_outputs",
+    "primary_output_refs",
+    "redaction_report",
+    "retention_class",
+    "recorded_at",
+    "seal_status"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.agent_cassette@1" },
+    "id": { "type": "string", "pattern": "^agent_cassette:sha256:[0-9a-f]{64}$" },
+    "cassette_series_id": { "type": "string", "pattern": "^cassette_series:sha256:[0-9a-f]{64}$" },
+    "recording_no": { "type": "integer", "minimum": 1 },
+    "provider_request_id": { "type": ["string", "null"] },
+    "provider_model_id": { "type": ["string", "null"] },
+    "provider_model_revision": { "type": ["string", "null"] },
+    "provider_identity_confidence": {
+      "enum": ["exact", "declared_only", "family_only", "unknown"]
+    },
+    "provider_parameters": { "type": "object" },
+    "agent_event_stream": { "type": "array" },
+    "tool_transcript": { "type": "array" },
+    "primary_outputs": { "type": "array" },
+    "primary_output_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "redaction_report": { "type": "object" },
+    "redaction_report_ref": { "type": ["string", "null"] },
+    "patch_set_digest": { "type": ["string", "null"] },
+    "recorded_diagnostics_ref": { "type": ["string", "null"] },
+    "retention_class": { "type": "string", "minLength": 1 },
+    "expires_at": { "type": ["string", "null"] },
+    "invalidation_reason": { "type": "string" },
+    "seal_status": { "enum": ["recording", "sealed", "rejected", "invalidated"] },
+    "recorded_at": { "type": "string", "minLength": 1 }
+  }
+}

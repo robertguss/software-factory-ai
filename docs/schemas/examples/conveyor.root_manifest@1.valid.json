@@ -1,0 +1,28 @@
+{
+  "schema_version": "conveyor.root_manifest@1",
+  "root_kind": "shared_authority",
+  "root_version": 1,
+  "canonicalization_profile": "rfc8785-jcs",
+  "hash_algorithm": "sha256",
+  "sorted_entries": [
+    {
+      "subject_class": "contract_lock",
+      "ref": {
+        "schema_version": "conveyor.subject_ref@1",
+        "kind": "contract_lock",
+        "id_or_key": "lock-1",
+        "digest": {
+          "schema_version": "conveyor.digest_ref@1",
+          "algorithm": "sha256",
+          "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        }
+      }
+    }
+  ],
+  "omitted_subject_classes": [],
+  "manifest_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}

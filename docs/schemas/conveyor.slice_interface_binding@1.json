@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.slice_interface_binding@1.json",
+  "title": "Conveyor SliceInterfaceBinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "slice_key", "interface_key", "direction"],
+  "properties": {
+    "schema_version": { "const": "conveyor.slice_interface_binding@1" },
+    "slice_key": { "type": "string", "minLength": 1 },
+    "interface_key": { "type": "string", "minLength": 1 },
+    "direction": { "enum": ["provides", "requires", "modifies"] },
+    "required_version_range": { "type": "string", "minLength": 1 },
+    "claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  }
+}

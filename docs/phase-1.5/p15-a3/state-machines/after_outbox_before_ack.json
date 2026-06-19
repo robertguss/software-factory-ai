@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "after_outbox_before_ack",
+  "kind": "crash-test",
+  "proves": "crash after outbox publish before worker ack is idempotent",
+  "states": ["outbox_published", "worker_received", "crashed_before_ack", "message_replayed", "acknowledged"],
+  "transitions": [
+    { "from": "outbox_published", "event": "deliver_to_worker", "to": "worker_received" },
+    { "from": "worker_received", "event": "worker_crashes_before_ack", "to": "crashed_before_ack" },
+    { "from": "crashed_before_ack", "event": "redeliver_same_message", "to": "message_replayed" },
+    { "from": "message_replayed", "event": "dedupe_by_event_id", "to": "acknowledged" },
+    { "from": "acknowledged", "event": "redeliver_after_ack", "to": "acknowledged" }
+  ],
+  "invariants": [
+    "Outbox replay may duplicate delivery but not authority side effects.",
+    "Workers dedupe by event id and idempotency key before ack."
+  ],
+  "counterexample_traces": [
+    ["deliver_to_worker", "worker_crashes_before_ack", "redeliver_same_message", "apply_effect_twice"]
+  ]
+}

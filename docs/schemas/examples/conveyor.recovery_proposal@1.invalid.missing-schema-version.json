@@ -1,0 +1,13 @@
+{
+  "failure_diagnosis_id": "failure-diagnosis-001",
+  "action_key": "retry_with_fresh_permit",
+  "arguments_ref": "artifact://recovery/args-001",
+  "reusable_artifact_refs": ["artifact://run/input-001"],
+  "invalidated_artifact_refs": ["artifact://run/stream-001"],
+  "requires_new_spec": false,
+  "requires_new_attempt": true,
+  "requires_human": false,
+  "idempotent": true,
+  "precondition_policy_key": "recovery.retry.fenced",
+  "proposal_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "conveyor.failure_diagnosis@1",
+  "subject": "run-attempt-001",
+  "primary_classification": "provider_timeout",
+  "contributing_factors": ["adapter_transport_error"],
+  "observations": ["Provider stream ended before terminal event."],
+  "competing_hypotheses": ["network_partition"],
+  "confidence": 0.82,
+  "confidence_basis": "deterministic adapter error plus missing terminal event",
+  "abstained": false,
+  "evidence_refs": ["artifact://diagnosis/evidence-001"],
+  "rule_bundle_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "diagnostic_version": "diagnosis-rules@1",
+  "diagnosis_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}

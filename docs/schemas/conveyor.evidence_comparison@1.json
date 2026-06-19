@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.evidence_comparison@1.json",
+  "title": "Conveyor EvidenceComparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "left_subject_kind", "left_subject_id", "right_subject_kind", "right_subject_id", "comparison_ref", "comparison_digest", "materiality_labels", "summary_status", "created_by", "created_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.evidence_comparison@1" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "left_subject_kind": { "type": "string", "minLength": 1 },
+    "left_subject_id": { "type": "string", "minLength": 1 },
+    "right_subject_kind": { "type": "string", "minLength": 1 },
+    "right_subject_id": { "type": "string", "minLength": 1 },
+    "comparison_ref": { "type": "string", "minLength": 1 },
+    "comparison_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "materiality_labels": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "summary_status": { "enum": ["identical", "cosmetic", "materially_different", "incomparable"] },
+    "created_by": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

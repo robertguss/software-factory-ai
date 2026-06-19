@@ -1,0 +1,143 @@
+{
+  "schema_version": "conveyor.adapter_conformance_fixtures@1",
+  "runner": "Conveyor.AgentRunner.MockDegraded",
+  "purpose": "Deterministic adapter qualification fixtures for fail-closed degraded behavior.",
+  "cases": [
+    {
+      "key": "cancellation",
+      "branch": "absent_cancellation",
+      "input": {
+        "event_stream": ["session_started", "cancel_requested"],
+        "adapter_response": "no_cancel_ack"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "absent_cancellation",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:80812d7992dd498c03bbb6b797f4ac179be160f921c462b0b8a4a9bd1ca3b4be"
+    },
+    {
+      "key": "timeout",
+      "branch": "timeout",
+      "input": {
+        "event_stream": ["session_started", "heartbeat"],
+        "adapter_response": "deadline_exceeded"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "timeout",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:f77d1bb58da886e3cbeebbf35a0b3d217b003506792268052c6a730fbc5ec9bc"
+    },
+    {
+      "key": "malformed_events",
+      "branch": "malformed_events",
+      "input": {
+        "event_stream": [{"sequence_no": "not-an-integer"}],
+        "adapter_response": "malformed_event"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "malformed_events",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:167590b48aa2759e104c3b9ab3335824374dd694df78d96fcd5eaf2f6c64c464"
+    },
+    {
+      "key": "out_of_order_events",
+      "branch": "out_of_order_events",
+      "input": {
+        "event_stream": [{"sequence_no": 2}, {"sequence_no": 1}],
+        "adapter_response": "non_monotonic_sequence"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "out_of_order_events",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:068ba53e19b3ecb229a0a0db33aac9e5cd6afb41451dc8d59163fa0c0da4beee"
+    },
+    {
+      "key": "duplicate_events",
+      "branch": "duplicate_events",
+      "input": {
+        "event_stream": [{"event_id": "evt-1"}, {"event_id": "evt-1"}],
+        "adapter_response": "duplicate_event"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "duplicate_events",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:f9fe99ba9cac5cb26cd77f11c705696d2d3473565fef82903c172b9dd94c5ae0"
+    },
+    {
+      "key": "crash",
+      "branch": "disconnect",
+      "input": {
+        "event_stream": ["session_started", "message_delta"],
+        "adapter_response": "process_exit_nonzero"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "disconnect",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:cdb2e0d0f873ce5326e87cf7dec48de8da3043cfc950a7eba05a059150e873f5"
+    },
+    {
+      "key": "credential_revocation",
+      "branch": "disconnect",
+      "input": {
+        "event_stream": ["session_started", "auth_revoked"],
+        "adapter_response": "credential_revoked"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "disconnect",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:e8d52049d888832b86b3781b1135609a34bfd6cc61fc6a97ccdc528c9990d8a6"
+    },
+    {
+      "key": "missing_events",
+      "branch": "malformed_events",
+      "input": {
+        "event_stream": [],
+        "adapter_response": "terminal_result_without_required_events"
+      },
+      "expected": "fail_closed",
+      "allow_degraded_success": false,
+      "finding": {
+        "severity": "blocking",
+        "category": "adapter_conformance_failure",
+        "branch": "malformed_events",
+        "fail_closed": true
+      },
+      "fixture_digest": "sha256:cde6e190d48e5863dcc6d3b57a73507a83957250a1fb2da9e2a40c5498a861c7"
+    }
+  ]
+}

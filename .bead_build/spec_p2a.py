@@ -1,0 +1,133 @@
+# -*- coding: utf-8 -*-
+# P2-A leaf tasks (Deliver bullets §18.3) + per-milestone DoD.
+from leafgen import mk
+BEADS = []
+C = ["phase-2", "compiler"]
+
+BEADS += mk("P2-A0", C + ["claim-compiler"], "§6, §7 P2-S1, §18.3 P2-A0", "P2_A_COMPILER_CORE_REQUIRED", "CLAIM-COMPILER, CONSTRAINT-COMPILER",
+ deliver=[
+  ("1", "Grant-covers-planning-scope admission",
+   "Verify an active QualificationGrant covers the requested planning roles/adapters/environment/verification/autonomy before any agentic planning station; the deterministic parse/lint mode may run without a grant but creates no approval/lock/execution authority."),
+  ("2", "PlanSourceSnapshot, draft checkpoint, published PlanRevision",
+   "Implement `PlanSourceSnapshot` (every imported byte), `PlanDraftCheckpoint` (interactive pre-approval edits), and the immutable published `PlanRevision`; formatting-only edits create snapshots without a new semantic revision; only published semantic revisions get a number + approval eligibility."),
+  ("3", "ConstraintSet + precedence",
+   "Implement `ConstraintSet`/`PlanConstraint` (kind, strength hard/soft, violation_policy block/require_decision/warn, source anchors, validation_kind) with hard-constraint precedence that cannot be traded off by a score; report satisfied/violated/at_risk/not_assessed/not_applicable."),
+  ("4", "SourceAnchor/ClaimSet compiler + deterministic provenance",
+   "Implement stable byte/commit/symbol `SourceAnchor`s and the `ClaimSet` compiler that stamps `human_explicit`/`repo_observed`/`deterministic_derived` wherever deterministically decidable (subtree inheritance + `ClaimCoverageReport`); only unmatched residuals carry an `agent_inferred` claim; a model's self-reported provenance is never trusted."),
+  ("5", "PlanningSpec",
+   "Implement `PlanningSpec` capturing the pass graph, context/prompt budgets, RoleView policy, environment fingerprint, planning_width, decomposition/review/cassette policy, prompt-template versions, agent-profile snapshots, and schema versions; admission + any override are frozen here."),
+  ("6", "Schema/pass compatibility fixtures",
+   "Author schema/pass compatibility fixtures proving the same canonical semantic input yields the same digests and that unknown schemas fail explicitly."),
+ ],
+ accept=[
+  "formatting-only edits need not create semantic revisions",
+  "published revisions are immutable",
+  "copied/observed/derived provenance is assigned deterministically",
+  "unmatched residuals are explicitly inferred",
+  "hard constraints cannot be scored away",
+  "the same canonical input yields the same semantic/pass inputs",
+ ])
+
+BEADS += mk("P2-A1", C + ["context"], "§6.8–6.10, §7 P2-S2–S5, §18.3 P2-A1", "P2_A_COMPILER_CORE_REQUIRED", "PLAN-INTERROGATION",
+ deliver=[
+  ("1", "Deterministic front-end structural audit",
+   "Implement the high-precision deterministic audit (missing/orphan requirements+ACs, undefined refs, unmeasurable acceptance, contradictory enums/statuses/interfaces, missing non-goals/decisions/oracle path, hard-constraint contradictions, source-map/claim inconsistencies); findings are authoritative blockers with stable rule keys + anchors + typed next actions."),
+  ("2", "Separate read-only Interrogator",
+   "Implement the read-only Spec Interrogator (plan-only RoleView + deterministic findings) emitting one deduplicated question batch; question completeness is checked against deterministic findings + injection fixtures so repository text cannot suppress a required question; the agent asks only."),
+  ("3", "One-batch HumanDecision workflow",
+   "Implement the answer→HumanDecision workflow: answers create a draft checkpoint; if normalized semantics change, publish a new PlanRevision+PlanningSpec; accepting a proposed default is explicit human authority; prior interrogations remain evidence."),
+  ("4", "Content-addressed deterministic repo inventory",
+   "Implement the content-addressed deterministic repository inventory (manifests/rg/route/schema/tree-sitter/LSP adapters) reusable when repo base + extractor versions + policy match; it may run concurrently because it cannot change question authority."),
+  ("5", "Optional bounded planning-scout agent",
+   "Implement the optional read-only planning-scout agent invoked only for unresolved synthesis, under hard `context_budget_cents`/`context_wall_clock_ms`, emitting the examined-source manifest + partial/complete status; extractor failure invents no impact."),
+  ("6", "Context budget/manifest + advisory CodeImpactOverlay",
+   "Implement the deterministic `ContextAssemblyManifest` (priority classes, estimator version, shed reasons) where dropping critical content fails before the provider call, plus the advisory `CodeImpactOverlay` (modules/symbols/interfaces/tests/migrations + confidence) that cannot create a hard dependency."),
+  ("7", "ContextGroundTruth fixtures",
+   "Author Battery-only `ContextGroundTruth` fixtures (necessary/useful/forbidden source refs) so only labelled cases report precision/recall."),
+ ],
+ accept=[
+  "contradiction/unbounded/missing-decision/oracle fixtures are caught",
+  "a clean plan produces no hard questions",
+  "injection cannot suppress a required question",
+  "source observations cite exact immutable anchors or `unknown`",
+  "extractor failure does not invent impact",
+  "budget exhaustion follows explicit policy",
+  "critical context is not silently omitted",
+ ])
+
+BEADS += mk("P2-A2", C + ["tracer-required"], "§4.4, §6.6, §7 P2-S6–S7, §8, §18.3 P2-A2", "P2_A_COMPILER_CORE_REQUIRED", "PURE-COMPILER-PASSES, DECOMPOSITION-CANDIDATES, WORK-GRAPH",
+ deliver=[
+  ("1", "Generic pure pass interface/registry/cache",
+   "Implement the generic deterministic pass (pass_key/version, input/output IR stage, selectors, restricted `PassContext`, hermeticity_status, cache_policy, authority_effect) + registry + content-addressed memoization; an undeclared read fails the pass; a cache hit requires every semantic/authority digest + pass version to match."),
+  ("2", "Primary + optional shadow Decomposer",
+   "Implement the Decomposer proposal boundary (Epics/Slices, coverage, work deps, atomicity, interfaces, risk, preliminary ACs, why_this_slice, assumptions) as an artifact only; an optional shadow candidate runs concurrently for high-risk plans; candidates never assign canonical IDs."),
+  ("3", "Candidate comparison/selection",
+   "Implement candidate comparison (coverage, constraint satisfaction, independence, oracle feasibility, atomicity, edge count, interface complexity, approval load) + explicit `DecompositionSelection`; deterministic selection only when one candidate strictly dominates on hard invariants with no unapproved scope, else a HumanDecision; never auto-blended."),
+  ("4", "Canonical lowering to WorkGraph IR",
+   "Implement lowering of the selected proposal to `conveyor.work_graph@2` IR (epics, slices, atomicity groups, work deps, interface contracts/bindings, decision blocks, scope delta, derivation manifest ref) after schema + PlanningSpec-digest validation; malformed proposal data never materializes."),
+  ("5", "Stable identity + supersession",
+   "Implement canonical stable keys + identity reconciliation: reordering a proposal cannot renumber unrelated Slices; identity changes only when semantic identity changes, with explicit `supersedes` lineage; agents never mint final IDs."),
+  ("6", "Pass diagnostics + partial salvage",
+   "Implement deterministic pass diagnostics + reusable partial artifacts so valid Slices survive one failed candidate fragment."),
+ ],
+ accept=[
+  "compiler passes run in unit tests without Oban/Postgres/provider",
+  "malformed proposals never materialize",
+  "candidates remain visible and unblended",
+  "identical pass inputs/version yield identical output + cache hit",
+  "an authority-input change misses the cache",
+  "reordering preserves unrelated IDs",
+  "partial valid artifacts survive one failed candidate fragment",
+ ])
+
+BEADS += mk("P2-A3", C + ["domain"], "§4.5, §7 P2-S8, §8.1–8.3, §24.2–24.3, §18.3 P2-A3", "P2_A_COMPILER_CORE_REQUIRED", "INTERFACE-CONTRACTS, DERIVATION-GRAPH",
+ deliver=[
+  ("1", "Work graph (execution-hard / integration-order only)",
+   "Implement `SliceDependency` limited to execution_hard/integration_order with rationale + anchors + origin + confidence; prove the execution-hard graph acyclic with every active node reachable; likely-file/symbol overlap is a scheduling hint, never a hard work edge."),
+  ("2", "InterfaceContract/Binding + consumer compatibility",
+   "Implement `InterfaceContract` (kind/stability/lock_level/compatibility_policy/owner/version) + `SliceInterfaceBinding` (provides/requires/modifies) and validate provider/consumer versions/compatibility/lifecycle; encode interface readiness here, not as O(N²) pairwise work edges."),
+  ("3", "SliceDecisionBlock",
+   "Implement `SliceDecisionBlock` so a human decision blocks a Slice through its own graph rather than a fake work edge; validate against HumanDecision state."),
+  ("4", "Preliminary VerificationObligations",
+   "Derive preliminary `VerificationObligation`s from ACs + protected policies (Contract Forge later strengthens them)."),
+  ("5", "ArtifactInput derivation index",
+   "Implement the queryable `ArtifactInput` derivation index (semantic/authority/evidence/advisory/presentation roles + invalidation policy) for every emitted artifact; an unknown semantic-vs-advisory input uses the stronger invalidation."),
+  ("6", "Atomicity/scope/traceability/anti-confetti/oracle analyses",
+   "Implement the pure analyses: atomicity groups + forbidden intermediate states, semantic scope-delta, requirement→AC→Slice→obligation traceability, anti-overdecomposition budget (slice_too_large/too_small/coordination_overhead/false_parallelism/shared_oracle/risk_domains), and oracle-feasibility flags."),
+  ("7", "Structural dry-run + impact preview",
+   "Implement the structural dry-run (waves, fan-in/out, critical paths, conflict domains as hints) reporting cost/time as `insufficient_history` until calibrated, plus the derivation-graph impact preview that fails wide on low confidence."),
+ ],
+ accept=[
+  "likely-file overlap does not create a hard work edge",
+  "provider/consumer schemas/versions resolve or block",
+  "a human decision is not encoded as a fake Slice edge",
+  "an unsafe atomicity split is rejected",
+  "every authority artifact has derivation inputs",
+  "low impact confidence fails wide",
+  "structural simulation uses no fabricated economics",
+ ])
+
+BEADS += mk("P2-A4", C + ["gate", "cli"], "§0.3, §7 P2-S8a, §16.3, §17.3, §18.3 P2-A4, §24.15", "P2_A_COMPILER_CORE_REQUIRED", "PURE-COMPILER-PASSES (gate)",
+ deliver=[
+  ("1", "Static decision package",
+   "Emit the static decision package: normalized plan, claims, constraints, candidate comparison, WorkGraph, interfaces, decisions, derivation graph, structural dry-run, scope delta, oracle-feasibility warnings, and the static/headless report."),
+  ("2", "Placeholder prompt-structure dry-compile",
+   "Run prompt dry-compilation against placeholder contract fields only, proving the structural pipeline can supply every required reference within critical-context requirements; no implementer is launched."),
+  ("3", "StreamData compiler property tests",
+   "Implement StreamData (or equivalent) properties: acyclicity, stable_identity, traceability, scope_provenance, interface_consistency, atomicity, invalidation_soundness, invalidation_precision, digest_domain_separation, fencing — plus pass-cache reuse/invalidation tests. (Individual property beads in spec_canaries.py.)"),
+  ("4", "Static/headless report",
+   "Emit the static/headless report as a deterministic projection of the same canonical findings (parity with CLI/UI)."),
+  ("5", "compiler_structure_gate command",
+   "Implement `mix conveyor.compiler_structure_gate` — internal + NON-authorizing — that passes only when all hard structural blockers (§17.3) clear and creates no ContractLock/approval/ready-Slice/implementer."),
+  ("6", "Deterministic plan-lint product wedge",
+   "Implement `plan_prepare --no-agents` / `contract_lint` / `plan_lint --format human|json|sarif`: runs without provider creds/AgentRunner/Cassettes/grant, detects missing hard constraints + unmeasurable ACs + ambiguous interfaces + orphans + human-decision blockers + weak oracle paths + critical context-budget impossibility, emits stable rule keys + SARIF with SourceAnchors, supports suppression only via typed HumanDecision/waiver, and cannot create execution authority."),
+ ],
+ accept=[
+  "acyclicity/stable-identity/traceability/scope-provenance/interface-consistency/atomicity/invalidation/digest-separation properties pass",
+  "pass cache + derivation impact tests pass",
+  "all hard structural blockers clear",
+  "no ContractLock/approval/implementation authority is created",
+  "`compiler_structure_gate` passes",
+  "no-agent lint runs without a QualificationGrant and produces the same deterministic diagnostics as the full compiler",
+  "SARIF and static Markdown are projections of the same canonical findings",
+ ])

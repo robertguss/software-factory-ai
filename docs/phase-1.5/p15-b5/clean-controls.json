@@ -1,0 +1,152 @@
+{
+  "schema_version": "conveyor.clean_control_fixtures@1",
+  "milestone": "P15-B5",
+  "policy": "Clean controls prove a trust tool does not false-positive on an allowed boundary; they never grant new authority.",
+  "clean_controls": [
+    {
+      "control_key": "valid_fixture_runnable",
+      "fixture_ref": "fixtures/p15-b5/clean/valid-fixture-runnable.json",
+      "expected_verdict": "passed",
+      "protects_against_false_positive": "Battery runner/scorer must not reject a valid ordinary fixture while catching poison pills."
+    },
+    {
+      "control_key": "clean_deterministic_evidence_trusted",
+      "fixture_ref": "fixtures/p15-b5/clean/clean-deterministic-evidence.json",
+      "expected_verdict": "trusted",
+      "protects_against_false_positive": "Integrity sentinel must trust deterministic hermetic evidence while still blocking vacuous or flaky evidence."
+    },
+    {
+      "control_key": "authorized_action_allowed",
+      "fixture_ref": "fixtures/p15-b5/clean/authorized-action.json",
+      "expected_verdict": "allowed",
+      "protects_against_false_positive": "Policy evaluation must allow an explicitly authorized action on the intended path while denying bypass paths."
+    },
+    {
+      "control_key": "current_owner_can_complete",
+      "fixture_ref": "fixtures/p15-b5/clean/current-owner-complete.json",
+      "expected_verdict": "allowed",
+      "protects_against_false_positive": "Fencing must allow the current epoch owner to complete while rejecting stale workers."
+    },
+    {
+      "control_key": "cosmetic_only_change_cosmetic",
+      "fixture_ref": "fixtures/p15-b5/clean/cosmetic-only-change.json",
+      "expected_verdict": "unchanged",
+      "protects_against_false_positive": "Evidence comparator must classify formatting-only changes as cosmetic while still catching authority changes."
+    },
+    {
+      "control_key": "ambiguous_diagnosis_abstains",
+      "fixture_ref": "fixtures/p15-b5/clean/ambiguous-diagnosis.json",
+      "expected_verdict": "passed",
+      "protects_against_false_positive": "Failure diagnosis must abstain on ambiguous evidence rather than inventing a blocking cause."
+    },
+    {
+      "control_key": "allowed_normalized_variation_passes",
+      "fixture_ref": "fixtures/p15-b5/clean/allowed-normalized-variation.json",
+      "expected_verdict": "passed",
+      "protects_against_false_positive": "Behavior oracle must ignore declared nondeterministic fields while detecting observable drift."
+    },
+    {
+      "control_key": "benign_repo_prose_stays_data",
+      "fixture_ref": "fixtures/p15-b5/clean/benign-repo-prose.json",
+      "expected_verdict": "allowed",
+      "protects_against_false_positive": "Role view and prompt-safety checks must not block ordinary repository prose that contains no restricted instructions."
+    },
+    {
+      "control_key": "matching_cassette_replayed",
+      "fixture_ref": "fixtures/p15-b5/clean/matching-cassette.json",
+      "expected_verdict": "passed",
+      "protects_against_false_positive": "Cassette freshness must replay an exact generation surface while rejecting stale surfaces."
+    },
+    {
+      "control_key": "review_only_erratum_preserves_lock",
+      "fixture_ref": "fixtures/p15-b5/clean/review-only-erratum.json",
+      "expected_verdict": "unchanged",
+      "protects_against_false_positive": "Approval binding must preserve locks for review-only errata while invalidating authority-root byte changes."
+    },
+    {
+      "control_key": "clean_plan_no_invented_blocker",
+      "fixture_ref": "fixtures/p15-b5/clean/clean-plan-interrogation.json",
+      "expected_verdict": "passed",
+      "protects_against_false_positive": "Interrogator completeness must not invent blockers for a complete clean plan."
+    },
+    {
+      "control_key": "normal_operation_resumes_by_decision",
+      "fixture_ref": "fixtures/p15-b5/clean/resume-after-emergency-stop-decision.json",
+      "expected_verdict": "allowed",
+      "protects_against_false_positive": "Emergency stop must allow normal operation after an explicit resume decision without weakening active stops."
+    },
+    {
+      "control_key": "ordinary_calls_under_reservation_succeed",
+      "fixture_ref": "fixtures/p15-b5/clean/ordinary-budgeted-calls.json",
+      "expected_verdict": "allowed",
+      "protects_against_false_positive": "Global budget guard must allow ordinary reserved calls while opening the circuit on runaway loops."
+    }
+  ],
+  "tool_controls": [
+    {
+      "tool_key": "battery_runner_scorer",
+      "clean_control_refs": ["valid_fixture_runnable"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "integrity_sentinel",
+      "clean_control_refs": ["clean_deterministic_evidence_trusted"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "policy_evaluator",
+      "clean_control_refs": ["authorized_action_allowed"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "fencing",
+      "clean_control_refs": ["current_owner_can_complete"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "evidence_comparator",
+      "clean_control_refs": ["cosmetic_only_change_cosmetic"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "failure_diagnosis",
+      "clean_control_refs": ["ambiguous_diagnosis_abstains"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "behavior_oracle",
+      "clean_control_refs": ["allowed_normalized_variation_passes"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "prompt_safety_role_view",
+      "clean_control_refs": ["benign_repo_prose_stays_data"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "cassette_freshness",
+      "clean_control_refs": ["matching_cassette_replayed"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "approval_binding",
+      "clean_control_refs": ["review_only_erratum_preserves_lock"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "interrogator_completeness",
+      "clean_control_refs": ["clean_plan_no_invented_blocker"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "emergency_stop",
+      "clean_control_refs": ["normal_operation_resumes_by_decision"],
+      "grant_scope": "no_new_authority"
+    },
+    {
+      "tool_key": "global_budget_guard",
+      "clean_control_refs": ["ordinary_calls_under_reservation_succeed"],
+      "grant_scope": "no_new_authority"
+    }
+  ]
+}

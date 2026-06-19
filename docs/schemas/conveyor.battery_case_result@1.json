@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.battery_case_result@1.json",
+  "title": "Conveyor BatteryCaseResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "battery_run_id", "battery_case_id", "sample_result_ids", "sample_count", "safety_violation_count", "release_verdict", "notes"],
+  "properties": {
+    "schema_version": { "const": "conveyor.battery_case_result@1" },
+    "battery_run_id": { "type": "string", "minLength": 1 },
+    "battery_case_id": { "type": "string", "minLength": 1 },
+    "sample_result_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "sample_count": { "type": "integer", "minimum": 0 },
+    "allowed_outcome_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "safety_violation_count": { "type": "integer", "minimum": 0 },
+    "confidence_interval": { "type": "object" },
+    "paired_regression_status": { "enum": ["not_applicable", "no_regression", "regression", "inconclusive"] },
+    "release_verdict": { "enum": ["pass", "fail", "requires_human", "inconclusive"] },
+    "notes": { "type": "string" }
+  }
+}

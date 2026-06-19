@@ -1,0 +1,99 @@
+{
+  "schema_version": "conveyor.phase1_baseline_freeze@1",
+  "created_at": "2026-06-19T02:00:00Z",
+  "scope": "phase-1-local-baseline",
+  "description": "Content digests for the Phase 1 schema, gate, canary, toolchain, environment, adapter capability, and artifact surfaces used as the immutable P15-A0 baseline.",
+  "entries": [
+    {
+      "category": "schema",
+      "path": "docs/schemas/conveyor.plan@1.json",
+      "sha256": "d4330c95e0640afe889ed9a315d0e184c3932ecf30c592ad4c2015c8a62591c8"
+    },
+    {
+      "category": "schema",
+      "path": "docs/schemas/conveyor.run_spec@1.json",
+      "sha256": "81f714ae2152bd5feab5260ee617f893daf652d12403b440c557da2886e581dd"
+    },
+    {
+      "category": "schema",
+      "path": "docs/schemas/conveyor.station_plan@1.json",
+      "sha256": "fb272b8b61c3e90d0c6e6e4482c658e696dcae7f222f051ca00e02cb0b8a5671"
+    },
+    {
+      "category": "schema",
+      "path": "docs/schemas/conveyor.evidence@1.json",
+      "sha256": "55d94b5bf852669d936e042d5a3b53a5a886bd39a622cefd64ce86d1868b3de2"
+    },
+    {
+      "category": "schema",
+      "path": "docs/schemas/conveyor.review@1.json",
+      "sha256": "098f93d70d76a45edb47faf9746a3cb9d2552ffed33dcc90deb4dab527f30824"
+    },
+    {
+      "category": "schema",
+      "path": "docs/schemas/conveyor.gate@1.json",
+      "sha256": "aae1d0c848a97af2f6784757f5b18e83af60c0630c74122be47c39d6857506af"
+    },
+    {
+      "category": "schema",
+      "path": "docs/schemas/conveyor.run_bundle@1.json",
+      "sha256": "7a50c25d77ef5366dc13e26d4d68eda650b8b438e9d561ae5856fddfc3558e18"
+    },
+    {
+      "category": "gate",
+      "path": "lib/mix/tasks/conveyor.ci.ex",
+      "sha256": "d578b35d87af71a589514a34efb8817a0574cd6753654a5e50ab5aac97a17b5d"
+    },
+    {
+      "category": "canary",
+      "path": "lib/mix/tasks/conveyor.gate_canary.ex",
+      "sha256": "55394d9f95614cf81dee9acb5cfd819a1cc6ed1f1e6097beb4798e0a308c34ce"
+    },
+    {
+      "category": "canary",
+      "path": "lib/conveyor/eval_suites.ex",
+      "sha256": "1200ddb6880954e14b32fb131a65e8acfb84b8cfd8e1a9692651e30f981ebc11"
+    },
+    {
+      "category": "toolchain",
+      "path": "toolchains/sample-python-runner/profile.toml",
+      "sha256": "02ddee9820b32487f4ef8a904db50798077c66b6d423aa4863c510f85e05e721"
+    },
+    {
+      "category": "toolchain",
+      "path": "toolchains/sample-python-runner/requirements.lock",
+      "sha256": "3bad749fa453aac70aa1fc476dc015126b4a97f1337be48cf286ef02732c3235"
+    },
+    {
+      "category": "artifact",
+      "path": "toolchains/sample-python-runner/sbom.cyclonedx.json",
+      "sha256": "128f3f5b83f0504fc5fd74af48f1b146f2e38c40489f3cf2261085570547751f"
+    },
+    {
+      "category": "environment",
+      "path": "mise.toml",
+      "sha256": "99f3a2335fc7c3fe58b8881926839d3462fff928c0832d93ceb25474fe38671e"
+    },
+    {
+      "category": "environment",
+      "path": "mix.lock",
+      "sha256": "f70663c190f587ac6b7d8a4aded97218eaaa147bcd1cda54a65b4c7346f486d0"
+    },
+    {
+      "category": "adapter_capability",
+      "path": "priv/conveyor/templates/policies/implement.toml",
+      "sha256": "292be699e28cc4e297f557293cc11eeeb552aacab926cfb40f5e9901a00097bf"
+    },
+    {
+      "category": "adapter_capability",
+      "path": "priv/conveyor/templates/policies/verify.toml",
+      "sha256": "0878fcef1126611d1343f0b8451d55b31719ac168427e24d345e477fa884fcba"
+    },
+    {
+      "category": "artifact",
+      "path": "priv/conveyor/templates/prompts/implementation-prompt@1.md",
+      "sha256": "e605897f920bff98cce371a8aaf8c9582ff79eca1f28c439044d7c65801525b2"
+    }
+  ],
+  "promotion_rule": "Later qualification evidence must cite these digests or explicitly record the migration that supersedes them."
+}

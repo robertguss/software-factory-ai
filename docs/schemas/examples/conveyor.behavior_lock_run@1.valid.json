@@ -1,0 +1,15 @@
+{
+  "schema_version": "conveyor.behavior_lock_run@1",
+  "id": "behavior-lock-run:run-001",
+  "run_attempt_id": "run-attempt:001",
+  "slice_id": "slice:pure-refactor-001",
+  "oracle_adapter": "Conveyor.BehaviorOracleAdapter",
+  "inputs_ref": "artifact://behavior-lock/inputs.json",
+  "baseline_output_ref": "artifact://behavior-lock/baseline-output.json",
+  "candidate_output_ref": "artifact://behavior-lock/candidate-output.json",
+  "normalization_policy_ref": "artifact://behavior-lock/normalization-policy.json",
+  "divergences": [],
+  "status": "no_divergence_observed",
+  "equivalence_claim": "bounded_observation_only",
+  "created_at": "2026-06-19T00:00:00Z"
+}

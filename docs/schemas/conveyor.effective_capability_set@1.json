@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.effective_capability_set@1.json",
+  "title": "Conveyor EffectiveCapabilitySet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "adapter", "declared_claim_refs", "probe_claim_refs", "observed_claim_refs", "excluded_or_degraded_claims", "effective_capabilities", "derived_at", "capability_set_digest"],
+  "properties": {
+    "schema_version": { "const": "conveyor.effective_capability_set@1" },
+    "adapter": { "type": "string", "minLength": 1 },
+    "declared_claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "probe_claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "observed_claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "excluded_or_degraded_claims": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "effective_capabilities": { "type": "object" },
+    "derived_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "capability_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

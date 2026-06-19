@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.planning_run@1.json",
+  "title": "Conveyor PlanningRun",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_revision_id", "planning_spec_id", "attempt_no", "status", "outcome", "trace_id"],
+  "properties": {
+    "schema_version": { "const": "conveyor.planning_run@1" },
+    "plan_revision_id": { "type": "string", "minLength": 1 },
+    "planning_spec_id": { "type": "string", "minLength": 1 },
+    "attempt_no": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["planned", "running", "clarification_needed", "critic_rework", "approval_ready", "completed", "failed"] },
+    "outcome": { "enum": ["not_ready", "clarification_needed", "revision_published", "approval_ready", "failed"] },
+    "failure_category": { "enum": ["plan", "compiler", "context", "implementation", "evidence", "adapter", "operator"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string", "minLength": 1 }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.test_specification@1.json",
+  "title": "Conveyor TestSpecification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "slice_id",
+    "test_id",
+    "role",
+    "verification_obligation_refs",
+    "acceptance_refs",
+    "interface_refs",
+    "expected_on_base",
+    "base_calibration_expectation",
+    "expected_base_reason",
+    "expected_on_candidate",
+    "failure_signature_policy",
+    "compiler_falsifier_seed_refs",
+    "hermeticity_requirements",
+    "environment_requirements",
+    "hidden_from_implementer",
+    "result_adapter",
+    "claim_refs",
+    "test_specification_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.test_specification@1" },
+    "id": { "type": "string", "pattern": "^test_specification:sha256:[0-9a-f]{64}$" },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "test_id": { "type": "string", "minLength": 1 },
+    "role": {
+      "enum": [
+        "acceptance_new",
+        "bug_reproduction",
+        "regression_preservation",
+        "characterization",
+        "property",
+        "interface_contract",
+        "security_policy",
+        "human_verification"
+      ]
+    },
+    "verification_obligation_refs": { "$ref": "#/$defs/non_empty_string_array" },
+    "acceptance_refs": { "$ref": "#/$defs/non_empty_string_array" },
+    "interface_refs": { "$ref": "#/$defs/string_array" },
+    "expected_on_base": { "$ref": "#/$defs/outcome" },
+    "base_calibration_expectation": {
+      "enum": ["pass", "fail_expected_reason", "differential", "not_applicable"]
+    },
+    "expected_base_reason": { "type": "string", "minLength": 1 },
+    "expected_on_candidate": { "$ref": "#/$defs/outcome" },
+    "failure_signature_policy": { "type": "string", "minLength": 1 },
+    "compiler_falsifier_seed_refs": { "$ref": "#/$defs/string_array" },
+    "hermeticity_requirements": { "$ref": "#/$defs/string_array" },
+    "environment_requirements": { "$ref": "#/$defs/string_array" },
+    "hidden_from_implementer": { "type": "boolean" },
+    "result_adapter": { "type": "string", "minLength": 1 },
+    "claim_refs": { "$ref": "#/$defs/string_array" },
+    "test_specification_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "outcome": { "enum": ["pass", "fail", "not_applicable"] },
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "non_empty_string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

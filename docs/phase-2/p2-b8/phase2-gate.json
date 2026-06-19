@@ -1,0 +1,37 @@
+{
+  "gate_key": "phase2_gate",
+  "status": "failed",
+  "authorization_result": "hardening_required",
+  "automatic_authority": false,
+  "roadmap_pressure_hidden": false,
+  "requested_scope": {
+    "adapter": "offline",
+    "archetype": "planning",
+    "authority": "phase3",
+    "environment": "production"
+  },
+  "current_grant_ref": "qualification_grant:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "current_grant_scope": {
+    "adapter": "offline",
+    "archetype": "planning",
+    "authority": "phase2_local",
+    "environment": "local_dev"
+  },
+  "failed_hypotheses": [
+    "first_pass_gate_success",
+    "material_dispute_rate"
+  ],
+  "blocking_evidence": [
+    "db_backed_mix_test_unavailable",
+    "first_pass_gate_success_missed",
+    "material_dispute_rate_missed"
+  ],
+  "evidence_refs": [
+    "docs/phase-2/p2-b8/release-suite-report.md",
+    "docs/phase-2/p2-b8/quality-hypothesis-comparison.md",
+    "docs/phase-2/p2-b8/release-record.md",
+    "docs/phase-2/p2-b7/acceptance-gate.md"
+  ],
+  "phase_next_decision_ref": "docs/phase-2/p2-b8/phase-next-decision.json",
+  "recorded_at": "2026-06-19T12:05:00Z"
+}

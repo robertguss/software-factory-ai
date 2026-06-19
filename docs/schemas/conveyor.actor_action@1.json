@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.actor_action@1.json",
+  "title": "Conveyor ActorAction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "actor_id", "action_key", "subject_ref", "policy_decision_id", "authority_root_digests", "trace_id", "performed_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.actor_action@1" },
+    "actor_id": { "type": "string", "minLength": 1 },
+    "action_key": { "type": "string", "minLength": 1 },
+    "subject_ref": { "$ref": "#/$defs/subject_ref" },
+    "policy_decision_id": { "type": "string", "minLength": 1 },
+    "authority_root_digests": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/digest" } },
+    "review_root_digest": { "$ref": "#/$defs/digest" },
+    "reason_ref": { "$ref": "#/$defs/resource_ref" },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "performed_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.resource_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "subject_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.subject_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

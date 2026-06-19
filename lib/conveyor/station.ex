@@ -8,8 +8,12 @@ defmodule Conveyor.Station do
   """
 
   alias Conveyor.Artifacts.BlobStore
+  alias Conveyor.Effects.Attempts
   alias Conveyor.Factory
   alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.AuthorityEvent
+  alias Conveyor.Factory.EffectAttempt
+  alias Conveyor.Factory.EffectReceipt
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
@@ -110,7 +114,7 @@ defmodule Conveyor.Station do
       }
     else
       reject_unknown_effects!(station_run)
-      effects = declare_effects!(station_module, station_run, input)
+      effects = declare_effects!(station_module, station_run, input, opts)
 
       context = %Context{
         run_attempt: run_attempt,
@@ -141,22 +145,99 @@ defmodule Conveyor.Station do
             "StationRun #{station_run.id} has unknown StationEffect records; reconcile before retry"
     end
 
+    station_run
+    |> effect_receipts_for_station_run()
+    |> Attempts.ensure_retry_allowed!()
+
     :ok
   end
 
   @spec heartbeat!(StationRun.t(), keyword()) :: StationRun.t()
   def heartbeat!(%StationRun{} = station_run, opts \\ []) do
+    current_station_run = current_lease!(station_run)
     now = Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:microsecond) end)
     lease_seconds = Keyword.get(opts, :lease_seconds, 60)
 
     Ash.update!(
-      station_run,
+      current_station_run,
       %{
         heartbeat_at: now,
         lease_expires_at: DateTime.add(now, lease_seconds, :second)
       },
       domain: Factory
     )
+  end
+
+  @spec fencing_token(StationRun.t()) :: String.t()
+  def fencing_token(%StationRun{id: id, lease_epoch: lease_epoch}) do
+    "#{id}:#{lease_epoch}"
+  end
+
+  @spec ensure_current_lease!(StationRun.t(), StationRun.t()) :: :ok
+  def ensure_current_lease!(
+        %StationRun{id: id, lease_epoch: candidate_epoch},
+        %StationRun{id: id, lease_epoch: current_epoch}
+      ) do
+    if candidate_epoch == current_epoch do
+      :ok
+    else
+      raise ArgumentError,
+            "stale lease_epoch #{candidate_epoch} for StationRun #{id}; current epoch is #{current_epoch}"
+    end
+  end
+
+  def ensure_current_lease!(%StationRun{id: candidate_id}, %StationRun{id: current_id}) do
+    raise ArgumentError,
+          "cannot fence StationRun #{candidate_id} against current StationRun #{current_id}"
+  end
+
+  @spec validate_claim_controls!(map()) :: :ok
+  def validate_claim_controls!(controls) when is_map(controls) do
+    permit = Map.get(controls, :admission_permit, Map.get(controls, "admission_permit", %{}))
+    permit_status = Map.get(permit, :status, Map.get(permit, "status", :active))
+
+    permit_generation =
+      Map.get(permit, :control_generation, Map.get(permit, "control_generation"))
+
+    control_generation =
+      Map.get(controls, :control_generation, Map.get(controls, "control_generation"))
+
+    cond do
+      permit_status != :active and permit_status != "active" ->
+        raise ArgumentError, "admission permit is not active"
+
+      not is_nil(permit_generation) and not is_nil(control_generation) and
+          permit_generation != control_generation ->
+        raise ArgumentError,
+              "control generation mismatch: permit #{permit_generation}, requested #{control_generation}"
+
+      Map.get(controls, :emergency_stop, Map.get(controls, "emergency_stop", :clear)) in [
+        :engaged,
+        "engaged"
+      ] ->
+        raise ArgumentError, "emergency stop is engaged"
+
+      Map.get(controls, :grant_status, Map.get(controls, "grant_status", :active)) not in [
+        :active,
+        "active"
+      ] ->
+        raise ArgumentError, "grant is not active"
+
+      Map.get(controls, :budget_status, Map.get(controls, "budget_status", :reserved)) not in [
+        :reserved,
+        "reserved"
+      ] ->
+        raise ArgumentError, "budget is not reserved"
+
+      Map.get(controls, :prerequisites, Map.get(controls, "prerequisites", :satisfied)) not in [
+        :satisfied,
+        "satisfied"
+      ] ->
+        raise ArgumentError, "prerequisites are not satisfied"
+
+      true ->
+        :ok
+    end
   end
 
   @spec idempotency_key(Ecto.UUID.t(), String.t(), String.t(), pos_integer()) :: String.t()
@@ -173,6 +254,10 @@ defmodule Conveyor.Station do
     station_key = station_module.station_key()
     station_spec_sha256 = station_module.station_spec_sha256(input)
 
+    opts
+    |> Keyword.get(:claim_controls, %{})
+    |> validate_claim_controls!()
+
     attrs = %{
       run_attempt_id: run_attempt.id,
       slice_id: run_attempt.slice_id,
@@ -183,6 +268,8 @@ defmodule Conveyor.Station do
         idempotency_key(run_attempt.id, station_key, station_spec_sha256, run_attempt.attempt_no),
       input_sha256: station_module.input_sha256(input),
       status: :queued,
+      lease_epoch: 0,
+      trace_id: run_attempt.trace_id,
       artifact_refs: []
     }
 
@@ -207,8 +294,12 @@ defmodule Conveyor.Station do
         %{
           status: :running,
           lease_owner: lease_owner,
+          lease_owner_instance_id: Keyword.get(opts, :lease_owner_instance_id, lease_owner),
+          lease_epoch: station_run.lease_epoch + 1,
+          lease_acquired_at: now,
           lease_expires_at: DateTime.add(now, lease_seconds, :second),
           heartbeat_at: now,
+          trace_id: Keyword.get(opts, :trace_id, run_attempt.trace_id),
           started_at: station_run.started_at || now
         },
         domain: Factory
@@ -216,18 +307,47 @@ defmodule Conveyor.Station do
     end
   end
 
-  defp declare_effects!(station_module, station_run, input) do
+  defp declare_effects!(station_module, station_run, input, opts) do
     input
     |> station_module.effects()
     |> Enum.with_index(1)
     |> Enum.map(fn {effect, index} ->
       attrs = effect_attrs(effect, station_run.id, index)
 
-      case find_one(StationEffect, &(&1.idempotency_key == attrs.idempotency_key)) do
-        nil -> Ash.create!(StationEffect, attrs, domain: Factory)
-        existing -> existing
-      end
+      station_effect =
+        case find_one(StationEffect, &(&1.idempotency_key == attrs.idempotency_key)) do
+          nil -> Ash.create!(StationEffect, attrs, domain: Factory)
+          existing -> existing
+        end
+
+      record_effect_attempt!(station_run, station_effect, opts)
+      station_effect
     end)
+  end
+
+  defp record_effect_attempt!(station_run, station_effect, opts) do
+    idempotency_key = Attempts.attempt_idempotency_key(station_run.id, station_effect.id)
+
+    attrs = %{
+      station_run_id: station_run.id,
+      station_effect_id: station_effect.id,
+      fencing_token: fencing_token(station_run),
+      admission_permit_id: admission_permit_id(opts),
+      idempotency_key: idempotency_key,
+      request_digest:
+        digest(%{
+          "station_effect_id" => station_effect.id,
+          "effect_kind" => station_effect.effect_kind,
+          "station_run_id" => station_run.id
+        }),
+      started_at: Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:microsecond) end),
+      status: :started
+    }
+
+    case find_one(EffectAttempt, &(&1.idempotency_key == idempotency_key)) do
+      nil -> Ash.create!(EffectAttempt, attrs, domain: Factory)
+      existing -> existing
+    end
   end
 
   defp effect_attrs(effect_kind, station_run_id, index) when is_atom(effect_kind) do
@@ -252,6 +372,8 @@ defmodule Conveyor.Station do
   end
 
   defp complete_station!(station_run, run_attempt, output, opts) do
+    station_run = current_lease!(station_run)
+
     Repo.transaction(fn ->
       {artifacts, artifact_notifications} =
         write_artifacts!(
@@ -296,6 +418,7 @@ defmodule Conveyor.Station do
               "station" => station_run.station,
               "station_run_id" => station_run.id,
               "run_attempt_id" => run_attempt.id,
+              "fencing_token" => fencing_token(station_run),
               "output_sha256" => output_sha256,
               "artifact_refs" => artifact_refs
             },
@@ -303,6 +426,14 @@ defmodule Conveyor.Station do
           },
           return_notifications?: true
         )
+
+      append_authority_event!(
+        station_run,
+        run_attempt,
+        ledger_event,
+        completed_at,
+        "station.succeeded"
+      )
 
       {updated_station_run, artifacts, ledger_event,
        artifact_notifications ++ station_notifications ++ ledger_notifications}
@@ -326,6 +457,7 @@ defmodule Conveyor.Station do
   end
 
   defp fail_station!(station_run, run_attempt, reason, opts) do
+    station_run = current_lease!(station_run)
     failed_at = Keyword.get_lazy(opts, :completed_at, fn -> DateTime.utc_now(:microsecond) end)
     message = Exception.message(normalize_error(reason))
 
@@ -349,16 +481,19 @@ defmodule Conveyor.Station do
         slice_id: run_attempt.slice_id,
         run_attempt_id: run_attempt.id,
         station_run_id: station_run.id,
-        idempotency_key: "station:#{station_run.id}:failed",
+        idempotency_key: "station:#{station_run.id}:#{station_run.lease_epoch}:failed",
         type: "station.failed",
         payload: %{
           "station" => station_run.station,
           "station_run_id" => station_run.id,
           "run_attempt_id" => run_attempt.id,
+          "fencing_token" => fencing_token(station_run),
           "error_message" => message
         },
         occurred_at: failed_at
       })
+
+    append_authority_event!(station_run, run_attempt, ledger_event, failed_at, "station.failed")
 
     %Result{
       station_run: updated,
@@ -368,6 +503,27 @@ defmodule Conveyor.Station do
       output: %{"error" => message},
       reused?: false
     }
+  end
+
+  defp append_authority_event!(station_run, run_attempt, ledger_event, committed_at, event_type) do
+    Ash.create!(
+      AuthorityEvent,
+      %{
+        event_id: "authority:#{ledger_event.id}",
+        stream_id: station_run.id,
+        stream_version: station_run.lease_epoch,
+        event_type: event_type,
+        subject_ref: %{"kind" => "station_run", "id_or_key" => station_run.id},
+        causation_id: nil,
+        correlation_id: run_attempt.trace_id,
+        trace_context: %{"trace_id" => run_attempt.trace_id},
+        payload_ref: %{"kind" => "ledger_event", "id_or_key" => ledger_event.id},
+        fencing_token: fencing_token(station_run),
+        policy_decision_id: "local-dev-policy-decision",
+        committed_at: committed_at
+      },
+      domain: Factory
+    )
   end
 
   defp write_artifacts!(station_run, run_attempt, artifacts, opts) do
@@ -421,6 +577,25 @@ defmodule Conveyor.Station do
     |> Enum.sort_by(& &1.idempotency_key)
   end
 
+  defp effect_receipts_for_station_run(station_run) do
+    attempt_ids =
+      EffectAttempt
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.station_run_id == station_run.id))
+      |> MapSet.new(& &1.id)
+
+    EffectReceipt
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.effect_attempt_id in attempt_ids))
+  end
+
+  defp admission_permit_id(opts) do
+    opts
+    |> Keyword.get(:claim_controls, %{})
+    |> then(&Map.get(&1, :admission_permit, Map.get(&1, "admission_permit", %{})))
+    |> then(&Map.get(&1, :id, Map.get(&1, "id", "local-dev-admission-permit")))
+  end
+
   defp artifacts_for(station_run_id) do
     Artifact
     |> Ash.read!(domain: Factory)
@@ -446,6 +621,12 @@ defmodule Conveyor.Station do
     |> Ash.read!(domain: Factory)
     |> Enum.find(&(&1.id == id)) ||
       raise ArgumentError, "#{inspect(resource)} #{id} was not found"
+  end
+
+  defp current_lease!(%StationRun{} = station_run) do
+    current_station_run = get_by_id!(StationRun, station_run.id)
+    ensure_current_lease!(station_run, current_station_run)
+    current_station_run
   end
 
   defp find_one(resource, predicate) do

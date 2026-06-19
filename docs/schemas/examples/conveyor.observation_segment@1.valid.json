@@ -1,0 +1,13 @@
+{
+  "schema_version": "conveyor.observation_segment@1",
+  "manifest_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "observation_manifest",
+    "id_or_key": "manifest-001"
+  },
+  "sequence_start": 1,
+  "sequence_end": 128,
+  "sensitivity": "internal",
+  "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "storage_pointer": "local-cas://trust-domain-local/segments/001.jsonl"
+}

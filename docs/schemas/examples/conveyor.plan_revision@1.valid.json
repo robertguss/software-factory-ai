@@ -1,0 +1,12 @@
+{
+  "schema_version": "conveyor.plan_revision@1",
+  "plan_id": "plan-001",
+  "revision_no": 1,
+  "source_snapshot_ids": ["source-snapshot-001"],
+  "normalized_contract_ref": "artifact://plans/plan-001/revision-1.json",
+  "contract_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "change_class": "semantic",
+  "status": "published",
+  "created_by": "compiler",
+  "created_at": "2026-06-19T00:00:00Z"
+}

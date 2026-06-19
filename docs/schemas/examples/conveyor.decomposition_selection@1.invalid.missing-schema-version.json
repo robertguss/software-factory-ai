@@ -1,0 +1,11 @@
+{
+  "planning_run_id": "planning-run:plan-1:1",
+  "candidate_set_ref": "blobs/sha256/candidate-set",
+  "candidate_set_digest": "sha256:1f603b50a4556ed3b52e71ecfd0286a2d6c9fa7a6548a9a3fc91dc1f1f5e2927",
+  "selected_candidate_key": "primary-candidate",
+  "selection_actor": "deterministic",
+  "selection_rationale": "Candidate strictly dominates eligible alternatives on hard invariants.",
+  "comparison_ref": "blobs/sha256/decomposition-comparison",
+  "human_decision_id": null,
+  "auto_blended": false
+}

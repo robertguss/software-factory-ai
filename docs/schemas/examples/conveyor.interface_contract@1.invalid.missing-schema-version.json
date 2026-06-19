@@ -1,0 +1,9 @@
+{
+  "interface_key": "db.tasks.completed",
+  "kind": "db_column",
+  "stability": "internal_cross_slice",
+  "lock_level": "review_required",
+  "compatibility_policy": "migration_required",
+  "owner_slice_key": "SLC-SCHEMA",
+  "version": "1"
+}

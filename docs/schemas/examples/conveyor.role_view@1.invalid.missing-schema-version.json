@@ -1,0 +1,19 @@
+{
+  "role": "implementer",
+  "subject_refs": [],
+  "included_field_selectors": ["requirements[*]"],
+  "redacted_field_selectors": ["scorer_only_oracles[*]"],
+  "hidden_subject_classes": ["reference_solution"],
+  "tool_contract_keys": ["mix.test"],
+  "maximum_information_labels": ["internal"],
+  "effective_policy_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "view_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

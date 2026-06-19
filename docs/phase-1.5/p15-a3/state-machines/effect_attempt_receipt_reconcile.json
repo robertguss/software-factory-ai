@@ -1,0 +1,21 @@
+{
+  "schema_version": "conveyor.state_model@1",
+  "slug": "effect_attempt_receipt_reconcile",
+  "kind": "state-machine",
+  "proves": "effect attempt -> receipt -> reconciliation",
+  "states": ["not_started", "attempt_started", "receipt_pending", "receipt_confirmed", "receipt_ambiguous", "reconciled"],
+  "transitions": [
+    { "from": "not_started", "event": "start_attempt", "to": "attempt_started" },
+    { "from": "attempt_started", "event": "external_accept_without_result", "to": "receipt_pending" },
+    { "from": "receipt_pending", "event": "observe_matching_result", "to": "receipt_confirmed" },
+    { "from": "receipt_pending", "event": "observe_conflicting_result", "to": "receipt_ambiguous" },
+    { "from": "receipt_ambiguous", "event": "reconcile_before_retry", "to": "reconciled" }
+  ],
+  "invariants": [
+    "No external effect is marked successful without an EffectReceipt.",
+    "Retry from pending or ambiguous first runs reconciliation."
+  ],
+  "counterexample_traces": [
+    ["start_attempt", "external_accept_without_result", "retry_without_reconciliation"]
+  ]
+}

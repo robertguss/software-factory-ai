@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.sampling_policy@1.json",
+  "title": "Conveyor SamplingPolicy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "method", "min_samples", "max_samples", "confidence", "floor_p0", "stopping_rule", "sampling_unit", "cluster_key", "max_samples_per_cluster", "strata", "sequential_validity", "policy_digest"],
+  "properties": {
+    "schema_version": { "const": "conveyor.sampling_policy@1" },
+    "method": { "enum": ["exhaustive", "random", "stratified", "sequential"] },
+    "min_samples": { "type": "integer", "minimum": 0 },
+    "max_samples": { "type": "integer", "minimum": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "floor_p0": { "type": "number", "minimum": 0, "maximum": 1 },
+    "stopping_rule": { "type": "string", "minLength": 1 },
+    "sampling_unit": { "const": "repository_case_cluster" },
+    "cluster_key": { "type": "string", "minLength": 1 },
+    "max_samples_per_cluster": { "type": "integer", "minimum": 1 },
+    "strata": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "sequential_validity": { "type": "string", "minLength": 1 },
+    "policy_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

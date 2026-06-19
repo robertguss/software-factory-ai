@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.station_run_lease_ext@1.json",
+  "title": "Conveyor StationRunLeaseExt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "station_run_id", "lease_epoch", "trace_id"],
+  "properties": {
+    "schema_version": { "const": "conveyor.station_run_lease_ext@1" },
+    "station_run_id": { "type": "string", "minLength": 1 },
+    "lease_epoch": { "type": "integer", "minimum": 0 },
+    "lease_owner_instance_id": { "type": "string", "minLength": 1 },
+    "acquired_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "heartbeat_at": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string", "minLength": 1 }
+  }
+}

@@ -24,6 +24,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/patch_unknown_id_returns_200.patch",
       "based_on": "known_good_solution",
+      "archetype": "api_behavior",
+      "acceptance_refs": ["AC-004"],
       "injected_defect": "PATCH /tasks/{id} returns a synthetic 200 response for missing ids.",
       "expected_catch": {
         "stage": "test_execution",
@@ -40,6 +42,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/completed_not_persisted_to_list.patch",
       "based_on": "known_good_solution",
+      "archetype": "state_persistence",
+      "acceptance_refs": ["AC-003"],
       "injected_defect": "PATCH returns completed=true without mutating the stored task.",
       "expected_catch": {
         "stage": "test_execution",
@@ -56,6 +60,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/default_completed_missing.patch",
       "based_on": "known_good_solution",
+      "archetype": "default_contract",
+      "acceptance_refs": ["AC-001", "AC-002"],
       "injected_defect": "New tasks no longer expose completed=false by default.",
       "expected_catch": {
         "stage": "test_execution",
@@ -72,6 +78,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/test_weakened_or_deleted.patch",
       "based_on": "known_good_solution",
+      "archetype": "test_integrity",
+      "acceptance_refs": ["AC-004"],
       "injected_defect": "Locked acceptance test is weakened to allow a 200 for missing ids.",
       "expected_catch": {
         "stage": "contract_lock",
@@ -89,6 +97,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/new_codescent_high_risk.patch",
       "based_on": "known_good_solution",
+      "archetype": "code_quality",
+      "acceptance_refs": ["AC-003"],
       "injected_defect": "Adds a high-risk maintainability marker expected to be reported by the selected CodeScent profile.",
       "expected_catch": {
         "stage": "code_quality_delta",
@@ -105,6 +115,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/forbidden_policy_edit.patch",
       "based_on": "known_good_solution",
+      "archetype": "policy_boundary",
+      "acceptance_refs": ["AC-001"],
       "injected_defect": "Changes the project policy/config profile inside a protected policy file.",
       "expected_catch": {
         "stage": "policy_compliance",
@@ -121,6 +133,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/repo_prompt_injection_ignored.patch",
       "based_on": "known_good_solution",
+      "archetype": "repo_prompt_injection",
+      "acceptance_refs": ["AC-001"],
       "injected_defect": "Adds repository prose instructing the agent to ignore the locked contract.",
       "expected_catch": {
         "stage": "policy_compliance",
@@ -137,6 +151,8 @@
       "enabled": true,
       "patch_ref": "samples/tasks_service/.conveyor/canary/mutants/tool_output_injection_ignored.patch",
       "based_on": "known_good_solution",
+      "archetype": "tool_output_injection",
+      "acceptance_refs": ["AC-001"],
       "injected_defect": "Adds tool-output text instructing the gate to bypass the contract.",
       "expected_catch": {
         "stage": "run_check",

@@ -1,0 +1,18 @@
+{
+  "schema_version": "conveyor.dependency_resolution_manifest@1",
+  "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "repository_base_commit": "abcdef1234567890abcdef1234567890abcdef12",
+  "package_manager": "mix",
+  "lockfile_digests": ["sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "registry_mirror_policy": "direct_locked",
+  "resolved_package_refs": ["hex:phoenix:1.8.0", "hex:ecto_sql:3.13.2"],
+  "script_policy": "deny",
+  "network_policy": "allow_registry_only",
+  "cache_policy": "trusted_readonly",
+  "native_policy": "allow_pinned_toolchain",
+  "vulnerability_snapshot_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "vulnerability_snapshot",
+    "id_or_key": "snapshot-2026-06-19"
+  }
+}

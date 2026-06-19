@@ -1,0 +1,16 @@
+{
+  "schema_version": "conveyor.claim_set@1",
+  "subject": "plan-revision-001",
+  "subject_content_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "claims": [
+    {
+      "subject_pointer": "/requirements/0",
+      "origin": "human_explicit",
+      "source_anchor_refs": ["source-anchor-001"],
+      "confidence": 1.0,
+      "impact": "must_preserve",
+      "approval_status": "not_required"
+    }
+  ],
+  "claim_set_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}

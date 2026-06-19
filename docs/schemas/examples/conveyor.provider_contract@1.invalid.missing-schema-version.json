@@ -1,0 +1,13 @@
+{
+  "provider_key": "openai",
+  "adapter_key": "openai.responses",
+  "data_processing_class": "transient",
+  "retention_policy": "zero-retention-eligible",
+  "training_use_policy": "prohibited",
+  "metadata_policy": "minimal",
+  "supported_redaction_modes": ["role_view"],
+  "max_input_sensitivity_labels": ["public", "internal"],
+  "egress_attestation_requirements": ["provider.egress"],
+  "contract_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "status": "active"
+}

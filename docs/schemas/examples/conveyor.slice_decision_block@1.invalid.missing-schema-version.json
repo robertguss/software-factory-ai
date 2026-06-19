@@ -1,0 +1,5 @@
+{
+  "slice_key": "SLC-PUBLIC-API",
+  "human_decision_ref": "DEC-COMPAT-004",
+  "reason": "Breaking API version strategy must be chosen."
+}

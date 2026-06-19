@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.artifact_input@1.json",
+  "title": "Conveyor ArtifactInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "consumer_artifact_id", "input_subject_kind", "input_subject_id", "input_digest", "role", "invalidation_policy", "created_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.artifact_input@1" },
+    "consumer_artifact_id": { "type": "string", "minLength": 1 },
+    "input_subject_kind": { "type": "string", "minLength": 1 },
+    "input_subject_id": { "type": "string", "minLength": 1 },
+    "input_digest": { "$ref": "#/$defs/digest" },
+    "role": { "enum": ["semantic", "authority", "evidence", "advisory", "presentation"] },
+    "invalidation_policy": { "enum": ["invalidate_on_change", "warn_on_change", "ignore_after_capture"] },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": "conveyor.pilot_selection@1",
+  "planning_bundle_id": "planning-bundle:contract-foundry-pilot:r1",
+  "selection_policy_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "selected_slice_ids": [
+    "slice:source-ingest",
+    "slice:authority-roots",
+    "slice:public-interface",
+    "slice:migration-compatibility",
+    "slice:ambiguity-resolution",
+    "slice:alternative-candidate",
+    "slice:amendment-path",
+    "slice:parked-dispute",
+    "slice:human-verification",
+    "slice:unchanged-admin"
+  ],
+  "required_coverage_classes": [
+    "root_slice",
+    "terminal_slice",
+    "dependency_pair",
+    "fork_join",
+    "public_interface",
+    "migration_compatibility",
+    "low_risk",
+    "high_risk",
+    "parked_path",
+    "human_verification",
+    "unchanged_contract",
+    "amendment_path",
+    "alternative_candidate"
+  ],
+  "excluded_slice_ids_with_reasons": [],
+  "selection_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "frozen_at": "2026-06-19T11:37:00Z"
+}

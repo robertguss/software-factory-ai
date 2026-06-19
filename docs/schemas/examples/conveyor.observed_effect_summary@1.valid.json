@@ -1,0 +1,15 @@
+{
+  "schema_version": "conveyor.observed_effect_summary@1",
+  "tool_invocation_id": "tool-invocation-001",
+  "observed_read_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "observed_write_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "observed_network_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "observed_process_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "declared_vs_observed_verdict": "matches",
+  "attestation_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "attestation_statement",
+    "id_or_key": "attestation-001",
+    "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  }
+}

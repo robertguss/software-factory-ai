@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.cassette_series@1.json",
+  "title": "Conveyor CassetteSeries",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "spec_kind", "spec_digest", "role", "adapter", "agent_profile_snapshot_digest", "capability_snapshot_digest", "generation_environment_fingerprint_digest", "generation_freshness_digest", "created_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.cassette_series@1" },
+    "id": { "type": "string", "pattern": "^cassette_series:sha256:[0-9a-f]{64}$" },
+    "spec_kind": { "enum": ["run_spec", "planning_spec"] },
+    "spec_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "role": { "type": "string", "minLength": 1 },
+    "adapter": { "type": "string", "minLength": 1 },
+    "agent_profile_snapshot_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "capability_snapshot_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "generation_environment_fingerprint_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "generation_freshness_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

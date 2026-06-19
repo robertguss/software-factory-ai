@@ -1,0 +1,7 @@
+{
+  "schema_version": "conveyor.slice_decision_block@1",
+  "slice_key": "SLC-PUBLIC-API",
+  "human_decision_ref": "DEC-COMPAT-004",
+  "reason": "Breaking API version strategy must be chosen.",
+  "claim_refs": ["CLM-DECISION-001"]
+}

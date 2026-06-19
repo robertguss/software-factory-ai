@@ -1,0 +1,11 @@
+{
+  "schema_version": "conveyor.subject_ref@1",
+  "kind": "run_attempt",
+  "id_or_key": "attempt-1",
+  "digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "project_id": "software-factory-ai"
+}

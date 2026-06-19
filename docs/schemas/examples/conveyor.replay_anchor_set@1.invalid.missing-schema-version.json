@@ -1,0 +1,6 @@
+{
+  "selection_policy_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "selected_before_change_ref": "git://base-before-change",
+  "anchors": [],
+  "replay_anchor_set_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

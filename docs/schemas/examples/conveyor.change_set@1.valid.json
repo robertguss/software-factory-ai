@@ -1,0 +1,53 @@
+{
+  "schema_version": "conveyor.change_set@1",
+  "subject": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "plan_revision",
+    "id_or_key": "plan-revision-1"
+  },
+  "base_revision_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "base_authority_root_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "operations": [
+    {
+      "op": "replace",
+      "path": "/constraints/0/text",
+      "value": "Follow the stricter compatibility policy.",
+      "reason": "operator_strengthened_constraint"
+    }
+  ],
+  "preconditions": [
+    {
+      "kind": "base_revision_digest",
+      "digest": {
+        "schema_version": "conveyor.digest_ref@1",
+        "algorithm": "sha256",
+        "value": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    }
+  ],
+  "materiality_labels": ["material"],
+  "impact_preview_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "impact_preview",
+    "id_or_key": "impact-preview-1"
+  },
+  "resulting_revision_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "change_set_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "status": "previewed"
+}

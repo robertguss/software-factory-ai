@@ -1,0 +1,8 @@
+{
+  "scope": "project",
+  "project_id": "project-001",
+  "status": "engaged",
+  "reason": "provider runaway detected",
+  "actor": "operator-001",
+  "trace_id": "trace-stop-001"
+}

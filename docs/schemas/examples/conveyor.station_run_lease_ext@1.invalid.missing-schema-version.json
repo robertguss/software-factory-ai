@@ -1,0 +1,6 @@
+{
+  "station_run_id": "station-run-001",
+  "lease_epoch": 7,
+  "lease_owner_instance_id": "worker-001",
+  "trace_id": "trace-station-run-001"
+}

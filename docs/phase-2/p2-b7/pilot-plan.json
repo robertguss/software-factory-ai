@@ -1,0 +1,164 @@
+{
+  "plan_id": "plan:contract-foundry-serial-pilot",
+  "plan_revision_id": "plan-revision:contract-foundry-serial-pilot:r1",
+  "purpose": "Pre-registered serial pilot for generated contracts, authority roots, amendments, and human-verification obligations.",
+  "epics": [
+    {
+      "epic_id": "epic:intake",
+      "title": "Plan source intake and canonicalization"
+    },
+    {
+      "epic_id": "epic:contracts",
+      "title": "Contract and interface foundry"
+    },
+    {
+      "epic_id": "epic:evidence",
+      "title": "Evidence, amendments, and pilot reporting"
+    }
+  ],
+  "slices": [
+    {
+      "slice_id": "slice:source-ingest",
+      "epic_id": "epic:intake",
+      "title": "Import plan sources into canonical SourceAnchors and ClaimSets",
+      "machine_executable": true,
+      "depends_on": [],
+      "coverage_classes": ["root_slice", "low_risk"],
+      "public_interfaces": { "provides": [], "requires": [] },
+      "risk_level": "low",
+      "obligations": [
+        { "obligation_id": "obligation:source-provenance", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:authority-roots",
+      "epic_id": "epic:intake",
+      "title": "Compile layered authority, review, and archive roots",
+      "machine_executable": true,
+      "depends_on": ["slice:source-ingest"],
+      "coverage_classes": ["dependency_pair", "fork_join", "low_risk"],
+      "public_interfaces": { "provides": [], "requires": [] },
+      "risk_level": "low",
+      "obligations": [
+        { "obligation_id": "obligation:root-reproducibility", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:public-interface-provider",
+      "epic_id": "epic:contracts",
+      "title": "Publish generated RunSpec interface contract",
+      "machine_executable": true,
+      "depends_on": ["slice:authority-roots"],
+      "coverage_classes": ["public_interface", "fork_join", "high_risk"],
+      "public_interfaces": {
+        "provides": ["interface:runspec.contract.v1"],
+        "requires": []
+      },
+      "risk_level": "high",
+      "obligations": [
+        { "obligation_id": "obligation:interface-compatibility", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:public-interface-consumer",
+      "epic_id": "epic:contracts",
+      "title": "Consume generated RunSpec interface in an implementer brief",
+      "machine_executable": true,
+      "depends_on": ["slice:public-interface-provider"],
+      "coverage_classes": ["public_interface", "dependency_pair"],
+      "public_interfaces": {
+        "provides": [],
+        "requires": ["interface:runspec.contract.v1"]
+      },
+      "risk_level": "medium",
+      "obligations": [
+        { "obligation_id": "obligation:consumer-binding", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:migration-compatibility",
+      "epic_id": "epic:contracts",
+      "title": "Add compatible RunSpec v2 migration path",
+      "machine_executable": true,
+      "depends_on": ["slice:public-interface-provider"],
+      "coverage_classes": ["migration_compatibility", "high_risk"],
+      "public_interfaces": {
+        "provides": ["interface:runspec.contract.v2"],
+        "requires": ["interface:runspec.contract.v1"]
+      },
+      "risk_level": "high",
+      "obligations": [
+        { "obligation_id": "obligation:migration-no-data-loss", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:ambiguity-resolution",
+      "epic_id": "epic:contracts",
+      "title": "Resolve ambiguous acceptance language with explicit decision block",
+      "machine_executable": true,
+      "depends_on": ["slice:authority-roots"],
+      "coverage_classes": ["ambiguity", "alternative_candidate"],
+      "public_interfaces": { "provides": [], "requires": [] },
+      "alternative_candidate": true,
+      "risk_level": "medium",
+      "obligations": [
+        { "obligation_id": "obligation:decision-block-trace", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:amendment-path",
+      "epic_id": "epic:evidence",
+      "title": "Apply a material amendment and selective invalidation preview",
+      "machine_executable": true,
+      "depends_on": ["slice:public-interface-consumer", "slice:migration-compatibility"],
+      "coverage_classes": ["amendment_path", "fork_join", "high_risk"],
+      "public_interfaces": { "provides": [], "requires": ["interface:runspec.contract.v2"] },
+      "amendment": true,
+      "risk_level": "high",
+      "obligations": [
+        { "obligation_id": "obligation:amendment-new-attempt", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:parked-dispute",
+      "epic_id": "epic:evidence",
+      "title": "Park a disputed path while unrelated ready slices continue",
+      "machine_executable": true,
+      "depends_on": ["slice:ambiguity-resolution"],
+      "coverage_classes": ["parked_path", "medium_risk"],
+      "public_interfaces": { "provides": [], "requires": [] },
+      "parked_path": true,
+      "risk_level": "medium",
+      "obligations": [
+        { "obligation_id": "obligation:parked-path-diagnosis", "verification_mode": "automated" }
+      ]
+    },
+    {
+      "slice_id": "slice:human-verification",
+      "epic_id": "epic:evidence",
+      "title": "Capture a human-only verification obligation for contract legibility",
+      "machine_executable": false,
+      "depends_on": ["slice:public-interface-consumer"],
+      "coverage_classes": ["human_verification", "high_risk"],
+      "public_interfaces": { "provides": [], "requires": [] },
+      "human_verification_only": true,
+      "risk_level": "high",
+      "obligations": [
+        { "obligation_id": "obligation:legibility-human-review", "verification_mode": "human_only" }
+      ]
+    },
+    {
+      "slice_id": "slice:pilot-chronicle",
+      "epic_id": "epic:evidence",
+      "title": "Publish pilot retrospective and Factory Chronicle",
+      "machine_executable": true,
+      "depends_on": ["slice:amendment-path", "slice:parked-dispute", "slice:human-verification"],
+      "coverage_classes": ["terminal_slice", "unchanged_contract"],
+      "public_interfaces": { "provides": [], "requires": [] },
+      "risk_level": "low",
+      "obligations": [
+        { "obligation_id": "obligation:failure-class-report", "verification_mode": "automated" }
+      ]
+    }
+  ]
+}

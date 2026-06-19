@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.budget_envelope@1.json",
+  "title": "Conveyor BudgetEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "scope_kind", "scope_id", "currency", "token_limit", "cost_limit", "concurrency_limit", "policy_digest", "status"],
+  "properties": {
+    "schema_version": { "const": "conveyor.budget_envelope@1" },
+    "scope_kind": { "enum": ["system", "project", "run"] },
+    "scope_id": { "type": "string", "minLength": 1 },
+    "currency": { "type": "string", "minLength": 1 },
+    "token_limit": { "type": "integer", "minimum": 0 },
+    "cost_limit": { "type": "number", "minimum": 0 },
+    "concurrency_limit": { "type": "integer", "minimum": 0 },
+    "rolling_window_ms": { "type": "integer", "minimum": 1 },
+    "policy_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "status": { "enum": ["active", "suspended", "retired"] }
+  }
+}

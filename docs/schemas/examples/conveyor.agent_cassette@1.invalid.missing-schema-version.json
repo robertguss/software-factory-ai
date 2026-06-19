@@ -1,0 +1,14 @@
+{
+  "id": "agent_cassette:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cassette_series_id": "cassette_series:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "recording_no": 1,
+  "provider_identity_confidence": "exact",
+  "provider_parameters_ref": "artifact://provider-parameters",
+  "agent_event_stream_ref": "artifact://agent-events",
+  "tool_transcript_ref": "artifact://tool-transcript",
+  "primary_output_refs": ["artifact://primary-output"],
+  "redaction_report_ref": "artifact://redaction-report",
+  "seal_status": "sealed",
+  "retention_class": "qualification",
+  "recorded_at": "2026-06-19T00:00:00Z"
+}

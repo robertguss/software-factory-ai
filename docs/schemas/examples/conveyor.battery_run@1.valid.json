@@ -1,0 +1,16 @@
+{
+  "schema_version": "conveyor.battery_run@1",
+  "corpus_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "scoring_policy_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "requested_grant_scope_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "adapter": "fake",
+  "agent_profile_id": "agent-profile-001",
+  "capability_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "environment_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "run_mode": "dry_run",
+  "prompt_template_version": "battery-prompt@1",
+  "trace_id": "trace-battery-run-001",
+  "status": "planned",
+  "summary_ref": "artifact://battery/run-summary",
+  "retention_class": "audit"
+}

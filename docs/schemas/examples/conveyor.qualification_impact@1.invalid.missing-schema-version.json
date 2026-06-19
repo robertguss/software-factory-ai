@@ -1,0 +1,13 @@
+{
+  "id": "qualification_impact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "changed_subject_refs": ["docs/schemas/conveyor.planning_spec@1.json"],
+  "changed_digest_classes": ["schema"],
+  "affected_grant_ids": [
+    "qualification_grant:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "required_requalification_case_ids": ["hard-blockers"],
+  "required_conformance_suite_refs": ["mix conveyor.qualification_gate --scope p2-static-planning"],
+  "unaffected_evidence_refs": ["battery-run:p15-b5-meta-canaries"],
+  "report_ref": "docs/phase-1.5/p15-b8/qualification-impact.json",
+  "created_at": "2026-06-19T00:00:00Z"
+}

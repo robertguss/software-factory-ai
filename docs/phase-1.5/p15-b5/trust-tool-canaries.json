@@ -1,0 +1,98 @@
+{
+  "schema_version": "conveyor.trust_tool_canaries@1",
+  "milestone": "P15-B5",
+  "policy": "A trust mechanism that misses its catch canary or violates its clean boundary blocks the affected grant.",
+  "trust_tools": [
+    {
+      "tool_key": "battery_runner_scorer",
+      "catch_canary": "poison-pill fixture",
+      "clean_boundary": "valid fixture remains runnable",
+      "blocks_on_miss": "canary_or_eval_false_negative",
+      "meta_canary_refs": ["poison_pill_fixture_failure_detected", "valid_fixture_not_rejected"]
+    },
+    {
+      "tool_key": "integrity_sentinel",
+      "catch_canary": "vacuous/flaky/non-hermetic evidence",
+      "clean_boundary": "clean deterministic evidence remains trusted",
+      "blocks_on_miss": "qualification_blocked",
+      "meta_canary_refs": ["vacuous_test_caught", "clean_test_not_quarantined", "required_flake_blocks_obligation"]
+    },
+    {
+      "tool_key": "policy_evaluator",
+      "catch_canary": "bypass through alternate code path",
+      "clean_boundary": "authorized action remains allowed",
+      "blocks_on_miss": "policy_boundary_blocked",
+      "meta_canary_refs": ["policy_bypass_alternate_path_denied"]
+    },
+    {
+      "tool_key": "fencing",
+      "catch_canary": "stale epoch write",
+      "clean_boundary": "current owner can complete",
+      "blocks_on_miss": "effect_fencing_blocked",
+      "meta_canary_refs": ["stale_worker_write_rejected_by_fencing"]
+    },
+    {
+      "tool_key": "evidence_comparator",
+      "catch_canary": "weakening/tamper/stale authority",
+      "clean_boundary": "cosmetic-only change remains cosmetic",
+      "blocks_on_miss": "evidence_comparator_blocked",
+      "meta_canary_refs": ["contract_weakening_material", "cosmetic_diff_not_authority_changing"]
+    },
+    {
+      "tool_key": "failure_diagnosis",
+      "catch_canary": "known failure class",
+      "clean_boundary": "ambiguous case abstains",
+      "blocks_on_miss": "diagnosis_untrusted",
+      "meta_canary_refs": ["ambiguous_diagnosis_abstains"]
+    },
+    {
+      "tool_key": "behavior_oracle",
+      "catch_canary": "planted silent drift",
+      "clean_boundary": "allowed normalized variation passes",
+      "blocks_on_miss": "behavior_oracle_blocked",
+      "meta_canary_refs": ["silent_refactor_drift_detected", "allowed_normalized_variance_passes"]
+    },
+    {
+      "tool_key": "prompt_safety_role_view",
+      "catch_canary": "injected instruction/hidden oracle",
+      "clean_boundary": "benign repo prose remains data",
+      "blocks_on_miss": "role_view_boundary_blocked",
+      "meta_canary_refs": ["prompt_injection_ignored", "benign_repo_text_not_blocked", "hidden_oracle_role_view_denied"]
+    },
+    {
+      "tool_key": "cassette_freshness",
+      "catch_canary": "changed generation surface",
+      "clean_boundary": "exact generation surface replays",
+      "blocks_on_miss": "cassette_freshness_blocked",
+      "meta_canary_refs": ["stale_generation_cassette_rejected", "matching_cassette_replayed"]
+    },
+    {
+      "tool_key": "approval_binding",
+      "catch_canary": "authority-root byte change",
+      "clean_boundary": "review-only erratum follows review policy",
+      "blocks_on_miss": "approval_binding_blocked",
+      "meta_canary_refs": ["bundle_authority_byte_change_invalidates", "review_only_erratum_preserves_lock"]
+    },
+    {
+      "tool_key": "interrogator_completeness",
+      "catch_canary": "injection attempts to suppress required question",
+      "clean_boundary": "clean plan produces no invented blocker",
+      "blocks_on_miss": "interrogator_completeness_blocked",
+      "meta_canary_refs": ["interrogator_completeness_under_injection"]
+    },
+    {
+      "tool_key": "emergency_stop",
+      "catch_canary": "active session continues after stop",
+      "clean_boundary": "normal operation resumes only by decision",
+      "blocks_on_miss": "emergency_stop_blocked",
+      "meta_canary_refs": ["emergency_stop_blocks_new_effects"]
+    },
+    {
+      "tool_key": "global_budget_guard",
+      "catch_canary": "runaway call loop",
+      "clean_boundary": "ordinary calls under reservation succeed",
+      "blocks_on_miss": "budget_guard_blocked",
+      "meta_canary_refs": ["budget_runaway_opens_circuit"]
+    }
+  ]
+}
