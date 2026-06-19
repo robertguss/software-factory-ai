@@ -31,6 +31,7 @@ defmodule Conveyor.EvidenceKernelResourcesTest do
     conveyor.evidence_comparison@1
     conveyor.failure_diagnosis@1
     conveyor.recovery_proposal@1
+    conveyor.recovery_action@1
     conveyor.plan_source_snapshot@1
     conveyor.plan_revision@1
     conveyor.constraint_set@1

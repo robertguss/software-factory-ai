@@ -1,0 +1,10 @@
+{
+  "recovery_proposal_id": "recovery-proposal-001",
+  "action_key": "retry_with_fresh_permit",
+  "authorized_by": "policy",
+  "authorization_ref": "policy-decision-001",
+  "arguments_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "status": "pending",
+  "idempotency_key": "recovery-action:001",
+  "created_at": "2026-06-19T00:00:00Z"
+}
