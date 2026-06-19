@@ -1,0 +1,9 @@
+{
+  "schema_version": "conveyor.nondeterminism_ledger@1",
+  "rng_seed": "seed-1",
+  "clock_reads": [{ "label": "agent_started", "timestamp": "2026-06-19T00:00:00Z", "ordinal": 1 }],
+  "id_allocations": [{ "namespace": "tool", "id": "tool-000001", "ordinal": 1 }],
+  "env_reads": [{ "key": "MIX_ENV", "value": "test" }],
+  "external_reads": [{ "subject": "hex.pm/packages/jason", "version_ref": "etag:abc" }],
+  "tool_equivalence_policies": [{ "tool_contract_key": "shell.exec", "policy_version": "tool-equivalence@1" }]
+}

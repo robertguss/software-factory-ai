@@ -25,7 +25,7 @@ defmodule Conveyor.Cassettes do
         "created_at" => required_string(attrs, :created_at)
       }
 
-    Map.put(series, "id", "cassette_series:#{digest(series)}")
+    Map.put(series, "id", "cassette_series:sha256:#{digest(series)}")
   end
 
   @spec record(map(), keyword()) :: {:ok, map()} | {:error, map()}
@@ -61,7 +61,8 @@ defmodule Conveyor.Cassettes do
 
     %{
       "schema_version" => "conveyor.agent_cassette@1",
-      "id" => "agent_cassette:#{digest(%{series_id: series["id"], recording_no: recording_no})}",
+      "id" =>
+        "agent_cassette:sha256:#{digest(%{series_id: series["id"], recording_no: recording_no})}",
       "cassette_series_id" => series["id"],
       "recording_no" => recording_no,
       "provider_request_id" => value(provider, :request_id),

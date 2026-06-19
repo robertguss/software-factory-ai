@@ -27,6 +27,10 @@ defmodule Conveyor.EvidenceKernelResourcesTest do
     conveyor.human_review_rubric@1
     conveyor.capability_claim@1
     conveyor.effective_capability_set@1
+    conveyor.cassette_series@1
+    conveyor.agent_cassette@1
+    conveyor.nondeterminism_ledger@1
+    conveyor.replay_anchor_set@1
     conveyor.incident_record@1
     conveyor.evidence_comparison@1
     conveyor.failure_diagnosis@1

@@ -56,6 +56,10 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.plan_revision@1` | `conveyor.plan_revision@1.json` | `examples/conveyor.plan_revision@1.valid.json` | `examples/conveyor.plan_revision@1.invalid.missing-schema-version.json` |
 | `conveyor.capability_claim@1` | `conveyor.capability_claim@1.json` | `examples/conveyor.capability_claim@1.valid.json` | `examples/conveyor.capability_claim@1.invalid.missing-schema-version.json` |
 | `conveyor.effective_capability_set@1` | `conveyor.effective_capability_set@1.json` | `examples/conveyor.effective_capability_set@1.valid.json` | `examples/conveyor.effective_capability_set@1.invalid.missing-schema-version.json` |
+| `conveyor.cassette_series@1` | `conveyor.cassette_series@1.json` | `examples/conveyor.cassette_series@1.valid.json` | `examples/conveyor.cassette_series@1.invalid.missing-schema-version.json` |
+| `conveyor.agent_cassette@1` | `conveyor.agent_cassette@1.json` | `examples/conveyor.agent_cassette@1.valid.json` | `examples/conveyor.agent_cassette@1.invalid.missing-schema-version.json` |
+| `conveyor.nondeterminism_ledger@1` | `conveyor.nondeterminism_ledger@1.json` | `examples/conveyor.nondeterminism_ledger@1.valid.json` | `examples/conveyor.nondeterminism_ledger@1.invalid.missing-schema-version.json` |
+| `conveyor.replay_anchor_set@1` | `conveyor.replay_anchor_set@1.json` | `examples/conveyor.replay_anchor_set@1.valid.json` | `examples/conveyor.replay_anchor_set@1.invalid.missing-schema-version.json` |
 | `conveyor.incident_record@1` | `conveyor.incident_record@1.json` | `examples/conveyor.incident_record@1.valid.json` | `examples/conveyor.incident_record@1.invalid.missing-schema-version.json` |
 | `conveyor.evidence_comparison@1` | `conveyor.evidence_comparison@1.json` | `examples/conveyor.evidence_comparison@1.valid.json` | `examples/conveyor.evidence_comparison@1.invalid.missing-schema-version.json` |
 | `conveyor.failure_diagnosis@1` | `conveyor.failure_diagnosis@1.json` | `examples/conveyor.failure_diagnosis@1.valid.json` | `examples/conveyor.failure_diagnosis@1.invalid.missing-schema-version.json` |

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.agent_cassette@1.json",
+  "title": "Conveyor AgentCassette",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "cassette_series_id", "recording_no", "provider_identity_confidence", "agent_event_stream_ref", "tool_transcript_ref", "primary_output_refs", "redaction_report_ref", "seal_status", "retention_class", "recorded_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.agent_cassette@1" },
+    "id": { "type": "string", "pattern": "^agent_cassette:sha256:[0-9a-f]{64}$" },
+    "cassette_series_id": { "type": "string", "pattern": "^cassette_series:sha256:[0-9a-f]{64}$" },
+    "recording_no": { "type": "integer", "minimum": 1 },
+    "provider_request_id": { "type": "string" },
+    "provider_model_id": { "type": "string" },
+    "provider_model_revision": { "type": "string" },
+    "provider_identity_confidence": { "enum": ["exact", "declared_only", "family_only", "unknown"] },
+    "provider_parameters_ref": { "type": "string", "minLength": 1 },
+    "agent_event_stream_ref": { "type": "string", "minLength": 1 },
+    "tool_transcript_ref": { "type": "string", "minLength": 1 },
+    "primary_output_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "patch_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "recorded_diagnostics_ref": { "type": "string" },
+    "redaction_report_ref": { "type": "string", "minLength": 1 },
+    "seal_status": { "enum": ["recording", "sealed", "rejected", "invalidated"] },
+    "retention_class": { "type": "string", "minLength": 1 },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "invalidation_reason": { "type": "string" },
+    "recorded_at": { "type": "string", "format": "date-time" }
+  }
+}
