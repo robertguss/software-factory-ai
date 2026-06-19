@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.constraint_set@1.json",
+  "title": "Conveyor ConstraintSet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_revision_id", "constraint_set_ref", "constraint_set_digest", "hard_count", "soft_count", "status", "constraints"],
+  "properties": {
+    "schema_version": { "const": "conveyor.constraint_set@1" },
+    "plan_revision_id": { "type": "string", "minLength": 1 },
+    "constraint_set_ref": { "type": "string", "minLength": 1 },
+    "constraint_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "hard_count": { "type": "integer", "minimum": 0 },
+    "soft_count": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["valid", "invalid"] },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "kind", "statement", "strength", "violation_policy", "validation_kind", "claim_ref"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "statement": { "type": "string", "minLength": 1 },
+          "strength": { "enum": ["hard", "soft"] },
+          "violation_policy": { "enum": ["block", "require_decision", "warn"] },
+          "validation_kind": { "type": "string", "minLength": 1 },
+          "claim_ref": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

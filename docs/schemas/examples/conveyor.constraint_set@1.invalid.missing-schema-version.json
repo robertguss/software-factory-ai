@@ -1,0 +1,9 @@
+{
+  "plan_revision_id": "plan-revision-001",
+  "constraint_set_ref": "artifact://planning/constraints-001",
+  "constraint_set_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "hard_count": 1,
+  "soft_count": 0,
+  "status": "valid",
+  "constraints": []
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": "conveyor.incident_record@1",
+  "incident_key": "incident-001",
+  "severity": "high",
+  "incident_class": "credential_revocation",
+  "affected_subject_refs": ["adapter:primary-live"],
+  "affected_grant_refs": ["grant-001"],
+  "affected_artifact_refs": ["artifact-001"],
+  "containment_actions": ["suspend-adapter"],
+  "evidence_refs": ["artifact://incident/evidence-001"],
+  "status": "open",
+  "owner": "ops",
+  "opened_at": "2026-06-19T00:00:00Z"
+}

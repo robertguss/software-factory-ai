@@ -40,7 +40,14 @@
     { "schema_version": "conveyor.battery_case_result@1", "file": "conveyor.battery_case_result@1.json", "owner": "P15-B1", "writer_status": "current" },
     { "schema_version": "conveyor.human_review_rubric@1", "file": "conveyor.human_review_rubric@1.json", "owner": "P15-B1", "writer_status": "current" },
     { "schema_version": "conveyor.plan_source_snapshot@1", "file": "conveyor.plan_source_snapshot@1.json", "owner": "P2-A0", "writer_status": "current" },
-    { "schema_version": "conveyor.plan_revision@1", "file": "conveyor.plan_revision@1.json", "owner": "P2-A0", "writer_status": "current" }
+    { "schema_version": "conveyor.plan_revision@1", "file": "conveyor.plan_revision@1.json", "owner": "P2-A0", "writer_status": "current" },
+    { "schema_version": "conveyor.capability_claim@1", "file": "conveyor.capability_claim@1.json", "owner": "P15-B2", "writer_status": "current" },
+    { "schema_version": "conveyor.effective_capability_set@1", "file": "conveyor.effective_capability_set@1.json", "owner": "P15-B2", "writer_status": "current" },
+    { "schema_version": "conveyor.incident_record@1", "file": "conveyor.incident_record@1.json", "owner": "P15-B6", "writer_status": "current" },
+    { "schema_version": "conveyor.constraint_set@1", "file": "conveyor.constraint_set@1.json", "owner": "P2-A0", "writer_status": "current" },
+    { "schema_version": "conveyor.source_anchor@1", "file": "conveyor.source_anchor@1.json", "owner": "P2-A0", "writer_status": "current" },
+    { "schema_version": "conveyor.claim_set@1", "file": "conveyor.claim_set@1.json", "owner": "P2-A0", "writer_status": "current" },
+    { "schema_version": "conveyor.planning_spec@1", "file": "conveyor.planning_spec@1.json", "owner": "P2-A0", "writer_status": "current" }
   ],
   "vocabularies": [
     { "key": "materiality_class", "values": ["nonmaterial", "review_only", "material", "breaking"] },

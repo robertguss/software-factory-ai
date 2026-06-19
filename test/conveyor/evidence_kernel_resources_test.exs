@@ -25,8 +25,15 @@ defmodule Conveyor.EvidenceKernelResourcesTest do
     conveyor.battery_sample_result@1
     conveyor.battery_case_result@1
     conveyor.human_review_rubric@1
+    conveyor.capability_claim@1
+    conveyor.effective_capability_set@1
+    conveyor.incident_record@1
     conveyor.plan_source_snapshot@1
     conveyor.plan_revision@1
+    conveyor.constraint_set@1
+    conveyor.source_anchor@1
+    conveyor.claim_set@1
+    conveyor.planning_spec@1
   )
 
   test "P15-A2/A3 seam resource schemas validate golden examples and reject missing schema_version" do

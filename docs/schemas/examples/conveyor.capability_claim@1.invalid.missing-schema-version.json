@@ -1,0 +1,9 @@
+{
+  "capability_key": "patch_capture",
+  "version": "1",
+  "mode_or_value": "supported",
+  "limits": { "max_patch_bytes": 200000 },
+  "source": "probed",
+  "evidence_ref": "artifact://adapter/probe-001",
+  "known_degradations": []
+}

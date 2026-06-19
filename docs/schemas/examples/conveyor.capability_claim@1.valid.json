@@ -1,0 +1,11 @@
+{
+  "schema_version": "conveyor.capability_claim@1",
+  "capability_key": "patch_capture",
+  "version": "1",
+  "mode_or_value": "supported",
+  "limits": { "max_patch_bytes": 200000 },
+  "source": "probed",
+  "evidence_ref": "artifact://adapter/probe-001",
+  "observed_at": "2026-06-19T00:00:00Z",
+  "known_degradations": []
+}

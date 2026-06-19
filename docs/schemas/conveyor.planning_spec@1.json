@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.planning_spec@1.json",
+  "title": "Conveyor PlanningSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_revision_id", "constraint_set_digest", "qualification_grant_id", "pass_graph_digest", "policy_bundle_digest", "prompt_template_versions", "agent_profile_snapshots", "repository_base_commit", "environment_fingerprint_digest", "planning_width", "budgets", "trace_id"],
+  "properties": {
+    "schema_version": { "const": "conveyor.planning_spec@1" },
+    "plan_revision_id": { "type": "string", "minLength": 1 },
+    "constraint_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "qualification_grant_id": { "type": "string", "minLength": 1 },
+    "pass_graph_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "policy_bundle_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "prompt_template_versions": { "type": "object" },
+    "agent_profile_snapshots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "repository_base_commit": { "type": "string", "minLength": 1 },
+    "environment_fingerprint_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "planning_width": { "type": "integer", "minimum": 1 },
+    "budgets": { "type": "object" },
+    "trace_id": { "type": "string", "minLength": 1 }
+  }
+}

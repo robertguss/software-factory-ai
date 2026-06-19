@@ -1,0 +1,12 @@
+{
+  "schema_version": "conveyor.effective_capability_set@1",
+  "adapter": "primary-live",
+  "declared_claim_refs": ["capability-claim-declared"],
+  "probe_claim_refs": ["capability-claim-probed"],
+  "observed_claim_refs": ["capability-claim-observed"],
+  "excluded_or_degraded_claims": ["diff_capture"],
+  "effective_capabilities": { "patch_capture": "supported", "cost_reporting": "absent" },
+  "derived_at": "2026-06-19T00:00:00Z",
+  "expires_at": "2026-06-20T00:00:00Z",
+  "capability_set_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

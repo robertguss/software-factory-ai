@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.incident_record@1.json",
+  "title": "Conveyor IncidentRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "incident_key", "severity", "incident_class", "affected_subject_refs", "containment_actions", "evidence_refs", "status", "owner", "opened_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.incident_record@1" },
+    "incident_key": { "type": "string", "minLength": 1 },
+    "severity": { "enum": ["low", "medium", "high", "critical"] },
+    "incident_class": { "type": "string", "minLength": 1 },
+    "affected_subject_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "affected_grant_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "affected_artifact_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "containment_actions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "status": { "enum": ["open", "contained", "closed"] },
+    "owner": { "type": "string", "minLength": 1 },
+    "opened_at": { "type": "string", "format": "date-time" },
+    "closed_at": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "conveyor.planning_spec@1",
+  "plan_revision_id": "plan-revision-001",
+  "constraint_set_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "qualification_grant_id": "grant-001",
+  "pass_graph_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "policy_bundle_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "prompt_template_versions": { "planner": "planner@1" },
+  "agent_profile_snapshots": ["agent-profile-001"],
+  "repository_base_commit": "0123456789abcdef0123456789abcdef01234567",
+  "environment_fingerprint_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "planning_width": 3,
+  "budgets": { "max_tokens": 200000 },
+  "trace_id": "trace-planning-001"
+}
