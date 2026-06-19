@@ -32,6 +32,8 @@ defmodule Conveyor.Verification do
   @quarantine_reasons ~w(flaky non_hermetic vacuous order_dependent infrastructure_sensitive)
   @quarantine_statuses ~w(quarantined rehabilitated retired)
   @quarantine_exclusions ~w(advisory ordinary_execution both)
+  @falsifier_source_kinds ~w(example forbidden_behavior property metamorphic_relation interface_schema)
+  @falsifier_preservation_actions ~w(preserved translated superseded)
 
   @spec obligation_kinds() :: [String.t()]
   def obligation_kinds, do: @obligation_kinds
@@ -50,6 +52,9 @@ defmodule Conveyor.Verification do
 
   @spec quarantine_reasons() :: [String.t()]
   def quarantine_reasons, do: @quarantine_reasons
+
+  @spec falsifier_source_kinds() :: [String.t()]
+  def falsifier_source_kinds, do: @falsifier_source_kinds
 
   @spec new_obligation!(map()) :: map()
   def new_obligation!(attrs) when is_map(attrs) do
@@ -159,6 +164,62 @@ defmodule Conveyor.Verification do
     Map.put(quarantine, "id", "test_quarantine:sha256:#{digest(quarantine)}")
   end
 
+  @spec new_falsifier_seed!(map()) :: map()
+  def new_falsifier_seed!(attrs) when is_map(attrs) do
+    seed =
+      %{
+        "schema_version" => "conveyor.compiler_falsifier_seed@1",
+        "verification_obligation_id" => required_string(attrs, :verification_obligation_id),
+        "acceptance_ref" => required_string(attrs, :acceptance_ref),
+        "source_kind" => required_enum(attrs, :source_kind, @falsifier_source_kinds),
+        "falsifying_condition_ref" => required_string(attrs, :falsifying_condition_ref),
+        "compiler_pass_ref" => required_string(attrs, :compiler_pass_ref),
+        "created_at" => required_string(attrs, :created_at)
+      }
+
+    Map.put(seed, "id", "compiler_falsifier_seed:sha256:#{digest(seed)}")
+  end
+
+  @spec new_falsifier_preservation!(map()) :: map()
+  def new_falsifier_preservation!(attrs) when is_map(attrs) do
+    action = required_enum(attrs, :action, @falsifier_preservation_actions)
+    validate_falsifier_preservation!(attrs, action)
+
+    preservation =
+      %{
+        "schema_version" => "conveyor.falsifier_preservation@1",
+        "falsifier_seed_id" => required_string(attrs, :falsifier_seed_id),
+        "verification_obligation_id" => required_string(attrs, :verification_obligation_id),
+        "action" => action,
+        "preserved_ref" => optional_string(attrs, :preserved_ref),
+        "stronger_evidence_ref" => optional_string(attrs, :stronger_evidence_ref),
+        "human_decision_id" => optional_string(attrs, :human_decision_id),
+        "created_at" => required_string(attrs, :created_at)
+      }
+
+    Map.put(preservation, "id", "falsifier_preservation:sha256:#{digest(preservation)}")
+  end
+
+  @spec evaluate_falsifier_preservation([map()], [map()]) :: map()
+  def evaluate_falsifier_preservation(seeds, preservations)
+      when is_list(seeds) and is_list(preservations) do
+    decisions = Enum.map(seeds, &falsifier_decision(&1, preservations))
+    blocked = Enum.filter(decisions, &(&1.status == "blocked"))
+
+    report =
+      %{
+        "schema_version" => "conveyor.falsifier_preservation_report@1",
+        "result" => if(blocked == [], do: "satisfied", else: "blocked"),
+        "preserved_seed_ids" => seed_ids(decisions, "preserved"),
+        "translated_seed_ids" => seed_ids(decisions, "translated"),
+        "superseded_seed_ids" => seed_ids(decisions, "superseded"),
+        "blocked_seed_ids" => Enum.map(blocked, & &1.seed_id),
+        "findings" => Enum.flat_map(blocked, & &1.findings)
+      }
+
+    Map.put(report, "report_digest", "sha256:#{digest(report)}")
+  end
+
   @spec new_waiver!(map()) :: map()
   def new_waiver!(attrs) when is_map(attrs) do
     status = required_enum(attrs, :status, @waiver_statuses)
@@ -197,6 +258,55 @@ defmodule Conveyor.Verification do
   end
 
   defp validate_active_waiver!(_attrs, _status), do: :ok
+
+  defp validate_falsifier_preservation!(attrs, action)
+       when action in ["preserved", "translated"] do
+    unless present?(value(attrs, :preserved_ref)) do
+      raise ArgumentError, "#{action} falsifier preservation requires preserved_ref"
+    end
+  end
+
+  defp validate_falsifier_preservation!(attrs, "superseded") do
+    unless present?(value(attrs, :stronger_evidence_ref)) do
+      raise ArgumentError, "superseded falsifier preservation requires stronger_evidence_ref"
+    end
+
+    unless present?(value(attrs, :human_decision_id)) do
+      raise ArgumentError, "superseded falsifier preservation requires human_decision_id"
+    end
+  end
+
+  defp falsifier_decision(seed, preservations) do
+    preservation =
+      Enum.find(preservations, fn preservation ->
+        preservation["falsifier_seed_id"] == seed["id"] and
+          preservation["verification_obligation_id"] == seed["verification_obligation_id"]
+      end)
+
+    case preservation do
+      %{"action" => action} ->
+        %{seed_id: seed["id"], status: action, findings: []}
+
+      nil ->
+        %{
+          seed_id: seed["id"],
+          status: "blocked",
+          findings: [
+            %{
+              "rule_key" => "falsifier_seed.dropped",
+              "anchor" => seed["id"],
+              "severity" => "blocking"
+            }
+          ]
+        }
+    end
+  end
+
+  defp seed_ids(decisions, status) do
+    decisions
+    |> Enum.filter(&(&1.status == status))
+    |> Enum.map(& &1.seed_id)
+  end
 
   defp dimension_predicate(dimension) do
     %{
