@@ -12,6 +12,16 @@ defmodule Conveyor.GateCanaryFixturesTest do
                       "repo_prompt_injection_ignored",
                       "tool_output_injection_ignored"
                     ])
+  @expected_archetypes MapSet.new([
+                         "api_behavior",
+                         "state_persistence",
+                         "default_contract",
+                         "test_integrity",
+                         "code_quality",
+                         "policy_boundary",
+                         "repo_prompt_injection",
+                         "tool_output_injection"
+                       ])
 
   test "canary fixture manifest defines known-good patch and initial mutants" do
     manifest = load_manifest!()
@@ -43,6 +53,19 @@ defmodule Conveyor.GateCanaryFixturesTest do
       assert is_binary(expected["reason"]) and expected["reason"] != ""
       assert is_binary(mutant["injected_defect"]) and mutant["injected_defect"] != ""
       assert is_list(mutant["valid_stricter_categories"])
+    end
+  end
+
+  test "mutant corpus declares an archetype coverage matrix" do
+    manifest = load_manifest!()
+    mutants = Map.fetch!(manifest, "mutants")
+
+    assert MapSet.new(Enum.map(mutants, & &1["archetype"])) == @expected_archetypes
+
+    for mutant <- mutants do
+      assert is_binary(mutant["archetype"]) and mutant["archetype"] != ""
+      assert is_list(mutant["acceptance_refs"])
+      assert mutant["acceptance_refs"] != []
     end
   end
 
