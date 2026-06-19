@@ -54,6 +54,7 @@ defmodule Conveyor.EvidenceKernelResourcesTest do
     conveyor.decomposition_selection@1
     conveyor.slice_dependency@1
     conveyor.interface_contract@1
+    conveyor.slice_interface_binding@1
   )
 
   test "P15-A2/A3 seam resource schemas validate golden examples and reject missing schema_version" do
