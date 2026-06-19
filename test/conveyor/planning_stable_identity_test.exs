@@ -7,7 +7,9 @@ defmodule Conveyor.PlanningStableIdentityTest do
     candidate = candidate([slice(:schema), slice(:filter)])
 
     assert %{candidate: first} = StableIdentity.reconcile(candidate)
-    assert %{candidate: reordered} = StableIdentity.reconcile(candidate([slice(:filter), slice(:schema)]))
+
+    assert %{candidate: reordered} =
+             StableIdentity.reconcile(candidate([slice(:filter), slice(:schema)]))
 
     first_keys = Map.new(first.slices, &{&1.proposal_key, &1.stable_key})
     reordered_keys = Map.new(reordered.slices, &{&1.proposal_key, &1.stable_key})

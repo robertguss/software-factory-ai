@@ -99,7 +99,10 @@ defmodule Conveyor.PlanningWorkGraphLoweringTest do
     assert diagnostic.work_graph == nil
     assert "slices[0].stable_key is required" in diagnostic.errors
 
-    mismatched = %{selected_candidate(spec.spec_digest) | planning_spec_digest: digest("other-spec")}
+    mismatched = %{
+      selected_candidate(spec.spec_digest)
+      | planning_spec_digest: digest("other-spec")
+    }
 
     assert {:error, mismatch} = WorkGraphLowering.lower(mismatched, spec)
     assert "planning_spec_digest does not match frozen PlanningSpec" in mismatch.errors

@@ -84,7 +84,11 @@ defmodule Conveyor.Planning.WorkGraphLowering do
           |> require_present(slice, :stable_key, "slices[#{index}].stable_key is required")
           |> require_present(slice, :proposal_key, "slices[#{index}].proposal_key is required")
           |> require_present(slice, :title, "slices[#{index}].title is required")
-          |> require_present(slice, :why_this_slice, "slices[#{index}].why_this_slice is required")
+          |> require_present(
+            slice,
+            :why_this_slice,
+            "slices[#{index}].why_this_slice is required"
+          )
         end)
 
       _other ->

@@ -19,13 +19,33 @@ defmodule Conveyor.PlanningPreliminaryVerificationTest do
 
     assert first.status == :ok
     assert first.obligations == second.obligations
-    assert Enum.map(first.obligations, & &1["acceptance_ref"]) == ["AC-001", "AC-002", "POL-NO-SECRET"]
-    assert Enum.map(first.obligations, & &1["obligation_kind"]) == ["property", "interface", "policy"]
+
+    assert Enum.map(first.obligations, & &1["acceptance_ref"]) == [
+             "AC-001",
+             "AC-002",
+             "POL-NO-SECRET"
+           ]
+
+    assert Enum.map(first.obligations, & &1["obligation_kind"]) == [
+             "property",
+             "interface",
+             "policy"
+           ]
+
     assert Enum.all?(first.obligations, &(&1["slice_id"] == "SLC-FILTER"))
     assert Enum.all?(first.obligations, &(&1["required"] == true))
     assert Enum.all?(first.obligations, &(&1["status"] == "open"))
-    assert Enum.all?(first.obligations, &String.starts_with?(&1["oracle_definition_ref"], "oracle:"))
-    assert Enum.all?(first.obligations, &String.starts_with?(&1["evidence_requirement_ref"], "evidence_requirement:"))
+
+    assert Enum.all?(
+             first.obligations,
+             &String.starts_with?(&1["oracle_definition_ref"], "oracle:")
+           )
+
+    assert Enum.all?(
+             first.obligations,
+             &String.starts_with?(&1["evidence_requirement_ref"], "evidence_requirement:")
+           )
+
     assert first.diagnostics == []
   end
 

@@ -23,6 +23,7 @@ defmodule Conveyor.PlanningSliceDependencyTest do
       })
 
     assert graph.status == :valid
+
     assert Enum.map(graph.work_edges, &{&1.from, &1.to, &1.kind}) == [
              {"SLC-SCHEMA", "SLC-FILTER", :execution_hard},
              {"SLC-FILTER", "SLC-UI", :integration_order}
@@ -32,7 +33,11 @@ defmodule Conveyor.PlanningSliceDependencyTest do
     assert Enum.all?(graph.work_edges, &(&1.source_anchor_refs == ["SRC-EDGE"]))
     assert Enum.all?(graph.work_edges, &(&1.origin == :deterministic_derived))
     assert Enum.all?(graph.work_edges, &(&1.confidence == 1.0))
-    assert graph.scheduling_hints == [%{from: "SLC-UI", to: "SLC-FILTER", reason: "likely_files overlap"}]
+
+    assert graph.scheduling_hints == [
+             %{from: "SLC-UI", to: "SLC-FILTER", reason: "likely_files overlap"}
+           ]
+
     assert graph.ignored_dependency_kinds == [:interface_readiness, :likely_overlap]
     assert graph.diagnostics == []
   end
@@ -53,7 +58,12 @@ defmodule Conveyor.PlanningSliceDependencyTest do
 
     assert cyclic.status == :invalid
 
-    assert %{rule_key: "work_graph_cycle", severity: :blocking, subject_key: "SLC-A -> SLC-B -> SLC-A"} in cyclic.diagnostics
+    assert %{
+             rule_key: "work_graph_cycle",
+             severity: :blocking,
+             subject_key: "SLC-A -> SLC-B -> SLC-A"
+           } in cyclic.diagnostics
+
     assert %{rule_key: "unreachable_active_slice", severity: :blocking, subject_key: "SLC-C"} in cyclic.diagnostics
   end
 

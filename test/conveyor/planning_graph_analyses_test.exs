@@ -15,7 +15,11 @@ defmodule Conveyor.PlanningGraphAnalysesTest do
     graph =
       valid_graph()
       |> put_in([:atomicity_groups], [
-        %{key: "ATOMIC-BROKEN", member_keys: ["SLC-A", "SLC-MISSING"], forbidden_intermediate_states: ["partial_write"]}
+        %{
+          key: "ATOMIC-BROKEN",
+          member_keys: ["SLC-A", "SLC-MISSING"],
+          forbidden_intermediate_states: ["partial_write"]
+        }
       ])
       |> put_in([:slices], [
         %{
@@ -79,7 +83,11 @@ defmodule Conveyor.PlanningGraphAnalysesTest do
         }
       ],
       atomicity_groups: [
-        %{key: "ATOMIC-A", member_keys: ["SLC-A"], forbidden_intermediate_states: ["partial_write"]}
+        %{
+          key: "ATOMIC-A",
+          member_keys: ["SLC-A"],
+          forbidden_intermediate_states: ["partial_write"]
+        }
       ],
       work_dependencies: []
     }

@@ -32,7 +32,11 @@ defmodule Conveyor.Planning.StructuralDryRun do
       %{
         status: :fail_wide,
         confidence: confidence,
-        affected_artifact_ids: artifact_inputs |> Enum.map(&field(&1, "consumer_artifact_id")) |> Enum.uniq() |> Enum.sort(),
+        affected_artifact_ids:
+          artifact_inputs
+          |> Enum.map(&field(&1, "consumer_artifact_id"))
+          |> Enum.uniq()
+          |> Enum.sort(),
         reason: :low_confidence
       }
     else
@@ -43,7 +47,12 @@ defmodule Conveyor.Planning.StructuralDryRun do
 
       affected =
         artifact_inputs
-        |> Enum.filter(&MapSet.member?(changed, {field(&1, "input_subject_kind"), field(&1, "input_subject_id")}))
+        |> Enum.filter(
+          &MapSet.member?(
+            changed,
+            {field(&1, "input_subject_kind"), field(&1, "input_subject_id")}
+          )
+        )
         |> Enum.map(&field(&1, "consumer_artifact_id"))
         |> Enum.uniq()
         |> Enum.sort()
@@ -106,7 +115,13 @@ defmodule Conveyor.Planning.StructuralDryRun do
         [node]
 
       _children ->
-        [node | (children |> Enum.map(&longest_path(&1, edges)) |> Enum.sort_by(&{-length(&1), &1}) |> hd())]
+        [
+          node
+          | children
+            |> Enum.map(&longest_path(&1, edges))
+            |> Enum.sort_by(&{-length(&1), &1})
+            |> hd()
+        ]
     end
   end
 
@@ -117,9 +132,13 @@ defmodule Conveyor.Planning.StructuralDryRun do
       |> Map.get(:conflict_domains, [])
       |> Enum.map(&{&1, slice.stable_key})
     end)
-    |> Enum.group_by(fn {domain, _slice_key} -> domain end, fn {_domain, slice_key} -> slice_key end)
+    |> Enum.group_by(fn {domain, _slice_key} -> domain end, fn {_domain, slice_key} ->
+      slice_key
+    end)
     |> Enum.filter(fn {_domain, slice_keys} -> length(slice_keys) > 1 end)
-    |> Enum.map(fn {domain, slice_keys} -> %{domain: domain, slice_keys: Enum.sort(slice_keys)} end)
+    |> Enum.map(fn {domain, slice_keys} ->
+      %{domain: domain, slice_keys: Enum.sort(slice_keys)}
+    end)
     |> Enum.sort_by(& &1.domain)
   end
 

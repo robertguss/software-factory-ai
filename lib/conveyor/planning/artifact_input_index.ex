@@ -11,7 +11,11 @@ defmodule Conveyor.Planning.ArtifactInputIndex do
     "presentation" => "ignore_after_capture"
   }
 
-  @severity_order %{"invalidate_on_change" => 0, "warn_on_change" => 1, "ignore_after_capture" => 2}
+  @severity_order %{
+    "invalidate_on_change" => 0,
+    "warn_on_change" => 1,
+    "ignore_after_capture" => 2
+  }
 
   @spec build(map()) :: map()
   def build(input) when is_map(input) do
@@ -46,7 +50,9 @@ defmodule Conveyor.Planning.ArtifactInputIndex do
         invalidation_policy: input["invalidation_policy"]
       }
     end)
-    |> Enum.sort_by(&{@severity_order[&1.invalidation_policy], &1.input_subject_kind, &1.input_subject_id})
+    |> Enum.sort_by(
+      &{@severity_order[&1.invalidation_policy], &1.input_subject_kind, &1.input_subject_id}
+    )
   end
 
   defp artifact_inputs(artifact, created_at) do

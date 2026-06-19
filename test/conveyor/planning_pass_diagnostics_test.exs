@@ -43,9 +43,13 @@ defmodule Conveyor.PlanningPassDiagnosticsTest do
 
   test "complete fragment runs carry no diagnostics and keep reusable artifacts" do
     result =
-      PassDiagnostics.run_fragments("identity", [fragment("SLC-A", %{title: "Valid"})], fn fragment ->
-        {:ok, %{stable_key: fragment.fragment_key, title: fragment.payload.title}}
-      end)
+      PassDiagnostics.run_fragments(
+        "identity",
+        [fragment("SLC-A", %{title: "Valid"})],
+        fn fragment ->
+          {:ok, %{stable_key: fragment.fragment_key, title: fragment.payload.title}}
+        end
+      )
 
     assert result.status == :complete
     assert result.diagnostics == []

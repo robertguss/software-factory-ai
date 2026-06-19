@@ -12,18 +12,26 @@ defmodule Conveyor.PlanningCompilerPropertiesTest do
   alias Conveyor.Planning.StructuralDryRun
 
   property "generated compiler chains preserve structural invariants" do
-    check all count <- integer(1..5) do
+    check all(count <- integer(1..5)) do
       slices = Enum.map(1..count, &slice/1)
       edges = Enum.map(edge_indexes(count), &dependency/1)
 
       dependency_graph = SliceDependency.analyze(%{slices: slices, dependencies: edges})
       assert dependency_graph.status == :valid
 
-      %{candidate: first_identity} = StableIdentity.reconcile(%{candidate_key: "primary", slices: slices})
-      %{candidate: reordered_identity} = StableIdentity.reconcile(%{candidate_key: "primary", slices: Enum.reverse(slices)})
-      assert MapSet.new(first_identity.slices, & &1.stable_key) == MapSet.new(reordered_identity.slices, & &1.stable_key)
+      %{candidate: first_identity} =
+        StableIdentity.reconcile(%{candidate_key: "primary", slices: slices})
 
-      assert InterfaceGraph.analyze(%{contracts: [contract()], bindings: [provider_binding() | consumer_bindings(count)]}).status ==
+      %{candidate: reordered_identity} =
+        StableIdentity.reconcile(%{candidate_key: "primary", slices: Enum.reverse(slices)})
+
+      assert MapSet.new(first_identity.slices, & &1.stable_key) ==
+               MapSet.new(reordered_identity.slices, & &1.stable_key)
+
+      assert InterfaceGraph.analyze(%{
+               contracts: [contract()],
+               bindings: [provider_binding() | consumer_bindings(count)]
+             }).status ==
                :ready
 
       analysis = GraphAnalyses.run(graph_fixture(count, dependency_graph.work_edges))
@@ -34,9 +42,16 @@ defmodule Conveyor.PlanningCompilerPropertiesTest do
       assert List.first(dry_run.waves) == ["SLC-1"]
       assert dry_run.cost_time_estimate == :insufficient_history
 
-      index = ArtifactInputIndex.build(%{emitted_artifacts: artifact_inputs(count), created_at: "2026-06-19T00:00:00Z"})
+      index =
+        ArtifactInputIndex.build(%{
+          emitted_artifacts: artifact_inputs(count),
+          created_at: "2026-06-19T00:00:00Z"
+        })
+
       changed = [%{subject_kind: "plan_revision", subject_id: "plan-1"}]
-      assert [%{consumer_artifact_id: "artifact:SLC-1"}] = ArtifactInputIndex.preview_changed(index, changed)
+
+      assert [%{consumer_artifact_id: "artifact:SLC-1"}] =
+               ArtifactInputIndex.preview_changed(index, changed)
 
       package = StaticDecisionPackage.build(package_input())
       assert package.authority_effect == :none
@@ -45,7 +60,7 @@ defmodule Conveyor.PlanningCompilerPropertiesTest do
   end
 
   property "pass cache reuses identical inputs and misses changed authority digest" do
-    check all version <- integer(1..3) do
+    check all(version <- integer(1..3)) do
       registry =
         PassRegistry.new()
         |> PassRegistry.register(%{
@@ -59,10 +74,20 @@ defmodule Conveyor.PlanningCompilerPropertiesTest do
           run: fn context -> PassRegistry.read!(context, "value") end
         })
 
-      inputs = %{"value" => "stable", "semantic_digest" => digest("semantic"), "authority_digest" => digest("authority")}
+      inputs = %{
+        "value" => "stable",
+        "semantic_digest" => digest("semantic"),
+        "authority_digest" => digest("authority")
+      }
+
       first = PassRegistry.run(registry, "property-pass", inputs)
       second = PassRegistry.run(first.registry, "property-pass", inputs)
-      changed = PassRegistry.run(second.registry, "property-pass", %{inputs | "authority_digest" => digest("changed-authority")})
+
+      changed =
+        PassRegistry.run(second.registry, "property-pass", %{
+          inputs
+          | "authority_digest" => digest("changed-authority")
+        })
 
       assert first.cache_status == :miss
       assert second.cache_status == :hit
@@ -112,11 +137,17 @@ defmodule Conveyor.PlanningCompilerPropertiesTest do
     }
   end
 
-  defp provider_binding, do: %{slice_key: "SLC-1", interface_key: "iface.generated", direction: "provides"}
+  defp provider_binding,
+    do: %{slice_key: "SLC-1", interface_key: "iface.generated", direction: "provides"}
 
   defp consumer_bindings(count) do
     Enum.map(1..count, fn index ->
-      %{slice_key: "SLC-#{index}", interface_key: "iface.generated", direction: "requires", required_version_range: ">=1 <2"}
+      %{
+        slice_key: "SLC-#{index}",
+        interface_key: "iface.generated",
+        direction: "requires",
+        required_version_range: ">=1 <2"
+      }
     end)
   end
 
@@ -137,7 +168,12 @@ defmodule Conveyor.PlanningCompilerPropertiesTest do
       %{
         artifact_id: "artifact:SLC-#{index}",
         inputs: [
-          %{subject_kind: "plan_revision", subject_id: "plan-#{index}", role: "semantic", digest: digest("plan-#{index}")}
+          %{
+            subject_kind: "plan_revision",
+            subject_id: "plan-#{index}",
+            role: "semantic",
+            digest: digest("plan-#{index}")
+          }
         ]
       }
     end)

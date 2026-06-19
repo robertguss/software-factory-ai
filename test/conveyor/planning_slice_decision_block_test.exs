@@ -7,7 +7,11 @@ defmodule Conveyor.PlanningSliceDecisionBlockTest do
     result =
       SliceDecisionBlock.analyze(%{
         blocks: [
-          %{slice_key: "SLC-API", human_decision_ref: "DEC-COMPAT", reason: "Choose API compatibility strategy"},
+          %{
+            slice_key: "SLC-API",
+            human_decision_ref: "DEC-COMPAT",
+            reason: "Choose API compatibility strategy"
+          },
           %{slice_key: "SLC-UI", human_decision_ref: "DEC-COPY", reason: "Approve final copy"}
         ],
         human_decisions: [

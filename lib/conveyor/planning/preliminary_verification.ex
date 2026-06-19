@@ -15,7 +15,10 @@ defmodule Conveyor.Planning.PreliminaryVerification do
 
     entries =
       Map.get(normalized, :acceptance_criteria, []) ++
-        Enum.map(Map.get(normalized, :protected_policies, []), &Map.put(&1, :obligation_kind, "policy"))
+        Enum.map(
+          Map.get(normalized, :protected_policies, []),
+          &Map.put(&1, :obligation_kind, "policy")
+        )
 
     {obligations, diagnostics} =
       Enum.map_reduce(entries, [], fn entry, diagnostics ->

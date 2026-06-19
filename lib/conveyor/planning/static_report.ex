@@ -17,7 +17,11 @@ defmodule Conveyor.Planning.StaticReport do
   defp canonical_report(package, findings) do
     %{
       schema_version: "conveyor.static_compiler_report@1",
-      status: if(Enum.any?(findings, &(Map.get(&1, :severity) == :blocking)), do: :blocked, else: :passed),
+      status:
+        if(Enum.any?(findings, &(Map.get(&1, :severity) == :blocking)),
+          do: :blocked,
+          else: :passed
+        ),
       package_digest: Map.get(package, :artifact_digest),
       authority_effect: Map.get(package, :authority_effect),
       finding_keys: Enum.map(findings, &Map.fetch!(&1, :rule_key)),

@@ -47,7 +47,9 @@ defmodule Conveyor.PlanningStructuralDryRunTest do
     }
 
     preview =
-      StructuralDryRun.preview_impact(index, [%{subject_kind: "plan_revision", subject_id: "plan-1"}],
+      StructuralDryRun.preview_impact(
+        index,
+        [%{subject_kind: "plan_revision", subject_id: "plan-1"}],
         confidence: 0.4
       )
 

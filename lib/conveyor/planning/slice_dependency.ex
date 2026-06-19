@@ -46,7 +46,8 @@ defmodule Conveyor.Planning.SliceDependency do
       kind: dependency.kind |> to_string() |> String.to_atom(),
       rationale: Map.fetch!(dependency, :rationale),
       source_anchor_refs: Map.get(dependency, :source_anchor_refs, []),
-      origin: dependency |> Map.get(:origin, :deterministic_derived) |> to_string() |> String.to_atom(),
+      origin:
+        dependency |> Map.get(:origin, :deterministic_derived) |> to_string() |> String.to_atom(),
       confidence: Map.get(dependency, :confidence, 1.0)
     }
   end
