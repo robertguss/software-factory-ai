@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.agent_brief_contract@1.json",
+  "title": "Conveyor AgentBrief Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "slice_id",
+    "behavior",
+    "source_refs",
+    "archetype",
+    "change_class",
+    "acceptance_criteria",
+    "verification_obligations",
+    "authorized_scope",
+    "risk",
+    "assumptions",
+    "challenge_cases",
+    "rollout",
+    "recovery",
+    "out_of_scope",
+    "claim_coverage",
+    "contract_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.agent_brief_contract@1" },
+    "id": { "type": "string", "minLength": 1 },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "desired"],
+      "properties": {
+        "current": { "type": "string", "minLength": 1 },
+        "desired": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements", "decisions", "constraints", "claims"],
+      "properties": {
+        "requirements": { "$ref": "#/$defs/ref_array" },
+        "decisions": { "$ref": "#/$defs/ref_array" },
+        "constraints": { "$ref": "#/$defs/ref_array" },
+        "claims": { "$ref": "#/$defs/ref_array" }
+      }
+    },
+    "archetype": { "type": "string", "minLength": 1 },
+    "change_class": { "type": "string", "minLength": 1 },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/acceptance_criterion" }
+    },
+    "verification_obligations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/verification_obligation" }
+    },
+    "authorized_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "protected_paths"],
+      "properties": {
+        "description": { "type": "string", "minLength": 1 },
+        "protected_paths": { "$ref": "#/$defs/ref_array" }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "required_review_lenses"],
+      "properties": {
+        "level": { "type": "string", "minLength": 1 },
+        "required_review_lenses": { "$ref": "#/$defs/ref_array" }
+      }
+    },
+    "assumptions": { "$ref": "#/$defs/ref_array" },
+    "challenge_cases": { "$ref": "#/$defs/ref_array" },
+    "rollout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "intent"],
+      "properties": {
+        "environment": { "type": "string", "minLength": 1 },
+        "intent": { "type": "string", "minLength": 1 }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intent"],
+      "properties": {
+        "intent": { "type": "string", "minLength": 1 },
+        "rollback_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "out_of_scope": { "$ref": "#/$defs/ref_array" },
+    "claim_coverage": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "claim_refs"],
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "claim_refs": { "$ref": "#/$defs/ref_array" }
+        }
+      }
+    },
+    "contract_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "ref_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "acceptance_criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text",
+        "positive_examples",
+        "negative_examples",
+        "boundary_examples",
+        "abuse_examples",
+        "non_goal_examples",
+        "falsifying_conditions"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 },
+        "positive_examples": { "$ref": "#/$defs/ref_array" },
+        "negative_examples": { "$ref": "#/$defs/ref_array" },
+        "boundary_examples": { "$ref": "#/$defs/ref_array" },
+        "abuse_examples": { "$ref": "#/$defs/ref_array" },
+        "non_goal_examples": { "$ref": "#/$defs/ref_array" },
+        "falsifying_conditions": { "$ref": "#/$defs/ref_array" }
+      }
+    },
+    "verification_obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "acceptance_criterion_id", "obligation_kind", "evidence_requirements"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "acceptance_criterion_id": { "type": "string", "minLength": 1 },
+        "obligation_kind": { "type": "string", "minLength": 1 },
+        "evidence_requirements": { "$ref": "#/$defs/ref_array" }
+      }
+    }
+  }
+}

@@ -75,7 +75,8 @@
     { "schema_version": "conveyor.constraint_set@1", "file": "conveyor.constraint_set@1.json", "owner": "P2-A0", "writer_status": "current" },
     { "schema_version": "conveyor.source_anchor@1", "file": "conveyor.source_anchor@1.json", "owner": "P2-A0", "writer_status": "current" },
     { "schema_version": "conveyor.claim_set@1", "file": "conveyor.claim_set@1.json", "owner": "P2-A0", "writer_status": "current" },
-    { "schema_version": "conveyor.planning_spec@1", "file": "conveyor.planning_spec@1.json", "owner": "P2-A0", "writer_status": "current" }
+    { "schema_version": "conveyor.planning_spec@1", "file": "conveyor.planning_spec@1.json", "owner": "P2-A0", "writer_status": "current" },
+    { "schema_version": "conveyor.agent_brief_contract@1", "file": "conveyor.agent_brief_contract@1.json", "owner": "P2-B1", "writer_status": "current" }
   ],
   "vocabularies": [
     { "key": "materiality_class", "values": ["nonmaterial", "review_only", "material", "breaking"] },
