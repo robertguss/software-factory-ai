@@ -1,0 +1,35 @@
+{
+  "schema_version": "conveyor.plan_amendment_proposal@1",
+  "plan_id": "plan-1",
+  "base_plan_revision_id": "plan-revision-1",
+  "dispute_kind": "material_change",
+  "materiality": "material",
+  "affected_refs": [
+    {
+      "schema_version": "conveyor.resource_ref@1",
+      "kind": "interface_contract",
+      "id_or_key": "payments-api"
+    }
+  ],
+  "downstream_refs": [
+    {
+      "schema_version": "conveyor.resource_ref@1",
+      "kind": "slice",
+      "id_or_key": "checkout"
+    }
+  ],
+  "invalidated_artifact_refs": [
+    {
+      "schema_version": "conveyor.resource_ref@1",
+      "kind": "approval_root",
+      "id_or_key": "checkout-epic"
+    }
+  ],
+  "impact_preview_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "impact_preview",
+    "id_or_key": "impact-preview-1"
+  },
+  "status": "human_review_required",
+  "human_decision_id": "human-decision-1"
+}

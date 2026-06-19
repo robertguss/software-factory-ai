@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.plan_amendment_proposal@1.json",
+  "title": "Conveyor PlanAmendmentProposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "base_plan_revision_id",
+    "dispute_kind",
+    "materiality",
+    "affected_refs",
+    "downstream_refs",
+    "invalidated_artifact_refs",
+    "impact_preview_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.plan_amendment_proposal@1" },
+    "plan_id": { "type": "string", "minLength": 1 },
+    "base_plan_revision_id": { "type": "string", "minLength": 1 },
+    "dispute_kind": { "enum": ["clarification", "nonmaterial_correction", "material_change", "contract_fault", "scope_dispute"] },
+    "materiality": { "enum": ["clarification", "nonmaterial", "material", "breaking"] },
+    "affected_refs": { "type": "array", "items": { "$ref": "#/$defs/resource_ref" } },
+    "downstream_refs": { "type": "array", "items": { "$ref": "#/$defs/resource_ref" } },
+    "invalidated_artifact_refs": { "type": "array", "items": { "$ref": "#/$defs/resource_ref" } },
+    "impact_preview_ref": { "$ref": "#/$defs/resource_ref" },
+    "status": { "enum": ["draft", "human_review_required", "accepted", "rejected", "applied"] },
+    "human_decision_id": { "type": "string", "minLength": 1 },
+    "resulting_plan_revision_id": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.resource_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest_ref" },
+        "project_id": { "type": "string", "minLength": 1 },
+        "trust_domain_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "digest_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "value"],
+      "properties": {
+        "schema_version": { "const": "conveyor.digest_ref@1" },
+        "algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+      }
+    }
+  }
+}
