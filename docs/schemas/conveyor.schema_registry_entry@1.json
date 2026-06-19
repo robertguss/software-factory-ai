@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.schema_registry_entry@1.json",
+  "title": "Conveyor SchemaRegistryEntry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema_key",
+    "version",
+    "digest",
+    "dialect",
+    "canonicalization_profile",
+    "compatibility",
+    "reader_support",
+    "writer_status",
+    "owner"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.schema_registry_entry@1" },
+    "schema_key": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "digest": { "$ref": "#/$defs/digest_ref" },
+    "dialect": { "type": "string", "minLength": 1 },
+    "canonicalization_profile": { "enum": ["rfc8785-jcs"] },
+    "compatibility": { "enum": ["additive", "backward_compatible", "breaking"] },
+    "reader_support": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "writer_status": { "enum": ["current", "deprecated", "retired"] },
+    "migration_from": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "owner": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "digest_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "value"],
+      "properties": {
+        "schema_version": { "const": "conveyor.digest_ref@1" },
+        "algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+      }
+    }
+  }
+}

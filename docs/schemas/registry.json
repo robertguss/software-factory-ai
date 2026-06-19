@@ -1,0 +1,27 @@
+{
+  "schema_version": "conveyor.schema_registry@1",
+  "canonicalization_profile": "rfc8785-jcs",
+  "schemas": [
+    { "schema_version": "conveyor.digest_ref@1", "file": "conveyor.digest_ref@1.json", "owner": "P15-A1", "writer_status": "current" },
+    { "schema_version": "conveyor.resource_ref@1", "file": "conveyor.resource_ref@1.json", "owner": "P15-A1", "writer_status": "current" },
+    { "schema_version": "conveyor.subject_ref@1", "file": "conveyor.subject_ref@1.json", "owner": "P15-A1", "writer_status": "current" },
+    { "schema_version": "conveyor.schema_registry_entry@1", "file": "conveyor.schema_registry_entry@1.json", "owner": "P15-A1", "writer_status": "current" },
+    { "schema_version": "conveyor.attestation_statement@1", "file": "conveyor.attestation_statement@1.json", "owner": "P15-A1", "writer_status": "current" },
+    { "schema_version": "conveyor.lifecycle_contract@1", "file": "conveyor.lifecycle_contract@1.json", "owner": "P15-A1", "writer_status": "current" },
+    { "schema_version": "conveyor.root_manifest@1", "file": "conveyor.root_manifest@1.json", "owner": "P15-A1", "writer_status": "current" },
+    { "schema_version": "conveyor.phase_next_decision@1", "file": "conveyor.phase_next_decision@1.json", "owner": "P15-A0", "writer_status": "current" }
+  ],
+  "vocabularies": [
+    { "key": "materiality_class", "values": ["nonmaterial", "review_only", "material", "breaking"] },
+    { "key": "failure_class", "values": ["plan", "compiler", "context", "implementation", "evidence", "adapter", "operator"] },
+    { "key": "verification_stage", "values": ["schema", "lint", "unit", "integration", "gate", "human"] },
+    { "key": "evidence_validity", "values": ["valid", "invalid", "stale", "waived", "quarantined"] },
+    { "key": "artifact_sensitivity", "values": ["public", "internal", "restricted", "secret_ref"] },
+    { "key": "work_dependency_kind", "values": ["execution_hard", "integration_order", "advisory"] },
+    { "key": "interface_lock_level", "values": ["strict", "compatible_superset", "review_required", "informational"] },
+    { "key": "policy_decision_result", "values": ["allow", "deny", "require_human", "not_applicable", "indeterminate"] },
+    { "key": "run_mode", "values": ["dry_run", "shadow", "enforced", "replay"] },
+    { "key": "authority_level", "values": ["informational", "local_dev", "team", "release"] },
+    { "key": "retention_class", "values": ["ephemeral", "project", "audit", "legal_hold", "erased_tombstone"] }
+  ]
+}

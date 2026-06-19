@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.digest_ref@1.json",
+  "title": "Conveyor DigestRef",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "algorithm", "value"],
+  "properties": {
+    "schema_version": { "const": "conveyor.digest_ref@1" },
+    "algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+    "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+  }
+}

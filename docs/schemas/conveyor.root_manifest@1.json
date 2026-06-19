@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.root_manifest@1.json",
+  "title": "Conveyor RootManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "root_kind",
+    "root_version",
+    "canonicalization_profile",
+    "hash_algorithm",
+    "sorted_entries",
+    "omitted_subject_classes",
+    "manifest_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "conveyor.root_manifest@1" },
+    "root_kind": { "enum": ["shared_authority", "epic_authority", "review", "archive_bundle", "evidence"] },
+    "root_version": { "type": "integer", "minimum": 1 },
+    "canonicalization_profile": { "enum": ["rfc8785-jcs"] },
+    "hash_algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+    "sorted_entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subject_class", "ref"],
+        "properties": {
+          "subject_class": { "type": "string", "minLength": 1 },
+          "ref": { "$ref": "#/$defs/subject_ref" }
+        }
+      }
+    },
+    "omitted_subject_classes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "manifest_digest": { "$ref": "#/$defs/digest_ref" }
+  },
+  "$defs": {
+    "digest_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "value"],
+      "properties": {
+        "schema_version": { "const": "conveyor.digest_ref@1" },
+        "algorithm": { "enum": ["sha256", "sha512", "blake3"] },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+      }
+    },
+    "subject_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.subject_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest_ref" },
+        "project_id": { "type": "string", "minLength": 1 },
+        "trust_domain_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

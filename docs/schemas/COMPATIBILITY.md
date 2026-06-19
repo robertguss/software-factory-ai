@@ -16,6 +16,13 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.gate@1` | `conveyor.gate@1.json` | `examples/conveyor.gate.valid.json` | `examples/conveyor.gate.invalid.missing-stages.json` |
 | `conveyor.run_bundle@1` | `conveyor.run_bundle@1.json` | `examples/conveyor.run_bundle.valid.json` | `examples/conveyor.run_bundle.invalid.missing-bundle-root.json` |
 | `conveyor.phase_next_decision@1` | `conveyor.phase_next_decision@1.json` | `examples/conveyor.phase_next_decision.valid.json` | `examples/conveyor.phase_next_decision.invalid.missing-selected-branches.json` |
+| `conveyor.digest_ref@1` | `conveyor.digest_ref@1.json` | `examples/conveyor.digest_ref@1.valid.json` | `examples/conveyor.digest_ref@1.invalid.missing-schema-version.json` |
+| `conveyor.resource_ref@1` | `conveyor.resource_ref@1.json` | `examples/conveyor.resource_ref@1.valid.json` | `examples/conveyor.resource_ref@1.invalid.missing-schema-version.json` |
+| `conveyor.subject_ref@1` | `conveyor.subject_ref@1.json` | `examples/conveyor.subject_ref@1.valid.json` | `examples/conveyor.subject_ref@1.invalid.missing-schema-version.json` |
+| `conveyor.schema_registry_entry@1` | `conveyor.schema_registry_entry@1.json` | `examples/conveyor.schema_registry_entry@1.valid.json` | `examples/conveyor.schema_registry_entry@1.invalid.missing-schema-version.json` |
+| `conveyor.attestation_statement@1` | `conveyor.attestation_statement@1.json` | `examples/conveyor.attestation_statement@1.valid.json` | `examples/conveyor.attestation_statement@1.invalid.missing-schema-version.json` |
+| `conveyor.lifecycle_contract@1` | `conveyor.lifecycle_contract@1.json` | `examples/conveyor.lifecycle_contract@1.valid.json` | `examples/conveyor.lifecycle_contract@1.invalid.missing-schema-version.json` |
+| `conveyor.root_manifest@1` | `conveyor.root_manifest@1.json` | `examples/conveyor.root_manifest@1.valid.json` | `examples/conveyor.root_manifest@1.invalid.missing-schema-version.json` |
 
 ## Compatibility Policy
 

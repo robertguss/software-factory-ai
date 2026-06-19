@@ -1,0 +1,17 @@
+{
+  "schema_version": "conveyor.schema_registry_entry@1",
+  "schema_key": "conveyor.digest_ref",
+  "version": 1,
+  "digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "canonicalization_profile": "rfc8785-jcs",
+  "compatibility": "additive",
+  "reader_support": ["conveyor.digest_ref@1"],
+  "writer_status": "current",
+  "migration_from": [],
+  "owner": "P15-A1"
+}

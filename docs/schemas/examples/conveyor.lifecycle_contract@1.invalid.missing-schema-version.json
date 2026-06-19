@@ -1,0 +1,13 @@
+{
+  "resource_kind": "RunAttempt",
+  "states": ["planned", "running"],
+  "terminal_states": [],
+  "transitions": [
+    {
+      "transition_key": "start",
+      "from": ["planned"],
+      "to_state": "running",
+      "required_event_type": "conveyor.run_attempt.started"
+    }
+  ]
+}

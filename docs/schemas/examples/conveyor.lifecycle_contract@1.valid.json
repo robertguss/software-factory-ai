@@ -1,0 +1,18 @@
+{
+  "schema_version": "conveyor.lifecycle_contract@1",
+  "resource_kind": "RunAttempt",
+  "states": ["planned", "running", "passed", "failed"],
+  "terminal_states": ["passed", "failed"],
+  "transitions": [
+    {
+      "transition_key": "start",
+      "from": ["planned"],
+      "to_state": "running",
+      "required_policy_decision_keys": ["run_attempt.start"],
+      "required_authority_inputs": ["claim_epoch", "permit_checkpoint"],
+      "required_event_type": "conveyor.run_attempt.started",
+      "idempotency_key_shape": "run_attempt_id:transition_key",
+      "forbidden_when": ["emergency_stop_engaged"]
+    }
+  ]
+}

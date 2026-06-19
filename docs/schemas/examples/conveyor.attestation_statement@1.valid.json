@@ -1,0 +1,17 @@
+{
+  "schema_version": "conveyor.attestation_statement@1",
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "conveyor:artifact/phase-next-decision",
+      "digest": {
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    }
+  ],
+  "predicateType": "https://conveyor.dev/attestations/local/v1",
+  "predicate": {
+    "schema_version": "conveyor.phase_next_decision@1"
+  },
+  "signature_status": "unsigned"
+}

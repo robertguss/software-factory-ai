@@ -1,0 +1,13 @@
+{
+  "root_kind": "shared_authority",
+  "root_version": 1,
+  "canonicalization_profile": "rfc8785-jcs",
+  "hash_algorithm": "sha256",
+  "sorted_entries": [],
+  "omitted_subject_classes": [],
+  "manifest_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}

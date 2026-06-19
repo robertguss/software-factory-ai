@@ -1,0 +1,13 @@
+{
+  "schema_version": "conveyor.resource_ref@1",
+  "kind": "schema",
+  "id_or_key": "conveyor.plan",
+  "version": "1",
+  "digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "project_id": "software-factory-ai",
+  "trust_domain_id": "local"
+}
