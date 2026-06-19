@@ -1,0 +1,13 @@
+{
+  "project_id": "project-001",
+  "left_subject_kind": "run",
+  "left_subject_id": "run-001",
+  "right_subject_kind": "run",
+  "right_subject_id": "run-002",
+  "comparison_ref": "artifact://comparison/run-001-run-002",
+  "comparison_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "materiality_labels": ["evidence_changing"],
+  "summary_status": "different",
+  "created_by": "comparator",
+  "created_at": "2026-06-19T00:00:00Z"
+}

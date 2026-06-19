@@ -57,6 +57,9 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.capability_claim@1` | `conveyor.capability_claim@1.json` | `examples/conveyor.capability_claim@1.valid.json` | `examples/conveyor.capability_claim@1.invalid.missing-schema-version.json` |
 | `conveyor.effective_capability_set@1` | `conveyor.effective_capability_set@1.json` | `examples/conveyor.effective_capability_set@1.valid.json` | `examples/conveyor.effective_capability_set@1.invalid.missing-schema-version.json` |
 | `conveyor.incident_record@1` | `conveyor.incident_record@1.json` | `examples/conveyor.incident_record@1.valid.json` | `examples/conveyor.incident_record@1.invalid.missing-schema-version.json` |
+| `conveyor.evidence_comparison@1` | `conveyor.evidence_comparison@1.json` | `examples/conveyor.evidence_comparison@1.valid.json` | `examples/conveyor.evidence_comparison@1.invalid.missing-schema-version.json` |
+| `conveyor.failure_diagnosis@1` | `conveyor.failure_diagnosis@1.json` | `examples/conveyor.failure_diagnosis@1.valid.json` | `examples/conveyor.failure_diagnosis@1.invalid.missing-schema-version.json` |
+| `conveyor.recovery_proposal@1` | `conveyor.recovery_proposal@1.json` | `examples/conveyor.recovery_proposal@1.valid.json` | `examples/conveyor.recovery_proposal@1.invalid.missing-schema-version.json` |
 | `conveyor.constraint_set@1` | `conveyor.constraint_set@1.json` | `examples/conveyor.constraint_set@1.valid.json` | `examples/conveyor.constraint_set@1.invalid.missing-schema-version.json` |
 | `conveyor.source_anchor@1` | `conveyor.source_anchor@1.json` | `examples/conveyor.source_anchor@1.valid.json` | `examples/conveyor.source_anchor@1.invalid.missing-schema-version.json` |
 | `conveyor.claim_set@1` | `conveyor.claim_set@1.json` | `examples/conveyor.claim_set@1.valid.json` | `examples/conveyor.claim_set@1.invalid.missing-schema-version.json` |
