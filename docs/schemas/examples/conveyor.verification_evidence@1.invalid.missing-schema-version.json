@@ -1,0 +1,11 @@
+{
+  "id": "verification_evidence:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "verification_obligation_id": "verification_obligation:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "producer_kind": "test_pack",
+  "producer_ref": "test-pack:unit",
+  "evidence_kind": "candidate_result",
+  "validity": "valid",
+  "result_ref": "artifact:test-result",
+  "evidence_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "created_at": "2026-06-19T00:00:00Z"
+}

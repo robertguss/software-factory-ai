@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.test_integrity_run@1.json",
+  "title": "Conveyor TestIntegrityRun",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "test_pack_id", "integrity_spec_digest", "sample_no", "slice_id", "probe_results", "findings", "verdict", "evaluated_at", "integrity_run_digest"],
+  "properties": {
+    "schema_version": { "const": "conveyor.test_integrity_run@1" },
+    "id": { "type": "string", "pattern": "^test_integrity_run:sha256:[0-9a-f]{64}$" },
+    "test_pack_id": { "type": "string", "minLength": 1 },
+    "integrity_spec_digest": { "type": "string", "minLength": 1 },
+    "sample_no": { "type": "integer", "minimum": 1 },
+    "slice_id": { "type": "string", "minLength": 1 },
+    "run_spec_id": { "type": ["string", "null"] },
+    "probe_results": { "type": "object" },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "verdict": { "enum": ["trustworthy", "suspect", "untrustworthy", "not_assessed"] },
+    "evaluated_at": { "type": "string", "format": "date-time" },
+    "integrity_run_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

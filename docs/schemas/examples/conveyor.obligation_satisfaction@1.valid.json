@@ -1,0 +1,17 @@
+{
+  "schema_version": "conveyor.obligation_satisfaction@1",
+  "verification_obligation_id": "verification_obligation:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "evidence_requirement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "consumed_evidence_ids": ["verification_evidence:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+  "dimension_results": {
+    "candidate_result": {
+      "status": "satisfied",
+      "required_evidence_kind": "candidate_result",
+      "evidence_ids": ["verification_evidence:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+    }
+  },
+  "result": "satisfied",
+  "policy_decision_id": "policy-decision:allow",
+  "satisfaction_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "evaluated_at": "2026-06-19T00:00:00Z"
+}

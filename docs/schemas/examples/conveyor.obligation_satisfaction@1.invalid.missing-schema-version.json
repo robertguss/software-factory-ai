@@ -1,0 +1,10 @@
+{
+  "verification_obligation_id": "verification_obligation:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "evidence_requirement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "consumed_evidence_ids": [],
+  "dimension_results": {},
+  "result": "not_assessed",
+  "policy_decision_id": "policy-decision:block",
+  "satisfaction_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "evaluated_at": "2026-06-19T00:00:00Z"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "verification_obligation:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "slice_id": "slice-1",
+  "acceptance_ref": "AC-001",
+  "obligation_kind": "property",
+  "required": true,
+  "oracle_definition_ref": "artifact:oracle/property-1",
+  "evidence_requirement_ref": "evidence_requirement:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "status": "open"
+}

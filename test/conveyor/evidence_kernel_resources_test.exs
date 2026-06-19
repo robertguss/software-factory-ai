@@ -31,6 +31,12 @@ defmodule Conveyor.EvidenceKernelResourcesTest do
     conveyor.agent_cassette@1
     conveyor.nondeterminism_ledger@1
     conveyor.replay_anchor_set@1
+    conveyor.verification_obligation@1
+    conveyor.verification_evidence@1
+    conveyor.obligation_satisfaction@1
+    conveyor.verification_waiver@1
+    conveyor.test_integrity_run@1
+    conveyor.test_quarantine@1
     conveyor.incident_record@1
     conveyor.evidence_comparison@1
     conveyor.failure_diagnosis@1

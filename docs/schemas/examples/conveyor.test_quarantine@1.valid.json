@@ -1,0 +1,13 @@
+{
+  "schema_version": "conveyor.test_quarantine@1",
+  "id": "test_quarantine:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "test_pack_id": "test-pack:unit",
+  "test_id": "test:flaky-candidate",
+  "reason": "flaky",
+  "required_for_obligation_ids": ["verification_obligation:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "status": "quarantined",
+  "excluded_from": "both",
+  "human_decision_id": "human-decision:quarantine-1",
+  "evidence_ref": "verification_evidence:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "created_at": "2026-06-19T00:00:00Z"
+}

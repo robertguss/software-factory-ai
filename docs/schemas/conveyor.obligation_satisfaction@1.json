@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.obligation_satisfaction@1.json",
+  "title": "Conveyor ObligationSatisfaction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "verification_obligation_id", "evidence_requirement_digest", "consumed_evidence_ids", "dimension_results", "result", "policy_decision_id", "satisfaction_digest", "evaluated_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.obligation_satisfaction@1" },
+    "verification_obligation_id": { "type": "string", "pattern": "^verification_obligation:sha256:[0-9a-f]{64}$" },
+    "evidence_requirement_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "consumed_evidence_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "dimension_results": { "type": "object" },
+    "result": { "enum": ["satisfied", "blocked", "waived", "not_assessed"] },
+    "policy_decision_id": { "type": "string", "minLength": 1 },
+    "waiver_id": { "type": "string", "pattern": "^verification_waiver:sha256:[0-9a-f]{64}$" },
+    "satisfaction_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "evaluated_at": { "type": "string", "format": "date-time" }
+  }
+}
