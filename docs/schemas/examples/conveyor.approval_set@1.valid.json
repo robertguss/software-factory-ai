@@ -1,0 +1,40 @@
+{
+  "schema_version": "conveyor.approval_set@1",
+  "subject_authority_roots": [
+    {
+      "root_kind": "shared_authority",
+      "digest": {
+        "schema_version": "conveyor.digest_ref@1",
+        "algorithm": "sha256",
+        "value": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "root_kind": "epic_authority",
+      "epic_key": "checkout",
+      "digest": {
+        "schema_version": "conveyor.digest_ref@1",
+        "algorithm": "sha256",
+        "value": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    }
+  ],
+  "review_root_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "approval_policy_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "approval_ids": ["human_approval:checkout-1"],
+  "threshold_satisfied": true,
+  "active_revocation_events": [],
+  "approval_set_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "5555555555555555555555555555555555555555555555555555555555555555"
+  }
+}
