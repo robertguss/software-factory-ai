@@ -15,7 +15,7 @@
     "comparison_ref": { "type": "string", "minLength": 1 },
     "comparison_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "materiality_labels": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "summary_status": { "enum": ["identical", "different", "incomparable"] },
+    "summary_status": { "enum": ["identical", "cosmetic", "materially_different", "incomparable"] },
     "created_by": { "type": "string", "minLength": 1 },
     "created_at": { "type": "string", "format": "date-time" }
   }
