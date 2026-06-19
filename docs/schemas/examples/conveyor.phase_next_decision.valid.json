@@ -1,0 +1,37 @@
+{
+  "schema_version": "conveyor.phase_next_decision@1",
+  "phase0_1_report_ref": "docs/phase-1.5/p15-a0/phase-0-1-retrospective.md",
+  "baseline_freeze_ref": "docs/phase-1.5/p15-a0/phase-1-baseline-freeze.json",
+  "vertical_tracer_report_ref": "docs/phase-1.5/p15-a0/throwaway-generated-contract-tracer.md",
+  "selected_branches": [
+    {
+      "branch": "contract_pipeline_first",
+      "response": "Front-load schema interrogation and generated-contract fixtures before P2 schema freeze.",
+      "blocks_requested_grant": true,
+      "justification_refs": [
+        "docs/phase-1.5/p15-a0/tracer-findings.md#human-repair-fields"
+      ],
+      "closure_evidence_refs": []
+    },
+    {
+      "branch": "operability_first",
+      "response": "Keep typed comparison and failure taxonomy visible in the golden journey suite.",
+      "blocks_requested_grant": false,
+      "justification_refs": [
+        "docs/phase-1.5/p15-a0/phase-0-1-retrospective.md#operability"
+      ],
+      "closure_evidence_refs": []
+    }
+  ],
+  "evidence_refs": [
+    "docs/phase-1.5/p15-a0/phase-0-1-retrospective.md",
+    "docs/phase-1.5/p15-a0/tracer-findings.md",
+    "docs/phase-1.5/p15-a0/golden-journey-suite.md"
+  ],
+  "stop_the_line": ["contract_pipeline_first"],
+  "decision_digest": "sha256:e3f6e31406ec17422e8be83f89c8e64c3386df4ede6bf3ef34d56b6b416a1204",
+  "status": "amended",
+  "created_at": "2026-06-19T00:00:00Z",
+  "amended_at": "2026-06-19T02:00:00Z",
+  "notes": "Initial P15-A0 decision amended once after the throwaway tracer findings."
+}

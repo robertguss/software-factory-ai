@@ -15,6 +15,7 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.review@1` | `conveyor.review@1.json` | `examples/conveyor.review.valid.json` | `examples/conveyor.review.invalid.missing-reviewer.json` |
 | `conveyor.gate@1` | `conveyor.gate@1.json` | `examples/conveyor.gate.valid.json` | `examples/conveyor.gate.invalid.missing-stages.json` |
 | `conveyor.run_bundle@1` | `conveyor.run_bundle@1.json` | `examples/conveyor.run_bundle.valid.json` | `examples/conveyor.run_bundle.invalid.missing-bundle-root.json` |
+| `conveyor.phase_next_decision@1` | `conveyor.phase_next_decision@1.json` | `examples/conveyor.phase_next_decision.valid.json` | `examples/conveyor.phase_next_decision.invalid.missing-selected-branches.json` |
 
 ## Compatibility Policy
 
