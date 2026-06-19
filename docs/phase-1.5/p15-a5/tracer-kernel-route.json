@@ -1,0 +1,56 @@
+{
+  "schema_version": "conveyor.tracer_kernel_route@1",
+  "phase_1_behavior_changed": false,
+  "kernel_paths": [
+    {
+      "key": "PolicyDecision",
+      "status": "adopted",
+      "evidence": "P15-A2 policy decision contracts and registry"
+    },
+    {
+      "key": "ToolContract",
+      "status": "adopted",
+      "evidence": "P15-A2 tool contract and enforcement profile schemas"
+    },
+    {
+      "key": "RoleView",
+      "status": "adopted",
+      "evidence": "P15-A2 RoleView schema and policy boundary fixtures"
+    },
+    {
+      "key": "StationFencing",
+      "status": "adopted",
+      "evidence": "Conveyor.Station lease_epoch fencing and station_fencing_test"
+    },
+    {
+      "key": "EffectReceipt",
+      "status": "adopted",
+      "evidence": "EffectAttempt and EffectReceipt resources with retry guard"
+    },
+    {
+      "key": "AuthorityEvent",
+      "status": "adopted",
+      "evidence": "AuthorityEvent resource and CloudEvents helper"
+    },
+    {
+      "key": "ArtifactStore",
+      "status": "adopted",
+      "evidence": "ArtifactStore LocalCAS and S3-compatible backend tests"
+    },
+    {
+      "key": "EmergencyStop",
+      "status": "adopted",
+      "evidence": "EmergencyStop blocks effects and reservations until HumanDecision clear"
+    },
+    {
+      "key": "BudgetReservation",
+      "status": "adopted",
+      "evidence": "BudgetReservations before_spend and reserve helpers"
+    },
+    {
+      "key": "Retention",
+      "status": "adopted",
+      "evidence": "Retention GC plan and erasure tombstones"
+    }
+  ]
+}
