@@ -82,7 +82,8 @@
     { "schema_version": "conveyor.challenge_case@1", "file": "conveyor.challenge_case@1.json", "owner": "P2-B2", "writer_status": "current" },
     { "schema_version": "conveyor.contract_audit@1", "file": "conveyor.contract_audit@1.json", "owner": "P2-B2", "writer_status": "current" },
     { "schema_version": "conveyor.planning_bundle@1", "file": "conveyor.planning_bundle@1.json", "owner": "P2-B4", "writer_status": "current" },
-    { "schema_version": "conveyor.change_set@1", "file": "conveyor.change_set@1.json", "owner": "P2-B5", "writer_status": "current" }
+    { "schema_version": "conveyor.change_set@1", "file": "conveyor.change_set@1.json", "owner": "P2-B5", "writer_status": "current" },
+    { "schema_version": "conveyor.approval_policy@1", "file": "conveyor.approval_policy@1.json", "owner": "P2-B5", "writer_status": "current" }
   ],
   "vocabularies": [
     { "key": "materiality_class", "values": ["nonmaterial", "review_only", "material", "breaking"] },
