@@ -35,6 +35,10 @@
     "project_id": { "type": "string", "minLength": 1 },
     "qualification_gate_run_id": { "type": "string", "minLength": 1 },
     "evidence_root_digest": { "$ref": "#/$defs/digest" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
     "scope_ref": { "type": "string", "minLength": 1 },
     "scope_digest": { "$ref": "#/$defs/digest" },
     "adapter_class": { "type": "string", "minLength": 1 },

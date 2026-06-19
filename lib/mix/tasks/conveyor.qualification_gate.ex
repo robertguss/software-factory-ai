@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Conveyor.QualificationGate do
 
   alias Conveyor.CLI.ExitCodes
   alias Conveyor.Qualification.Gate
+  alias Conveyor.Qualification.Grants
 
   @shortdoc "Run the scoped Conveyor qualification gate"
 
@@ -28,6 +29,7 @@ defmodule Mix.Tasks.Conveyor.QualificationGate do
         |> Map.put("project_id", project_id)
         |> Map.put("requested_scope", scope)
         |> Gate.evaluate()
+        |> maybe_issue_grant(package)
         |> serializable_result()
 
       Mix.shell().info(render(result, format))
@@ -87,8 +89,47 @@ defmodule Mix.Tasks.Conveyor.QualificationGate do
     end
   end
 
+  defp maybe_issue_grant(%{status: :passed} = result, package) do
+    if has_grant_inputs?(package) do
+      grant_input =
+        package
+        |> Map.put("project_id", result.project_id)
+        |> Map.put("requested_scope", result.requested_scope)
+        |> Map.put("gate_result", result)
+
+      case Grants.issue(grant_input) do
+        {:ok, grant_artifacts} ->
+          Map.put(result, :grant_artifacts, grant_artifacts)
+
+        {:deny, denial} ->
+          finding = %{
+            rule_key: "qualification_gate_grant_denied",
+            severity: :blocking,
+            subject_key: "qualification_grant",
+            message: "requested scope is not covered by supported evidence"
+          }
+
+          result
+          |> Map.put(:status, :blocked)
+          |> Map.put(:authority_effect, :none)
+          |> Map.put(:grant_denial, denial)
+          |> Map.update!(:findings, &(&1 ++ [finding]))
+          |> Map.update!(:finding_keys, &Enum.uniq(&1 ++ [finding.rule_key]))
+      end
+    else
+      result
+    end
+  end
+
+  defp maybe_issue_grant(result, _package), do: result
+
+  defp has_grant_inputs?(package) do
+    Map.has_key?(package, "supported_scope") or Map.has_key?(package, "scope_lattice") or
+      Map.has_key?(package, :supported_scope) or Map.has_key?(package, :scope_lattice)
+  end
+
   defp serializable_result(result) do
-    %{
+    base = %{
       "schema_version" => "conveyor.qualification_gate_result@1",
       "project_id" => result.project_id,
       "requested_scope" => stringify_map(result.requested_scope),
@@ -98,6 +139,10 @@ defmodule Mix.Tasks.Conveyor.QualificationGate do
       "finding_keys" => result.finding_keys,
       "live_sample_policy" => stringify_map(result.live_sample_policy)
     }
+
+    base
+    |> put_optional("grant_artifacts", Map.get(result, :grant_artifacts))
+    |> put_optional("grant_denial", Map.get(result, :grant_denial))
   end
 
   defp render(result, :json), do: Jason.encode!(result)
@@ -124,6 +169,9 @@ defmodule Mix.Tasks.Conveyor.QualificationGate do
 
   defp exit_code(%{"status" => "passed"}), do: ExitCodes.fetch!(:success)
   defp exit_code(%{"status" => "blocked"}), do: ExitCodes.fetch!(:plan_or_readiness_blocked)
+
+  defp put_optional(map, _key, nil), do: map
+  defp put_optional(map, key, value), do: Map.put(map, key, stringify_value(value))
 
   defp stringify_map(map) when is_map(map) do
     Map.new(map, fn {key, value} -> {to_string(key), stringify_value(value)} end)

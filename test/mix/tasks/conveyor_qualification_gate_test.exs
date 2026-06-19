@@ -51,6 +51,47 @@ defmodule Mix.Tasks.ConveyorQualificationGateTest do
     Process.delete(:conveyor_qualification_gate_exit_fun)
   end
 
+  test "qualification_gate emits grant artifacts and blocks when the grant scope is insufficient" do
+    input_path =
+      write_json!(%{
+        deterministic_checks: passed_checks(),
+        replay_checks: passed_replays(),
+        live_sample_run: %{
+          "worst_required_stratum_result" => "quality_floor_met",
+          "stratum_results" => []
+        },
+        supported_scope: %{"adapter" => "primary-live", "environment" => "ci-linux"},
+        scope_lattice: %{"worst_required_stratum_result" => "pass"}
+      })
+
+    put_exit_fun()
+
+    output =
+      capture_io(fn ->
+        Mix.Task.reenable("conveyor.qualification_gate")
+
+        Mix.Task.run("conveyor.qualification_gate", [
+          "software-factory-ai",
+          "--scope",
+          "adapter=primary-live,environment=prod",
+          "--input",
+          input_path,
+          "--format",
+          "json"
+        ])
+      end)
+
+    result = Jason.decode!(output)
+
+    assert result["status"] == "blocked"
+    assert result["authority_effect"] == "none"
+    assert "qualification_gate_grant_denied" in result["finding_keys"]
+    assert result["grant_denial"]["reasons"] == ["scope_not_covered"]
+    assert_received {:exit_code, 2}
+  after
+    Process.delete(:conveyor_qualification_gate_exit_fun)
+  end
+
   defp put_exit_fun do
     test_pid = self()
 
