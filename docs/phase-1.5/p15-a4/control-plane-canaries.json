@@ -1,0 +1,30 @@
+{
+  "schema_version": "conveyor.control_plane_canaries@1",
+  "milestone": "P15-A4",
+  "canaries": [
+    {
+      "key": "gc-cannot-erase-active-authority",
+      "proves": "GC preserves active grants, approvals, locks, incidents, and anchor evidence."
+    },
+    {
+      "key": "erased-incomparable",
+      "proves": "Erasure tombstones are not treated as equivalent to available evidence."
+    },
+    {
+      "key": "stop-blocks-new-effects",
+      "proves": "An engaged emergency stop blocks new effects and budget reservations."
+    },
+    {
+      "key": "reservation-required-before-spend",
+      "proves": "Costly provider or tool spend requires an active budget reservation."
+    },
+    {
+      "key": "runaway-opens-circuit",
+      "proves": "Rolling system or project limits deny runaway graphs independent of per-run budgets."
+    },
+    {
+      "key": "adapter-health-narrows-authority",
+      "proves": "Open adapter circuits deny new admission authority while coding-quality misses alone do not."
+    }
+  ]
+}
