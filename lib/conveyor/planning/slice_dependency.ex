@@ -93,6 +93,14 @@ defmodule Conveyor.Planning.SliceDependency do
   end
 
   defp unreachable_diagnostics(active_nodes, edges) do
+    if edges == [] do
+      []
+    else
+      unreachable_diagnostics_for_edges(active_nodes, edges)
+    end
+  end
+
+  defp unreachable_diagnostics_for_edges(active_nodes, edges) do
     reachable = reachable_nodes(edges)
 
     active_nodes
