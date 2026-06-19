@@ -1,0 +1,20 @@
+{
+  "schema_version": "conveyor.manual_intervention_artifact@1",
+  "intervention_kind": "contract_edit",
+  "subject_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "ContractLock",
+    "id_or_key": "contract-lock:epic-auth:auth-session-hardening:slice-03"
+  },
+  "content_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "SourceAnchor",
+    "id_or_key": "source-anchor:manual-contract-note:2026-06-19"
+  },
+  "reason": "Missing actor_action_id must make the manual intervention provenance invalid.",
+  "affected_refs": [],
+  "materiality_labels": ["material"],
+  "counts_as_generated_success": false,
+  "requires_reapproval": true,
+  "created_at": "2026-06-19T10:05:00Z"
+}

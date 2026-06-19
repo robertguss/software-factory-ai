@@ -1,0 +1,42 @@
+{
+  "schema_version": "conveyor.manual_intervention_artifact@1",
+  "intervention_kind": "contract_edit",
+  "subject_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "ContractLock",
+    "id_or_key": "contract-lock:epic-auth:auth-session-hardening:slice-03",
+    "digest": {
+      "schema_version": "conveyor.digest_ref@1",
+      "algorithm": "sha256",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "base_authority_root_digest": {
+    "schema_version": "conveyor.digest_ref@1",
+    "algorithm": "sha256",
+    "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "content_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "SourceAnchor",
+    "id_or_key": "source-anchor:manual-contract-note:2026-06-19"
+  },
+  "actor_action_id": "actor-action:operator:import-contract-edit:2026-06-19T10:05:00Z",
+  "reason": "Human operator imported a contract edit to preserve a selected pilot slice after a material ambiguity was discovered.",
+  "affected_refs": [
+    {
+      "schema_version": "conveyor.resource_ref@1",
+      "kind": "PlanRevision",
+      "id_or_key": "plan-revision:pilot-contract-foundry:r4"
+    },
+    {
+      "schema_version": "conveyor.resource_ref@1",
+      "kind": "RunSpec",
+      "id_or_key": "run-spec:auth-session-hardening:slice-03:r2"
+    }
+  ],
+  "materiality_labels": ["material", "acceptance_criteria", "public_interface"],
+  "counts_as_generated_success": false,
+  "requires_reapproval": true,
+  "created_at": "2026-06-19T10:05:00Z"
+}
