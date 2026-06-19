@@ -15,7 +15,19 @@
     { "schema_version": "conveyor.policy_decision@1", "file": "conveyor.policy_decision@1.json", "owner": "P15-A2", "writer_status": "current" },
     { "schema_version": "conveyor.tool_contract@1", "file": "conveyor.tool_contract@1.json", "owner": "P15-A2", "writer_status": "current" },
     { "schema_version": "conveyor.role_view@1", "file": "conveyor.role_view@1.json", "owner": "P15-A2", "writer_status": "current" },
-    { "schema_version": "conveyor.enforcement_profile@1", "file": "conveyor.enforcement_profile@1.json", "owner": "P15-A2", "writer_status": "current" }
+    { "schema_version": "conveyor.enforcement_profile@1", "file": "conveyor.enforcement_profile@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.observed_effect_summary@1", "file": "conveyor.observed_effect_summary@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.actor_identity@1", "file": "conveyor.actor_identity@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.actor_action@1", "file": "conveyor.actor_action@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.provider_contract@1", "file": "conveyor.provider_contract@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.provider_egress_record@1", "file": "conveyor.provider_egress_record@1.json", "owner": "P15-A2", "writer_status": "current" },
+    { "schema_version": "conveyor.effect_attempt@1", "file": "conveyor.effect_attempt@1.json", "owner": "P15-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.effect_receipt@1", "file": "conveyor.effect_receipt@1.json", "owner": "P15-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.authority_event@1", "file": "conveyor.authority_event@1.json", "owner": "P15-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.observation_segment@1", "file": "conveyor.observation_segment@1.json", "owner": "P15-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.artifact_input@1", "file": "conveyor.artifact_input@1.json", "owner": "P15-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.artifact_address@1", "file": "conveyor.artifact_address@1.json", "owner": "P15-A3", "writer_status": "current" },
+    { "schema_version": "conveyor.station_run_lease_ext@1", "file": "conveyor.station_run_lease_ext@1.json", "owner": "P15-A3", "writer_status": "current" }
   ],
   "vocabularies": [
     { "key": "materiality_class", "values": ["nonmaterial", "review_only", "material", "breaking"] },

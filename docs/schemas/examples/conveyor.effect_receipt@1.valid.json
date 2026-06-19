@@ -1,0 +1,12 @@
+{
+  "schema_version": "conveyor.effect_receipt@1",
+  "effect_attempt_id": "effect-attempt-001",
+  "fencing_token": "lease-7",
+  "idempotency_key": "station-run-001:effect-001:lease-7",
+  "external_correlation_id": "provider-call-001",
+  "request_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "result_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "reconciliation_status": "confirmed",
+  "trace_id": "trace-effect-001",
+  "observed_at": "2026-06-19T00:00:04Z"
+}

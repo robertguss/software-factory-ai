@@ -1,0 +1,6 @@
+{
+  "trust_domain_id": "trust-domain-local",
+  "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "opaque_storage_key": "td/local/opaque/4f4b3c",
+  "storage_backend": "local_cas"
+}

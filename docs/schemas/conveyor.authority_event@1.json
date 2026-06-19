@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.authority_event@1.json",
+  "title": "Conveyor AuthorityEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "stream_id", "stream_version", "event_type", "subject_ref", "correlation_id", "trace_context", "payload_ref", "committed_at"],
+  "properties": {
+    "schema_version": { "const": "conveyor.authority_event@1" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "stream_id": { "type": "string", "minLength": 1 },
+    "stream_version": { "type": "integer", "minimum": 1 },
+    "event_type": { "type": "string", "minLength": 1 },
+    "subject_ref": { "$ref": "#/$defs/subject_ref" },
+    "causation_id": { "type": "string", "minLength": 1 },
+    "correlation_id": { "type": "string", "minLength": 1 },
+    "trace_context": { "type": "object" },
+    "payload_ref": { "$ref": "#/$defs/resource_ref" },
+    "fencing_token": { "type": "string", "minLength": 1 },
+    "policy_decision_id": { "type": "string", "minLength": 1 },
+    "committed_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.resource_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "subject_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.subject_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

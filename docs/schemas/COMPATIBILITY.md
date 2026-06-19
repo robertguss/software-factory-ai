@@ -29,6 +29,18 @@ registry; they do not best-effort parse unknown versions.
 | `conveyor.tool_contract@1` | `conveyor.tool_contract@1.json` | `examples/conveyor.tool_contract@1.valid.json` | `examples/conveyor.tool_contract@1.invalid.missing-schema-version.json` |
 | `conveyor.role_view@1` | `conveyor.role_view@1.json` | `examples/conveyor.role_view@1.valid.json` | `examples/conveyor.role_view@1.invalid.missing-schema-version.json` |
 | `conveyor.enforcement_profile@1` | `conveyor.enforcement_profile@1.json` | `examples/conveyor.enforcement_profile@1.valid.json` | `examples/conveyor.enforcement_profile@1.invalid.missing-schema-version.json` |
+| `conveyor.observed_effect_summary@1` | `conveyor.observed_effect_summary@1.json` | `examples/conveyor.observed_effect_summary@1.valid.json` | `examples/conveyor.observed_effect_summary@1.invalid.missing-schema-version.json` |
+| `conveyor.actor_identity@1` | `conveyor.actor_identity@1.json` | `examples/conveyor.actor_identity@1.valid.json` | `examples/conveyor.actor_identity@1.invalid.missing-schema-version.json` |
+| `conveyor.actor_action@1` | `conveyor.actor_action@1.json` | `examples/conveyor.actor_action@1.valid.json` | `examples/conveyor.actor_action@1.invalid.missing-schema-version.json` |
+| `conveyor.provider_contract@1` | `conveyor.provider_contract@1.json` | `examples/conveyor.provider_contract@1.valid.json` | `examples/conveyor.provider_contract@1.invalid.missing-schema-version.json` |
+| `conveyor.provider_egress_record@1` | `conveyor.provider_egress_record@1.json` | `examples/conveyor.provider_egress_record@1.valid.json` | `examples/conveyor.provider_egress_record@1.invalid.missing-schema-version.json` |
+| `conveyor.effect_attempt@1` | `conveyor.effect_attempt@1.json` | `examples/conveyor.effect_attempt@1.valid.json` | `examples/conveyor.effect_attempt@1.invalid.missing-schema-version.json` |
+| `conveyor.effect_receipt@1` | `conveyor.effect_receipt@1.json` | `examples/conveyor.effect_receipt@1.valid.json` | `examples/conveyor.effect_receipt@1.invalid.missing-schema-version.json` |
+| `conveyor.authority_event@1` | `conveyor.authority_event@1.json` | `examples/conveyor.authority_event@1.valid.json` | `examples/conveyor.authority_event@1.invalid.missing-schema-version.json` |
+| `conveyor.observation_segment@1` | `conveyor.observation_segment@1.json` | `examples/conveyor.observation_segment@1.valid.json` | `examples/conveyor.observation_segment@1.invalid.missing-schema-version.json` |
+| `conveyor.artifact_input@1` | `conveyor.artifact_input@1.json` | `examples/conveyor.artifact_input@1.valid.json` | `examples/conveyor.artifact_input@1.invalid.missing-schema-version.json` |
+| `conveyor.artifact_address@1` | `conveyor.artifact_address@1.json` | `examples/conveyor.artifact_address@1.valid.json` | `examples/conveyor.artifact_address@1.invalid.missing-schema-version.json` |
+| `conveyor.station_run_lease_ext@1` | `conveyor.station_run_lease_ext@1.json` | `examples/conveyor.station_run_lease_ext@1.valid.json` | `examples/conveyor.station_run_lease_ext@1.invalid.missing-schema-version.json` |
 
 ## Compatibility Policy
 

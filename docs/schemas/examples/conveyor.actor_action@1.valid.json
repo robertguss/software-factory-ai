@@ -1,0 +1,20 @@
+{
+  "schema_version": "conveyor.actor_action@1",
+  "actor_id": "actor-human-001",
+  "action_key": "approval.invalidate",
+  "subject_ref": {
+    "schema_version": "conveyor.subject_ref@1",
+    "kind": "approval",
+    "id_or_key": "approval-001"
+  },
+  "policy_decision_id": "policy-decision-001",
+  "authority_root_digests": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  "review_root_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "reason_ref": {
+    "schema_version": "conveyor.resource_ref@1",
+    "kind": "human_decision_reason",
+    "id_or_key": "reason-001"
+  },
+  "trace_id": "trace-actor-action-001",
+  "performed_at": "2026-06-19T00:00:00Z"
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conveyor.dev/schemas/conveyor.observed_effect_summary@1.json",
+  "title": "Conveyor ObservedEffectSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool_invocation_id", "observed_read_digest", "observed_write_digest", "observed_network_digest", "observed_process_digest", "declared_vs_observed_verdict", "attestation_ref"],
+  "properties": {
+    "schema_version": { "const": "conveyor.observed_effect_summary@1" },
+    "tool_invocation_id": { "type": "string", "minLength": 1 },
+    "observed_read_digest": { "$ref": "#/$defs/digest" },
+    "observed_write_digest": { "$ref": "#/$defs/digest" },
+    "observed_network_digest": { "$ref": "#/$defs/digest" },
+    "observed_process_digest": { "$ref": "#/$defs/digest" },
+    "declared_vs_observed_verdict": { "enum": ["matches", "extra_effects", "missing_effects", "diverged", "unknown"] },
+    "attestation_ref": { "$ref": "#/$defs/resource_ref" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id_or_key"],
+      "properties": {
+        "schema_version": { "const": "conveyor.resource_ref@1" },
+        "kind": { "type": "string", "minLength": 1 },
+        "id_or_key": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

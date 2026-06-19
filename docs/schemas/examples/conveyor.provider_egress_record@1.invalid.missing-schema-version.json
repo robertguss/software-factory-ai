@@ -1,0 +1,14 @@
+{
+  "subject_ref": {
+    "schema_version": "conveyor.subject_ref@1",
+    "kind": "station_run",
+    "id_or_key": "station-run-001"
+  },
+  "provider_contract_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "role_view_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "prompt_manifest_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "input_label_summary": { "public": 3, "internal": 1 },
+  "policy_decision_id": "policy-decision-001",
+  "trace_id": "trace-provider-egress-001",
+  "sent_at": "2026-06-19T00:00:00Z"
+}

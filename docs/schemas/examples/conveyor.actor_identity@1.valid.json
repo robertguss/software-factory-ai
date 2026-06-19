@@ -1,0 +1,11 @@
+{
+  "schema_version": "conveyor.actor_identity@1",
+  "actor_id": "actor-human-001",
+  "actor_kind": "human",
+  "display_name": "Ada Operator",
+  "auth_provider": "local-dev",
+  "verified_identity_ref": "local-dev:ada",
+  "roles": ["operator", "release_approver"],
+  "trust_domain_id": "trust-domain-local",
+  "status": "active"
+}
