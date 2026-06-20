@@ -95,6 +95,85 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
     assert ExitCodes.fetch!(:success) == 0
   end
 
+  test "run emits a machine-readable serial driver verdict for a normalized plan" do
+    test_pid = self()
+
+    Process.put(:conveyor_run_exit_fun, fn code ->
+      send(test_pid, {:exit_code, :conveyor_run_exit_fun, code})
+    end)
+
+    Process.put(:conveyor_run_serial_driver, fn input, opts ->
+      send(test_pid, {:serial_driver_input, input, opts})
+
+      %Conveyor.Planning.SerialDriver.Result{
+        status: :passed,
+        order: input.selected_slice_ids,
+        events: [
+          %{
+            "slice_id" => "SLICE-001",
+            "sequence" => 1,
+            "status" => "passed",
+            "gate_result" => "first_pass",
+            "run_attempt_outcome" => :accepted,
+            "findings" => []
+          }
+        ],
+        report: %{
+          "status" => "serial_execution_recorded",
+          "first_pass_gate_success_rate" => 1.0,
+          "replay_fidelity" => %{"status" => "matched"}
+        }
+      }
+    end)
+
+    on_exit(fn ->
+      Process.delete(:conveyor_run_exit_fun)
+      Process.delete(:conveyor_run_serial_driver)
+    end)
+
+    result =
+      run_task("conveyor.run", [
+        "samples/beads_insight/conveyor.plan.yml",
+        "--adapter",
+        "reference_solution",
+        "--workspace",
+        "samples/beads_insight"
+      ])
+
+    assert result["status"] == "passed"
+    assert result["plan_path"] =~ "samples/beads_insight/conveyor.plan.yml"
+    assert result["adapter"] == "reference_solution"
+    assert result["slice_count"] == 7
+
+    assert result["serial_order"] ==
+             ~w(SLICE-001 SLICE-002 SLICE-003 SLICE-004 SLICE-005 SLICE-006 SLICE-007)
+
+    assert result["first_pass_gate_success_rate"] == 1.0
+    assert result["replay_fidelity"]["status"] == "matched"
+    assert_received {:exit_code, :conveyor_run_exit_fun, 0}
+
+    assert_received {:serial_driver_input, input, opts}
+
+    assert input.selected_slice_ids ==
+             ~w(SLICE-001 SLICE-002 SLICE-003 SLICE-004 SLICE-005 SLICE-006 SLICE-007)
+
+    assert length(input.work_graph["slices"]) == 7
+    assert Enum.all?(Map.values(opts[:slices_by_stable_key]), & &1.id)
+    assert opts[:patch_refs_by_slice]["SLICE-001"] =~ "reference_slice_001_loader.patch"
+
+    assert opts[:patch_refs_by_slice]["SLICE-007"] =~
+             "reference_slice_007_envelope_assertion.patch"
+
+    assert opts[:run_spec_opts][:agent_adapter] == Conveyor.AgentRunner.ReferenceSolution
+    assert opts[:run_spec_opts][:workspace_path] =~ "samples/beads_insight"
+    assert Path.type(opts[:run_spec_opts][:blob_root]) == :absolute
+
+    refute String.starts_with?(
+             opts[:run_spec_opts][:blob_root],
+             opts[:run_spec_opts][:workspace_path]
+           )
+  end
+
   defp run_task(task, args) do
     output =
       capture_io(fn ->

@@ -28,11 +28,12 @@ defmodule Conveyor.AttemptLoop do
     @type t :: %__MODULE__{
             status: atom(),
             attempts: [struct()],
-            events: [map()]
+            events: [map()],
+            report: map()
           }
 
-    @enforce_keys [:status, :attempts, :events]
-    defstruct [:status, :attempts, :events]
+    @enforce_keys [:status, :attempts, :events, :report]
+    defstruct [:status, :attempts, :events, :report]
   end
 
   @terminal_outcomes [:accepted, :policy_blocked, :rejected]
@@ -56,7 +57,7 @@ defmodule Conveyor.AttemptLoop do
 
     cond do
       final_attempt.outcome in @terminal_outcomes ->
-        %Result{status: final_attempt.outcome, attempts: attempts, events: events}
+        result(final_attempt.outcome, attempts, events)
 
       final_attempt.outcome == :needs_rework and
           AttemptBudget.retry_allowed?(budget, length(attempts)) ->
@@ -66,11 +67,31 @@ defmodule Conveyor.AttemptLoop do
         loop(retry_attempt, budget, attempts, events ++ [escalation_event(event)], opts)
 
       final_attempt.outcome == :needs_rework ->
-        %Result{status: :attempt_budget_exhausted, attempts: attempts, events: events}
+        result(:attempt_budget_exhausted, attempts, events)
 
       true ->
-        %Result{status: :failed, attempts: attempts, events: events}
+        result(:failed, attempts, events)
     end
+  end
+
+  defp result(status, attempts, events) do
+    %Result{
+      status: status,
+      attempts: attempts,
+      events: events,
+      report: %{
+        "schema_version" => "conveyor.attempt_loop@1",
+        "status" => Atom.to_string(status),
+        "attempt_count" => length(attempts),
+        "rework_recovered" =>
+          status == :accepted and Enum.any?(events, &Map.has_key?(&1, "rung")),
+        "rework_feedback_categories" =>
+          events
+          |> Enum.flat_map(&List.wrap(&1["finding_categories"]))
+          |> Enum.uniq()
+          |> Enum.sort()
+      }
+    }
   end
 
   defp prepare_retry!(final_attempt, run_spec, gate, budget, attempts, opts) do

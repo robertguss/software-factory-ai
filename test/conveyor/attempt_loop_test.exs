@@ -12,6 +12,9 @@ defmodule Conveyor.AttemptLoopTest do
   alias Conveyor.Factory.RunSpec
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
+  alias Conveyor.PlanContract
+
+  @beads_plan_path Path.expand("../../samples/beads_insight/conveyor.plan.yml", __DIR__)
 
   test "retries a needs-rework attempt once and records the escalation rung" do
     fixture = attempt_fixture!()
@@ -35,8 +38,8 @@ defmodule Conveyor.AttemptLoopTest do
                 "category" => "acceptance_mapping",
                 "severity" => "blocking",
                 "stage" => "verify",
-                "message" => "AC-FAIL was not met.",
-                "acceptance_criterion_id" => "AC-FAIL",
+                "message" => "AC-003 was not met.",
+                "acceptance_criterion_id" => "AC-003",
                 "evidence_status" => "not_met"
               }
             ])
@@ -69,6 +72,8 @@ defmodule Conveyor.AttemptLoopTest do
       )
 
     assert result.status == :accepted
+    assert result.report["rework_recovered"] == true
+    assert result.report["rework_feedback_categories"] == ["acceptance_mapping"]
     assert Enum.map(result.attempts, & &1.attempt_no) == [1, 2]
     assert result.events |> Enum.map(& &1["rung"]) |> Enum.reject(&is_nil/1) == ["same_effort"]
 
@@ -93,6 +98,15 @@ defmodule Conveyor.AttemptLoopTest do
 
     assert brief_versions == [1, 2]
 
+    rework_brief =
+      AgentBrief
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.slice_id == fixture.slice.id))
+      |> Enum.max_by(& &1.version)
+
+    assert rework_brief.desired_behavior =~ "Failed acceptance criteria: AC-003."
+    assert rework_brief.desired_behavior =~ "Do not regress: AC-004."
+
     assert [%LedgerEvent{} = event] =
              LedgerEvent
              |> Ash.read!(domain: Factory)
@@ -103,10 +117,19 @@ defmodule Conveyor.AttemptLoopTest do
   end
 
   defp attempt_fixture! do
+    {:ok, contract_result} = PlanContract.load(@beads_plan_path)
+    contract = contract_result.contract
+    slice_contract = Enum.find(contract["slices"], &(&1["key"] == "SLICE-002"))
+    acceptance_criteria = acceptance_criteria_for(contract, slice_contract)
+
     project =
       Ash.create!(
         Project,
-        %{name: "AttemptLoop sample", local_path: "/tmp/attempt-loop", default_branch: "main"},
+        %{
+          name: "Beads Insight",
+          local_path: Path.dirname(@beads_plan_path),
+          default_branch: "main"
+        },
         domain: Factory
       )
 
@@ -115,23 +138,33 @@ defmodule Conveyor.AttemptLoopTest do
         Plan,
         %{
           project_id: project.id,
-          title: "AttemptLoop plan",
-          intent: "Retry needs-rework attempts.",
-          source_document: "docs/attempt-loop.md",
-          normalized_contract: %{"schema_version" => "conveyor.plan@1"},
-          contract_sha256: digest("plan"),
+          title: "Beads Insight plan",
+          intent: contract["goal"],
+          source_document: contract_result.source_path,
+          normalized_contract: contract,
+          contract_sha256: contract_result.contract_sha256,
           status: :handoff_ready
         },
         domain: Factory
       )
 
     epic =
-      Ash.create!(Epic, %{plan_id: plan.id, title: "AttemptLoop epic", description: "Loop."},
+      Ash.create!(Epic, %{plan_id: plan.id, title: "Beads Insight epic", description: "Loop."},
         domain: Factory
       )
 
     slice =
-      Ash.create!(Slice, %{epic_id: epic.id, title: "AttemptLoop slice", position: 1},
+      Ash.create!(
+        Slice,
+        %{
+          epic_id: epic.id,
+          title: slice_contract["title"],
+          position: 2,
+          autonomy_level: slice_contract["autonomy_ceiling"],
+          source_refs: slice_contract["requirement_refs"],
+          likely_files: slice_contract["likely_files"],
+          conflict_domains: slice_contract["conflict_domains"]
+        },
         domain: Factory
       )
 
@@ -140,12 +173,16 @@ defmodule Conveyor.AttemptLoopTest do
       %{
         slice_id: slice.id,
         version: 1,
-        current_behavior: "The implementation is incomplete.",
-        desired_behavior: "The implementation satisfies all acceptance criteria.",
-        key_interfaces: ["Conveyor.AttemptLoop.run_to_done!/2"],
+        current_behavior: "The ready command is incomplete.",
+        desired_behavior: "The ready command satisfies the Beads Insight acceptance criteria.",
+        key_interfaces: ["br_insight.commands.ready"],
         out_of_scope: [],
-        acceptance_criteria: [criterion("AC-FAIL"), criterion("AC-GREEN")],
-        required_tests: [%{"ref" => "test/conveyor/attempt_loop_test.exs"}],
+        acceptance_criteria: acceptance_criteria,
+        required_tests:
+          acceptance_criteria
+          |> Enum.flat_map(& &1["required_test_refs"])
+          |> Enum.uniq()
+          |> Enum.map(&%{"ref" => &1}),
         verification_commands: [command_spec()],
         non_goals: [],
         locked_at: DateTime.utc_now(:microsecond),
@@ -174,6 +211,29 @@ defmodule Conveyor.AttemptLoopTest do
       )
 
     %{run_attempt: run_attempt, slice: slice}
+  end
+
+  defp acceptance_criteria_for(contract, slice_contract) do
+    requirement_refs = MapSet.new(slice_contract["requirement_refs"])
+
+    contract["acceptance_criteria"]
+    |> Enum.filter(fn criterion ->
+      criterion["requirement_refs"]
+      |> MapSet.new()
+      |> MapSet.disjoint?(requirement_refs)
+      |> Kernel.not()
+    end)
+    |> Enum.map(fn criterion ->
+      %{
+        "id" => criterion["key"],
+        "text" => criterion["text"],
+        "kind" => "behavioral",
+        "requirement_refs" => criterion["requirement_refs"],
+        "required_test_refs" => criterion["required_test_refs"],
+        "evidence_status" => "missing",
+        "evidence_refs" => []
+      }
+    end)
   end
 
   defp gate_result(passed?, findings) do
@@ -224,18 +284,6 @@ defmodule Conveyor.AttemptLoopTest do
           "output" => %{"run_spec_sha256" => run_spec_sha256}
         }
       ]
-    }
-  end
-
-  defp criterion(id) do
-    %{
-      "id" => id,
-      "text" => "#{id} passes.",
-      "kind" => "behavioral",
-      "requirement_refs" => ["REQ-1"],
-      "required_test_refs" => ["test/conveyor/attempt_loop_test.exs"],
-      "evidence_status" => "missing",
-      "evidence_refs" => []
     }
   end
 

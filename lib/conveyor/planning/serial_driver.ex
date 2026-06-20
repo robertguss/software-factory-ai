@@ -108,25 +108,65 @@ defmodule Conveyor.Planning.SerialDriver do
 
   defp run_one!(slice_key, work_graph, sequence, opts) do
     single_slice_graph = single_slice_graph!(work_graph, slice_key)
-    run_spec = assemble_run_spec!(slice_key, single_slice_graph, opts)
-    run_attempt = create_run_attempt!(run_spec, opts)
-    slice_result = run_slice!(run_attempt, opts)
-    gate = run_gate!(run_spec, run_attempt, slice_result, opts)
-    finalization = finalize_gate!(gate, run_spec, run_attempt, opts)
-    passed? = slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
 
-    if passed? do
-      advance_workspace_base!(run_spec, slice_key, finalization, opts)
+    case interrogate_slice(slice_key, single_slice_graph, sequence, opts) do
+      {:park, event} ->
+        event
+
+      :continue ->
+        run_spec = assemble_run_spec!(slice_key, single_slice_graph, opts)
+        run_attempt = create_run_attempt!(run_spec, opts)
+        slice_result = run_slice!(run_attempt, opts)
+        gate = run_gate!(run_spec, run_attempt, slice_result, opts)
+        finalization = finalize_gate!(gate, run_spec, run_attempt, opts)
+
+        passed? =
+          slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
+
+        if passed? do
+          advance_workspace_base!(run_spec, slice_key, finalization, opts)
+        end
+
+        %{
+          "slice_id" => slice_key,
+          "sequence" => sequence,
+          "status" => if(passed?, do: "passed", else: "parked"),
+          "gate_result" => if(passed?, do: "first_pass", else: "eventual_pending"),
+          "run_attempt_outcome" => final_outcome(finalization),
+          "findings" => finding_categories(gate)
+        }
     end
+  end
 
-    %{
-      "slice_id" => slice_key,
-      "sequence" => sequence,
-      "status" => if(passed?, do: "passed", else: "parked"),
-      "gate_result" => if(passed?, do: "first_pass", else: "eventual_pending"),
-      "run_attempt_outcome" => final_outcome(finalization),
-      "findings" => finding_categories(gate)
-    }
+  defp interrogate_slice(slice_key, single_slice_graph, sequence, opts) do
+    case Keyword.get(opts, :interrogation_preflight) do
+      fun when is_function(fun, 2) ->
+        fun.(slice_key, single_slice_graph)
+        |> interrogation_event(slice_key, sequence)
+
+      _missing ->
+        :continue
+    end
+  end
+
+  defp interrogation_event(batch, slice_key, sequence) do
+    if value(batch, :status) in [:questions_required, "questions_required"] do
+      {:park,
+       %{
+         "slice_id" => slice_key,
+         "sequence" => sequence,
+         "status" => "parked",
+         "gate_result" => "eventual_pending",
+         "run_attempt_outcome" => :parked,
+         "findings" => ["clarification", "interrogator_fired"],
+         "interrogation" => %{
+           "status" => "questions_required",
+           "question_count" => length(list(batch, :questions))
+         }
+       }}
+    else
+      :continue
+    end
   end
 
   defp assemble_run_spec!(slice_key, single_slice_graph, opts) do

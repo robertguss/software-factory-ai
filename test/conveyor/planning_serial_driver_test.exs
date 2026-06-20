@@ -101,6 +101,58 @@ defmodule Conveyor.PlanningSerialDriverTest do
     refute_received {:advance_workspace_base, "SLICE-002", "SLICE-002"}
   end
 
+  test "parks a slice when interrogation raises a blocking question" do
+    result =
+      SerialDriver.run!(
+        %{
+          work_graph: work_graph(),
+          selected_slice_ids: ["SLICE-001", "SLICE-002", "SLICE-003"]
+        },
+        interrogation_preflight: fn
+          "SLICE-002", _single_slice_graph ->
+            %{
+              status: :questions_required,
+              questions: [
+                %{id: "question:ambiguous-clock", prompt: "Which clock owns velocity?"}
+              ]
+            }
+
+          _slice_key, _single_slice_graph ->
+            %{status: :complete, questions: []}
+        end,
+        assemble_run_spec: fn slice_key, _single_slice_graph ->
+          send(self(), {:assemble, slice_key})
+          %{id: "run-spec:#{slice_key}", slice_key: slice_key}
+        end,
+        create_run_attempt: fn run_spec ->
+          %{id: "attempt:#{run_spec.slice_key}", run_spec: run_spec}
+        end,
+        run_slice: fn attempt ->
+          %{status: :succeeded, output: %{}, slice_key: attempt.run_spec.slice_key}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          %{passed?: true, findings: []}
+        end,
+        finalize_gate: fn _gate, _run_spec, attempt ->
+          %{run_attempt: Map.put(attempt, :outcome, :accepted)}
+        end,
+        advance_workspace_base: false
+      )
+
+    assert result.status == :halted
+    assert Enum.map(result.events, & &1["slice_id"]) == ["SLICE-001", "SLICE-002"]
+
+    parked = List.last(result.events)
+    assert parked["status"] == "parked"
+    assert parked["gate_result"] == "eventual_pending"
+    assert parked["run_attempt_outcome"] == :parked
+    assert parked["findings"] == ["clarification", "interrogator_fired"]
+    assert parked["interrogation"]["question_count"] == 1
+
+    assert_received {:assemble, "SLICE-001"}
+    refute_received {:assemble, "SLICE-002"}
+  end
+
   defp work_graph do
     %{
       "schema_version" => "conveyor.work_graph@2",
