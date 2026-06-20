@@ -16,10 +16,16 @@ defmodule Conveyor.Planning.PlanFoundry do
 
   ## Status
 
-  Kicked off: `interrogation_questions/1` (the pure heart) is implemented and
-  tested. `draft/2` and the per-stage adapters are staged (see the module plan and
-  the `@tag :skip` specs in `test/conveyor/planning/plan_foundry_test.exs`).
+  Built: `interrogation_questions/1` (the pure question reducer) and the
+  deterministic `draft/2` spine — draft (via an injectable `Drafter`) -> structural
+  audit -> interrogation. The live `CodexDrafter` is the next slice; until it is
+  wired, `draft/2` with the default drafter returns `{:error, :not_implemented}`,
+  and the orchestration is exercised through an injected drafter.
   """
+
+  alias Conveyor.Planning.StructuralAudit
+
+  @default_drafter Conveyor.Planning.PlanFoundry.CodexDrafter
 
   @type question :: %{id: String.t(), prompt: String.t()}
 
@@ -29,17 +35,31 @@ defmodule Conveyor.Planning.PlanFoundry do
           | {:error, term()}
 
   @doc """
-  Draft a `handoff_ready` plan from a paragraph of intent.
+  Draft a plan from a paragraph of intent.
 
-  Returns `{:needs_clarification, questions}` when the critic/readiness pass finds
-  genuine ambiguity the operator must resolve first; `{:ok, plan}` when the draft
-  reaches the `handoff_ready` bar; `{:error, reason}` otherwise.
+  Drives the deterministic spine: a `Drafter` (default
+  `Conveyor.Planning.PlanFoundry.CodexDrafter`, override with `:drafter`) turns the
+  intent into a structured `conveyor.plan@1` map, the pure
+  `Conveyor.Planning.StructuralAudit` checks it, and any blocking findings become
+  operator questions.
 
-  NOT YET IMPLEMENTED — see the module plan.
+  Returns `{:needs_clarification, questions}` when the audit finds gaps the
+  operator must resolve, `{:ok, plan}` when the draft is structurally clean, and
+  `{:error, reason}` when the drafter fails or returns a non-plan.
   """
   @spec draft(String.t(), keyword()) :: draft_result()
   def draft(intent, opts \\ []) when is_binary(intent) and is_list(opts) do
-    raise "Conveyor.Planning.PlanFoundry.draft/2 not implemented (ADR-27 / dr1m.5)"
+    drafter = Keyword.get(opts, :drafter, @default_drafter)
+
+    with {:ok, plan} when is_map(plan) <- drafter.draft_plan(intent, opts) do
+      case interrogation_questions(StructuralAudit.audit(plan).findings) do
+        [] -> {:ok, plan}
+        questions -> {:needs_clarification, questions}
+      end
+    else
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:invalid_drafter_result, other}}
+    end
   end
 
   @doc """

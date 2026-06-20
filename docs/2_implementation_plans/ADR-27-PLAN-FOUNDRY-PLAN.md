@@ -1,9 +1,10 @@
 # ADR-27 — Plan Foundry: implementation plan (in-factory plan authoring)
 
-> **Status:** kicked off — module boundary + first pure slice
-> (`interrogation_questions/1`) implemented green; orchestration staged.
-> **Spec:** `docs/adrs/adr-27-in-factory-plan-authoring.md`. **Bead:**
-> `software-factory-ai-dr1m.5`. **Date:** 2026-06-20.
+> **Status:** `interrogation_questions/1` + the deterministic `draft/2` spine
+> (drafter → `StructuralAudit` → interrogation) implemented + green via an
+> injectable `Drafter` seam; the live `CodexDrafter` is the next slice (decided:
+> agent-drafted). **Spec:** `docs/adrs/adr-27-in-factory-plan-authoring.md`.
+> **Bead:** `software-factory-ai-dr1m.5`. **Date:** 2026-06-20.
 
 ## 1. Goal
 
@@ -83,20 +84,28 @@ This is the right first slice because it is (a) pure and collision-free, (b) the
 distinctive value of ADR-27 (keeping the operator's question budget small), and
 (c) the contract every later stage feeds into.
 
-## 5. What's staged (orchestration)
+## 5. What's built vs. staged
 
-`draft/2` and the per-stage adapters are stubbed (raise) with `@tag :skip` tests
-describing the contract:
+**Built (deterministic, green):** `draft/2` drives drafter → `StructuralAudit`
+→ interrogation. The drafter is an **injectable `Drafter` behaviour**
+(`lib/conveyor/planning/plan_foundry/drafter.ex`) — the one non-deterministic
+actor, isolated so the orchestration is pure and testable without a live agent.
+`draft/2` returns `{:ok, plan}` when the draft is structurally clean,
+`{:needs_clarification, questions}` when the audit finds gaps, and
+`{:error, reason}` on drafter failure. Tests inject a fake drafter.
 
-1. **`draft/2` returns `:needs_clarification`** when the critic challenges the
-   draft with genuine ambiguities, surfacing `interrogation_questions/1`.
-2. **`draft/2` returns `{:ok, plan}`** for an unambiguous intent, and that plan
-   passes the **same `plan_audit` / `handoff_ready` bar** as a human plan.
-3. The draft + every critic finding are recorded (event-sourced) so the
-   intent→plan expansion is auditable and itself becomes learnable corpus.
+**Staged — the live `CodexDrafter`** (`.../codex_drafter.ex`, currently
+`{:error, :not_implemented}`): the decided **agent-drafted** path. Next slice:
 
-These need the DB-backed Ash chain and the forge/critic wired end-to-end; build
-them after the interrogation core is settled.
+1. A versioned plan-drafting prompt (intent + `conveyor.plan@1` output schema +
+   non-goals / separation-of-duties framing).
+2. Call `Conveyor.AgentRunner.Codex`; parse the result into a contract map.
+3. A `:live_agent`-tagged test for the real path.
+
+**Later slices** (deepen the deterministic gate): add the 10-lens
+`ContractCritic` and the full DB-backed `plan_audit` / `handoff_ready` bar to the
+gate alongside `StructuralAudit`, and event-source the draft + findings so the
+intent→plan expansion becomes learnable corpus.
 
 ## 6. TDD
 

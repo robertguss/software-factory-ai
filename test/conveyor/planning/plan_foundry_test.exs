@@ -1,16 +1,33 @@
+defmodule Conveyor.Planning.PlanFoundryTest.StubDrafter do
+  @moduledoc false
+  @behaviour Conveyor.Planning.PlanFoundry.Drafter
+
+  @impl true
+  def draft_plan(_intent, opts), do: {:ok, Keyword.fetch!(opts, :stub_plan)}
+end
+
+defmodule Conveyor.Planning.PlanFoundryTest.FailingDrafter do
+  @moduledoc false
+  @behaviour Conveyor.Planning.PlanFoundry.Drafter
+
+  @impl true
+  def draft_plan(_intent, _opts), do: {:error, :drafter_unavailable}
+end
+
 defmodule Conveyor.Planning.PlanFoundryTest do
   @moduledoc """
   ADR-27 — Plan Foundry.
 
-  The `interrogation_questions/1` tests are GREEN (the kicked-off pure slice). The
-  `draft/2` orchestration tests are the RED spec, tagged `:skip` so they don't
-  break the default suite; remove the tag to drive each pipeline stage.
+  `interrogation_questions/1` (the pure reducer) and the deterministic `draft/2`
+  spine are GREEN, the latter exercised through an injected `Drafter` so no live
+  agent is needed. The live `CodexDrafter` is the next slice.
 
   Plan: docs/2_implementation_plans/ADR-27-PLAN-FOUNDRY-PLAN.md
   """
   use ExUnit.Case, async: true
 
   alias Conveyor.Planning.PlanFoundry
+  alias Conveyor.Planning.PlanFoundryTest.{FailingDrafter, StubDrafter}
 
   describe "interrogation_questions/1 (built)" do
     test "no findings yields no questions" do
@@ -84,22 +101,58 @@ defmodule Conveyor.Planning.PlanFoundryTest do
     end
   end
 
-  describe "draft/2 (staged — RED spec)" do
-    @tag :skip
-    test "returns :needs_clarification when the critic challenges with ambiguity" do
-      assert {:needs_clarification, [%{id: "Q1"} | _]} =
-               PlanFoundry.draft("Build a CLI that reports 'ready' work, somehow.")
-    end
-
-    @tag :skip
-    test "returns {:ok, plan} that meets the handoff_ready bar for an unambiguous intent" do
+  describe "draft/2 (deterministic spine via injected drafter)" do
+    test "returns {:ok, plan} when the drafted plan passes the structural audit" do
       assert {:ok, plan} =
-               PlanFoundry.draft("""
-               Build a read-only Python CLI over .beads/issues.jsonl that prints the
-               set of ready (unblocked, open) issues, sorted by id, as markdown.
-               """)
+               PlanFoundry.draft("ready issues CLI",
+                 drafter: StubDrafter,
+                 stub_plan: clean_plan()
+               )
 
-      assert plan["schema_version"] == "conveyor.plan@1"
+      assert plan["goal"] == "Print the set of ready issues."
     end
+
+    test "returns :needs_clarification with questions when the audit finds gaps" do
+      assert {:needs_clarification, questions} =
+               PlanFoundry.draft("ready issues CLI", drafter: StubDrafter, stub_plan: gap_plan())
+
+      assert [%{id: "Q1", prompt: prompt} | _] = questions
+      assert prompt =~ "REQ-002"
+    end
+
+    test "propagates a drafter error" do
+      assert {:error, :drafter_unavailable} =
+               PlanFoundry.draft("ready issues CLI", drafter: FailingDrafter)
+    end
+
+    test "the default drafter is the not-yet-wired Codex drafter" do
+      assert {:error, :not_implemented} = PlanFoundry.draft("ready issues CLI")
+    end
+  end
+
+  # A structurally clean conveyor.plan@1 (passes StructuralAudit with no findings).
+  defp clean_plan do
+    %{
+      "goal" => "Print the set of ready issues.",
+      "requirements" => [%{"key" => "REQ-001", "text" => "List ready issues sorted by id."}],
+      "acceptance_criteria" => [
+        %{
+          "key" => "AC-001",
+          "text" => "Given a corpus, prints unblocked open issues sorted by id.",
+          "requirement_refs" => ["REQ-001"],
+          "required_test_refs" => ["tests/test_ready.py::test_ready"]
+        }
+      ],
+      "non_goals" => ["No network access."],
+      "decisions" => [%{"key" => "DEC-001", "decision" => "Read-only over issues.jsonl."}]
+    }
+  end
+
+  # Same plan with an extra requirement that has no acceptance criterion — exactly
+  # one blocking audit finding naming REQ-002.
+  defp gap_plan do
+    plan = clean_plan()
+    requirements = plan["requirements"] ++ [%{"key" => "REQ-002", "text" => "Show velocity."}]
+    %{plan | "requirements" => requirements}
   end
 end
