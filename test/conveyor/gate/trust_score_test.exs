@@ -2,16 +2,13 @@ defmodule Conveyor.Gate.TrustScoreTest do
   @moduledoc """
   ADR-23 TDD skeletons for the pure `Conveyor.Gate.TrustScore`.
 
-  These are the executable contract for the Reliability Engine and are RED until
-  `evaluate/2` is implemented. They are tagged `@moduletag :skip` so they do not
-  break the default `mix test` run while ADR-23 Part A is staged; **remove the
-  `@moduletag :skip` line to drive the implementation red -> green.**
+  These are the executable contract for the Reliability Engine (ADR-23 Part A —
+  the pure `TrustScore`). Part B (the `Finalizer` `:abstain` wiring) is deferred;
+  see the plan.
 
   Plan: docs/2_implementation_plans/ADR-23-RELIABILITY-ENGINE-PLAN.md
   """
   use ExUnit.Case, async: true
-
-  @moduletag :skip
 
   alias Conveyor.Gate.TrustScore
 

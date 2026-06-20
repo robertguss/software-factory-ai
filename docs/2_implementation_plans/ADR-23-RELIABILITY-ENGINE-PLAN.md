@@ -1,9 +1,10 @@
 # ADR-23 — Reliability Engine: implementation plan (TrustScore + abstaining gate)
 
-> **Status:** plan + failing-test skeletons committed; build is **staged behind
-> the in-flight loop work** (see §6 Sequencing). **Spec:** `docs/adrs/adr-23-
-> ternary-gate-verdict-calibrated-abstention.md`. **Bead:**
-> `software-factory-ai-dr1m.1`. **Date:** 2026-06-20.
+> **Status:** **Part A (pure `TrustScore`) IMPLEMENTED + GREEN** (11 tests pass,
+> credo/format clean); **Part B (abstain wiring) staged** behind the in-flight
+> loop work (see §6 Sequencing). **Spec:** `docs/adrs/adr-23-ternary-gate-verdict-
+> calibrated-abstention.md`. **Bead:** `software-factory-ai-dr1m.1`. **Date:**
+> 2026-06-20.
 
 ## 1. Goal
 
@@ -17,7 +18,7 @@ operator review only the fraction the machine is honestly unsure about.
 
 | Part | What | Touches | Build now? |
 | --- | --- | --- | --- |
-| **A. `Conveyor.Gate.TrustScore`** | a **pure** fusion + threshold function over recorded evidence | one new file (`lib/conveyor/gate/trust_score.ex`) | **Yes — collision-free.** |
+| **A. `Conveyor.Gate.TrustScore`** | a **pure** fusion + threshold function over recorded evidence | one new file (`lib/conveyor/gate/trust_score.ex`) | **DONE — implemented + green.** |
 | **B. Abstain wiring** | the `:abstained` outcome + the `Finalizer` third branch + slice `:parked` routing | `gate/finalizer.ex`, `factory/run_attempt.ex` (+ migration), `SliceLifecycle` | **No — defer.** These are hot files the `codex/handoff-full-implementation` branch is actively reshaping (see §6). |
 
 Part A is the substance and the risk (calibration is the hard part); it has no
@@ -112,10 +113,10 @@ digest.
 
 ## 5. TDD test plan
 
-Failing skeletons (committed now, `@moduletag :skip` so they don't break the
-default suite — remove the moduletag to drive the build red→green):
+Part A — **implemented + green** (11 tests):
 
-- `test/conveyor/gate/trust_score_test.exs` — the Part-A invariants in §3.3.
+- `test/conveyor/gate/trust_score_test.exs` — the Part-A invariants in §3.3 all
+  pass against `lib/conveyor/gate/trust_score.ex`.
 
 Deferred (write when Part B unblocks, against a `DataCase`):
 
