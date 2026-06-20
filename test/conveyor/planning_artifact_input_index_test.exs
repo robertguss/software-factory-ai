@@ -12,6 +12,7 @@ defmodule Conveyor.PlanningArtifactInputIndexTest do
             inputs: [
               input("plan_revision", "plan-1", "semantic"),
               input("approval_root", "approval-1", "authority"),
+              input("gate_result", "gate-1", "verified_by_gate"),
               input("repo_inventory", "repo-1", "advisory"),
               input("rendered_review", "review-1", "presentation")
             ]
@@ -23,11 +24,13 @@ defmodule Conveyor.PlanningArtifactInputIndexTest do
     assert Enum.map(index.artifact_inputs, & &1["role"]) == [
              "semantic",
              "authority",
+             "verified_by_gate",
              "advisory",
              "presentation"
            ]
 
     assert Enum.map(index.artifact_inputs, & &1["invalidation_policy"]) == [
+             "invalidate_on_change",
              "invalidate_on_change",
              "invalidate_on_change",
              "warn_on_change",
