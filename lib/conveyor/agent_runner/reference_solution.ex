@@ -149,12 +149,16 @@ defmodule Conveyor.AgentRunner.ReferenceSolution do
 
   # Apply the configured reference patch (repo-root-relative, -p3). Treats the
   # patch as data (ADR-07) — it is the agent's "output", not instruction authority.
+  # `opts[:reverse]` applies the patch in reverse (`-R`), which models "the agent
+  # undid this mutation" — i.e. the canonical fix for a broken→fix task whose broken
+  # base is `sample + mutant` (used by the R5 lift duel).
   defp apply_reference_patch!(workspace, opts) do
     patch_ref = Keyword.fetch!(opts, :reference_patch)
     ws_path = workspace_path!(workspace)
     patch_abs = Path.expand(patch_ref, File.cwd!())
+    reverse_args = if Keyword.get(opts, :reverse, false), do: ["-R"], else: []
 
-    case System.cmd("patch", ["-p3", "-f", "-d", ws_path, "-i", patch_abs],
+    case System.cmd("patch", ["-p3", "-f"] ++ reverse_args ++ ["-d", ws_path, "-i", patch_abs],
            stderr_to_stdout: true
          ) do
       {_out, 0} -> :ok
