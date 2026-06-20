@@ -1,0 +1,11 @@
+diff --git a/samples/beads_insight/src/br_insight/loader.py b/samples/beads_insight/src/br_insight/loader.py
+index 8e564ff..4f12b30 100644
+--- a/samples/beads_insight/src/br_insight/loader.py
++++ b/samples/beads_insight/src/br_insight/loader.py
+@@ -24,7 +24,6 @@ _EDGE_KIND_TO_ATTR = {
+     "blocks": "blocks_edges",
+     "parent-child": "parent_edges",
+-    "related": "related_edges",
+ }
+ 
+ 

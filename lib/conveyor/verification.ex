@@ -354,7 +354,8 @@ defmodule Conveyor.Verification do
           "status" => "blocked",
           "required_evidence_kind" => required_kind,
           "evidence_ids" => available |> Enum.map(& &1["id"]) |> Enum.sort(),
-          "blocking_validities" => available |> Enum.map(& &1["validity"]) |> Enum.uniq() |> Enum.sort()
+          "blocking_validities" =>
+            available |> Enum.map(& &1["validity"]) |> Enum.uniq() |> Enum.sort()
         }
         |> with_quarantine_ids(quarantine_ids)
 
@@ -452,18 +453,20 @@ defmodule Conveyor.Verification do
   defp required_enum_list(attrs, key, allowed) do
     case value(attrs, key) do
       values when is_list(values) and values != [] ->
-        Enum.map(values, fn item ->
-          normalized = normalize_enum(item)
-
-          if normalized in allowed do
-            normalized
-          else
-            raise ArgumentError, "#{key} must contain only #{Enum.join(allowed, ", ")}"
-          end
-        end)
+        Enum.map(values, &required_enum_item(&1, key, allowed))
 
       _other ->
         raise ArgumentError, "#{key} must be a non-empty list"
+    end
+  end
+
+  defp required_enum_item(item, key, allowed) do
+    normalized = normalize_enum(item)
+
+    if normalized in allowed do
+      normalized
+    else
+      raise ArgumentError, "#{key} must contain only #{Enum.join(allowed, ", ")}"
     end
   end
 

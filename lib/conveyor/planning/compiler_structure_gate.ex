@@ -10,6 +10,24 @@ defmodule Conveyor.Planning.CompilerStructureGate do
     {:implementer_launched?, "implementer"}
   ]
 
+  @key_aliases %{
+    "authority_effect" => :authority_effect,
+    "creates_approval" => :creates_approval?,
+    "creates_approval?" => :creates_approval?,
+    "creates_contract_lock" => :creates_contract_lock?,
+    "creates_contract_lock?" => :creates_contract_lock?,
+    "creates_ready_slice" => :creates_ready_slice?,
+    "creates_ready_slice?" => :creates_ready_slice?,
+    "implementer_launched" => :implementer_launched?,
+    "implementer_launched?" => :implementer_launched?,
+    "message" => :message,
+    "package_kind" => :package_kind,
+    "rule_key" => :rule_key,
+    "severity" => :severity,
+    "status" => :status,
+    "subject_key" => :subject_key
+  }
+
   @spec evaluate(map(), [map()]) :: map()
   def evaluate(package, findings) when is_map(package) and is_list(findings) do
     package = normalize(package)
@@ -123,26 +141,7 @@ defmodule Conveyor.Planning.CompilerStructureGate do
 
   defp normalize_key(key) when is_atom(key), do: key
 
-  defp normalize_key(key) when is_binary(key) do
-    case key do
-      "status" -> :status
-      "package_kind" -> :package_kind
-      "authority_effect" -> :authority_effect
-      "creates_contract_lock?" -> :creates_contract_lock?
-      "creates_contract_lock" -> :creates_contract_lock?
-      "creates_approval?" -> :creates_approval?
-      "creates_approval" -> :creates_approval?
-      "creates_ready_slice?" -> :creates_ready_slice?
-      "creates_ready_slice" -> :creates_ready_slice?
-      "implementer_launched?" -> :implementer_launched?
-      "implementer_launched" -> :implementer_launched?
-      "rule_key" -> :rule_key
-      "severity" -> :severity
-      "subject_key" -> :subject_key
-      "message" -> :message
-      _ -> key
-    end
-  end
+  defp normalize_key(key) when is_binary(key), do: Map.get(@key_aliases, key, key)
 
   defp get(map, key), do: Map.get(map, key)
   defp present?(value), do: not is_nil(value)

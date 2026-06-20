@@ -202,6 +202,42 @@ defmodule Conveyor.PromptBuilderTest do
     assert prompt.context_pack_id == newer.id
   end
 
+  test "build! includes trusted prior findings when supplied", %{
+    brief: brief,
+    context_pack: context_pack,
+    slice: slice
+  } do
+    prior_findings = %{
+      "failed_acceptance_criteria" => ["AC-PROMPT-001"],
+      "green_acceptance_criteria" => [],
+      "findings" => [
+        %{
+          "category" => "acceptance_mapping",
+          "acceptance_criterion_id" => "AC-PROMPT-001",
+          "message" => "Prompt omitted the trust banner."
+        }
+      ]
+    }
+
+    prompt =
+      PromptBuilder.build!(slice,
+        brief: brief,
+        context_pack: context_pack,
+        prior_findings: prior_findings
+      )
+
+    assert prompt.body =~ "# Prior Trusted Findings"
+    assert prompt.body =~ "\"failed_acceptance_criteria\": ["
+    assert prompt.body =~ "\"AC-PROMPT-001\""
+
+    sources =
+      InstructionSource
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.run_prompt_id == prompt.id))
+
+    assert trust_for(sources, :prior_findings, "prior_findings:#{brief.id}") == :trusted
+  end
+
   defp prompt_snapshot(body) do
     %{
       "template_version" => PromptBuilder.template_version(),

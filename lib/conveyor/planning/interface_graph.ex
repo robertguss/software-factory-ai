@@ -15,31 +15,45 @@ defmodule Conveyor.Planning.InterfaceGraph do
     {readiness, diagnostics} =
       bindings
       |> Enum.filter(&(&1.direction in ["requires", :requires]))
-      |> Enum.map_reduce([], fn binding, diagnostics ->
-        case Map.fetch(contracts_by_key, binding.interface_key) do
-          {:ok, contract} ->
-            if version_satisfies?(contract.version, Map.get(binding, :required_version_range)) do
-              {readiness(binding, contract), diagnostics}
-            else
-              {nil, [incompatible_diagnostic(binding) | diagnostics]}
-            end
-
-          :error ->
-            {nil, [missing_provider_diagnostic(binding) | diagnostics]}
-        end
-      end)
-
-    diagnostics = Enum.reverse(diagnostics)
+      |> Enum.map(&binding_readiness(&1, contracts_by_key))
+      |> split_readiness()
 
     %{
       status: if(diagnostics == [], do: :ready, else: :blocked),
       contracts: contracts,
       bindings: bindings,
-      readiness: Enum.reject(readiness, &is_nil/1),
+      readiness: readiness,
       diagnostics: diagnostics,
       pairwise_work_edges: []
     }
   end
+
+  defp binding_readiness(binding, contracts_by_key) do
+    case Map.fetch(contracts_by_key, binding.interface_key) do
+      {:ok, contract} -> contract_readiness(binding, contract)
+      :error -> {nil, missing_provider_diagnostic(binding)}
+    end
+  end
+
+  defp contract_readiness(binding, contract) do
+    if version_satisfies?(contract.version, Map.get(binding, :required_version_range)) do
+      {readiness(binding, contract), nil}
+    else
+      {nil, incompatible_diagnostic(binding)}
+    end
+  end
+
+  defp split_readiness(results) do
+    {readiness, diagnostics} =
+      Enum.reduce(results, {[], []}, fn {ready, diagnostic}, {readiness, diagnostics} ->
+        {prepend_present(ready, readiness), prepend_present(diagnostic, diagnostics)}
+      end)
+
+    {Enum.reverse(readiness), Enum.reverse(diagnostics)}
+  end
+
+  defp prepend_present(nil, values), do: values
+  defp prepend_present(value, values), do: [value | values]
 
   defp readiness(binding, contract) do
     %{

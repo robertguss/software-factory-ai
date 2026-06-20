@@ -1,0 +1,183 @@
+diff --git a/samples/beads_insight/src/br_insight/clock.py b/samples/beads_insight/src/br_insight/clock.py
+index 295bfbc..6a7ac37 100644
+--- a/samples/beads_insight/src/br_insight/clock.py
++++ b/samples/beads_insight/src/br_insight/clock.py
+@@ -1,4 +1,4 @@
+-"""SLICE-005 (STUB): the injected ``--as-of`` clock.
++"""SLICE-005: the injected ``--as-of`` clock.
+ 
+ ``--as-of`` (RFC-3339 UTC) is the SOLE source of "now" anywhere in the package.
+ Non-test code must never read the wall clock (the determinism guard in
+@@ -10,7 +10,7 @@ timezone-aware :class:`datetime`; a malformed value raises so the CLI exits ``2`
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
++from datetime import datetime, timezone
+ 
+ __all__ = ["parse_as_of"]
+ 
+@@ -18,6 +18,30 @@ __all__ = ["parse_as_of"]
+ def parse_as_of(value: str) -> datetime:
+     """Parse an RFC-3339 UTC ``--as-of`` string into an aware datetime.
+ 
+-    STUB — implemented in SLICE-005.
++    Accepts a trailing ``Z`` (the canonical UTC designator) or an explicit
++    ``+00:00`` offset. The result is always timezone-aware and normalized to UTC.
++    Any unparseable value, or one that is not UTC, raises ``ValueError`` so the CLI
++    can map it to exit code ``2``.
++
++    This never reads the wall clock: it is a pure string -> datetime transform.
+     """
+-    raise NotImplementedError("clock.parse_as_of is implemented in SLICE-005")
++    if not isinstance(value, str):
++        raise ValueError(f"--as-of must be a string, got {type(value).__name__}")
++
++    text = value.strip()
++    if not text:
++        raise ValueError("--as-of must not be empty")
++
++    # datetime.fromisoformat handles "+00:00"; normalize a trailing Z first.
++    normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
++
++    try:
++        parsed = datetime.fromisoformat(normalized)
++    except ValueError as exc:
++        raise ValueError(f"not a valid RFC-3339 timestamp: {value!r} ({exc})") from exc
++
++    if parsed.tzinfo is None:
++        raise ValueError(f"--as-of must carry a UTC offset (got naive datetime): {value!r}")
++
++    # Normalize to UTC so all downstream arithmetic is in one frame.
++    return parsed.astimezone(timezone.utc)
+diff --git a/samples/beads_insight/src/br_insight/loader.py b/samples/beads_insight/src/br_insight/loader.py
+index d658bd3..1c1f7f1 100644
+--- a/samples/beads_insight/src/br_insight/loader.py
++++ b/samples/beads_insight/src/br_insight/loader.py
+@@ -1,4 +1,4 @@
+-"""SLICE-001 (STUB): JSONL -> IssueGraph parser.
++"""SLICE-001: JSONL -> IssueGraph parser.
+ 
+ Implementer contract:
+ 
+@@ -9,15 +9,29 @@ Implementer contract:
+   each record's ``dependencies[]`` (entries shaped ``{depends_on_id, type}`` with
+   ``type`` in ``{blocks, parent-child, related}``).
+ 
+-This is left unimplemented on the seed so the acceptance tests are RED.
++Edge orientation (canonical ``src -> dst``):
++
++    A record ``R`` with ``{"depends_on_id": X, "type": "blocks"}`` means *X blocks R*,
++    so the edge is ``(X -> R.id)`` in ``blocks_edges``. The same source->this-record
++    orientation is used for ``parent-child`` (parent -> child) and ``related``.
+ """
+ 
+ from __future__ import annotations
+ 
+-from .model import IssueGraph
++import json
++from datetime import datetime, timezone
++
++from .model import Issue, IssueGraph
+ 
+ __all__ = ["load", "LoaderError"]
+ 
++# Dependency-edge relation kinds, mapped to the IssueGraph edge-set attribute.
++_EDGE_KIND_TO_ATTR = {
++    "blocks": "blocks_edges",
++    "parent-child": "parent_edges",
++    "related": "related_edges",
++}
++
+ 
+ class LoaderError(ValueError):
+     """Raised on a malformed JSONL line. Carries the offending 1-based line number."""
+@@ -27,9 +41,86 @@ class LoaderError(ValueError):
+         self.line_number = line_number
+ 
+ 
++def _parse_dt(value):
++    """Parse an optional RFC-3339 UTC timestamp into an aware datetime (or None).
++
++    Pure string -> datetime transform; never reads the wall clock.
++    """
++    if value is None:
++        return None
++    text = str(value).strip()
++    if not text:
++        return None
++    normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
++    parsed = datetime.fromisoformat(normalized)
++    if parsed.tzinfo is None:
++        parsed = parsed.replace(tzinfo=timezone.utc)
++    return parsed.astimezone(timezone.utc)
++
++
++def _build_issue(record: dict) -> Issue:
++    """Project a raw JSONL record onto the locked :class:`Issue` (unknown fields dropped)."""
++    labels = record.get("labels") or ()
++    return Issue(
++        id=record["id"],
++        title=record.get("title", ""),
++        status=record["status"],
++        priority=int(record["priority"]),
++        issue_type=record.get("issue_type", ""),
++        assignee=record.get("assignee"),
++        created_at=_parse_dt(record.get("created_at")),
++        closed_at=_parse_dt(record.get("closed_at")),
++        labels=tuple(labels),
++    )
++
++
+ def load(path) -> IssueGraph:
+     """Parse a ``.beads/issues.jsonl`` export into an :class:`IssueGraph`.
+ 
+-    STUB — implemented in SLICE-001.
++    Lines are 1-based for error reporting. Blank lines (e.g. a trailing newline) are
++    tolerated and skipped. A line that is not valid JSON raises :class:`LoaderError`
++    carrying its line number; the CLI maps that to exit code ``2``.
+     """
+-    raise NotImplementedError("loader.load is implemented in SLICE-001")
++    issues: dict[str, Issue] = {}
++    blocks_edges: set[tuple[str, str]] = set()
++    parent_edges: set[tuple[str, str]] = set()
++    related_edges: set[tuple[str, str]] = set()
++    edge_sets = {
++        "blocks_edges": blocks_edges,
++        "parent_edges": parent_edges,
++        "related_edges": related_edges,
++    }
++
++    with open(path, "r", encoding="utf-8") as handle:
++        for line_number, raw_line in enumerate(handle, start=1):
++            stripped = raw_line.strip()
++            if not stripped:
++                # Tolerate blank lines (notably the trailing newline at EOF).
++                continue
++            try:
++                record = json.loads(stripped)
++            except json.JSONDecodeError as exc:
++                raise LoaderError(
++                    f"malformed JSON on line {line_number}: {exc}",
++                    line_number=line_number,
++                ) from exc
++
++            issue = _build_issue(record)
++            issues[issue.id] = issue
++
++            # Build canonical src -> dst edges from this record's dependencies[].
++            for dep in record.get("dependencies") or ():
++                attr = _EDGE_KIND_TO_ATTR.get(dep.get("type"))
++                if attr is None:
++                    # Forward-compatible: unknown edge kinds are ignored.
++                    continue
++                src = dep["depends_on_id"]
++                dst = issue.id
++                edge_sets[attr].add((src, dst))
++
++    return IssueGraph(
++        issues=issues,
++        blocks_edges=blocks_edges,
++        parent_edges=parent_edges,
++        related_edges=related_edges,
++    )

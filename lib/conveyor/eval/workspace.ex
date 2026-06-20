@@ -13,14 +13,16 @@ defmodule Conveyor.Eval.Workspace do
 
   @doc "Opts for `ToolchainRunner` that reuse the sample's committed venv when present (offline)."
   @spec venv_opts() :: keyword()
-  def venv_opts do
-    bin = Path.join(@sample, ".venv/bin")
+  def venv_opts(sample_path \\ @sample) do
+    bin = Path.join(Path.expand(sample_path), ".venv/bin")
     if File.dir?(bin), do: [venv_bin: bin], else: []
   end
 
   @doc "Copy the sample into a fresh temp workspace (excluding venv/cache). Returns the path."
-  @spec setup!() :: String.t()
-  def setup! do
+  @spec setup!(keyword()) :: String.t()
+  def setup!(opts \\ []) do
+    sample_path = opts |> Keyword.get(:sample_path, @sample) |> Path.expand()
+
     dst =
       Path.join(
         System.tmp_dir!(),
@@ -40,7 +42,7 @@ defmodule Conveyor.Eval.Workspace do
         "__pycache__",
         "--exclude",
         ".git",
-        @sample <> "/",
+        sample_path <> "/",
         dst <> "/"
       ])
 

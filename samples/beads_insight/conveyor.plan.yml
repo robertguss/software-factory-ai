@@ -184,6 +184,7 @@ slices:
     likely_files:
       - src/br_insight/model.py
       - src/br_insight/loader.py
+      - src/br_insight/clock.py
       - tests/test_loader.py
       - tests/fixtures/issues.jsonl
     conflict_domains:
@@ -194,6 +195,7 @@ slices:
     requirement_refs: [REQ-002]
     likely_files:
       - src/br_insight/commands/ready.py
+      - src/br_insight/report.py
       - tests/test_ready.py
     conflict_domains:
       - cmd_ready

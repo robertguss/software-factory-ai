@@ -7,6 +7,7 @@ defmodule Conveyor.Planning.ArtifactInputIndex do
     "semantic" => "invalidate_on_change",
     "authority" => "invalidate_on_change",
     "evidence" => "invalidate_on_change",
+    "verified_by_gate" => "invalidate_on_change",
     "advisory" => "warn_on_change",
     "presentation" => "ignore_after_capture"
   }

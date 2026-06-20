@@ -1,0 +1,112 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/cycles.py b/samples/beads_insight/src/br_insight/commands/cycles.py
+index 1149235..f9389db 100644
+--- a/samples/beads_insight/src/br_insight/commands/cycles.py
++++ b/samples/beads_insight/src/br_insight/commands/cycles.py
+@@ -1,4 +1,4 @@
+-"""SLICE-003 (STUB): the ``cycles`` command.
++"""SLICE-003: the ``cycles`` command.
+
+ Detect directed cycles over ``blocks`` edges only. Report each cycle exactly once
+ as the lexicographically-smallest rotation of its node ids; a self-loop ``A->A`` is
+@@ -8,18 +8,94 @@ reports zero cycles and exits ``0``.
+
+ from __future__ import annotations
+
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, to_json
+
+ __all__ = ["run", "find_cycles"]
+
+
++def _canonical_rotation(cycle: list[str]) -> tuple[str, ...]:
++    """Return the lexicographically-smallest rotation of a cycle's node ids.
++
++    ``cycle`` is the node sequence of an elementary circuit (no repeated node, and
++    the closing edge back to ``cycle[0]`` is implied). The canonical form rotates so
++    the smallest id leads, giving one stable representative per cycle.
++    """
++    n = len(cycle)
++    best_index = min(range(n), key=lambda i: cycle[i])
++    return tuple(cycle[best_index:] + cycle[:best_index])
++
++
+ def find_cycles(graph: IssueGraph) -> list[tuple[str, ...]]:
+-    """Return canonical cycles over blocks edges. STUB — implemented in SLICE-003."""
+-    raise NotImplementedError("cycles.find_cycles is implemented in SLICE-003")
++    """Return canonical elementary cycles over ``blocks`` edges, sorted deterministically.
++
++    Each cycle is reported exactly once as its lexicographically-smallest rotation;
++    self-loops are length-1 cycles. The returned list is sorted so the output order
++    is deterministic.
++    """
++    # Adjacency over blocks edges only: src -> sorted list of dsts.
++    adjacency: dict[str, list[str]] = {}
++    nodes: set[str] = set()
++    for src, dst in graph.blocks_edges:
++        adjacency.setdefault(src, []).append(dst)
++        nodes.add(src)
++        nodes.add(dst)
++    for dsts in adjacency.values():
++        dsts.sort()
++
++    found: set[tuple[str, ...]] = set()
++
++    def visit(start: str, current: str, path: list[str], on_path: set[str]) -> None:
++        for nxt in adjacency.get(current, ()):
++            # Restrict to nodes >= start so each cycle is discovered once from its
++            # smallest-id member; this keeps enumeration finite and dedup-friendly.
++            if nxt < start:
++                continue
++            if nxt == start:
++                # Closed an elementary circuit back to the start node.
++                found.add(_canonical_rotation(list(path)))
++                continue
++            if nxt in on_path:
++                continue
++            path.append(nxt)
++            on_path.add(nxt)
++            visit(start, nxt, path, on_path)
++            path.pop()
++            on_path.discard(nxt)
++
++    for start in sorted(nodes):
++        visit(start, start, [start], {start})
++
++    return sorted(found)
++
++
++def _rows(graph: IssueGraph):
++    return [{"nodes": list(cycle)} for cycle in find_cycles(graph)]
++
++
++def render_markdown(graph: IssueGraph) -> str:
++    """Render detected cycles as a markdown section body (no trailing blank line)."""
++    cycles = find_cycles(graph)
++    lines = ["## Cycles", ""]
++    if not cycles:
++        lines.append("_No dependency cycles._")
++    else:
++        for cycle in cycles:
++            lines.append("- " + " -> ".join(cycle) + f" -> {cycle[0]}")
++    return "\n".join(lines)
++
+
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str):
++    """Render detected cycles.
+
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render detected cycles. STUB — implemented in SLICE-003."""
+-    raise NotImplementedError("cycles.run is implemented in SLICE-003")
++    Returns a ``(rendered, found)`` tuple so the CLI can map "cycles found" to exit
++    code ``1`` (see :func:`br_insight.cli.main`).
++    """
++    cycles = find_cycles(graph)
++    found = bool(cycles)
++    if fmt == "json":
++        envelope = build_envelope(
++            "cycles", {"cycles": _rows(graph)}, generated_as_of=as_of, source=source
++        )
++        return to_json(envelope), found
++    return render_markdown(graph) + "\n", found

@@ -55,6 +55,7 @@ defmodule Conveyor.Factory.Artifact do
   end
 
   identities do
-    identity :unique_sha256_size_bytes, [:sha256, :size_bytes]
+    identity :unique_run_attempt_projection_path, [:run_attempt_id, :projection_path]
+    identity :unique_station_run_projection_path, [:station_run_id, :projection_path]
   end
 end

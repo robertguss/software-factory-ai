@@ -60,9 +60,26 @@ defmodule Conveyor.Gate.Stages.TestExecution do
   end
 
   defp acceptance_calibration(context, run_spec) do
-    value(context, :test_pack_calibration) || value(context, :acceptance_calibration) ||
-      persisted_calibration(run_spec)
+    calibration =
+      value(context, :test_pack_calibration) || value(context, :acceptance_calibration) ||
+        persisted_calibration(run_spec)
+
+    normalize_calibration(calibration)
   end
+
+  defp normalize_calibration(%TestPackCalibration{} = calibration) do
+    %{
+      "id" => calibration.id,
+      "status" => Atom.to_string(calibration.status),
+      "expected_failures" => calibration.expected_failures,
+      "unexpected_passes" => calibration.unexpected_passes,
+      "unexpected_failures" => calibration.unexpected_failures,
+      "result_ref" => calibration.result_ref,
+      "base_commit" => calibration.base_commit
+    }
+  end
+
+  defp normalize_calibration(calibration), do: calibration
 
   defp persisted_calibration(%RunSpec{} = run_spec) do
     TestPackCalibration

@@ -157,13 +157,32 @@ defmodule Conveyor.AgentRunner.ReferenceSolution do
     ws_path = workspace_path!(workspace)
     patch_abs = Path.expand(patch_ref, File.cwd!())
     reverse_args = if Keyword.get(opts, :reverse, false), do: ["-R"], else: []
+    existing_backups = patch_backup_files(ws_path)
 
     case System.cmd("patch", ["-p3", "-f"] ++ reverse_args ++ ["-d", ws_path, "-i", patch_abs],
            stderr_to_stdout: true
          ) do
-      {_out, 0} -> :ok
-      {out, status} -> raise "reference patch #{patch_ref} failed to apply (#{status}): #{out}"
+      {_out, 0} ->
+        remove_new_patch_backups!(ws_path, existing_backups)
+        :ok
+
+      {out, status} ->
+        raise "reference patch #{patch_ref} failed to apply (#{status}): #{out}"
     end
+  end
+
+  defp patch_backup_files(workspace_path) do
+    workspace_path
+    |> Path.join("**/*.orig")
+    |> Path.wildcard()
+    |> MapSet.new()
+  end
+
+  defp remove_new_patch_backups!(workspace_path, existing_backups) do
+    workspace_path
+    |> patch_backup_files()
+    |> MapSet.difference(existing_backups)
+    |> Enum.each(&File.rm!/1)
   end
 
   defp capture_patch(workspace, opts, blob_opts) do

@@ -89,7 +89,7 @@ defmodule Conveyor.EvidenceKernelModelsTest do
       assert length(model["invariants"]) >= 2
 
       assert is_list(model["counterexample_traces"])
-      assert length(model["counterexample_traces"]) >= 1
+      assert model["counterexample_traces"] != []
     end
   end
 

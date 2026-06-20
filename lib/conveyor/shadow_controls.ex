@@ -63,6 +63,7 @@ defmodule Conveyor.ShadowControls do
   defp next_profile(attrs) do
     profiles = list(attrs, :profiles)
     current_profile = value(attrs, :current_profile)
+
     case Enum.find_index(profiles, &(&1 == current_profile)) do
       # Unknown/nil current profile: do not silently reset to the smallest profile.
       nil -> nil

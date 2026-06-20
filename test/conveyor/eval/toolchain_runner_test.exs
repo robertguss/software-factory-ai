@@ -70,12 +70,26 @@ defmodule Conveyor.Eval.ToolchainRunnerTest do
     assert r1["result_digest"] =~ ~r/^sha256:[0-9a-f]{64}$/
   end
 
+  test "test_refs option scopes pytest execution to selected node ids", %{plan: plan} do
+    ws = workspace!()
+
+    result = ToolchainRunner.verification_result(ws, plan, opts(test_refs: [@unknown_404_nodeid]))
+
+    baseline_tests = result |> suite("baseline_regression") |> suite_tests()
+    acceptance_tests = result |> suite("acceptance_locked") |> suite_tests()
+
+    assert Enum.map(baseline_tests, & &1["id"]) == [@unknown_404_nodeid]
+    assert Enum.map(acceptance_tests, & &1["id"]) == [@unknown_404_nodeid]
+    assert result["status"] == "passed"
+  end
+
   # --- helpers --------------------------------------------------------------
 
   # Prefer the sample's committed .venv (offline); fall back to F1 building one.
-  defp opts do
+  defp opts(overrides \\ []) do
     venv_bin = Path.join(@sample, ".venv/bin")
-    if File.dir?(venv_bin), do: [venv_bin: venv_bin], else: []
+    base = if File.dir?(venv_bin), do: [venv_bin: venv_bin], else: []
+    Keyword.merge(base, overrides)
   end
 
   defp workspace! do

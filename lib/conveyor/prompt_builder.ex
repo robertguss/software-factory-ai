@@ -41,6 +41,7 @@ defmodule Conveyor.PromptBuilder do
       output_schema_version: Keyword.get(opts, :output_schema_version, @output_schema_version),
       policy_refs: Keyword.get(opts, :policy_refs, ["policies/implement.toml"]),
       memory_refs: Keyword.get(opts, :memory_refs, []),
+      prior_findings: Keyword.get(opts, :prior_findings),
       agents_md_ref: Keyword.get(opts, :agents_md_ref, "AGENTS.md"),
       agents_md_body: Keyword.get(opts, :agents_md_body, "No AGENTS.md excerpt was provided."),
       safety_policy: Keyword.get(opts, :safety_policy, default_safety_policy())
@@ -172,6 +173,8 @@ defmodule Conveyor.PromptBuilder do
     Out of scope:
     #{bullet_list(attrs.brief.out_of_scope ++ attrs.brief.non_goals)}
 
+    #{prior_findings_section(attrs.prior_findings)}
+
     # Context Pack
 
     #{@untrusted_banner}
@@ -230,7 +233,39 @@ defmodule Conveyor.PromptBuilder do
         "context_pack:#{attrs.context_pack.id}",
         context_pack_digest(attrs.context_pack)
       )
-    ] ++ repo_file_sources(attrs.context_pack) ++ code_quality_sources(attrs.context_pack)
+    ] ++
+      prior_findings_sources(attrs) ++
+      repo_file_sources(attrs.context_pack) ++ code_quality_sources(attrs.context_pack)
+  end
+
+  defp prior_findings_section(nil), do: ""
+  defp prior_findings_section(%{} = findings) when map_size(findings) == 0, do: ""
+  defp prior_findings_section([]), do: ""
+
+  defp prior_findings_section(findings) do
+    """
+    # Prior Trusted Findings
+
+    #{json_block(findings)}
+    """
+  end
+
+  defp prior_findings_sources(%{prior_findings: nil}), do: []
+
+  defp prior_findings_sources(%{prior_findings: %{} = findings}) when map_size(findings) == 0,
+    do: []
+
+  defp prior_findings_sources(%{prior_findings: []}), do: []
+
+  defp prior_findings_sources(attrs) do
+    [
+      source(
+        :prior_findings,
+        :trusted,
+        "prior_findings:#{attrs.brief.id}",
+        attrs.prior_findings
+      )
+    ]
   end
 
   defp repo_file_sources(context_pack) do

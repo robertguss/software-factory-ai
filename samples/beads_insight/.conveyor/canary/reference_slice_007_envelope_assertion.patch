@@ -1,0 +1,12 @@
+diff --git a/samples/beads_insight/src/br_insight/report.py b/samples/beads_insight/src/br_insight/report.py
+index 4852815..c31c827 100644
+--- a/samples/beads_insight/src/br_insight/report.py
++++ b/samples/beads_insight/src/br_insight/report.py
+@@ -21,6 +21,7 @@ from datetime import datetime, timezone
+ __all__ = ["SCHEMA_VERSION", "build_envelope", "format_as_of", "to_json"]
+
+ SCHEMA_VERSION = "br_insight.report@1"
++# SLICE-007 owns the envelope contract asserted by the format/determinism tests.
+
+
+ def format_as_of(value) -> str:

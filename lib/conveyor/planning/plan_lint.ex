@@ -153,40 +153,56 @@ defmodule Conveyor.Planning.PlanLint do
   end
 
   defp critical_context_findings(contract) do
-    budget =
-      case Map.get(contract, "context_budget") || Map.get(contract, "critical_context_budget") do
-        budget when is_map(budget) -> budget
-        _other -> %{}
-      end
+    budget = context_budget(contract)
 
-    required =
-      Map.get(budget, "critical_required_tokens") ||
-        Map.get(budget, "required_tokens") ||
-        Map.get(budget, "critical_tokens")
-
-    max = Map.get(budget, "max_tokens") || Map.get(budget, "budget_tokens")
-
-    if is_number(required) and is_number(max) and required > max do
-      [
-        finding(
-          "critical_context_budget_impossible",
-          "context",
-          "Critical context requires more tokens than the available budget.",
-          [],
-          ["#{required}>#{max}"],
-          [
-            %{
-              kind: :edit_plan,
-              target: "context_budget",
-              label: "Reduce critical context or raise the static budget."
-            }
-          ]
-        )
-      ]
+    if critical_context_budget_impossible?(budget) do
+      [critical_context_budget_finding(budget)]
     else
       []
     end
   end
+
+  defp context_budget(contract) do
+    case Map.get(contract, "context_budget") || Map.get(contract, "critical_context_budget") do
+      budget when is_map(budget) -> budget
+      _other -> %{}
+    end
+  end
+
+  defp critical_context_budget_impossible?(budget) do
+    required = required_context_tokens(budget)
+    max = max_context_tokens(budget)
+    is_number(required) and is_number(max) and required > max
+  end
+
+  defp critical_context_budget_finding(budget) do
+    required = required_context_tokens(budget)
+    max = max_context_tokens(budget)
+
+    finding(
+      "critical_context_budget_impossible",
+      "context",
+      "Critical context requires more tokens than the available budget.",
+      [],
+      ["#{required}>#{max}"],
+      [
+        %{
+          kind: :edit_plan,
+          target: "context_budget",
+          label: "Reduce critical context or raise the static budget."
+        }
+      ]
+    )
+  end
+
+  defp required_context_tokens(budget) do
+    Map.get(budget, "critical_required_tokens") ||
+      Map.get(budget, "required_tokens") ||
+      Map.get(budget, "critical_tokens")
+  end
+
+  defp max_context_tokens(budget),
+    do: Map.get(budget, "max_tokens") || Map.get(budget, "budget_tokens")
 
   defp apply_suppressions(findings, suppressions) do
     {allowed, ignored} = Enum.split_with(suppressions, &typed_suppression?/1)

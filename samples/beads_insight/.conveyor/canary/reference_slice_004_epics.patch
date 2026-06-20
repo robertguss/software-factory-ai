@@ -1,0 +1,123 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/epics.py b/samples/beads_insight/src/br_insight/commands/epics.py
+index 759ccf1..64cfddd 100644
+--- a/samples/beads_insight/src/br_insight/commands/epics.py
++++ b/samples/beads_insight/src/br_insight/commands/epics.py
+@@ -1,4 +1,4 @@
+-"""SLICE-004 (STUB): the ``epics`` command.
++"""SLICE-004: the ``epics`` command.
+
+ For each issue of type ``epic``, roll up its transitive ``parent-child``
+ descendants: total children, closed children, percent complete (integer floor),
+@@ -8,13 +8,106 @@ Sorted by epic id.
+
+ from __future__ import annotations
+
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, to_json
++
++__all__ = ["run", "epic_rollups"]
++
++
++def _descendants(graph: IssueGraph, root: str) -> list[str]:
++    """Return the transitive parent-child descendants of ``root`` (excluding root).
++
++    Walks ``parent_edges`` (parent -> child) breadth-first; the result is sorted so
++    downstream rendering is deterministic. Cyclic parent edges (should not occur) are
++    guarded by a visited set.
++    """
++    children: dict[str, list[str]] = {}
++    for src, dst in graph.parent_edges:
++        children.setdefault(src, []).append(dst)
++
++    seen: set[str] = set()
++    stack = list(children.get(root, ()))
++    while stack:
++        node = stack.pop()
++        if node in seen:
++            continue
++        seen.add(node)
++        stack.extend(children.get(node, ()))
++    return sorted(seen)
++
++
++def _is_blocked(graph: IssueGraph, issue_id: str) -> bool:
++    """True when ``issue_id`` has an incoming blocks edge from a non-closed issue."""
++    for src, dst in graph.blocks_edges:
++        if dst != issue_id:
++            continue
++        blocker = graph.issues.get(src)
++        if blocker is None or blocker.status != "closed":
++            return True
++    return False
++
++
++def epic_rollups(graph: IssueGraph):
++    """Return per-epic rollup dicts sorted by epic id.
++
++    Each rollup: ``{id, title, total, closed, pct, open, blocked}``. ``pct`` is the
++    integer floor of ``100 * closed / total``; a childless epic reports total=0 and
++    pct=100 (and never divides by zero).
++    """
++    rollups = []
++    epics = [i for i in graph.issues.values() if i.issue_type == "epic"]
++    for epic in sorted(epics, key=lambda i: i.id):
++        descendants = _descendants(graph, epic.id)
++        total = len(descendants)
++        closed = sum(
++            1 for d in descendants
++            if d in graph.issues and graph.issues[d].status == "closed"
++        )
++        open_count = sum(
++            1 for d in descendants
++            if d in graph.issues and graph.issues[d].status == "open"
++        )
++        blocked = sum(
++            1 for d in descendants
++            if d in graph.issues
++            and graph.issues[d].status == "open"
++            and _is_blocked(graph, d)
++        )
++        pct = 100 if total == 0 else (100 * closed) // total
++        rollups.append(
++            {
++                "id": epic.id,
++                "title": epic.title,
++                "total": total,
++                "closed": closed,
++                "pct": pct,
++                "open": open_count,
++                "blocked": blocked,
++            }
++        )
++    return rollups
++
+
+-__all__ = ["run"]
++def render_markdown(graph: IssueGraph) -> str:
++    """Render the epic rollup as a markdown section body (no trailing blank line)."""
++    rollups = epic_rollups(graph)
++    lines = ["## Epics", ""]
++    if not rollups:
++        lines.append("_No epics._")
++    else:
++        for r in rollups:
++            lines.append(
++                f"- {r['id']} — {r['title']}: {r['closed']}/{r['total']} closed "
++                f"({r['pct']}%), open={r['open']}, blocked={r['blocked']}"
++            )
++    return "\n".join(lines)
+
+
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the epic rollup. STUB — implemented in SLICE-004."""
+-    raise NotImplementedError("epics.run is implemented in SLICE-004")
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str) -> str:
++    """Render the epic rollup."""
++    if fmt == "json":
++        envelope = build_envelope(
++            "epics", {"epics": epic_rollups(graph)}, generated_as_of=as_of, source=source
++        )
++        return to_json(envelope)
++    return render_markdown(graph) + "\n"

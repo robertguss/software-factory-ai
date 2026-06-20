@@ -38,7 +38,7 @@ defmodule Conveyor.RunAttemptLifecycle do
   @spec create_retry_attempt!(struct(), struct(), keyword()) :: struct()
   def create_retry_attempt!(%RunAttempt{} = failed_attempt, %RunSpec{} = run_spec, opts \\ []) do
     Repo.transaction(fn ->
-      require_failed_attempt!(failed_attempt)
+      require_retryable_attempt!(failed_attempt)
       require_fresh_run_spec!(failed_attempt, run_spec)
       context = context_for!(failed_attempt.slice_id)
 
@@ -75,10 +75,13 @@ defmodule Conveyor.RunAttemptLifecycle do
 
   defp notify_result({:error, reason}), do: raise(reason)
 
-  defp require_failed_attempt!(%RunAttempt{status: :failed}), do: :ok
+  defp require_retryable_attempt!(%RunAttempt{status: status})
+       when status in [:failed, :needs_rework],
+       do: :ok
 
-  defp require_failed_attempt!(%RunAttempt{status: status}) do
-    raise ArgumentError, "Retry attempts require a failed RunAttempt; got #{status}"
+  defp require_retryable_attempt!(%RunAttempt{status: status}) do
+    raise ArgumentError,
+          "Retry attempts require a failed or needs_rework RunAttempt; got #{status}"
   end
 
   defp require_fresh_run_spec!(failed_attempt, run_spec) do

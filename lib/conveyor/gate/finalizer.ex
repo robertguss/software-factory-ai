@@ -10,7 +10,9 @@ defmodule Conveyor.Gate.Finalizer do
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
+  alias Conveyor.Genome.BackEdge
   alias Conveyor.SliceLifecycle
+  alias Conveyor.TrustBundle
 
   @spec finalize!(Gate.Result.t(), map(), keyword()) :: map()
   def finalize!(%Gate.Result{} = result, context, opts \\ []) when is_map(context) do
@@ -27,11 +29,32 @@ defmodule Conveyor.Gate.Finalizer do
         fail_gate!(result, run_attempt, slice, project, actor)
       end
 
+    pass_outputs =
+      if result.passed? do
+        emit_pass_outputs!(context, gate_result, actor)
+      else
+        %{}
+      end
+
+    Map.merge(
+      %{
+        gate_result: gate_result,
+        run_attempt: transition.run_attempt,
+        slice: transition.slice,
+        incident: Map.get(transition, :incident)
+      },
+      pass_outputs
+    )
+  end
+
+  defp emit_pass_outputs!(context, gate_result, actor) do
+    provenance_edges = BackEdge.mint!(context, gate_result, actor: actor)
+    trust_bundle = TrustBundle.emit!(context, gate_result, provenance_edges: provenance_edges)
+
     %{
-      gate_result: gate_result,
-      run_attempt: transition.run_attempt,
-      slice: transition.slice,
-      incident: Map.get(transition, :incident)
+      provenance_edges: provenance_edges,
+      trust_bundle: trust_bundle.bundle,
+      trust_bundle_artifact: trust_bundle.artifact
     }
   end
 

@@ -5,6 +5,7 @@ defmodule Conveyor.Gate.Stages.ContractLock do
 
   @behaviour Conveyor.Gate.Stage
 
+  alias Conveyor.ContractEvolution
   alias Conveyor.Gate.StageResult
 
   @impl true
@@ -199,30 +200,8 @@ defmodule Conveyor.Gate.Stages.ContractLock do
   end
 
   defp digest_value(value) do
-    "sha256:" <>
-      (value
-       |> canonical_json()
-       |> then(&:crypto.hash(:sha256, &1))
-       |> Base.encode16(case: :lower))
+    ContractEvolution.digest_value(value)
   end
-
-  defp canonical_json(value) when is_map(value) do
-    body =
-      value
-      |> Enum.sort_by(fn {key, _value} -> to_string(key) end)
-      |> Enum.map(fn {key, nested} ->
-        Jason.encode!(to_string(key)) <> ":" <> canonical_json(nested)
-      end)
-      |> Enum.join(",")
-
-    "{" <> body <> "}"
-  end
-
-  defp canonical_json(value) when is_list(value),
-    do: "[" <> Enum.map_join(value, ",", &canonical_json/1) <> "]"
-
-  defp canonical_json(value) when is_atom(value), do: value |> Atom.to_string() |> Jason.encode!()
-  defp canonical_json(value), do: Jason.encode!(value)
 
   defp value(nil, _key), do: nil
 

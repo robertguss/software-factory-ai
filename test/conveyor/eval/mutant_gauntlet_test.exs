@@ -5,6 +5,8 @@ defmodule Conveyor.Eval.MutantGauntletTest do
 
   @moduletag :eval
   @moduletag timeout: 300_000
+  @beads_manifest "samples/beads_insight/.conveyor/canary/mutants.json"
+  @beads_plan "samples/beads_insight/conveyor.plan.yml"
 
   setup_all do
     {:ok, report: MutantGauntlet.run()}
@@ -43,5 +45,38 @@ defmodule Conveyor.Eval.MutantGauntletTest do
 
     assert mcr["key"] == "mutant_catch_rate"
     assert mcr["value"] == 1.0
+  end
+
+  test "Beads Insight canaries cover every slice with scoped locked ACs" do
+    report =
+      MutantGauntlet.run(
+        manifest_path: @beads_manifest,
+        plan_path: @beads_plan,
+        venv_bin: pytest_venv_bin()
+      )
+
+    assert report["known_good_passed"] == true
+    assert report["real_exec_mutants"] == 7
+    assert report["caught"] == 7
+    assert report["false_pass_rate"] == 0.0
+
+    mutants = Enum.filter(report["cases"], &(&1["kind"] == "mutant"))
+
+    assert mutants |> Enum.map(& &1["slice_id"]) |> Enum.sort() ==
+             ~w(SLICE-001 SLICE-002 SLICE-003 SLICE-004 SLICE-005 SLICE-006 SLICE-007)
+
+    for mutant <- mutants do
+      refute mutant["gate_passed"], "mutant #{mutant["id"]} slipped through"
+      assert mutant["acceptance_refs"] != []
+      assert mutant["test_refs"] != []
+      assert "test_execution" in mutant["caught_by_stage"]
+    end
+  end
+
+  defp pytest_venv_bin do
+    case Path.expand("samples/tasks_service/.venv/bin") do
+      bin when is_binary(bin) ->
+        if File.dir?(bin), do: bin, else: nil
+    end
   end
 end

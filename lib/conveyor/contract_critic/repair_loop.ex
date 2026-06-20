@@ -38,7 +38,7 @@ defmodule Conveyor.ContractCritic.RepairLoop do
     materiality = value(input, :materiality)
 
     cond do
-      value(input, :weakens_policy_or_acceptance) == true and blank?(value(input, :authority_ref)) ->
+      weakens_without_authority?(input) ->
         {:error,
          %{
            rule_key: "repair.policy_or_acceptance_weakening",
@@ -53,6 +53,10 @@ defmodule Conveyor.ContractCritic.RepairLoop do
       true ->
         :repair_allowed
     end
+  end
+
+  defp weakens_without_authority?(input) do
+    value(input, :weakens_policy_or_acceptance) == true and blank?(value(input, :authority_ref))
   end
 
   defp oscillating?(values), do: Enum.count(values) != Enum.count(Enum.uniq(values))

@@ -82,7 +82,7 @@ defmodule Conveyor.Factory.ArtifactHealthResourcesTest do
     %{project: project, run_attempt: run_attempt, station_run: station_run}
   end
 
-  test "artifacts enforce content-addressed identity and sensitivity enum", %{
+  test "artifacts enforce projection identity and sensitivity enum", %{
     run_attempt: run_attempt,
     station_run: station_run
   } do
@@ -96,19 +96,22 @@ defmodule Conveyor.Factory.ArtifactHealthResourcesTest do
       Ash.create!(Artifact, attrs, domain: Factory)
     end
 
-    sibling =
+    same_content_other_path =
       Ash.create!(
         Artifact,
-        artifact_attrs(run_attempt.id, station_run.id, digest("artifact"), 2_048),
+        Map.put(attrs, :projection_path, "artifacts/runs/attempt-1/copy.txt"),
         domain: Factory
       )
 
-    assert sibling.size_bytes == 2_048
+    assert same_content_other_path.sha256 == artifact.sha256
+    assert same_content_other_path.size_bytes == artifact.size_bytes
 
     assert_raise Ash.Error.Invalid, fn ->
       Ash.create!(
         Artifact,
-        Map.put(attrs, :sensitivity, :secret),
+        attrs
+        |> Map.put(:projection_path, "artifacts/runs/attempt-1/secret.txt")
+        |> Map.put(:sensitivity, :secret),
         domain: Factory
       )
     end

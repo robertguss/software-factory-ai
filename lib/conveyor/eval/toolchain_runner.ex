@@ -82,9 +82,10 @@ defmodule Conveyor.Eval.ToolchainRunner do
   @spec verification_result(String.t(), map(), keyword()) :: map()
   def verification_result(workspace_path, plan, opts \\ []) do
     {tests, _exit_code, _stdout} = run_pytest(workspace_path, opts)
+    selected_refs = test_refs(opts)
 
-    argv = plan_argv(plan)
-    acceptance_ids = acceptance_test_refs(plan)
+    argv = plan_argv(plan, selected_refs)
+    acceptance_ids = selected_refs || acceptance_test_refs(plan)
     acceptance_tests = Enum.filter(tests, &(&1.id in acceptance_ids))
 
     suites = [
@@ -129,7 +130,10 @@ defmodule Conveyor.Eval.ToolchainRunner do
     junit_host = Path.join(workspace_path, @junit_rel)
     _ = File.rm(junit_host)
 
-    argv = ["-q", "-p", "no:cacheprovider", "--color=no", "--junitxml=" <> @junit_rel]
+    argv =
+      ["-q", "-p", "no:cacheprovider", "--color=no", "--junitxml=" <> @junit_rel] ++
+        (test_refs(opts) || [])
+
     {out, code} = run_pytest_cmd(backend, workspace_path, argv, opts)
 
     tests =
@@ -324,10 +328,24 @@ defmodule Conveyor.Eval.ToolchainRunner do
 
   # --- plan helpers ---------------------------------------------------------
 
-  defp plan_argv(plan) do
-    case plan["verification_commands"] do
-      [%{} = first | _] -> first["argv"] || ["pytest", "-q"]
-      _ -> ["pytest", "-q"]
+  defp plan_argv(plan, selected_refs) do
+    argv =
+      case plan["verification_commands"] do
+        [%{} = first | _] -> first["argv"] || ["pytest", "-q"]
+        _ -> ["pytest", "-q"]
+      end
+
+    argv ++ (selected_refs || [])
+  end
+
+  defp test_refs(opts) do
+    opts
+    |> Keyword.get(:test_refs)
+    |> List.wrap()
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> nil
+      refs -> refs
     end
   end
 

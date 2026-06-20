@@ -194,51 +194,48 @@ defmodule Conveyor.Station do
   @spec validate_claim_controls!(map()) :: :ok
   def validate_claim_controls!(controls) when is_map(controls) do
     permit = Map.get(controls, :admission_permit, Map.get(controls, "admission_permit", %{}))
-    permit_status = Map.get(permit, :status, Map.get(permit, "status", :active))
+    validate_status!(permit, :status, [:active, "active"], "admission permit is not active")
+    validate_control_generation!(permit, controls)
+    validate_status!(controls, :emergency_stop, [:clear, "clear"], "emergency stop is engaged")
+    validate_status!(controls, :grant_status, [:active, "active"], "grant is not active")
+    validate_status!(controls, :budget_status, [:reserved, "reserved"], "budget is not reserved")
 
-    permit_generation =
-      Map.get(permit, :control_generation, Map.get(permit, "control_generation"))
+    validate_status!(
+      controls,
+      :prerequisites,
+      [:satisfied, "satisfied"],
+      "prerequisites are not satisfied"
+    )
 
-    control_generation =
-      Map.get(controls, :control_generation, Map.get(controls, "control_generation"))
+    :ok
+  end
 
-    cond do
-      permit_status != :active and permit_status != "active" ->
-        raise ArgumentError, "admission permit is not active"
+  defp validate_control_generation!(permit, controls) do
+    permit_generation = control_value(permit, :control_generation)
+    control_generation = control_value(controls, :control_generation)
 
-      not is_nil(permit_generation) and not is_nil(control_generation) and
-          permit_generation != control_generation ->
-        raise ArgumentError,
-              "control generation mismatch: permit #{permit_generation}, requested #{control_generation}"
-
-      Map.get(controls, :emergency_stop, Map.get(controls, "emergency_stop", :clear)) in [
-        :engaged,
-        "engaged"
-      ] ->
-        raise ArgumentError, "emergency stop is engaged"
-
-      Map.get(controls, :grant_status, Map.get(controls, "grant_status", :active)) not in [
-        :active,
-        "active"
-      ] ->
-        raise ArgumentError, "grant is not active"
-
-      Map.get(controls, :budget_status, Map.get(controls, "budget_status", :reserved)) not in [
-        :reserved,
-        "reserved"
-      ] ->
-        raise ArgumentError, "budget is not reserved"
-
-      Map.get(controls, :prerequisites, Map.get(controls, "prerequisites", :satisfied)) not in [
-        :satisfied,
-        "satisfied"
-      ] ->
-        raise ArgumentError, "prerequisites are not satisfied"
-
-      true ->
-        :ok
+    if not is_nil(permit_generation) and not is_nil(control_generation) and
+         permit_generation != control_generation do
+      raise ArgumentError,
+            "control generation mismatch: permit #{permit_generation}, requested #{control_generation}"
     end
   end
+
+  defp validate_status!(controls, key, allowed, message) do
+    if control_value(controls, key, default_status(key)) not in allowed do
+      raise ArgumentError, message
+    end
+  end
+
+  defp control_value(controls, key, default \\ nil) do
+    Map.get(controls, key, Map.get(controls, Atom.to_string(key), default))
+  end
+
+  defp default_status(:status), do: :active
+  defp default_status(:emergency_stop), do: :clear
+  defp default_status(:grant_status), do: :active
+  defp default_status(:budget_status), do: :reserved
+  defp default_status(:prerequisites), do: :satisfied
 
   @spec idempotency_key(Ecto.UUID.t(), String.t(), String.t(), pos_integer()) :: String.t()
   def idempotency_key(run_attempt_id, station_key, station_spec_sha256, attempt_no) do
@@ -581,9 +578,16 @@ defmodule Conveyor.Station do
       sensitivity: Map.get(artifact, :sensitivity, Map.get(artifact, "sensitivity", :internal))
     }
 
-    case find_one(Artifact, &(&1.sha256 == attrs.sha256 and &1.size_bytes == attrs.size_bytes)) do
-      nil -> Ash.create!(Artifact, attrs, domain: Factory, return_notifications?: true)
-      existing -> {existing, []}
+    case find_one(
+           Artifact,
+           &(&1.run_attempt_id == run_attempt.id and
+               &1.projection_path == attrs.projection_path)
+         ) do
+      nil ->
+        Ash.create!(Artifact, attrs, domain: Factory, return_notifications?: true)
+
+      existing ->
+        Ash.update!(existing, attrs, domain: Factory, return_notifications?: true)
     end
   end
 

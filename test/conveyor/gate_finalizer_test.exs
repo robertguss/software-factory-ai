@@ -4,6 +4,8 @@ defmodule Conveyor.GateFinalizerTest do
   import Conveyor.FactoryFixtures
 
   alias Conveyor.Factory
+  alias Conveyor.Factory.Artifact
+  alias Conveyor.Factory.CodeProvenanceEdge
   alias Conveyor.Factory.GateResult
   alias Conveyor.Factory.Incident
   alias Conveyor.Factory.RunAttempt
@@ -100,6 +102,23 @@ defmodule Conveyor.GateFinalizerTest do
     assert get_by_id!(Slice, context.slice.id).state == :gated
     assert [stored] = Ash.read!(GateResult, domain: Factory)
     assert stored.run_attempt_id == context.run_attempt.id
+
+    assert [edge] = Ash.read!(CodeProvenanceEdge, domain: Factory)
+    assert edge.code_symbol == "Conveyor.Tasks.complete/1"
+    assert edge.acceptance_criterion_id == "AC-GATE-001"
+    assert edge.role == "verified_by_gate"
+    assert edge.decision == :passed
+    assert edge.patch_sha256 == "sha256:patch"
+    assert edge.gate_result_id == finalized.gate_result.id
+
+    assert [artifact] =
+             Artifact
+             |> Ash.read!(domain: Factory)
+             |> Enum.filter(&(&1.kind == "trust-bundle"))
+
+    assert artifact.run_attempt_id == context.run_attempt.id
+    assert artifact.subject_kind == "gate_result"
+    assert artifact.projection_path =~ finalized.gate_result.id
   end
 
   test "policy failures record GateResult and policy-block the slice", context do
@@ -146,7 +165,22 @@ defmodule Conveyor.GateFinalizerTest do
       gate_code_sha256: "sha256:gate",
       policy_sha256: "sha256:policy",
       contract_lock_sha256: "sha256:contract",
-      canary_suite_version: "canary@1"
+      canary_suite_version: "canary@1",
+      patch_sha256: "sha256:patch",
+      code_symbols: ["Conveyor.Tasks.complete/1"],
+      acceptance_criteria: [
+        %{
+          "id" => "AC-GATE-001",
+          "text" => "Completed tasks persist.",
+          "requirement_refs" => ["REQ-GATE-001"]
+        }
+      ],
+      claims_by_pointer: %{
+        "/acceptance_criteria/0" => %{
+          origin: :deterministic,
+          source_anchor_refs: ["REQ-GATE-001"]
+        }
+      }
     }
   end
 
