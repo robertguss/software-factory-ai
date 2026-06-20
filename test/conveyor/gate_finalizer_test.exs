@@ -156,6 +156,52 @@ defmodule Conveyor.GateFinalizerTest do
     assert incident.run_attempt_id == context.run_attempt.id
   end
 
+  test "ADR-23: a passed gate with low trust evidence abstains and parks the slice", context do
+    evidence = %{
+      integrity_verdict: "suspect",
+      calibration_status: :valid,
+      baseline_status: :green,
+      replay_divergence: :none,
+      corpus_pass_rate: 0.95
+    }
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :abstain
+    assert get_by_id!(RunAttempt, context.run_attempt.id).status == :gated
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
+    assert get_by_id!(Slice, context.slice.id).state == :parked
+
+    # An abstained run is not accepted, so no verified-pass provenance is minted.
+    assert Ash.read!(CodeProvenanceEdge, domain: Factory) == []
+
+    assert Artifact
+           |> Ash.read!(domain: Factory)
+           |> Enum.filter(&(&1.kind == "trust-bundle")) == []
+  end
+
+  test "ADR-23: a passed gate with high trust evidence still auto-accepts", context do
+    evidence = %{
+      integrity_verdict: "trustworthy",
+      calibration_status: :valid,
+      baseline_status: :green,
+      replay_divergence: :none,
+      corpus_pass_rate: 0.95
+    }
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :auto_accept
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :accepted
+    assert get_by_id!(Slice, context.slice.id).state == :gated
+  end
+
   defp gate_context(context) do
     %{
       project: context.project,

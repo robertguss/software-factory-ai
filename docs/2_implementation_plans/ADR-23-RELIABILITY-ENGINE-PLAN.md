@@ -1,10 +1,12 @@
 # ADR-23 — Reliability Engine: implementation plan (TrustScore + abstaining gate)
 
-> **Status:** **Part A (pure `TrustScore`) IMPLEMENTED + GREEN** (11 tests pass,
-> credo/format clean); **Part B (abstain wiring) staged** behind the in-flight
-> loop work (see §6 Sequencing). **Spec:** `docs/adrs/adr-23-ternary-gate-verdict-
-> calibrated-abstention.md`. **Bead:** `software-factory-ai-dr1m.1`. **Date:**
-> 2026-06-20.
+> **Status:** **Part A (pure `TrustScore`) + Part B (abstain wiring) IMPLEMENTED
+> + GREEN.** Part B landed after the loop branch merged to main (PR #9). The
+> `Finalizer` now routes a passed-but-unconfident gate to `:abstained` /
+> `Slice :parked` — **opt-in**: it only fires when the conductor supplies
+> `:trust_evidence`, so every existing pass path is unchanged. **Spec:**
+> `docs/adrs/adr-23-ternary-gate-verdict-calibrated-abstention.md`. **Bead:**
+> `software-factory-ai-dr1m.1`. **Date:** 2026-06-20.
 
 ## 1. Goal
 
@@ -91,25 +93,32 @@ and the method/policy digest recorded with each score. The fusion *shape* (which
 signals, how combined) is fixed in Part A; only the numbers move, behind the
 digest.
 
-## 4. Part B — abstain wiring (deferred until §6 clears)
+## 4. Part B — abstain wiring (DONE — green)
 
-1. **Migration:** add `:abstained` to `RunAttempt.outcome` `one_of` (currently
-   `[:none, :needs_rework, :accepted, :rejected, :policy_blocked]`). Append-only.
-2. **Run-attempt state machine:** an abstained attempt keeps a terminal *passed*
-   status (`:gated`) with `outcome: :abstained` — it did pass the stages.
-3. **`Finalizer.finalize!/3`:** today it branches `if result.passed? do
-   pass_gate! else fail_gate!`. Add a third path: when `passed?` **and**
-   `TrustScore.evaluate(...).band == :abstain`, call `abstain_gate!` →
-   `RunAttempt outcome: :abstained`, **Slice → `:parked`** (the state already
-   exists; reuse/extend the `:park` `SliceLifecycle` transition). Never auto-merge.
-4. **Threading the evidence:** the gate context must carry the IntegritySentinel
-   result + calibration + baseline + replay so `Finalizer` can build the evidence
-   map. Most are already in the gate context; confirm IntegritySentinel runs in
-   the production gate (today it is an oracle, not a wired stage — wire it as a
-   non-blocking evidence producer first).
-5. **Reporting:** `GateResult`/report schemas carry the third outcome + the
-   `TrustScore` breakdown + the policy digest. Reports must never collapse abstain
-   into pass or fail.
+1. **Migration:** `:abstained` added to `RunAttempt.outcome` `one_of` **and** to
+   the Postgres check constraint `run_attempts_outcome_must_be_known`
+   (`priv/repo/migrations/20260620200000_add_abstained_run_attempt_outcome.exs` —
+   AshPostgres enforces the enum at the DB level, so the migration was required).
+2. **Run-attempt state:** an abstained attempt reuses the `:gate` action → status
+   `:gated` with `outcome: :abstained` — it did pass the stages.
+3. **`Finalizer.finalize!/3`:** now a `cond` — when `passed?` **and** the
+   conductor supplied `:trust_evidence` **and** `TrustScore.evaluate(...).band ==
+   :abstain`, `abstain_gate!` sets `RunAttempt outcome: :abstained` and
+   transitions the **Slice → `:parked`** (the existing `:park` transition allows
+   `:in_progress → :parked`). It also **skips `emit_pass_outputs!`** so no
+   verified-pass provenance (BackEdge) or TrustBundle is minted for an
+   unaccepted run. `:trust_score` is returned in the finalize result.
+4. **Opt-in (the key safety property):** with no `:trust_evidence`, `trust_score`
+   returns `nil` and the legacy pass path runs unchanged. This is what let Part B
+   land without regressing any of the merged loop tests.
+5. **Tests:** `gate_finalizer_test.exs` — low trust evidence ⇒ `:abstained` +
+   `:parked` + no BackEdge/TrustBundle; high trust evidence ⇒ still `:accepted`.
+
+**Remaining (next slices):** thread the *real* IntegritySentinel /
+calibration / baseline / replay signals into the gate context as `:trust_evidence`
+from the production loop (today the loop passes no evidence, so it auto-accepts as
+before — abstain is wired but dormant until the conductor populates it), and carry
+the `TrustScore` breakdown into the `GateResult`/report schemas.
 
 ## 5. TDD test plan
 
