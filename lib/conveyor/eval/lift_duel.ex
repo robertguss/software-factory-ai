@@ -202,6 +202,28 @@ defmodule Conveyor.Eval.LiftDuel do
     report
   end
 
+  @doc """
+  Project the report's cells into `conveyor.agent_usage@1` records (one per real agent
+  run) — the durable, schema-valid cost record (R2a). The canonical source is each
+  adapter's `RawRunResult.metadata`; this is the persisted projection.
+  """
+  @spec usage_records(map()) :: [map()]
+  def usage_records(report) do
+    for arm <- report["arms"], cell <- arm["cells"] do
+      usage_record(arm, cell)
+    end
+  end
+
+  @doc "Write the duel's `conveyor.agent_usage@1` records to `eval/lift/usage.json`. Returns the path."
+  @spec write_usage!(map(), keyword()) :: String.t()
+  def write_usage!(report, opts \\ []) do
+    dir = Keyword.get(opts, :dir, @reports_dir)
+    File.mkdir_p!(dir)
+    path = Path.join(dir, "usage.json")
+    File.write!(path, CanonicalJson.encode(usage_records(report)))
+    path
+  end
+
   @doc "Directory holding full `conveyor.eval_lift@1` reports (the duel produces these; `mix conveyor.eval.lift` projects them to the scorecard)."
   @spec reports_dir() :: String.t()
   def reports_dir, do: @reports_dir
@@ -287,6 +309,22 @@ defmodule Conveyor.Eval.LiftDuel do
       "cost_per_verified_ac_ratio" =>
         ratio_or_nil(t["cost_per_verified_ac"], b["cost_per_verified_ac"])
     }
+  end
+
+  defp usage_record(arm, cell) do
+    record = %{
+      "schema_version" => "conveyor.agent_usage@1",
+      "adapter" => arm["adapter"],
+      "arm" => arm["arm"],
+      "task" => cell["task"],
+      "reasoning_effort" => cell["reasoning_effort"],
+      "tokens" => cell["tokens"],
+      "cost_usd_estimated" => cell["cost_usd"],
+      "latency_ms" => cell["latency_ms"]
+    }
+
+    Schema.validate!(record, "conveyor.agent_usage@1")
+    record
   end
 
   defp tokens(%RawRunResult{} = raw) do

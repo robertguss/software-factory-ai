@@ -1,5 +1,7 @@
 # Generated full conveyor.eval_lift@1 reports (written by the lift-duel eval).
 # Projected to scorecard inputs by `mix conveyor.eval.lift`; not committed.
-# Exception: seed.json is the committed real-Codex seed CI projects ($0, deterministic).
+# Exceptions: seed.json (committed real-Codex lift report CI projects) and usage.json
+# (committed conveyor.agent_usage@1 cost records), both $0/deterministic.
 *.json
 !seed.json
+!usage.json

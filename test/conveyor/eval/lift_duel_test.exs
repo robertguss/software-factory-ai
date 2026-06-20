@@ -121,6 +121,12 @@ defmodule Conveyor.Eval.LiftDuelTest do
            ]
 
     assert Enum.all?(metrics, &(&1["suite"] == "lift_duel"))
+
+    # conveyor.agent_usage@1 cost records project per cell and are schema-valid.
+    usages = LiftDuel.usage_records(report)
+    assert length(usages) == 6
+    assert Enum.all?(usages, &(Schema.validate(&1, "conveyor.agent_usage@1") == :ok))
+
     # cost-per-verified-AC is honest: the failing vanilla arm delivered 0 ACs.
     assert vanilla["cost_per_verified_ac"] == nil
     assert treatment["cost_per_verified_ac"] == Float.round(0.03 / 12, 6)

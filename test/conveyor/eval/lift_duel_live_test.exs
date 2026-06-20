@@ -70,6 +70,7 @@ defmodule Conveyor.Eval.LiftDuelLiveTest do
     report = LiftDuel.report([vanilla, treatment], tasks: @tasks, reasoning_effort: @reasoning)
 
     path = LiftDuel.write_report!(report, name: "seed")
+    usage_path = LiftDuel.write_usage!(report)
 
     IO.puts("\n=== R5 LIFT DUEL (real Codex, reasoning=#{@reasoning}) ===")
     IO.inspect(report["lift"], label: "lift")
@@ -78,6 +79,8 @@ defmodule Conveyor.Eval.LiftDuelLiveTest do
 
     assert length(cells) == 3
     assert File.exists?(path)
+    assert File.exists?(usage_path)
+    assert length(LiftDuel.usage_records(report)) == 6
     # Provenance: a cassette per cell was recorded.
     for arm <- ["conveyor", "vanilla"], task <- @tasks do
       assert File.exists?(Path.join("eval/cassettes", "lift-#{arm}-#{task}.json"))
