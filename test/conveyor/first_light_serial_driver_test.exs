@@ -58,7 +58,7 @@ defmodule Conveyor.FirstLightSerialDriverTest do
         actor: "first-light-serial-driver"
       )
 
-    assert result.status == :passed
+    assert result.status == :passed, inspect(result.events, pretty: true)
     assert result.order == @slice_order
     assert Enum.map(result.events, & &1["slice_id"]) == @slice_order
     assert Enum.all?(result.events, &(&1["status"] == "passed"))
@@ -85,7 +85,40 @@ defmodule Conveyor.FirstLightSerialDriverTest do
 
     assert length(gate_results) == 7
     assert Enum.all?(gate_results, & &1.passed)
+
+    assert Enum.all?(gate_results, fn gate_result ->
+             Enum.map(gate_result.stages, & &1["key"]) == [
+               "contract_lock",
+               "diff_scope",
+               "secret_safety",
+               "test_execution"
+             ]
+           end)
+
     assert actual_test_refs_by_slice(fixture.slices_by_stable_key) == fixture.expected_test_refs
+
+    replay_fixture = all_slices_fixture!("first-light-serial-driver-replay")
+
+    replay =
+      SerialDriver.run!(
+        %{
+          work_graph: replay_fixture.work_graph,
+          selected_slice_ids: @slice_order
+        },
+        slices_by_stable_key: replay_fixture.slices_by_stable_key,
+        patch_refs_by_slice: @patch_refs,
+        run_spec_opts: [
+          plan_path: Path.join(replay_fixture.workspace_path, "conveyor.plan.yml"),
+          blob_root: replay_fixture.blob_root,
+          agent_adapter: Conveyor.AgentRunner.ReferenceSolution
+        ],
+        actor: "first-light-serial-driver"
+      )
+
+    assert replay.status == :passed
+    assert result.report["replay_fidelity"]["status"] == "matched"
+    assert replay.report["replay_fidelity"]["status"] == "matched"
+    assert result.report["replay_digest"] == replay.report["replay_digest"]
   end
 
   defp all_slices_fixture!(label) do

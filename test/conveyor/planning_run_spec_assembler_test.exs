@@ -6,6 +6,7 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentBrief
   alias Conveyor.Factory.ContractLock
+  alias Conveyor.Factory.DiffPolicy
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
@@ -88,9 +89,11 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
     brief = only_for_slice!(AgentBrief, slice.id)
     test_pack = only_for_slice!(TestPack, slice.id)
     lock = only_for_slice!(ContractLock, slice.id)
+    diff_policy = only_for_slice!(DiffPolicy, slice.id)
     reloaded_slice = Ash.get!(Slice, slice.id, domain: Factory)
 
     assert reloaded_slice.state == :ready
+    assert reloaded_slice.diff_policy_id == diff_policy.id
     assert Enum.map(brief.acceptance_criteria, & &1["id"]) == ["AC-001", "AC-002"]
 
     assert Enum.map(brief.required_tests, & &1["ref"]) == [
@@ -108,9 +111,16 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
              ContractEvolution.digest_value(brief.acceptance_criteria)
 
     assert lock.required_tests_sha256 == ContractEvolution.digest_value(brief.required_tests)
+
+    assert lock.verification_commands_sha256 ==
+             ContractEvolution.digest_value(brief.verification_commands)
+
     assert lock.test_pack_sha256 == test_pack.test_pack_sha256
     assert run_spec.contract_lock_sha256 == ContractEvolution.contract_lock_sha256(lock)
+    assert run_spec.diff_policy_sha256 == diff_policy_sha256(diff_policy)
     assert run_spec.test_pack_sha256 == test_pack.test_pack_sha256
+    assert diff_policy.allowed_path_globs == ["src/app.py", "tests/test_loader.py"]
+    assert diff_policy.protected_path_globs == ["tests/test_loader.py"]
 
     assert run_spec.station_plan["falsifier_forge"] == %{
              "schema_version" => "conveyor.falsifier_forge@1",
@@ -279,6 +289,20 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
 
     assert [record] = matches
     record
+  end
+
+  defp diff_policy_sha256(diff_policy) do
+    ContractEvolution.digest_value(%{
+      "allowed_path_globs" => diff_policy.allowed_path_globs,
+      "protected_path_globs" => diff_policy.protected_path_globs,
+      "max_files_changed" => diff_policy.max_files_changed,
+      "max_lines_added" => diff_policy.max_lines_added,
+      "max_lines_deleted" => diff_policy.max_lines_deleted,
+      "dependency_changes_allowed" => diff_policy.dependency_changes_allowed,
+      "migrations_allowed" => diff_policy.migrations_allowed,
+      "generated_files_allowed" => diff_policy.generated_files_allowed,
+      "public_api_changes_allowed" => diff_policy.public_api_changes_allowed
+    })
   end
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)

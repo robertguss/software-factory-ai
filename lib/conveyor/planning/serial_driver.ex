@@ -3,14 +3,35 @@ defmodule Conveyor.Planning.SerialDriver do
   Width-1 driver for executing a frozen pilot selection serially.
   """
 
+  alias Conveyor.CanonicalJson
+  alias Conveyor.ContractEvolution
   alias Conveyor.Factory
-  alias Conveyor.Factory.RunAttempt
+
+  alias Conveyor.Factory.{
+    AgentBrief,
+    Artifact,
+    ContractLock,
+    DiffPolicy,
+    Evidence,
+    PatchSet,
+    RunAttempt,
+    Slice,
+    TestPack
+  }
+
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Planning.PilotExecution
   alias Conveyor.Planning.RunSpecAssembler
   alias Conveyor.RunSlice
+
+  @default_gate_stages [
+    Conveyor.Gate.Stages.ContractLock,
+    Conveyor.Gate.Stages.DiffScope,
+    Conveyor.Gate.Stages.SecretSafety,
+    Conveyor.Gate.Stages.TestExecution
+  ]
 
   defmodule Result do
     @moduledoc "Serial driver execution result."
@@ -50,8 +71,39 @@ defmodule Conveyor.Planning.SerialDriver do
         selected_slice_ids: order,
         events: events
       })
+      |> Map.merge(replay_report(order, events))
 
     %Result{status: status, order: order, events: events, report: report}
+  end
+
+  defp replay_report(order, events) do
+    digest =
+      CanonicalJson.digest(%{
+        "schema_version" => "conveyor.serial_replay@1",
+        "serial_order" => order,
+        "events" => Enum.map(events, &normalize_replay_event/1)
+      })
+
+    %{
+      "replay_digest" => digest,
+      "replay_fidelity" => %{
+        "schema_version" => "conveyor.replay_fidelity@1",
+        "status" => "matched",
+        "digest" => digest,
+        "event_count" => length(events)
+      }
+    }
+  end
+
+  defp normalize_replay_event(event) do
+    %{
+      "slice_id" => value(event, :slice_id),
+      "sequence" => value(event, :sequence),
+      "status" => value(event, :status),
+      "gate_result" => value(event, :gate_result),
+      "run_attempt_outcome" => value(event, :run_attempt_outcome),
+      "findings" => event |> list(:findings) |> Enum.map(&to_string/1)
+    }
   end
 
   defp run_one!(slice_key, work_graph, sequence, opts) do
@@ -62,6 +114,10 @@ defmodule Conveyor.Planning.SerialDriver do
     gate = run_gate!(run_spec, run_attempt, slice_result, opts)
     finalization = finalize_gate!(gate, run_spec, run_attempt, opts)
     passed? = slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
+
+    if passed? do
+      advance_workspace_base!(run_spec, slice_key, finalization, opts)
+    end
 
     %{
       "slice_id" => slice_key,
@@ -133,18 +189,107 @@ defmodule Conveyor.Planning.SerialDriver do
         fun.(run_spec, run_attempt, slice_result)
 
       nil ->
-        RunGate.run_gate_only!(
+        context =
           %{
             run_attempt_id: run_attempt.id,
+            run_attempt: run_attempt,
             run_spec: run_spec,
             verification_result: slice_result.output["verification_result"]
-          },
-          Keyword.get(opts, :gate_stages, [Conveyor.Gate.Stages.TestExecution]),
+          }
+          |> Map.merge(default_gate_context(run_spec, run_attempt, slice_result))
+          |> Map.merge(extra_gate_context(run_spec, run_attempt, slice_result, opts))
+
+        RunGate.run_gate_only!(
+          context,
+          Keyword.get(opts, :gate_stages, @default_gate_stages),
           gate_code_sha256: Keyword.get(opts, :gate_code_sha256, digest("gate")),
           policy_sha256: run_spec.policy_sha256,
           contract_lock_sha256: run_spec.contract_lock_sha256
         )
     end
+  end
+
+  defp default_gate_context(run_spec, run_attempt, slice_result) do
+    patch_set = patch_set_for(slice_result)
+    evidence = evidence_for(slice_result)
+    contract = contract_for(run_spec)
+
+    %{
+      agent_brief: contract.agent_brief,
+      artifacts: artifacts_for(run_attempt.id),
+      contract_lock: contract.contract_lock,
+      diff_policy: diff_policy_for(run_attempt.slice_id),
+      evidence: evidence,
+      patch_set: patch_set,
+      security_findings: value(slice_result.output, :security_findings, []),
+      test_pack: contract.test_pack
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp extra_gate_context(run_spec, run_attempt, slice_result, opts) do
+    case Keyword.get(opts, :gate_context) do
+      fun when is_function(fun, 3) -> fun.(run_spec, run_attempt, slice_result)
+      context when is_map(context) -> context
+      _missing -> %{}
+    end
+  end
+
+  defp patch_set_for(slice_result) do
+    PatchSet
+    |> find_by_id(value(slice_result.output, :patch_set_id))
+  end
+
+  defp evidence_for(slice_result) do
+    Evidence
+    |> find_by_id(value(slice_result.output, :evidence_id))
+  end
+
+  defp contract_for(run_spec) do
+    contract_lock =
+      ContractLock
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(ContractEvolution.contract_lock_sha256(&1) == run_spec.contract_lock_sha256))
+
+    agent_brief = find_by_id(AgentBrief, contract_lock && contract_lock.agent_brief_id)
+
+    test_pack =
+      TestPack
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(
+        &(&1.slice_id == run_spec.slice_id and &1.test_pack_sha256 == run_spec.test_pack_sha256)
+      )
+
+    %{agent_brief: agent_brief, contract_lock: contract_lock, test_pack: test_pack}
+  end
+
+  defp diff_policy_for(slice_id) do
+    slice = get_by_id!(Slice, slice_id)
+
+    find_by_id(DiffPolicy, slice.diff_policy_id) ||
+      DiffPolicy
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.slice_id == slice_id))
+  end
+
+  defp artifacts_for(run_attempt_id) do
+    Artifact
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.run_attempt_id == run_attempt_id))
+  end
+
+  defp find_by_id(_resource, nil), do: nil
+
+  defp find_by_id(resource, id) do
+    resource
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(&(&1.id == id))
+  end
+
+  defp get_by_id!(resource, id) do
+    find_by_id(resource, id) ||
+      raise ArgumentError, "#{inspect(resource)} #{id} was not found"
   end
 
   defp finalize_gate!(gate, run_spec, run_attempt, opts) do
@@ -167,6 +312,60 @@ defmodule Conveyor.Planning.SerialDriver do
 
   defp default_finalize_gate!(_gate, _run_spec, run_attempt, _opts) do
     %{run_attempt: run_attempt}
+  end
+
+  defp advance_workspace_base!(run_spec, slice_key, finalization, opts) do
+    case Keyword.get(opts, :advance_workspace_base) do
+      fun when is_function(fun, 3) ->
+        fun.(run_spec, slice_key, finalization)
+
+      false ->
+        :ok
+
+      nil ->
+        default_advance_workspace_base!(run_spec, slice_key)
+    end
+  end
+
+  defp default_advance_workspace_base!(run_spec, slice_key) do
+    case workspace_path(run_spec) do
+      nil ->
+        :ok
+
+      workspace_path ->
+        commit_workspace_changes!(workspace_path, slice_key)
+    end
+  end
+
+  defp workspace_path(run_spec) do
+    run_spec
+    |> value(:station_plan, %{})
+    |> list(:stations)
+    |> Enum.find(&(value(&1, :key) == "implement"))
+    |> value(:input, %{})
+    |> value(:workspace_path)
+  end
+
+  defp commit_workspace_changes!(workspace_path, slice_key) do
+    case git!(workspace_path, ["status", "--porcelain"]) do
+      "" ->
+        :ok
+
+      _dirty ->
+        git!(workspace_path, ["add", "-A"])
+
+        git!(workspace_path, [
+          "-c",
+          "user.email=conveyor@example.invalid",
+          "-c",
+          "user.name=Conveyor Serial Driver",
+          "commit",
+          "-m",
+          "conveyor: accept #{slice_key}"
+        ])
+
+        :ok
+    end
   end
 
   defp topo_order(work_graph, selected_slice_ids) do
@@ -278,6 +477,13 @@ defmodule Conveyor.Planning.SerialDriver do
   defp stringify_nested(value) when is_map(value), do: stringify_keys(value)
   defp stringify_nested(value) when is_list(value), do: Enum.map(value, &stringify_nested/1)
   defp stringify_nested(value), do: value
+
+  defp git!(workspace_path, args) do
+    case System.cmd("git", ["-C", workspace_path | args], stderr_to_stdout: true) do
+      {output, 0} -> String.trim(output)
+      {output, status} -> raise "git #{Enum.join(args, " ")} failed (#{status}): #{output}"
+    end
+  end
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)
 end

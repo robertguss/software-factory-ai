@@ -11,6 +11,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
   alias Conveyor.Factory.{
     AgentBrief,
     ContractLock,
+    DiffPolicy,
     Epic,
     Plan,
     Project,
@@ -38,7 +39,12 @@ defmodule Conveyor.Planning.RunSpecAssembler do
   def assemble!(%Slice{} = slice, opts) do
     work_graph = Keyword.fetch!(opts, :work_graph)
     context = context_for!(slice)
-    contract = ensure_contract_ready!(slice, context, work_graph, opts)
+
+    contract =
+      slice
+      |> ensure_contract_ready!(context, work_graph, opts)
+      |> Map.put(:diff_policy, ensure_diff_policy!(slice, opts))
+
     workspace_path = Keyword.get(opts, :workspace_path, context.project.local_path)
     base_commit = Keyword.get_lazy(opts, :base_commit, fn -> git_head!(workspace_path) end)
     attempt_no = Keyword.get(opts, :attempt_no, 1)
@@ -168,7 +174,10 @@ defmodule Conveyor.Planning.RunSpecAssembler do
         }),
       policy_sha256:
         Keyword.get_lazy(opts, :policy_sha256, fn -> policy_sha256(contract_lock) end),
-      diff_policy_sha256: Keyword.get(opts, :diff_policy_sha256, digest("diff-policy")),
+      diff_policy_sha256:
+        Keyword.get_lazy(opts, :diff_policy_sha256, fn ->
+          diff_policy_sha256(contract.diff_policy)
+        end),
       test_pack_sha256:
         Keyword.get_lazy(opts, :test_pack_sha256, fn -> test_pack_sha256(test_pack) end),
       station_plan: station_plan,
@@ -212,6 +221,50 @@ defmodule Conveyor.Planning.RunSpecAssembler do
       _missing ->
         materialize_contract!(slice, context, work_graph, opts)
     end
+  end
+
+  defp ensure_diff_policy!(slice, opts) do
+    case Keyword.get(opts, :diff_policy) do
+      %DiffPolicy{} = diff_policy ->
+        diff_policy
+
+      nil ->
+        latest_diff_policy(slice) || create_default_diff_policy!(slice)
+    end
+  end
+
+  defp latest_diff_policy(%Slice{diff_policy_id: diff_policy_id})
+       when is_binary(diff_policy_id) do
+    get_by_id!(diff_policy_id, DiffPolicy)
+  end
+
+  defp latest_diff_policy(%Slice{id: slice_id}) do
+    DiffPolicy
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.slice_id == slice_id))
+    |> List.first()
+  end
+
+  defp create_default_diff_policy!(%Slice{} = slice) do
+    diff_policy =
+      Ash.create!(
+        DiffPolicy,
+        %{
+          slice_id: slice.id,
+          allowed_path_globs: slice.likely_files,
+          protected_path_globs: locked_test_paths(slice),
+          max_files_changed: max(length(slice.likely_files), 1),
+          dependency_changes_allowed: false,
+          migrations_allowed: false,
+          generated_files_allowed: false,
+          public_api_changes_allowed: false,
+          notes: "Generated from slice likely_files during RunSpec assembly."
+        },
+        domain: Factory
+      )
+
+    Ash.update!(slice, %{diff_policy_id: diff_policy.id}, domain: Factory)
+    diff_policy
   end
 
   defp ready_contract!(%Readiness.Result{status: :ready}, slice, _context, _work_graph, _opts),
@@ -397,10 +450,11 @@ defmodule Conveyor.Planning.RunSpecAssembler do
       agent_brief_id: agent_brief.id,
       plan_contract_sha256: context.plan.contract_sha256,
       brief_sha256: agent_brief.contract_sha256,
-      acceptance_criteria_sha256: ContractEvolution.digest_value(spec.acceptance_criteria),
-      required_tests_sha256: ContractEvolution.digest_value(spec.required_tests),
+      acceptance_criteria_sha256: ContractEvolution.digest_value(agent_brief.acceptance_criteria),
+      required_tests_sha256: ContractEvolution.digest_value(agent_brief.required_tests),
       test_pack_sha256: test_pack.test_pack_sha256,
-      verification_commands_sha256: ContractEvolution.digest_value(spec.verification_commands),
+      verification_commands_sha256:
+        ContractEvolution.digest_value(agent_brief.verification_commands),
       agents_md_sha256: agents_md_sha256(context.project.local_path),
       policy_sha256: ContractEvolution.digest_value(policy_contract(spec)),
       protected_path_globs: protected_path_globs(spec),
@@ -527,10 +581,32 @@ defmodule Conveyor.Planning.RunSpecAssembler do
   end
 
   defp protected_path_globs(spec) do
-    (spec.likely_files ++ Enum.map(spec.required_tests, &source_ref(&1["ref"])))
+    spec.required_tests
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.map(&source_ref(&1["ref"]))
     |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.uniq()
     |> Enum.sort()
+  end
+
+  defp locked_test_paths(%Slice{} = slice) do
+    slice.likely_files
+    |> Enum.filter(&String.starts_with?(&1, "test"))
+    |> Enum.sort()
+  end
+
+  defp diff_policy_sha256(%DiffPolicy{} = diff_policy) do
+    ContractEvolution.digest_value(%{
+      "allowed_path_globs" => diff_policy.allowed_path_globs,
+      "protected_path_globs" => diff_policy.protected_path_globs,
+      "max_files_changed" => diff_policy.max_files_changed,
+      "max_lines_added" => diff_policy.max_lines_added,
+      "max_lines_deleted" => diff_policy.max_lines_deleted,
+      "dependency_changes_allowed" => diff_policy.dependency_changes_allowed,
+      "migrations_allowed" => diff_policy.migrations_allowed,
+      "generated_files_allowed" => diff_policy.generated_files_allowed,
+      "public_api_changes_allowed" => diff_policy.public_api_changes_allowed
+    })
   end
 
   defp policy_contract(spec) do

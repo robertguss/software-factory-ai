@@ -578,9 +578,16 @@ defmodule Conveyor.Station do
       sensitivity: Map.get(artifact, :sensitivity, Map.get(artifact, "sensitivity", :internal))
     }
 
-    case find_one(Artifact, &(&1.sha256 == attrs.sha256 and &1.size_bytes == attrs.size_bytes)) do
-      nil -> Ash.create!(Artifact, attrs, domain: Factory, return_notifications?: true)
-      existing -> {existing, []}
+    case find_one(
+           Artifact,
+           &(&1.run_attempt_id == run_attempt.id and
+               &1.projection_path == attrs.projection_path)
+         ) do
+      nil ->
+        Ash.create!(Artifact, attrs, domain: Factory, return_notifications?: true)
+
+      existing ->
+        Ash.update!(existing, attrs, domain: Factory, return_notifications?: true)
     end
   end
 

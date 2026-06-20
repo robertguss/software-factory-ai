@@ -31,6 +31,15 @@ defmodule Conveyor.PlanningSerialDriverTest do
         finalize_gate: fn gate, run_spec, attempt ->
           send(send_to, {:finalize, run_spec.slice_key, gate.passed?})
           %{run_attempt: Map.put(attempt, :outcome, :accepted)}
+        end,
+        advance_workspace_base: fn run_spec, slice_key, finalization ->
+          send(
+            send_to,
+            {:advance_workspace_base, run_spec.slice_key, slice_key,
+             finalization.run_attempt.outcome}
+          )
+
+          :ok
         end
       )
 
@@ -45,6 +54,7 @@ defmodule Conveyor.PlanningSerialDriverTest do
     assert_received {:run_slice, "SLICE-001"}
     assert_received {:gate, "SLICE-001", "attempt:SLICE-001", :succeeded}
     assert_received {:finalize, "SLICE-001", true}
+    assert_received {:advance_workspace_base, "SLICE-001", "SLICE-001", :accepted}
   end
 
   test "halts serial execution at the first failed gate" do
@@ -76,6 +86,10 @@ defmodule Conveyor.PlanningSerialDriverTest do
 
           %{passed?: false}, _run_spec, attempt ->
             %{run_attempt: Map.put(attempt, :outcome, :needs_rework)}
+        end,
+        advance_workspace_base: fn run_spec, slice_key, _finalization ->
+          send(self(), {:advance_workspace_base, run_spec.slice_key, slice_key})
+          :ok
         end
       )
 
@@ -83,6 +97,8 @@ defmodule Conveyor.PlanningSerialDriverTest do
     assert Enum.map(result.events, & &1["slice_id"]) == ["SLICE-001", "SLICE-002"]
     assert List.last(result.events)["status"] == "parked"
     assert List.last(result.events)["findings"] == ["acceptance_locked_failed"]
+    assert_received {:advance_workspace_base, "SLICE-001", "SLICE-001"}
+    refute_received {:advance_workspace_base, "SLICE-002", "SLICE-002"}
   end
 
   defp work_graph do
