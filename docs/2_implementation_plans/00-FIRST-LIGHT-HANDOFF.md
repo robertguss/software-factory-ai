@@ -276,10 +276,11 @@ against.
 `test/conveyor/eval/beads_insight_golden_thread_test.exs` (`run_status: :succeeded`,
 `verification: "passed"`, `gate_passed: true`); the `tasks_service` regression
 anchor stays green and the gate discriminates (known-good PASS, mutants FAIL).
-**▶ NEXT:** (1) **M4 discrimination on Beads Insight** — add a behavioral mutant
-to `samples/beads_insight/.conveyor/canary/mutants.json` and assert it FAILS the
-gate (confirms beads_insight's own gate discriminates, not just tasks_service's).
-(2) **M1b productionize** — `Conveyor.Stations.*` + `RunSpecAssembler` + per-slice
+**▶ NEXT:** (1) ✅ **M4 DONE (2026-06-20)** — 3 behavioral mutants
+(`ready_includes_blocked`/AC-003, `cycles_missed`/AC-005, `epics_miscount`/AC-007);
+the reference PASSES and all 3 mutants FAIL the gate (`false_pass_rate=0`) on the
+real 7-slice plan via `beads_insight_golden_thread_test.exs`. The gate
+discriminates on Beads Insight's own ACs. (2) **M1b productionize** — `Conveyor.Stations.*` + `RunSpecAssembler` + per-slice
 ContractLock/gate-scoping (§8.1–8.4) so a SINGLE slice runs against its own
 contract. (3) **M2** — `Conveyor.Planning.SerialDriver` over all 7 slices.
 (4) loop-closers (AttemptLoop + Rework Synthesizer, §9). (5) swap `AgentStation`'s
