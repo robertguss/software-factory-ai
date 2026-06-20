@@ -2,7 +2,7 @@ defmodule Conveyor.Eval.LiftDuelTest do
   use Conveyor.DataCase, async: false
 
   alias Conveyor.AgentRunner.ReferenceSolution
-  alias Conveyor.Eval.{BridgeFixtures, LiftDuel, Scorecard, Schema}
+  alias Conveyor.Eval.{BridgeFixtures, LiftDuel, Schema, Scorecard}
 
   @moduletag :eval
   @moduletag timeout: 600_000

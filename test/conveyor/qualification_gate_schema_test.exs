@@ -45,8 +45,8 @@ defmodule Conveyor.QualificationGateSchemaTest do
   defp assert_contract("conveyor.qualification_grant@1", valid) do
     assert valid["status"] in ["active", "expired", "revoked", "superseded"]
     assert valid["max_autonomy"] == "local_dev"
-    assert length(valid["success_rate_bands"]) > 0
-    assert length(valid["invalidation_triggers"]) > 0
+    assert valid["success_rate_bands"] != []
+    assert valid["invalidation_triggers"] != []
   end
 
   defp assert_contract("conveyor.qualification_scope_lattice@1", valid) do
@@ -67,8 +67,8 @@ defmodule Conveyor.QualificationGateSchemaTest do
   end
 
   defp assert_contract("conveyor.qualification_impact@1", valid) do
-    assert length(valid["changed_subject_refs"]) > 0
-    assert length(valid["required_requalification_case_ids"]) > 0
+    assert valid["changed_subject_refs"] != []
+    assert valid["required_requalification_case_ids"] != []
     assert valid["report_ref"] != nil
   end
 

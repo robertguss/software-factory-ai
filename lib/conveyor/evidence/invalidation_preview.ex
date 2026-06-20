@@ -96,9 +96,7 @@ defmodule Conveyor.Evidence.InvalidationPreview do
 
   defp artifact_input_impacts(artifact_inputs, changed_subjects) do
     artifact_inputs
-    |> Enum.filter(
-      &(subject_key(value(&1, :input_subject_kind), value(&1, :input_subject_id)) in changed_subjects)
-    )
+    |> Enum.filter(&artifact_input_changed?(&1, changed_subjects))
     |> Enum.reject(&(value(&1, :invalidation_policy) == "ignore_after_capture"))
     |> Enum.map(fn artifact_input ->
       %{
@@ -107,6 +105,13 @@ defmodule Conveyor.Evidence.InvalidationPreview do
         "reason" => "artifact_input_changed"
       }
     end)
+  end
+
+  defp artifact_input_changed?(artifact_input, changed_subjects) do
+    subject_key(
+      value(artifact_input, :input_subject_kind),
+      value(artifact_input, :input_subject_id)
+    ) in changed_subjects
   end
 
   defp interface_binding_impacts(interface_bindings, changed_subjects) do

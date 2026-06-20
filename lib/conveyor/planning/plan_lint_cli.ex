@@ -58,11 +58,13 @@ defmodule Conveyor.Planning.PlanLintCLI do
 
     fence
     |> Regex.scan(markdown, capture: :all_names)
-    |> Enum.find_value(:error, fn [body, info] ->
-      if info =~ "conveyor-plan@1" do
-        {:ok, body, if(info =~ "json", do: :json, else: :yaml)}
-      end
-    end)
+    |> Enum.find_value(:error, &fenced_contract_match/1)
+  end
+
+  defp fenced_contract_match([body, info]) do
+    if info =~ "conveyor-plan@1" do
+      {:ok, body, if(info =~ "json", do: :json, else: :yaml)}
+    end
   end
 
   defp decode(content, :json) do

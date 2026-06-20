@@ -10,7 +10,15 @@ import Config
 config :conveyor,
   ash_domains: [Conveyor.Factory],
   ecto_repos: [Conveyor.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  station_modules: %{
+    "context_scout" => Conveyor.Stations.ContextScout,
+    "baseline_health" => Conveyor.Stations.BaselineHealth,
+    "acceptance_calibration" => Conveyor.Stations.AcceptanceCalibration,
+    "implement" => Conveyor.Stations.Implementer,
+    "verify" => Conveyor.Stations.Verify,
+    "record_evidence" => Conveyor.Stations.RecordEvidence
+  }
 
 config :conveyor, Oban,
   repo: Conveyor.Repo,

@@ -41,23 +41,7 @@ defmodule Conveyor.Statistics do
   def clopper_pearson_interval(successes, trials, confidence)
       when is_integer(successes) and is_integer(trials) and successes >= 0 and
              successes <= trials and is_number(confidence) and confidence > 0 and confidence < 1 do
-    if trials == 0 do
-      {0.0, 1.0}
-    else
-      alpha = 1.0 - confidence
-
-      lower =
-        if successes == 0,
-          do: 0.0,
-          else: beta_quantile(alpha / 2.0, successes, trials - successes + 1)
-
-      upper =
-        if successes == trials,
-          do: 1.0,
-          else: beta_quantile(1.0 - alpha / 2.0, successes + 1, trials - successes)
-
-      {lower, upper}
-    end
+    interval_bounds(successes, trials, 1.0 - confidence)
   end
 
   @doc """
@@ -65,7 +49,8 @@ defmodule Conveyor.Statistics do
   Monotonically increasing in `x`, which the quantile inversion relies on.
   """
   @spec regularized_incomplete_beta(float(), number(), number()) :: float()
-  def regularized_incomplete_beta(x, a, b) when is_number(a) and is_number(b) and a > 0 and b > 0 do
+  def regularized_incomplete_beta(x, a, b)
+      when is_number(a) and is_number(b) and a > 0 and b > 0 do
     cond do
       x <= 0.0 ->
         0.0
@@ -97,6 +82,23 @@ defmodule Conveyor.Statistics do
     end
   end
 
+  defp interval_bounds(_successes, 0, _alpha), do: {0.0, 1.0}
+
+  defp interval_bounds(0, trials, alpha) do
+    {0.0, beta_quantile(1.0 - alpha / 2.0, 1, trials)}
+  end
+
+  defp interval_bounds(successes, successes, alpha) do
+    {beta_quantile(alpha / 2.0, successes, 1), 1.0}
+  end
+
+  defp interval_bounds(successes, trials, alpha) do
+    {
+      beta_quantile(alpha / 2.0, successes, trials - successes + 1),
+      beta_quantile(1.0 - alpha / 2.0, successes + 1, trials - successes)
+    }
+  end
+
   defp bisect(_p, _a, _b, lo, hi, 0), do: (lo + hi) / 2.0
 
   defp bisect(p, a, b, lo, hi, iterations) do
@@ -115,13 +117,35 @@ defmodule Conveyor.Statistics do
     qap = a + 1.0
     qam = a - 1.0
     d = 1.0 / clamp(1.0 - qab * x / qap)
-    betacf_step(x, a, b, qab, qap, qam, 1.0, d, d, 1)
+
+    betacf_step(%{
+      x: x,
+      a: a,
+      b: b,
+      qab: qab,
+      qap: qap,
+      qam: qam,
+      c: 1.0,
+      d: d,
+      h: d,
+      m: 1
+    })
   end
 
-  defp betacf_step(_x, _a, _b, _qab, _qap, _qam, _c, _d, h, m) when m > @betacf_max_iterations,
-    do: h
+  defp betacf_step(%{h: h, m: m}) when m > @betacf_max_iterations, do: h
 
-  defp betacf_step(x, a, b, qab, qap, qam, c, d, h, m) do
+  defp betacf_step(%{
+         x: x,
+         a: a,
+         b: b,
+         qab: qab,
+         qap: qap,
+         qam: qam,
+         c: c,
+         d: d,
+         h: h,
+         m: m
+       }) do
     m2 = 2 * m
 
     even = m * (b - m) * x / ((qam + m2) * (a + m2))
@@ -138,7 +162,18 @@ defmodule Conveyor.Statistics do
     if abs(delta - 1.0) < @eps do
       h_odd
     else
-      betacf_step(x, a, b, qab, qap, qam, c_odd, d_odd, h_odd, m + 1)
+      betacf_step(%{
+        x: x,
+        a: a,
+        b: b,
+        qab: qab,
+        qap: qap,
+        qam: qam,
+        c: c_odd,
+        d: d_odd,
+        h: h_odd,
+        m: m + 1
+      })
     end
   end
 

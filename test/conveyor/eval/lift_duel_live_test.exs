@@ -73,8 +73,8 @@ defmodule Conveyor.Eval.LiftDuelLiveTest do
     usage_path = LiftDuel.write_usage!(report)
 
     IO.puts("\n=== R5 LIFT DUEL (real Codex, reasoning=#{@reasoning}) ===")
-    IO.inspect(report["lift"], label: "lift")
-    for arm <- [treatment, vanilla], do: IO.inspect(arm_summary(arm), label: arm["arm"])
+    IO.puts("lift: #{inspect(report["lift"])}")
+    for arm <- [treatment, vanilla], do: IO.puts("#{arm["arm"]}: #{inspect(arm_summary(arm))}")
     IO.puts("seed written: #{path}\n")
 
     assert length(cells) == 3

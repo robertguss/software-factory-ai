@@ -92,7 +92,7 @@ defmodule Conveyor.Eval.BeadsInsightCodexLiveTest do
     report = GoldenThread.run_pipeline(fixture)
 
     IO.puts("\n========== CODEX LIVE RUN — Beads Insight ==========")
-    IO.inspect(report, label: "report", limit: :infinity)
+    IO.puts("report: #{inspect(report, limit: :infinity)}")
 
     assert report.run_status == :succeeded,
            "the loop must drive agent -> verify -> gate without crashing; findings: #{inspect(report.findings)}"
@@ -103,7 +103,9 @@ defmodule Conveyor.Eval.BeadsInsightCodexLiveTest do
     ws = fixture.workspace.path
     base = fixture.base_commit
     System.cmd("git", ["-C", ws, "add", "--intent-to-add", "--", "."], stderr_to_stdout: true)
-    {names, 0} = System.cmd("git", ["-C", ws, "diff", "--name-only", base, "--"], stderr_to_stdout: true)
+
+    {names, 0} =
+      System.cmd("git", ["-C", ws, "diff", "--name-only", base, "--"], stderr_to_stdout: true)
 
     changed =
       names
@@ -113,7 +115,7 @@ defmodule Conveyor.Eval.BeadsInsightCodexLiveTest do
             String.ends_with?(&1, ".pyc") or String.ends_with?(&1, ".xml"))
       )
 
-    IO.inspect(changed, label: "codex changed files (filtered)")
+    IO.puts("codex changed files (filtered): #{inspect(changed)}")
 
     out_of_scope =
       Enum.reject(changed, fn f ->
@@ -128,7 +130,9 @@ defmodule Conveyor.Eval.BeadsInsightCodexLiveTest do
     assert "src/br_insight/loader.py" in changed,
            "expected Codex to actually implement the loader (not a no-op); changed: #{inspect(changed)}"
 
-    IO.puts(">>> DIFF-SCOPE OK — all #{length(changed)} source changes are under src/br_insight/ (model.py untouched). Codex implemented; it did not tamper.")
+    IO.puts(
+      ">>> DIFF-SCOPE OK — all #{length(changed)} source changes are under src/br_insight/ (model.py untouched). Codex implemented; it did not tamper."
+    )
 
     if report.gate_passed do
       IO.puts(">>> 🎉 THE FACTORY BUILT IT — Codex's diff PASSED the gate on the real plan.")
