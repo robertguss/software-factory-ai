@@ -176,7 +176,7 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
     retry_run_spec =
       Ash.create!(RunSpec, run_spec_attrs(slice.id, "run-spec-2", 2), domain: Factory)
 
-    assert_raise ArgumentError, ~r/failed RunAttempt/, fn ->
+    assert_raise ArgumentError, ~r/failed or needs_rework RunAttempt/, fn ->
       RunAttemptLifecycle.create_retry_attempt!(attempt, retry_run_spec)
     end
 
@@ -195,6 +195,33 @@ defmodule Conveyor.Factory.ExecutionRunResourcesTest do
     assert_raise ArgumentError, ~r/attempt_no must be 2/, fn ->
       RunAttemptLifecycle.create_retry_attempt!(failed, wrong_number_run_spec)
     end
+  end
+
+  test "retry creation accepts a needs-rework attempt", %{run_spec: run_spec, slice: slice} do
+    attempt =
+      Ash.create!(RunAttempt, run_attempt_attrs(slice.id, run_spec.id, 1), domain: Factory)
+
+    needs_rework =
+      attempt
+      |> RunAttemptLifecycle.transition!(:start, actor: "runner")
+      |> RunAttemptLifecycle.transition!(:record_evidence, actor: "runner")
+      |> RunAttemptLifecycle.transition!(:request_rework, actor: "gate")
+
+    retry_run_spec =
+      Ash.create!(RunSpec, run_spec_attrs(slice.id, "run-spec-2", 2), domain: Factory)
+
+    second_attempt =
+      RunAttemptLifecycle.create_retry_attempt!(needs_rework, retry_run_spec,
+        actor: "orchestrator",
+        reason: "retry gate rework"
+      )
+
+    assert second_attempt.attempt_no == 2
+    assert second_attempt.status == :planned
+
+    assert [%{"previous_attempt_no" => 1, "attempt_no" => 2}] =
+             run_attempt_events(second_attempt.id)
+             |> Enum.map(& &1.payload)
   end
 
   test "agent sessions record untrusted adapter output", %{run_spec: run_spec, slice: slice} do

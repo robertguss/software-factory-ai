@@ -22,7 +22,18 @@ defmodule Conveyor.Factory.InstructionSource do
 
     attribute :source_kind, :atom do
       allow_nil? false
-      constraints one_of: [:system, :project, :plan, :brief, :agents_md, :repo_file, :tool_output]
+
+      constraints one_of: [
+                    :system,
+                    :project,
+                    :plan,
+                    :brief,
+                    :prior_findings,
+                    :agents_md,
+                    :repo_file,
+                    :tool_output
+                  ]
+
       public? true
     end
 
