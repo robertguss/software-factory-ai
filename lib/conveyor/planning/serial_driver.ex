@@ -15,6 +15,13 @@ defmodule Conveyor.Planning.SerialDriver do
   defmodule Result do
     @moduledoc "Serial driver execution result."
 
+    @type t :: %__MODULE__{
+            status: :passed | :halted,
+            order: [String.t()],
+            events: [map()],
+            report: map()
+          }
+
     @enforce_keys [:status, :order, :events, :report]
     defstruct [:status, :order, :events, :report]
   end

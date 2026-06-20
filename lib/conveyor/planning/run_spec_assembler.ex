@@ -589,17 +589,13 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     |> Kernel.+(1)
   end
 
-  defp contract_lock_sha256(nil, plan), do: plan.contract_sha256
-
   defp contract_lock_sha256(%ContractLock{} = lock, _plan) do
     ContractEvolution.contract_lock_sha256(lock)
   end
 
   defp policy_sha256(%ContractLock{policy_sha256: sha256}), do: sha256
-  defp policy_sha256(nil), do: digest("policy")
 
   defp test_pack_sha256(%TestPack{test_pack_sha256: sha256}), do: sha256
-  defp test_pack_sha256(nil), do: digest("test-pack")
 
   defp run_spec_digest(slice, work_graph, base_commit, attempt_no) do
     CanonicalJson.digest(%{

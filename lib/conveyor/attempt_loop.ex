@@ -25,6 +25,12 @@ defmodule Conveyor.AttemptLoop do
   defmodule Result do
     @moduledoc false
 
+    @type t :: %__MODULE__{
+            status: atom(),
+            attempts: [struct()],
+            events: [map()]
+          }
+
     @enforce_keys [:status, :attempts, :events]
     defstruct [:status, :attempts, :events]
   end

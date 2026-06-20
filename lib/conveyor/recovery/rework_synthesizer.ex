@@ -11,6 +11,12 @@ defmodule Conveyor.Recovery.ReworkSynthesizer do
   defmodule Result do
     @moduledoc false
 
+    @type t :: %__MODULE__{
+            agent_brief: struct(),
+            prior_brief: struct(),
+            prior_findings: map()
+          }
+
     @enforce_keys [:agent_brief, :prior_brief, :prior_findings]
     defstruct [:agent_brief, :prior_brief, :prior_findings]
   end
