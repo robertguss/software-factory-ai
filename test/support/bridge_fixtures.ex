@@ -235,7 +235,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
     %{base | "stations" => stations}
   end
 
-  defp git_sample_workspace!(label, break_with, sample_path \\ @sample) do
+  defp git_sample_workspace!(label, break_with, sample_path) do
     path = Conveyor.FactoryFixtures.temp_dir!(label)
 
     {_, 0} =
