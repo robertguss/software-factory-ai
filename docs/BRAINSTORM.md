@@ -157,6 +157,34 @@ backbone.**
     are **locked during planning** (pre-code); red-team is a _different_ model.
     (Same boundary as Conveyor's "deterministic owns validation".)
 
+- **ADR-23–27 — RAW-LEVERAGE PROGRAM (accepted 2026-06-20; epic
+  `software-factory-ai-dr1m`).** Five decisions that stop building verification
+  and instead **activate the dormant verifier** (IntegritySentinel, the
+  discarded Retrospective/failure-taxonomy, `PlanAmendments.propose`, the replay
+  surface, the contract-forge/critic) and aim it at the operator's raw shipping
+  leverage. Full write-up: `docs/RADICAL-LEVERAGE-IDEAS.md`. Three reframes: the
+  gate is ternary (pass/fail/**abstain**); the verifier is an engine, not a
+  product; planning belongs **inside** the factory.
+  - **ADR-23 — Ternary gate verdict + calibrated abstention.** Gate emits
+    pass/fail/abstain; a calibrated `TrustScore` fuses already-computed
+    integrity/calibration/replay/corpus signals; abstain is fail-closed and
+    routes to the human. (Keystone; extends ADR-02's `not_assessed` precedent.)
+  - **ADR-24 — Conductor-mediated in-loop verification.** The implementer may
+    **read** a scoped subset of the deterministic gate mid-flight (never the
+    mutation/red-team hidden oracle); verdicts stay conductor-owned. Pass@1
+    lever; clarifies ADR-06/07.
+  - **ADR-25 — Bounded speculative parallelism per slice.** Amends **Law 27**:
+    width > 1 *within* one slice (race N candidates, gate + `TrustScore` pick the
+    winner); cross-slice stays width-1 / manual-merge; cost-governed.
+  - **ADR-26 — Autonomous plan amendment from verification failure.** A
+    contract-defect failure auto-calls `PlanAmendments.propose` (human-approved,
+    selective re-derive); separation of duties forbids the implementer relaxing
+    its own contract; preserves ADR-20/22.
+  - **ADR-27 — In-factory plan authoring (Plan Foundry).** Overturns
+    **decision 6c**: intent paragraph → factory-drafted plan → 10-lens critic →
+    interrogate on genuine ambiguity → human approval; same `handoff_ready` bar;
+    decision 6d and ADR-19 preserved.
+
 ## 5. Open questions (working stack, one at a time)
 
 1. ~~Autonomy boundary~~ → DECIDED (truly autonomous, staged).
@@ -175,7 +203,9 @@ backbone.**
    Open sub-fork: human involvement depth in planning. (active) 6b. ~~Human
    involvement depth~~ → DECIDED: **#1 intent author + epic-level approver**,
    evolve toward risk-tiered (#4) as trust grows. 6c. ~~Planning location~~ →
-   DECIDED: **multi-model planning ritual is EXTERNAL/manual for v1.** Factory
+   DECIDED: **multi-model planning ritual is EXTERNAL/manual for v1.**
+  _(SUPERSEDED 2026-06-20 by ADR-27: planning moves INTO the factory — intent →
+  factory-drafted plan → critic → human approval.)_ Factory
    input = a finished hybrid plan. Factory scope v1 = ingest → decompose →
    contracts → execute. (Pull planning in later = just more agents.) 6d.
    ~~Testing/TDD~~ → DECIDED design: **Test Architect role** (plan-phase agent,
