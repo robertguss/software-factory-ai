@@ -195,35 +195,39 @@ defmodule Conveyor.Planning.RunSpecAssembler do
 
   defp ensure_contract_ready!(slice, context, work_graph, opts) do
     if Keyword.get(opts, :materialize_contract?, true) do
-      case latest_contract(slice.id) do
-        %{agent_brief: %AgentBrief{}, contract_lock: %ContractLock{}, test_pack: %TestPack{}} ->
-          :ok
-
-        _missing ->
-          materialize_contract!(slice, context, work_graph, opts)
-      end
-
-      case Readiness.check(slice, actor: Keyword.get(opts, :actor, "run-spec-assembler")) do
-        %Readiness.Result{status: :ready} ->
-          latest_contract!(slice.id)
-
-        %Readiness.Result{} ->
-          refreshed = materialize_contract!(slice, context, work_graph, opts)
-
-          case Readiness.check(slice,
-                 actor: Keyword.get(opts, :actor, "run-spec-assembler")
-               ) do
-            %Readiness.Result{status: :ready} ->
-              refreshed
-
-            %Readiness.Result{} = still_blocked ->
-              raise ArgumentError,
-                    "slice #{slice.id} is not ready: #{inspect(still_blocked.findings)}"
-          end
-      end
+      ensure_materialized_contract!(slice, context, work_graph, opts)
+      slice |> check_readiness(opts) |> ready_contract!(slice, context, work_graph, opts)
     else
       latest_contract!(slice.id)
     end
+  end
+
+  defp ensure_materialized_contract!(slice, context, work_graph, opts) do
+    case latest_contract(slice.id) do
+      %{agent_brief: %AgentBrief{}, contract_lock: %ContractLock{}, test_pack: %TestPack{}} ->
+        :ok
+
+      _missing ->
+        materialize_contract!(slice, context, work_graph, opts)
+    end
+  end
+
+  defp ready_contract!(%Readiness.Result{status: :ready}, slice, _context, _work_graph, _opts),
+    do: latest_contract!(slice.id)
+
+  defp ready_contract!(%Readiness.Result{}, slice, context, work_graph, opts) do
+    refreshed = materialize_contract!(slice, context, work_graph, opts)
+    slice |> check_readiness(opts) |> require_ready!(slice, refreshed)
+  end
+
+  defp require_ready!(%Readiness.Result{status: :ready}, _slice, contract), do: contract
+
+  defp require_ready!(%Readiness.Result{} = still_blocked, slice, _contract) do
+    raise ArgumentError, "slice #{slice.id} is not ready: #{inspect(still_blocked.findings)}"
+  end
+
+  defp check_readiness(slice, opts) do
+    Readiness.check(slice, actor: Keyword.get(opts, :actor, "run-spec-assembler"))
   end
 
   defp materialize_contract!(slice, context, work_graph, opts) do
@@ -484,22 +488,23 @@ defmodule Conveyor.Planning.RunSpecAssembler do
 
   defp command_spec(command, project) do
     %{
-      "key" => fetch(command, "key") || "verify",
+      "key" => fetch_or(command, "key", "verify"),
       "argv" => list(command, "argv"),
-      "cwd" => fetch(command, "cwd") || project.local_path,
-      "profile" => fetch(command, "profile") || "verify",
-      "required" => fetch(command, "required") != false,
-      "timeout_ms" => fetch(command, "timeout_ms") || 120_000,
-      "network" => fetch(command, "network") || "none",
+      "cwd" => fetch_or(command, "cwd", project.local_path),
+      "profile" => fetch_or(command, "profile", "verify"),
+      "required" => fetch_or(command, "required", true) != false,
+      "timeout_ms" => fetch_or(command, "timeout_ms", 120_000),
+      "network" => fetch_or(command, "network", "none"),
       "env_allowlist" => list(command, "env_allowlist"),
-      "output_limit_bytes" => fetch(command, "output_limit_bytes") || 2_000_000,
-      "repeat" => fetch(command, "repeat") || 1,
-      "flake_policy" => fetch(command, "flake_policy") || "fail_closed",
-      "infra_retry_policy" =>
-        fetch(command, "infra_retry_policy") || %{"max_retries" => 0, "retry_on" => []},
-      "result_format" => fetch(command, "result_format") || "junit"
+      "output_limit_bytes" => fetch_or(command, "output_limit_bytes", 2_000_000),
+      "repeat" => fetch_or(command, "repeat", 1),
+      "flake_policy" => fetch_or(command, "flake_policy", "fail_closed"),
+      "infra_retry_policy" => fetch_or(command, "infra_retry_policy", default_retry_policy()),
+      "result_format" => fetch_or(command, "result_format", "junit")
     }
   end
+
+  defp default_retry_policy, do: %{"max_retries" => 0, "retry_on" => []}
 
   defp test_pack_manifest(spec, project, version) do
     %{
@@ -660,10 +665,24 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     end
   end
 
-  defp fetch(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, String.to_atom(key))
+  defp fetch(map, key) when is_map(map) do
+    atom_key = String.to_atom(key)
+
+    cond do
+      Map.has_key?(map, key) -> Map.fetch!(map, key)
+      Map.has_key?(map, atom_key) -> Map.fetch!(map, atom_key)
+      true -> nil
+    end
+  end
 
   defp fetch(_map, _key), do: nil
+
+  defp fetch_or(map, key, default) do
+    case fetch(map, key) do
+      nil -> default
+      value -> value
+    end
+  end
 
   defp list(map, key) do
     case fetch(map, key) do

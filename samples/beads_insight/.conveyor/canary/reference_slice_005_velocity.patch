@@ -1,0 +1,91 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/velocity.py b/samples/beads_insight/src/br_insight/commands/velocity.py
+index 3c6af16..f0251f8 100644
+--- a/samples/beads_insight/src/br_insight/commands/velocity.py
++++ b/samples/beads_insight/src/br_insight/commands/velocity.py
+@@ -1,4 +1,4 @@
+-"""SLICE-005 (STUB): the ``velocity`` command.
++"""SLICE-005: the ``velocity`` command.
+
+ Count issues whose ``closed_at`` falls within each of the trailing ``K`` weekly
+ half-open UTC buckets ``[start, end)`` ending at ``--as-of`` (default ``K=4``).
+@@ -8,13 +8,75 @@ boundary lands in the newer bucket (start-inclusive).
+
+ from __future__ import annotations
+
+-from datetime import datetime
++from datetime import datetime, timedelta, timezone
+
++from ..clock import parse_as_of
+ from ..model import IssueGraph
++from ..report import build_envelope, format_as_of, to_json
+
+-__all__ = ["run"]
++__all__ = ["run", "weekly_buckets"]
+
++_WEEK = timedelta(weeks=1)
+
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str, weeks: int = 4) -> str:
+-    """Render weekly velocity buckets. STUB — implemented in SLICE-005."""
+-    raise NotImplementedError("velocity.run is implemented in SLICE-005")
++
++def _as_datetime(as_of) -> datetime:
++    """Coerce the injected clock (datetime or RFC-3339 string) to an aware UTC datetime.
++
++    The CLI passes a parsed :class:`datetime`; the tests pass the raw string. Either
++    way this stays a pure transform with no wall-clock read.
++    """
++    if isinstance(as_of, datetime):
++        return as_of.astimezone(timezone.utc)
++    return parse_as_of(as_of)
++
++
++def weekly_buckets(graph: IssueGraph, as_of, weeks: int = 4):
++    """Return the trailing ``weeks`` half-open weekly buckets, oldest -> newest.
++
++    Each bucket: ``{start, end, count}`` with ``start``/``end`` rendered as canonical
++    RFC-3339 UTC ``...Z`` strings and ``count`` the number of issues whose
++    ``closed_at`` lies in ``[start, end)``. Issues with null ``closed_at`` are
++    excluded; the end boundary (``as_of`` itself) is exclusive.
++    """
++    end = _as_datetime(as_of)
++
++    closed_times = [
++        issue.closed_at for issue in graph.issues.values() if issue.closed_at is not None
++    ]
++
++    buckets = []
++    for i in range(weeks):
++        # i == 0 is the OLDEST bucket; i == weeks-1 is the NEWEST (ending at `end`).
++        b_start = end - _WEEK * (weeks - i)
++        b_end = end - _WEEK * (weeks - 1 - i)
++        count = sum(1 for t in closed_times if b_start <= t < b_end)
++        buckets.append(
++            {
++                "start": format_as_of(b_start),
++                "end": format_as_of(b_end),
++                "count": count,
++            }
++        )
++    return buckets
++
++
++def render_markdown(graph: IssueGraph, as_of, weeks: int = 4) -> str:
++    """Render weekly velocity as a markdown section body (no trailing blank line)."""
++    buckets = weekly_buckets(graph, as_of, weeks)
++    lines = ["## Velocity", ""]
++    for b in buckets:
++        lines.append(f"- {b['start']} .. {b['end']}: {b['count']}")
++    return "\n".join(lines)
++
++
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str, weeks: int = 4) -> str:
++    """Render weekly velocity buckets."""
++    if fmt == "json":
++        envelope = build_envelope(
++            "velocity",
++            {"buckets": weekly_buckets(graph, as_of, weeks)},
++            generated_as_of=as_of,
++            source=source,
++        )
++        return to_json(envelope)
++    return render_markdown(graph, as_of, weeks) + "\n"

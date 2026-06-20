@@ -1,0 +1,64 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/digest.py b/samples/beads_insight/src/br_insight/commands/digest.py
+index 3c1b65b..1c886b0 100644
+--- a/samples/beads_insight/src/br_insight/commands/digest.py
++++ b/samples/beads_insight/src/br_insight/commands/digest.py
+@@ -1,4 +1,4 @@
+-"""SLICE-006 (STUB): the ``digest`` command.
++"""SLICE-006: the ``digest`` command.
+
+ Compose ``ready`` + ``cycles`` + ``epics`` + ``velocity`` into one markdown report
+ with a fixed section order. It is a pure function of (corpus, ``--as-of``) and is
+@@ -7,13 +7,48 @@ byte-stable across runs and processes.
+
+ from __future__ import annotations
+
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, format_as_of, to_json
++from . import cycles as cycles_cmd
++from . import epics as epics_cmd
++from . import ready as ready_cmd
++from . import velocity as velocity_cmd
+
+ __all__ = ["run"]
+
++# Fixed section order for the composed digest.
++_SECTION_ORDER = ("ready", "cycles", "epics", "velocity")
++
++
++def _render_markdown(graph: IssueGraph, as_of) -> str:
++    """Compose the full digest markdown document (deterministic, byte-stable)."""
++    title = f"# Beads Insight Digest — {format_as_of(as_of)}"
++    bodies = [
++        ready_cmd.render_markdown(graph),
++        cycles_cmd.render_markdown(graph),
++        epics_cmd.render_markdown(graph),
++        velocity_cmd.render_markdown(graph, as_of),
++    ]
++    # Title, then each section separated by a blank line; single trailing newline.
++    return title + "\n\n" + "\n\n".join(bodies) + "\n"
++
++
++def _render_json(graph: IssueGraph, as_of, source: str) -> str:
++    """Compose the digest JSON envelope; ``data.sections`` holds the four sub-reports."""
++    sections = [
++        {"kind": "ready", "ready": ready_cmd._rows(graph)},
++        {"kind": "cycles", "cycles": cycles_cmd._rows(graph)},
++        {"kind": "epics", "epics": epics_cmd.epic_rollups(graph)},
++        {"kind": "velocity", "buckets": velocity_cmd.weekly_buckets(graph, as_of)},
++    ]
++    envelope = build_envelope(
++        "digest", {"sections": sections}, generated_as_of=as_of, source=source
++    )
++    return to_json(envelope)
++
+
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the composed digest. STUB — implemented in SLICE-006."""
+-    raise NotImplementedError("digest.run is implemented in SLICE-006")
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str) -> str:
++    """Render the composed digest."""
++    if fmt == "json":
++        return _render_json(graph, as_of, source)
++    return _render_markdown(graph, as_of)

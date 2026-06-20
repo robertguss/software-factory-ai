@@ -1,0 +1,147 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/ready.py b/samples/beads_insight/src/br_insight/commands/ready.py
+index c866299..3f8652b 100644
+--- a/samples/beads_insight/src/br_insight/commands/ready.py
++++ b/samples/beads_insight/src/br_insight/commands/ready.py
+@@ -1,4 +1,4 @@
+-"""SLICE-002 (STUB): the ``ready`` command.
++"""SLICE-002: the ``ready`` command.
+
+ Ready := ``status == "open"`` AND every ``blocks`` edge into the issue originates
+ from a CLOSED issue. ``parent-child`` and ``related`` edges never gate readiness.
+@@ -7,13 +7,62 @@ Output is sorted by ``(priority asc, id asc)``.
+
+ from __future__ import annotations
+
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, to_json
++
++__all__ = ["run", "ready_issues"]
++
++
++def ready_issues(graph: IssueGraph):
++    """Return the ready issues sorted by ``(priority asc, id asc)``.
++
++    An issue is ready when it is ``open`` and every ``blocks`` edge pointing at it
++    originates from a ``closed`` issue. Parent-child and related edges never gate.
++    """
++    # Map each issue id -> the set of issue ids that block it (incoming blocks edges).
++    blockers: dict[str, set[str]] = {}
++    for src, dst in graph.blocks_edges:
++        blockers.setdefault(dst, set()).add(src)
++
++    ready = []
++    for issue in graph.issues.values():
++        if issue.status != "open":
++            continue
++        incoming = blockers.get(issue.id, set())
++        if all(
++            issue_id in graph.issues and graph.issues[issue_id].status == "closed"
++            for issue_id in incoming
++        ):
++            ready.append(issue)
++
++    ready.sort(key=lambda i: (i.priority, i.id))
++    return ready
++
++
++def _rows(graph: IssueGraph):
++    return [
++        {"id": issue.id, "priority": issue.priority, "title": issue.title}
++        for issue in ready_issues(graph)
++    ]
++
+
+-__all__ = ["run"]
++def render_markdown(graph: IssueGraph) -> str:
++    """Render the ready set as a markdown section body (no trailing blank line)."""
++    rows = _rows(graph)
++    lines = ["## Ready", ""]
++    if not rows:
++        lines.append("_No ready issues._")
++    else:
++        for row in rows:
++            lines.append(f"- [P{row['priority']}] {row['id']} — {row['title']}")
++    return "\n".join(lines)
+
+
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the ready set. STUB — implemented in SLICE-002."""
+-    raise NotImplementedError("ready.run is implemented in SLICE-002")
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str) -> str:
++    """Render the ready set."""
++    if fmt == "json":
++        envelope = build_envelope(
++            "ready", {"ready": _rows(graph)}, generated_as_of=as_of, source=source
++        )
++        return to_json(envelope)
++    return render_markdown(graph) + "\n"
+diff --git a/samples/beads_insight/src/br_insight/report.py b/samples/beads_insight/src/br_insight/report.py
+index a242d3c..4852815 100644
+--- a/samples/beads_insight/src/br_insight/report.py
++++ b/samples/beads_insight/src/br_insight/report.py
+@@ -1,4 +1,4 @@
+-"""SLICE-007 (STUB): the ``br_insight.report@1`` JSON envelope builder.
++"""SLICE-007: the ``br_insight.report@1`` JSON envelope builder.
+
+ Locked interface #2. ``--format json`` emits exactly this envelope::
+
+@@ -16,16 +16,52 @@ are stable across runs and processes.
+
+ from __future__ import annotations
+
+-from datetime import datetime
++import json
++from datetime import datetime, timezone
+
+-__all__ = ["SCHEMA_VERSION", "build_envelope"]
++__all__ = ["SCHEMA_VERSION", "build_envelope", "format_as_of", "to_json"]
+
+ SCHEMA_VERSION = "br_insight.report@1"
+
+
+-def build_envelope(kind: str, data, *, generated_as_of: datetime, source: str) -> dict:
++def format_as_of(value) -> str:
++    """Render the injected clock to canonical RFC-3339 UTC with a trailing ``Z``.
++
++    Accepts either an aware :class:`datetime` (as the CLI passes after parsing) or a
++    string (as the tests pass directly, e.g. ``"2026-06-19T00:00:00Z"``). Either way
++    the output is the canonical ``...Z`` spelling so the envelope is byte-stable.
++    """
++    if isinstance(value, datetime):
++        dt = value.astimezone(timezone.utc)
++        return dt.strftime("%Y-%m-%dT%H:%M:%S") + "Z"
++    # String input: normalize a "+00:00" offset back to the canonical "Z".
++    text = str(value).strip()
++    if text.endswith("+00:00"):
++        return text[: -len("+00:00")] + "Z"
++    return text
++
++
++def build_envelope(kind: str, data, *, generated_as_of, source: str) -> dict:
+     """Wrap kind-specific ``data`` in the locked ``br_insight.report@1`` envelope.
+
+-    STUB — implemented in SLICE-007.
++    ``generated_as_of`` may be a :class:`datetime` or an RFC-3339 string; it is
++    rendered to the canonical ``...Z`` form. Key order is fixed and meaningful:
++    callers serialize with ``sort_keys=False`` to preserve it.
++    """
++    return {
++        "schema_version": SCHEMA_VERSION,
++        "generated_as_of": format_as_of(generated_as_of),
++        "kind": kind,
++        "source": source,
++        "data": data,
++    }
++
++
++def to_json(envelope: dict) -> str:
++    """Serialize an envelope to byte-stable JSON.
++
++    Uses ``sort_keys=False`` (envelope key order is intentional and already sorted
++    inside ``data`` by the commands) and compact separators so the bytes are stable
++    across runs and processes.
+     """
+-    raise NotImplementedError("report.build_envelope is implemented in SLICE-007")
++    return json.dumps(envelope, sort_keys=False, separators=(",", ":"), ensure_ascii=False)
