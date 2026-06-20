@@ -76,7 +76,8 @@ defmodule Conveyor.Eval.IntegrationAuditTest do
     assert "acceptance_mapping" in passing
     assert "build_install" in passing
     assert "provenance_attestation" in passing
-    assert passes >= 7
+    assert "run_check" in passing
+    assert passes >= 9
   end
 
   defp classify(stage) do
