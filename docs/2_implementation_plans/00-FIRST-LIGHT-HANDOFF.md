@@ -247,6 +247,47 @@ has the pinned wheel.
 
 ## 8. THE NEXT BUILD — M1: promote the eval bridge to a production width-1 loop
 
+### 8.0 M1 execution status (live — updated 2026-06-20)
+
+**Grounding finding (important):** the eval Golden-Thread gate checks **all** of a
+plan's `required_test_refs` as one `acceptance_locked` suite
+(`ToolchainRunner.acceptance_test_refs/1`), so a gate-pass on the 7-slice plan via
+the existing harness needs a COMPLETE reference solution. Per-slice gate scoping
+(each slice's gate checks only its own ACs) is M1b productionization. So M1
+splits:
+
+- **M1a (in progress):** drive the WHOLE Beads Insight plan to a real gate-pass
+  via the existing Golden-Thread harness + the complete reference solution
+  (loop-integrity proof on the real plan, $0).
+- **M1b:** productionize into `Conveyor.Stations.*` + `RunSpecAssembler` +
+  per-slice ContractLock/gate-scoping (§8.1–8.4), so a SINGLE slice runs against
+  its own contract.
+
+**✅ DONE — the M1 loop-integrity control:** the complete `br_insight` reference
+solution is committed as
+`samples/beads_insight/.conveyor/canary/reference_full.patch` (+ `mutants.json`
+manifest + the regenerated `tests/golden/digest_2026-06-19.md`). It applies via
+`patch -p3` and passes all 16 ACs in a fresh copy ($0, deterministic); the
+committed base src stays RED. This is the known-good every run is verified
+against.
+
+**▶ NEXT — M1a wiring:** generalize `test/support/bridge_fixtures.ex` (today
+hardcoded to `samples/tasks_service`) to accept a sample path + plan path +
+`patch_ref`; build the Ash chain (Project→Plan→Epic→Slice→RunPrompt→RunSpec→
+RunAttempt→AgentSession) + materialize the workspace for `samples/beads_insight`;
+then call `Conveyor.Eval.GoldenThread.run_pipeline/1` with `patch_ref =
+"samples/beads_insight/.conveyor/canary/reference_full.patch"`. Assert
+`run_status == :succeeded` and `gate_passed`. Reference test:
+`test/conveyor/eval/golden_thread_test.exs`. Needs the Postgres container (§13) +
+a venv with pytest. Exact shapes (from the session's Explore map): `ReferenceSolution`
+opts `:reference_patch` / `:agent_session_id` / `:blob_root`; `AgentStation` reads
+`patch_ref` from station input and defaults to `ReferenceSolution`; gate stages
+`[Conveyor.Gate.Stages.TestExecution]`; calibration `%{status: :valid,
+expected_failures: ["acceptance_red_on_base"]}`. Patch strip level is `-p3`
+(`a/samples/beads_insight/...`).
+
+---
+
 This is the immediate engineering work. **6 NEW modules + a few EDITs.** The
 hard distributed-systems plumbing already exists; this is mostly writing
 production station modules + a RunSpec assembler and registering them.
