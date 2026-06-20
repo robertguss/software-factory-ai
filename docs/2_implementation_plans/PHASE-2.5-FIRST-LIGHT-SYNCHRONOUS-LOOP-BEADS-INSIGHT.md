@@ -1,8 +1,8 @@
 # Phase 2.5 — "First Light": the synchronous loop, end-to-end, on a real plan
 
-> **Status:** implementation draft; not yet committed. Pending an ADR to ratify
-> the phase number and the "product-first, gate-as-backstop" sequencing choice
-> (see §11). ADRs override this doc where they conflict.
+> **Status:** implementation plan, course-corrected on 2026-06-20. Pending an
+> ADR to ratify the phase number and the "product-first, gate-as-backstop"
+> sequencing choice (see §11). ADRs override this doc where they conflict.
 >
 > **One-line outcome:** Conveyor takes one real human plan and drives it — width
 > 1, no fleet — through the full production loop (ingest → compile → forge
@@ -37,8 +37,8 @@ is `:accepted`, not `:done`); `Gate.Finalizer` dead-ends at `:needs_rework`; and
   Genome accretes from run 1.
 - **M5** requires `Conveyor.AttemptLoop` + `Conveyor.Recovery.ReworkSynthesizer`
   (specs in handoff §9) — without them the loop can't rework to green.
-- **NEW M7 — Sealed Verdict:** first DSSE-wrapped gate verdict / `trust_bundle@1`
-  — the first artifact of the actual product.
+- **NEW M7 — Sealed Verdict:** first DSSE-wrapped gate verdict /
+  `trust_bundle@1` — the first artifact of the actual product.
 
 **2. The strategy: verifier-as-product + the Genome.** Conveyor's defensible
 product is the trust layer for AI-written code; its moat is **the Genome** — a
@@ -46,8 +46,8 @@ content-addressed, gate-verified `intent ↔ code ↔ verdict ↔ outcome` graph
 accretes every run. The loop generates the Genome; the Genome makes the loop
 succeed more. The "timid 10" in §10 are **superseded** by the clustered bold
 catalog in handoff §10 (Close-the-loop / Genome / Verifier-as-product /
-Debugging) and the bet trio (AttemptLoop + Rework Synthesizer + Falsifier Forge +
-Back-Edge).
+Debugging) and the bet trio (AttemptLoop + Rework Synthesizer + Falsifier
+Forge + Back-Edge).
 
 ---
 
@@ -238,15 +238,17 @@ won't fire rework unless we manufacture it (we do — §5).
 observed go green** — a red result on an unproven path is uninterpretable. Each
 milestone's exit criterion is a Scorecard with **zero blocking metrics**.
 
-| #      | Milestone                | De-risks | Exit criterion                                                                                                                                                                                                                                                                                         |
-| ------ | ------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **M0** | Plan & contracts         | R2       | `samples/beads_insight/conveyor.plan.yml` authored; pure compiler decomposes into the 7-slice diamond; `ContractLock`+`AgentBrief`+a **red-on-base** acceptance test forged per slice. No agent yet.                                                                                                   |
-| **M1** | One slice, green         | R1       | Promote the Codex `AgentStation` path into the synchronous `RunSlice` loop for **one** slice (record a cassette). Drive `drafted→approved→ready→in_progress`, agent runs, `ToolchainRunner` evidence, Gate (`test_execution`) passes, `gate→gated→integrated→done`. One slice merges; Scorecard green. |
-| **M2** | Full happy path          | R2, R4   | Every Beads Insight slice runs end-to-end synchronously to `:done`; acceptance tests green; **replay-stable** across two cassette runs (proves determinism).                                                                                                                                           |
-| **M3** | Widen the live gate      | R3       | Light up `contract_lock`, `diff_scope`, `secret_safety` with **real** contexts (real `contract_lock_sha256`, not `sha256:bridge`). Happy path still green — proving the added stages are **non-vacuous** (they PASS on a genuinely correct diff).                                                      |
-| **M4** | Canary mutants           | —        | Per-slice `mutants.json` targeting Beads Insight's **own** ACs; `false_pass_rate == 0` across every slice (§5).                                                                                                                                                                                        |
-| **M5** | Manufactured rework      | —        | One slice driven `reject → needs_rework → feedback → green`; the failing-AC category flows into the new brief (§5).                                                                                                                                                                                    |
-| **M6** | (Optional) Interrogation | —        | Flip on the one planted ambiguity (Appendix A §6); Interrogator raises exactly one blocking question and the slice **parks** rather than guessing.                                                                                                                                                     |
+| #        | Milestone                      | De-risks | Exit criterion                                                                                                                                                                                                                      |
+| -------- | ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M0**   | Plan & contracts               | R2       | `samples/beads_insight/conveyor.plan.yml` authored; pure compiler decomposes into the 7-slice diamond; `ContractLock`+`AgentBrief`+a **red-on-base** acceptance test forged per slice. Falsifier Forge runs before any agent spend. |
+| **M1**   | One slice, green               | R1       | Promote the production station path into the synchronous `RunSlice` loop for **SLICE-001**. Drive it ReferenceSolution-first, then Codex, through real per-slice evidence and Gate finalization to `:accepted`. Scorecard green.    |
+| **M2**   | Full happy path                | R2, R4   | `Conveyor.Planning.SerialDriver` runs every Beads Insight slice synchronously, width 1, to `:accepted`; acceptance tests green; **replay-stable** across two cassette runs.                                                         |
+| **M2.5** | Back-Edge                      | —        | `Conveyor.Genome.BackEdge` mints gate-verified `code_symbol → claim → AC → decision` provenance edges on every gate pass, so the Genome accretes from run 1.                                                                        |
+| **M3**   | Widen the live gate            | R3       | Light up `contract_lock`, `diff_scope`, `secret_safety` with **real** contexts (real `contract_lock_sha256`, not `sha256:bridge`). Happy path still green, proving the added stages are **non-vacuous**.                            |
+| **M4**   | Canary mutants                 | —        | Per-slice `mutants.json` targeting Beads Insight's **own** ACs; `false_pass_rate == 0` across every slice (§5).                                                                                                                     |
+| **M5**   | Manufactured rework            | —        | `Conveyor.AttemptLoop` + `Conveyor.Recovery.ReworkSynthesizer` drive one slice `reject → needs_rework → feedback → green`; the failing-AC category flows into the new brief (§5).                                                   |
+| **M6**   | (Optional) Interrogation       | —        | Flip on the one planted ambiguity (Appendix A §6); Interrogator raises exactly one blocking question and the slice **parks** rather than guessing.                                                                                  |
+| **M7**   | Sealed Verdict / first product | —        | Emit the first DSSE-wrapped Gate verdict / `trust_bundle@1`, wrapping the reproducible verdict rather than merely the diff.                                                                                                         |
 
 M3 precedes breakage on purpose: "false-PASS = 0" only means something if the
 gate stages are real; otherwise it is just "0 stages ran."
@@ -275,15 +277,15 @@ Run two complementary harnesses per slice:
 
 **Manufactured rework cycle (M5):** build a slice whose first attempt uses the
 naive "vanilla"-style brief that reliably leaves one AC red. Drive the real
-`Slice` machine: `mark_ready` → `start` → `gate` (FAIL → `:gated`) →
-`request_rework` (`:gated → :needs_rework`) → mint feedback from the gate
-`findings` → **contract evolution mints a new lock/spec/attempt** (ADR) →
-`mark_ready` (`:needs_rework → :ready`, the recovery edge) → `start` → `gate`
-(PASS) → `integrate` → `complete`. The load-bearing edges are
-`request_rework from: :gated` and `mark_ready from: :needs_rework` — together
-they **are** the recovery loop. Metric `rework_recovered@1` asserts the slice
-reached `:done` **and** the feedback category matched the real gate finding (no
-fake recovery).
+`Slice` machine through `Conveyor.AttemptLoop`: `mark_ready` → `start` → `gate`
+(FAIL → `:gated`) → `request_rework` (`:gated → :needs_rework`) →
+`Conveyor.Recovery.ReworkSynthesizer` mints feedback from the gate `findings` →
+**contract evolution mints a new lock/spec/attempt** (ADR) → `mark_ready`
+(`:needs_rework → :ready`, the recovery edge) → `start` → `gate` (PASS) →
+`integrate` → accepted. The load-bearing edges are `request_rework from: :gated`
+and `mark_ready from: :needs_rework` — together they **are** the recovery loop.
+Metric `rework_recovered@1` asserts the slice reached `:accepted` **and** the
+feedback category matched the real gate finding (no fake recovery).
 
 ---
 
@@ -315,8 +317,8 @@ Every suite writes `conveyor.eval_metric@1` to `eval/scorecards/inputs/`;
 `Scorecard.build/2` content-addresses them; `--gate` fails closed on any
 blocking metric. First Light is **done** when, on the Beads Insight plan:
 
-1. **`happy_path_complete`** (blocking) — all 7 slices reached `:done` via the
-   real production loop (M2), with the widened live gate (M3).
+1. **`happy_path_complete`** (blocking) — all 7 slices reached `:accepted` via
+   the real production loop (M2), with the widened live gate (M3).
 2. **`loop_integrity`** (blocking) — every slice's reference-solution patch
    PASSES the gate.
 3. **`false_pass_rate`** (blocking) — `0.0` across every slice's canary set
@@ -347,8 +349,8 @@ issued later without rework.
   that surfaces at M0 with no wasted agent spend.
 - **R3 — the gate stays byte-identical & authoritative as stages go live.**
   Mitigation: M3 lights stages one at a time with real contexts and asserts the
-  happy path still PASSES (non-vacuous); per-stage discrimination ledger (Idea
-  #10) catches a stage that never fires.
+  happy path still PASSES (non-vacuous); the per-stage discrimination ledger in
+  §10 catches a stage that never fires.
 - **R4 — pytest determinism in a real repo.** Mitigation: injected `--as-of`
   clock (REQ-008), determinism sweep AC (no `datetime.now`), replay-stability
   exit at M2.
@@ -368,39 +370,58 @@ Brownfield onboarding. Anything that assumes width > 1.
 
 ## 10. Enhancement backlog
 
-> **⚠️ SUPERSEDED (2026-06-20).** The "top 10" table below was a first, _timid_
-> pass (engineering hygiene dressed as bold). The authoritative, bolder,
-> moat-focused catalog — clustered as **Close-the-loop / Genome /
-> Verifier-as-product / Debugging**, with the bet-trio specs — now lives in
-> **`00-FIRST-LIGHT-HANDOFF.md` §10 and §9.** Use that. The table below is kept
-> for history only; several of its items (self-report↔evidence reconciliation,
-> `mix conveyor.run`, Needs-a-Human inbox, crash-safe station commit) survive as
-> real near-term wins.
+This replaces the earlier "top 10" table with the bold, grounded catalog from
+`00-FIRST-LIGHT-HANDOFF.md` §10. The priority is not more ideation; it is
+closing the synchronous loop, then letting the loop generate compounding trust
+data.
 
-### (historical) the original top 10 (distilled from 100)
+### Cluster 1 — Close the loop (build now; M1-M5 critical path)
 
-Adversarially generated and scored; full write-ups in the session record. These
-are sequenced _after_ First Light's M0–M3 except where noted "fold in."
+- **AttemptLoop** — `Conveyor.AttemptLoop.run_to_done!/2` wraps `RunSlice.run!`
+  and gate finalization, branches on `run_attempt.outcome`, retries
+  `:needs_rework` attempts through an escalation ladder, and halts on terminal
+  outcomes or attempt budget exhaustion.
+- **Rework Synthesizer** — `Conveyor.Recovery.ReworkSynthesizer.synthesize/2`
+  turns typed Gate findings into a trusted AgentBrief delta that names failed
+  ACs and forbids regressing green ones.
+- **Falsifier Forge** — execute dormant `FalsifierSeedDeriver` seeds red-on-base
+  before contracts lock, so bad ACs fail before token spend.
+- **Convergence Sentinel / Repeat-Offender Escalation / Cost-Aware Retry
+  Governor** — keep repair from thrashing, re-cut plans when scars repeat, and
+  make every retry justify its cost.
 
-| #   | Idea                                                                                                                                                                                                                     | Lens             | Effort | Strengthens                                      |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ------ | ------------------------------------------------ |
-| 1   | **Self-report ↔ evidence reconciliation** — diff the agent's claimed `acceptance_mapping` vs the gate's per-suite verdicts; over-claims feed the next prompt; gives `HonestyEval` a live producer.                       | agent honesty    | S/M    | the system's most differentiating honesty signal |
-| 2   | **Layered (2+ change) Sentinel vacuities** — compound, each-benign evasions + a `compound_evasion_rate`; tests the sentinel's real threat model.                                                                         | trust            | S      | `SentinelTournament`, \$0                        |
-| 3   | **Static-stage mutant coverage** — actually execute the 5 contract/policy/run_check/quality mutants currently dumped in `deferred_static_stage`; a 2nd blocking `static_false_pass_rate`.                                | trust            | M      | closes a real false-PASS blind spot              |
-| 4   | **`mix conveyor.run`** — one "plan → PR" operator command. **Fold into §2.**                                                                                                                                             | sync-loop polish | S      | the canonical demo + CI smoke + sync-loop proof  |
-| 5   | **Needs-a-Human inbox** — one derived "your turn" queue over real decision records; turns scan-the-tree into clear-your-inbox for a solo operator.                                                                       | observability    | S      | width-1 human control                            |
-| 6   | **Cassette Mutation Replay** — perturb the _evaluation_ surface, replay sealed cassettes \$0, assert the verdict flips; the Mutant Gauntlet aimed inward at the verifier itself.                                         | radical          | M      | guards the one thing Conveyor does well today    |
-| 7   | **Interrogator completeness CI gate** — a corpus of broken plans with `expected_unsuppressed_refs`; red build if the question batch ever silently drops an audit finding.                                                | plan authoring   | S      | gate honesty at the _earliest_ boundary          |
-| 8   | **Crash-safe station commit** — actually _perform_ the cleanup the reconciler currently only records (kill orphaned containers/blobs) before `fail_station_run!`; converge to a clean retryable state.                   | reliability      | S/M    | real self-healing bug fix                        |
-| 9   | **Reasoning-Effort Pareto sweep** — same discrimination set across Codex's effort ladder → frontier of `pass@1` vs `$/verified-AC`; name the cheapest effort that still lifts. Operationalizes open ticket **EVAL-095**. | economics        | S/M    | evidence-based cost knob                         |
-| 10  | **Retrospective Rollup** — a pure `GROUP BY` over per-attempt `retrospective@1` exhaust → cross-run failure taxonomy ("RunImplementer fails `contract_lock` 6/9"). The literal compounding flywheel.                     | memory/learning  | S      | institutional memory                             |
+### Cluster 2 — The Genome (wire during/after First Light)
 
-**Top near-miss to fold into this plan:** _Attempt Diff Lens_ (side-by-side of
-attempt N vs N-1 so rework reads as progress, not noise) — it directly
-visualizes the M5 rework boundary; build it alongside M5. Other near-misses:
-_Scorecard regression guard_ (catch trajectory rot, not just level), _Per-Stage
-Discrimination Ledger_ (kill the dead gate stage), _Fold AGENTS.md drift into
-`conveyor.doctor`_.
+- **Back-Edge** — `Conveyor.Genome.BackEdge` mints gate-verified
+  `code_symbol → claim → AC → decision` provenance edges on every pass.
+- **Scar Ledger / FailureMemory** — distill `Retrospective.build!/1` output into
+  content-addressed scars keyed by conflict domain; fill `memory_refs` instead
+  of leaving it empty.
+- **Genome-Seeded Context** — seed future prompts from proven neighbor edges and
+  critic-rejected alternatives.
+- **Readiness Oracle / Decomposition Tournament / Regression Cassette** — learn
+  corpus-fit and gate-pass probability, and turn every green run into a
+  permanent replayable contract test.
+
+### Cluster 3 — Verifier as product
+
+- **Sealed Verdict** — DSSE-wrap the Gate's reproducible verdict as
+  `trust_bundle@1`.
+- **Findings-to-Fix** — external verifier FAIL becomes a contract, then a
+  width-1 run satisfies it.
+- **Vacuity-as-a-Service / Provenance Linker / Offline Trust Verifier / Negative
+  Provenance / Contract Inference** — make the verifier portable, inspectable,
+  and useful outside Conveyor's generator loop.
+
+### Cluster 4 — Debugging god-mode
+
+- **Divergence Bisector** — use the event log and `ReplayDiagnostics.compare` to
+  locate first divergence, cutting the main width-1 debugging time sink.
+
+Near-term survivors from the historical table: self-report↔evidence
+reconciliation, `mix conveyor.run`, Needs-a-Human inbox, crash-safe station
+commit, Attempt Diff Lens, Scorecard regression guard, Per-Stage Discrimination
+Ledger, and AGENTS.md drift checks in `conveyor.doctor`.
 
 ---
 
