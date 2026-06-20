@@ -11,7 +11,11 @@ defmodule Conveyor.Stations.Verify do
     plan = YamlElixir.read_from_file!(get(input, "plan_path"))
 
     verification_result =
-      ToolchainRunner.verification_result(workspace_path, plan, Workspace.venv_opts())
+      ToolchainRunner.verification_result(
+        workspace_path,
+        plan,
+        Keyword.merge(Workspace.venv_opts(), test_refs: get(input, "test_refs") || [])
+      )
 
     artifact = %{
       kind: "verification_result",

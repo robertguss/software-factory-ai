@@ -2,12 +2,16 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
   use Conveyor.DataCase, async: false
 
   alias Conveyor.CanonicalJson
+  alias Conveyor.ContractEvolution
   alias Conveyor.Factory
+  alias Conveyor.Factory.AgentBrief
+  alias Conveyor.Factory.ContractLock
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.RunSpec
   alias Conveyor.Factory.Slice
+  alias Conveyor.Factory.TestPack
   alias Conveyor.Planning.RunSpecAssembler
 
   test "assembles a self-describing RunSpec for a single slice" do
@@ -63,6 +67,50 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
     assert implement["input"]["adapter"] == "Conveyor.AgentRunner.ReferenceSolution"
     assert verify["input"]["workspace_path"] == workspace_path
     assert verify["input"]["plan_path"] == Path.join(workspace_path, "conveyor.plan.yml")
+
+    assert verify["input"]["test_refs"] == [
+             "tests/test_loader.py::test_corpus_counts_stable",
+             "tests/test_loader.py::test_malformed_line_exit_2"
+           ]
+  end
+
+  test "materializes the locked slice contract and gates readiness before persisting" do
+    workspace_path = git_workspace!("run-spec-contract")
+    slice = slice_fixture!(workspace_path)
+
+    run_spec =
+      RunSpecAssembler.assemble!(slice,
+        work_graph: single_slice_work_graph(),
+        base_commit: git!(workspace_path, ["rev-parse", "HEAD"]),
+        agent_adapter: Conveyor.AgentRunner.ReferenceSolution
+      )
+
+    brief = only_for_slice!(AgentBrief, slice.id)
+    test_pack = only_for_slice!(TestPack, slice.id)
+    lock = only_for_slice!(ContractLock, slice.id)
+    reloaded_slice = Ash.get!(Slice, slice.id, domain: Factory)
+
+    assert reloaded_slice.state == :ready
+    assert Enum.map(brief.acceptance_criteria, & &1["id"]) == ["AC-001", "AC-002"]
+
+    assert Enum.map(brief.required_tests, & &1["ref"]) == [
+             "tests/test_loader.py::test_corpus_counts_stable",
+             "tests/test_loader.py::test_malformed_line_exit_2"
+           ]
+
+    assert test_pack.required_test_refs == Enum.map(brief.required_tests, & &1["ref"])
+    assert test_pack.acceptance_criteria_refs == ["AC-001", "AC-002"]
+    assert lock.agent_brief_id == brief.id
+    assert lock.plan_contract_sha256 == digest("plan")
+    assert lock.brief_sha256 == brief.contract_sha256
+
+    assert lock.acceptance_criteria_sha256 ==
+             ContractEvolution.digest_value(brief.acceptance_criteria)
+
+    assert lock.required_tests_sha256 == ContractEvolution.digest_value(brief.required_tests)
+    assert lock.test_pack_sha256 == test_pack.test_pack_sha256
+    assert run_spec.contract_lock_sha256 == ContractEvolution.contract_lock_sha256(lock)
+    assert run_spec.test_pack_sha256 == test_pack.test_pack_sha256
   end
 
   defp slice_fixture!(workspace_path) do
@@ -81,8 +129,9 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
           title: "Assembler plan",
           intent: "Assemble a production run spec.",
           source_document: "docs/assembler.md",
-          normalized_contract: %{"schema_version" => "conveyor.plan@1"},
-          contract_sha256: digest("plan")
+          normalized_contract: normalized_contract(),
+          contract_sha256: digest("plan"),
+          status: :handoff_ready
         },
         domain: Factory
       )
@@ -94,9 +143,56 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
         domain: Factory
       )
 
-    Ash.create!(Slice, %{epic_id: epic.id, title: "Assembler slice", position: 1},
+    Ash.create!(
+      Slice,
+      %{
+        epic_id: epic.id,
+        title: "Loader and IssueGraph model",
+        position: 1,
+        risk: "low",
+        autonomy_level: "L1",
+        source_refs: ["REQ-001"],
+        likely_files: ["src/app.py", "tests/test_loader.py"],
+        conflict_domains: ["model_io"]
+      },
       domain: Factory
     )
+  end
+
+  defp normalized_contract do
+    %{
+      "schema_version" => "conveyor.plan@1",
+      "goal" => "Load issue fixture data into an IssueGraph.",
+      "non_goals" => ["Do not implement command-line reporting."],
+      "requirements" => [%{"key" => "REQ-001", "risk" => "low"}],
+      "acceptance_criteria" => [
+        %{
+          "key" => "AC-001",
+          "text" => "Loading the fixture corpus yields exactly the frozen issue and edge counts.",
+          "requirement_refs" => ["REQ-001"],
+          "required_test_refs" => ["tests/test_loader.py::test_corpus_counts_stable"]
+        },
+        %{
+          "key" => "AC-002",
+          "text" => "A line with invalid JSON exits 2 and stderr names the bad line number.",
+          "requirement_refs" => ["REQ-001"],
+          "required_test_refs" => ["tests/test_loader.py::test_malformed_line_exit_2"]
+        }
+      ],
+      "verification_commands" => [
+        %{"key" => "pytest", "argv" => ["pytest", "-q"], "profile" => "verify"}
+      ],
+      "slices" => [
+        %{
+          "key" => "SLICE-001",
+          "title" => "Loader and IssueGraph model",
+          "requirement_refs" => ["REQ-001"],
+          "likely_files" => ["src/app.py", "tests/test_loader.py"],
+          "conflict_domains" => ["model_io"],
+          "autonomy_ceiling" => "L1"
+        }
+      ]
+    }
   end
 
   defp single_slice_work_graph do
@@ -106,9 +202,9 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
         %{
           "stable_key" => "SLICE-001",
           "title" => "Assembler slice",
-          "acceptance_criteria" => [
-            %{"id" => "AC-001", "required_test_refs" => ["tests/test_ready.py::test_ready"]}
-          ]
+          "requirement_refs" => ["REQ-001"],
+          "likely_files" => ["src/app.py", "tests/test_loader.py"],
+          "conflict_domains" => ["model_io"]
         }
       ]
     }
@@ -144,6 +240,16 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
     File.rm_rf!(path)
     File.mkdir_p!(path)
     path
+  end
+
+  defp only_for_slice!(resource, slice_id) do
+    matches =
+      resource
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.slice_id == slice_id))
+
+    assert [record] = matches
+    record
   end
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)
