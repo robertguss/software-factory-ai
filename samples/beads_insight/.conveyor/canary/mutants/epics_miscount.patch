@@ -1,0 +1,727 @@
+diff --git a/samples/beads_insight/src/br_insight/clock.py b/samples/beads_insight/src/br_insight/clock.py
+index 295bfbc..6a7ac37 100644
+--- a/samples/beads_insight/src/br_insight/clock.py
++++ b/samples/beads_insight/src/br_insight/clock.py
+@@ -1,4 +1,4 @@
+-"""SLICE-005 (STUB): the injected ``--as-of`` clock.
++"""SLICE-005: the injected ``--as-of`` clock.
+ 
+ ``--as-of`` (RFC-3339 UTC) is the SOLE source of "now" anywhere in the package.
+ Non-test code must never read the wall clock (the determinism guard in
+@@ -10,7 +10,7 @@ timezone-aware :class:`datetime`; a malformed value raises so the CLI exits ``2`
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
++from datetime import datetime, timezone
+ 
+ __all__ = ["parse_as_of"]
+ 
+@@ -18,6 +18,30 @@ __all__ = ["parse_as_of"]
+ def parse_as_of(value: str) -> datetime:
+     """Parse an RFC-3339 UTC ``--as-of`` string into an aware datetime.
+ 
+-    STUB — implemented in SLICE-005.
++    Accepts a trailing ``Z`` (the canonical UTC designator) or an explicit
++    ``+00:00`` offset. The result is always timezone-aware and normalized to UTC.
++    Any unparseable value, or one that is not UTC, raises ``ValueError`` so the CLI
++    can map it to exit code ``2``.
++
++    This never reads the wall clock: it is a pure string -> datetime transform.
+     """
+-    raise NotImplementedError("clock.parse_as_of is implemented in SLICE-005")
++    if not isinstance(value, str):
++        raise ValueError(f"--as-of must be a string, got {type(value).__name__}")
++
++    text = value.strip()
++    if not text:
++        raise ValueError("--as-of must not be empty")
++
++    # datetime.fromisoformat handles "+00:00"; normalize a trailing Z first.
++    normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
++
++    try:
++        parsed = datetime.fromisoformat(normalized)
++    except ValueError as exc:
++        raise ValueError(f"not a valid RFC-3339 timestamp: {value!r} ({exc})") from exc
++
++    if parsed.tzinfo is None:
++        raise ValueError(f"--as-of must carry a UTC offset (got naive datetime): {value!r}")
++
++    # Normalize to UTC so all downstream arithmetic is in one frame.
++    return parsed.astimezone(timezone.utc)
+diff --git a/samples/beads_insight/src/br_insight/commands/cycles.py b/samples/beads_insight/src/br_insight/commands/cycles.py
+index 1149235..f9389db 100644
+--- a/samples/beads_insight/src/br_insight/commands/cycles.py
++++ b/samples/beads_insight/src/br_insight/commands/cycles.py
+@@ -1,4 +1,4 @@
+-"""SLICE-003 (STUB): the ``cycles`` command.
++"""SLICE-003: the ``cycles`` command.
+ 
+ Detect directed cycles over ``blocks`` edges only. Report each cycle exactly once
+ as the lexicographically-smallest rotation of its node ids; a self-loop ``A->A`` is
+@@ -8,18 +8,94 @@ reports zero cycles and exits ``0``.
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, to_json
+ 
+ __all__ = ["run", "find_cycles"]
+ 
+ 
++def _canonical_rotation(cycle: list[str]) -> tuple[str, ...]:
++    """Return the lexicographically-smallest rotation of a cycle's node ids.
++
++    ``cycle`` is the node sequence of an elementary circuit (no repeated node, and
++    the closing edge back to ``cycle[0]`` is implied). The canonical form rotates so
++    the smallest id leads, giving one stable representative per cycle.
++    """
++    n = len(cycle)
++    best_index = min(range(n), key=lambda i: cycle[i])
++    return tuple(cycle[best_index:] + cycle[:best_index])
++
++
+ def find_cycles(graph: IssueGraph) -> list[tuple[str, ...]]:
+-    """Return canonical cycles over blocks edges. STUB — implemented in SLICE-003."""
+-    raise NotImplementedError("cycles.find_cycles is implemented in SLICE-003")
++    """Return canonical elementary cycles over ``blocks`` edges, sorted deterministically.
++
++    Each cycle is reported exactly once as its lexicographically-smallest rotation;
++    self-loops are length-1 cycles. The returned list is sorted so the output order
++    is deterministic.
++    """
++    # Adjacency over blocks edges only: src -> sorted list of dsts.
++    adjacency: dict[str, list[str]] = {}
++    nodes: set[str] = set()
++    for src, dst in graph.blocks_edges:
++        adjacency.setdefault(src, []).append(dst)
++        nodes.add(src)
++        nodes.add(dst)
++    for dsts in adjacency.values():
++        dsts.sort()
++
++    found: set[tuple[str, ...]] = set()
++
++    def visit(start: str, current: str, path: list[str], on_path: set[str]) -> None:
++        for nxt in adjacency.get(current, ()):
++            # Restrict to nodes >= start so each cycle is discovered once from its
++            # smallest-id member; this keeps enumeration finite and dedup-friendly.
++            if nxt < start:
++                continue
++            if nxt == start:
++                # Closed an elementary circuit back to the start node.
++                found.add(_canonical_rotation(list(path)))
++                continue
++            if nxt in on_path:
++                continue
++            path.append(nxt)
++            on_path.add(nxt)
++            visit(start, nxt, path, on_path)
++            path.pop()
++            on_path.discard(nxt)
++
++    for start in sorted(nodes):
++        visit(start, start, [start], {start})
++
++    return sorted(found)
++
++
++def _rows(graph: IssueGraph):
++    return [{"nodes": list(cycle)} for cycle in find_cycles(graph)]
++
++
++def render_markdown(graph: IssueGraph) -> str:
++    """Render detected cycles as a markdown section body (no trailing blank line)."""
++    cycles = find_cycles(graph)
++    lines = ["## Cycles", ""]
++    if not cycles:
++        lines.append("_No dependency cycles._")
++    else:
++        for cycle in cycles:
++            lines.append("- " + " -> ".join(cycle) + f" -> {cycle[0]}")
++    return "\n".join(lines)
++
+ 
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str):
++    """Render detected cycles.
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render detected cycles. STUB — implemented in SLICE-003."""
+-    raise NotImplementedError("cycles.run is implemented in SLICE-003")
++    Returns a ``(rendered, found)`` tuple so the CLI can map "cycles found" to exit
++    code ``1`` (see :func:`br_insight.cli.main`).
++    """
++    cycles = find_cycles(graph)
++    found = bool(cycles)
++    if fmt == "json":
++        envelope = build_envelope(
++            "cycles", {"cycles": _rows(graph)}, generated_as_of=as_of, source=source
++        )
++        return to_json(envelope), found
++    return render_markdown(graph) + "\n", found
+diff --git a/samples/beads_insight/src/br_insight/commands/digest.py b/samples/beads_insight/src/br_insight/commands/digest.py
+index 3c1b65b..1c886b0 100644
+--- a/samples/beads_insight/src/br_insight/commands/digest.py
++++ b/samples/beads_insight/src/br_insight/commands/digest.py
+@@ -1,4 +1,4 @@
+-"""SLICE-006 (STUB): the ``digest`` command.
++"""SLICE-006: the ``digest`` command.
+ 
+ Compose ``ready`` + ``cycles`` + ``epics`` + ``velocity`` into one markdown report
+ with a fixed section order. It is a pure function of (corpus, ``--as-of``) and is
+@@ -7,13 +7,48 @@ byte-stable across runs and processes.
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, format_as_of, to_json
++from . import cycles as cycles_cmd
++from . import epics as epics_cmd
++from . import ready as ready_cmd
++from . import velocity as velocity_cmd
+ 
+ __all__ = ["run"]
+ 
++# Fixed section order for the composed digest.
++_SECTION_ORDER = ("ready", "cycles", "epics", "velocity")
++
++
++def _render_markdown(graph: IssueGraph, as_of) -> str:
++    """Compose the full digest markdown document (deterministic, byte-stable)."""
++    title = f"# Beads Insight Digest — {format_as_of(as_of)}"
++    bodies = [
++        ready_cmd.render_markdown(graph),
++        cycles_cmd.render_markdown(graph),
++        epics_cmd.render_markdown(graph),
++        velocity_cmd.render_markdown(graph, as_of),
++    ]
++    # Title, then each section separated by a blank line; single trailing newline.
++    return title + "\n\n" + "\n\n".join(bodies) + "\n"
++
++
++def _render_json(graph: IssueGraph, as_of, source: str) -> str:
++    """Compose the digest JSON envelope; ``data.sections`` holds the four sub-reports."""
++    sections = [
++        {"kind": "ready", "ready": ready_cmd._rows(graph)},
++        {"kind": "cycles", "cycles": cycles_cmd._rows(graph)},
++        {"kind": "epics", "epics": epics_cmd.epic_rollups(graph)},
++        {"kind": "velocity", "buckets": velocity_cmd.weekly_buckets(graph, as_of)},
++    ]
++    envelope = build_envelope(
++        "digest", {"sections": sections}, generated_as_of=as_of, source=source
++    )
++    return to_json(envelope)
++
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the composed digest. STUB — implemented in SLICE-006."""
+-    raise NotImplementedError("digest.run is implemented in SLICE-006")
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str) -> str:
++    """Render the composed digest."""
++    if fmt == "json":
++        return _render_json(graph, as_of, source)
++    return _render_markdown(graph, as_of)
+diff --git a/samples/beads_insight/src/br_insight/commands/epics.py b/samples/beads_insight/src/br_insight/commands/epics.py
+index 759ccf1..3b4dbe3 100644
+--- a/samples/beads_insight/src/br_insight/commands/epics.py
++++ b/samples/beads_insight/src/br_insight/commands/epics.py
+@@ -1,4 +1,4 @@
+-"""SLICE-004 (STUB): the ``epics`` command.
++"""SLICE-004: the ``epics`` command.
+ 
+ For each issue of type ``epic``, roll up its transitive ``parent-child``
+ descendants: total children, closed children, percent complete (integer floor),
+@@ -8,13 +8,113 @@ Sorted by epic id.
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, to_json
++
++__all__ = ["run", "epic_rollups"]
++
++
++def _descendants(graph: IssueGraph, root: str) -> list[str]:
++    """Return the transitive parent-child descendants of ``root`` (excluding root).
++
++    Walks ``parent_edges`` (parent -> child) breadth-first; the result is sorted so
++    downstream rendering is deterministic. Cyclic parent edges (should not occur) are
++    guarded by a visited set.
++    """
++    children: dict[str, list[str]] = {}
++    for src, dst in graph.parent_edges:
++        children.setdefault(src, []).append(dst)
++
++    seen: set[str] = set()
++    stack = list(children.get(root, ()))
++    while stack:
++        node = stack.pop()
++        if node in seen:
++            continue
++        seen.add(node)
++        stack.extend(children.get(node, ()))
++    return sorted(seen)
++
++
++def _is_blocked(graph: IssueGraph, issue_id: str) -> bool:
++    """True when ``issue_id`` has an incoming blocks edge from a non-closed issue."""
++    for src, dst in graph.blocks_edges:
++        if dst != issue_id:
++            continue
++        blocker = graph.issues.get(src)
++        if blocker is None or blocker.status != "closed":
++            return True
++    return False
++
++
++def epic_rollups(graph: IssueGraph):
++    """Return per-epic rollup dicts sorted by epic id.
++
++    Each rollup: ``{id, title, total, closed, pct, open, blocked}``. ``pct`` is the
++    integer floor of ``100 * closed / total``; a childless epic reports total=0 and
++    pct=100 (and never divides by zero).
++    """
++    rollups = []
++    epics = [i for i in graph.issues.values() if i.issue_type == "epic"]
++    for epic in sorted(epics, key=lambda i: i.id):
++        descendants = _descendants(graph, epic.id)
++        total = len(descendants)
++        closed = sum(
++            1 for d in descendants
++            if d in graph.issues and graph.issues[d].status == "closed"
++        )
++        open_count = sum(
++            1 for d in descendants
++            if d in graph.issues and graph.issues[d].status == "open"
++        )
++        blocked = sum(
++            1 for d in descendants
++            if d in graph.issues
++            and graph.issues[d].status == "open"
++            and _is_blocked(graph, d)
++        )
++        pct = 100 if total == 0 else (100 * closed) // total
++        rollups.append(
++            {
++                "id": epic.id,
++                "title": epic.title,
++                "total": total,
++                "closed": closed,
++                "pct": pct,
++                "open": open_count,
++                "blocked": blocked,
++            }
++        )
++    return rollups
++
+ 
+-__all__ = ["run"]
++def render_markdown(graph: IssueGraph) -> str:
++    """Render the epic rollup as a markdown section body (no trailing blank line)."""
++    rollups = epic_rollups(graph)
++    lines = ["## Epics", ""]
++    if not rollups:
++        lines.append("_No epics._")
++    else:
++        for r in rollups:
++            lines.append(
++                f"- {r['id']} — {r['title']}: {r['closed']}/{r['total']} closed "
++                f"({r['pct']}%), open={r['open']}, blocked={r['blocked']}"
++            )
++    return "\n".join(lines)
+ 
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the epic rollup. STUB — implemented in SLICE-004."""
+-    raise NotImplementedError("epics.run is implemented in SLICE-004")
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str) -> str:
++    """Render the epic rollup."""
++    if fmt == "json":
++        rows = epic_rollups(graph)
++        for r in rows:
++            # DEFECT (canary): the JSON rollup divides closed by (total + 1),
++            # shifting percent-complete off for any epic that has children
++            # (fixture E1: 40 -> 33). Childless epics are left untouched.
++            if r["total"] > 0:
++                r["pct"] = (100 * r["closed"]) // (r["total"] + 1)
++        envelope = build_envelope(
++            "epics", {"epics": rows}, generated_as_of=as_of, source=source
++        )
++        return to_json(envelope)
++    return render_markdown(graph) + "\n"
+diff --git a/samples/beads_insight/src/br_insight/commands/ready.py b/samples/beads_insight/src/br_insight/commands/ready.py
+index c866299..3f8652b 100644
+--- a/samples/beads_insight/src/br_insight/commands/ready.py
++++ b/samples/beads_insight/src/br_insight/commands/ready.py
+@@ -1,4 +1,4 @@
+-"""SLICE-002 (STUB): the ``ready`` command.
++"""SLICE-002: the ``ready`` command.
+ 
+ Ready := ``status == "open"`` AND every ``blocks`` edge into the issue originates
+ from a CLOSED issue. ``parent-child`` and ``related`` edges never gate readiness.
+@@ -7,13 +7,62 @@ Output is sorted by ``(priority asc, id asc)``.
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
+-
+ from ..model import IssueGraph
++from ..report import build_envelope, to_json
++
++__all__ = ["run", "ready_issues"]
++
++
++def ready_issues(graph: IssueGraph):
++    """Return the ready issues sorted by ``(priority asc, id asc)``.
++
++    An issue is ready when it is ``open`` and every ``blocks`` edge pointing at it
++    originates from a ``closed`` issue. Parent-child and related edges never gate.
++    """
++    # Map each issue id -> the set of issue ids that block it (incoming blocks edges).
++    blockers: dict[str, set[str]] = {}
++    for src, dst in graph.blocks_edges:
++        blockers.setdefault(dst, set()).add(src)
++
++    ready = []
++    for issue in graph.issues.values():
++        if issue.status != "open":
++            continue
++        incoming = blockers.get(issue.id, set())
++        if all(
++            issue_id in graph.issues and graph.issues[issue_id].status == "closed"
++            for issue_id in incoming
++        ):
++            ready.append(issue)
++
++    ready.sort(key=lambda i: (i.priority, i.id))
++    return ready
++
++
++def _rows(graph: IssueGraph):
++    return [
++        {"id": issue.id, "priority": issue.priority, "title": issue.title}
++        for issue in ready_issues(graph)
++    ]
++
+ 
+-__all__ = ["run"]
++def render_markdown(graph: IssueGraph) -> str:
++    """Render the ready set as a markdown section body (no trailing blank line)."""
++    rows = _rows(graph)
++    lines = ["## Ready", ""]
++    if not rows:
++        lines.append("_No ready issues._")
++    else:
++        for row in rows:
++            lines.append(f"- [P{row['priority']}] {row['id']} — {row['title']}")
++    return "\n".join(lines)
+ 
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the ready set. STUB — implemented in SLICE-002."""
+-    raise NotImplementedError("ready.run is implemented in SLICE-002")
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str) -> str:
++    """Render the ready set."""
++    if fmt == "json":
++        envelope = build_envelope(
++            "ready", {"ready": _rows(graph)}, generated_as_of=as_of, source=source
++        )
++        return to_json(envelope)
++    return render_markdown(graph) + "\n"
+diff --git a/samples/beads_insight/src/br_insight/commands/velocity.py b/samples/beads_insight/src/br_insight/commands/velocity.py
+index 3c6af16..f0251f8 100644
+--- a/samples/beads_insight/src/br_insight/commands/velocity.py
++++ b/samples/beads_insight/src/br_insight/commands/velocity.py
+@@ -1,4 +1,4 @@
+-"""SLICE-005 (STUB): the ``velocity`` command.
++"""SLICE-005: the ``velocity`` command.
+ 
+ Count issues whose ``closed_at`` falls within each of the trailing ``K`` weekly
+ half-open UTC buckets ``[start, end)`` ending at ``--as-of`` (default ``K=4``).
+@@ -8,13 +8,75 @@ boundary lands in the newer bucket (start-inclusive).
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
++from datetime import datetime, timedelta, timezone
+ 
++from ..clock import parse_as_of
+ from ..model import IssueGraph
++from ..report import build_envelope, format_as_of, to_json
+ 
+-__all__ = ["run"]
++__all__ = ["run", "weekly_buckets"]
+ 
++_WEEK = timedelta(weeks=1)
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str, weeks: int = 4) -> str:
+-    """Render weekly velocity buckets. STUB — implemented in SLICE-005."""
+-    raise NotImplementedError("velocity.run is implemented in SLICE-005")
++
++def _as_datetime(as_of) -> datetime:
++    """Coerce the injected clock (datetime or RFC-3339 string) to an aware UTC datetime.
++
++    The CLI passes a parsed :class:`datetime`; the tests pass the raw string. Either
++    way this stays a pure transform with no wall-clock read.
++    """
++    if isinstance(as_of, datetime):
++        return as_of.astimezone(timezone.utc)
++    return parse_as_of(as_of)
++
++
++def weekly_buckets(graph: IssueGraph, as_of, weeks: int = 4):
++    """Return the trailing ``weeks`` half-open weekly buckets, oldest -> newest.
++
++    Each bucket: ``{start, end, count}`` with ``start``/``end`` rendered as canonical
++    RFC-3339 UTC ``...Z`` strings and ``count`` the number of issues whose
++    ``closed_at`` lies in ``[start, end)``. Issues with null ``closed_at`` are
++    excluded; the end boundary (``as_of`` itself) is exclusive.
++    """
++    end = _as_datetime(as_of)
++
++    closed_times = [
++        issue.closed_at for issue in graph.issues.values() if issue.closed_at is not None
++    ]
++
++    buckets = []
++    for i in range(weeks):
++        # i == 0 is the OLDEST bucket; i == weeks-1 is the NEWEST (ending at `end`).
++        b_start = end - _WEEK * (weeks - i)
++        b_end = end - _WEEK * (weeks - 1 - i)
++        count = sum(1 for t in closed_times if b_start <= t < b_end)
++        buckets.append(
++            {
++                "start": format_as_of(b_start),
++                "end": format_as_of(b_end),
++                "count": count,
++            }
++        )
++    return buckets
++
++
++def render_markdown(graph: IssueGraph, as_of, weeks: int = 4) -> str:
++    """Render weekly velocity as a markdown section body (no trailing blank line)."""
++    buckets = weekly_buckets(graph, as_of, weeks)
++    lines = ["## Velocity", ""]
++    for b in buckets:
++        lines.append(f"- {b['start']} .. {b['end']}: {b['count']}")
++    return "\n".join(lines)
++
++
++def run(graph: IssueGraph, *, as_of, fmt: str, source: str, weeks: int = 4) -> str:
++    """Render weekly velocity buckets."""
++    if fmt == "json":
++        envelope = build_envelope(
++            "velocity",
++            {"buckets": weekly_buckets(graph, as_of, weeks)},
++            generated_as_of=as_of,
++            source=source,
++        )
++        return to_json(envelope)
++    return render_markdown(graph, as_of, weeks) + "\n"
+diff --git a/samples/beads_insight/src/br_insight/loader.py b/samples/beads_insight/src/br_insight/loader.py
+index d658bd3..1c1f7f1 100644
+--- a/samples/beads_insight/src/br_insight/loader.py
++++ b/samples/beads_insight/src/br_insight/loader.py
+@@ -1,4 +1,4 @@
+-"""SLICE-001 (STUB): JSONL -> IssueGraph parser.
++"""SLICE-001: JSONL -> IssueGraph parser.
+ 
+ Implementer contract:
+ 
+@@ -9,15 +9,29 @@ Implementer contract:
+   each record's ``dependencies[]`` (entries shaped ``{depends_on_id, type}`` with
+   ``type`` in ``{blocks, parent-child, related}``).
+ 
+-This is left unimplemented on the seed so the acceptance tests are RED.
++Edge orientation (canonical ``src -> dst``):
++
++    A record ``R`` with ``{"depends_on_id": X, "type": "blocks"}`` means *X blocks R*,
++    so the edge is ``(X -> R.id)`` in ``blocks_edges``. The same source->this-record
++    orientation is used for ``parent-child`` (parent -> child) and ``related``.
+ """
+ 
+ from __future__ import annotations
+ 
+-from .model import IssueGraph
++import json
++from datetime import datetime, timezone
++
++from .model import Issue, IssueGraph
+ 
+ __all__ = ["load", "LoaderError"]
+ 
++# Dependency-edge relation kinds, mapped to the IssueGraph edge-set attribute.
++_EDGE_KIND_TO_ATTR = {
++    "blocks": "blocks_edges",
++    "parent-child": "parent_edges",
++    "related": "related_edges",
++}
++
+ 
+ class LoaderError(ValueError):
+     """Raised on a malformed JSONL line. Carries the offending 1-based line number."""
+@@ -27,9 +41,86 @@ class LoaderError(ValueError):
+         self.line_number = line_number
+ 
+ 
++def _parse_dt(value):
++    """Parse an optional RFC-3339 UTC timestamp into an aware datetime (or None).
++
++    Pure string -> datetime transform; never reads the wall clock.
++    """
++    if value is None:
++        return None
++    text = str(value).strip()
++    if not text:
++        return None
++    normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
++    parsed = datetime.fromisoformat(normalized)
++    if parsed.tzinfo is None:
++        parsed = parsed.replace(tzinfo=timezone.utc)
++    return parsed.astimezone(timezone.utc)
++
++
++def _build_issue(record: dict) -> Issue:
++    """Project a raw JSONL record onto the locked :class:`Issue` (unknown fields dropped)."""
++    labels = record.get("labels") or ()
++    return Issue(
++        id=record["id"],
++        title=record.get("title", ""),
++        status=record["status"],
++        priority=int(record["priority"]),
++        issue_type=record.get("issue_type", ""),
++        assignee=record.get("assignee"),
++        created_at=_parse_dt(record.get("created_at")),
++        closed_at=_parse_dt(record.get("closed_at")),
++        labels=tuple(labels),
++    )
++
++
+ def load(path) -> IssueGraph:
+     """Parse a ``.beads/issues.jsonl`` export into an :class:`IssueGraph`.
+ 
+-    STUB — implemented in SLICE-001.
++    Lines are 1-based for error reporting. Blank lines (e.g. a trailing newline) are
++    tolerated and skipped. A line that is not valid JSON raises :class:`LoaderError`
++    carrying its line number; the CLI maps that to exit code ``2``.
+     """
+-    raise NotImplementedError("loader.load is implemented in SLICE-001")
++    issues: dict[str, Issue] = {}
++    blocks_edges: set[tuple[str, str]] = set()
++    parent_edges: set[tuple[str, str]] = set()
++    related_edges: set[tuple[str, str]] = set()
++    edge_sets = {
++        "blocks_edges": blocks_edges,
++        "parent_edges": parent_edges,
++        "related_edges": related_edges,
++    }
++
++    with open(path, "r", encoding="utf-8") as handle:
++        for line_number, raw_line in enumerate(handle, start=1):
++            stripped = raw_line.strip()
++            if not stripped:
++                # Tolerate blank lines (notably the trailing newline at EOF).
++                continue
++            try:
++                record = json.loads(stripped)
++            except json.JSONDecodeError as exc:
++                raise LoaderError(
++                    f"malformed JSON on line {line_number}: {exc}",
++                    line_number=line_number,
++                ) from exc
++
++            issue = _build_issue(record)
++            issues[issue.id] = issue
++
++            # Build canonical src -> dst edges from this record's dependencies[].
++            for dep in record.get("dependencies") or ():
++                attr = _EDGE_KIND_TO_ATTR.get(dep.get("type"))
++                if attr is None:
++                    # Forward-compatible: unknown edge kinds are ignored.
++                    continue
++                src = dep["depends_on_id"]
++                dst = issue.id
++                edge_sets[attr].add((src, dst))
++
++    return IssueGraph(
++        issues=issues,
++        blocks_edges=blocks_edges,
++        parent_edges=parent_edges,
++        related_edges=related_edges,
++    )
+diff --git a/samples/beads_insight/src/br_insight/report.py b/samples/beads_insight/src/br_insight/report.py
+index a242d3c..4852815 100644
+--- a/samples/beads_insight/src/br_insight/report.py
++++ b/samples/beads_insight/src/br_insight/report.py
+@@ -1,4 +1,4 @@
+-"""SLICE-007 (STUB): the ``br_insight.report@1`` JSON envelope builder.
++"""SLICE-007: the ``br_insight.report@1`` JSON envelope builder.
+ 
+ Locked interface #2. ``--format json`` emits exactly this envelope::
+ 
+@@ -16,16 +16,52 @@ are stable across runs and processes.
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
++import json
++from datetime import datetime, timezone
+ 
+-__all__ = ["SCHEMA_VERSION", "build_envelope"]
++__all__ = ["SCHEMA_VERSION", "build_envelope", "format_as_of", "to_json"]
+ 
+ SCHEMA_VERSION = "br_insight.report@1"
+ 
+ 
+-def build_envelope(kind: str, data, *, generated_as_of: datetime, source: str) -> dict:
++def format_as_of(value) -> str:
++    """Render the injected clock to canonical RFC-3339 UTC with a trailing ``Z``.
++
++    Accepts either an aware :class:`datetime` (as the CLI passes after parsing) or a
++    string (as the tests pass directly, e.g. ``"2026-06-19T00:00:00Z"``). Either way
++    the output is the canonical ``...Z`` spelling so the envelope is byte-stable.
++    """
++    if isinstance(value, datetime):
++        dt = value.astimezone(timezone.utc)
++        return dt.strftime("%Y-%m-%dT%H:%M:%S") + "Z"
++    # String input: normalize a "+00:00" offset back to the canonical "Z".
++    text = str(value).strip()
++    if text.endswith("+00:00"):
++        return text[: -len("+00:00")] + "Z"
++    return text
++
++
++def build_envelope(kind: str, data, *, generated_as_of, source: str) -> dict:
+     """Wrap kind-specific ``data`` in the locked ``br_insight.report@1`` envelope.
+ 
+-    STUB — implemented in SLICE-007.
++    ``generated_as_of`` may be a :class:`datetime` or an RFC-3339 string; it is
++    rendered to the canonical ``...Z`` form. Key order is fixed and meaningful:
++    callers serialize with ``sort_keys=False`` to preserve it.
++    """
++    return {
++        "schema_version": SCHEMA_VERSION,
++        "generated_as_of": format_as_of(generated_as_of),
++        "kind": kind,
++        "source": source,
++        "data": data,
++    }
++
++
++def to_json(envelope: dict) -> str:
++    """Serialize an envelope to byte-stable JSON.
++
++    Uses ``sort_keys=False`` (envelope key order is intentional and already sorted
++    inside ``data`` by the commands) and compact separators so the bytes are stable
++    across runs and processes.
+     """
+-    raise NotImplementedError("report.build_envelope is implemented in SLICE-007")
++    return json.dumps(envelope, sort_keys=False, separators=(",", ":"), ensure_ascii=False)

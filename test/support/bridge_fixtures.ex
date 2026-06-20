@@ -47,8 +47,10 @@ defmodule Conveyor.Eval.BridgeFixtures do
       Keyword.get(opts, :patch_ref, "samples/tasks_service/.conveyor/canary/known_good.patch")
 
     adapter_name = Keyword.get(opts, :adapter_name, "reference_solution")
+    sample_path = Keyword.get(opts, :sample_path, @sample)
+    plan_path = Keyword.get(opts, :plan_path, @plan_path)
 
-    workspace_path = git_sample_workspace!(label, Keyword.get(opts, :break_with))
+    workspace_path = git_sample_workspace!(label, Keyword.get(opts, :break_with), sample_path)
     base_commit = git!(workspace_path, ["rev-parse", "HEAD"])
     blob_root = Conveyor.FactoryFixtures.temp_dir!("#{label}-blobs")
 
@@ -61,7 +63,8 @@ defmodule Conveyor.Eval.BridgeFixtures do
         base_commit,
         patch_ref,
         blob_root,
-        Keyword.get(opts, :agent_adapter)
+        Keyword.get(opts, :agent_adapter),
+        plan_path
       )
 
     project =
@@ -187,7 +190,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
       slice: slice,
       base_commit: base_commit,
       patch_ref: patch_ref,
-      plan_path: @plan_path,
+      plan_path: plan_path,
       workspace: %{path: workspace_path, base_commit: base_commit}
     }
   end
@@ -199,7 +202,8 @@ defmodule Conveyor.Eval.BridgeFixtures do
         base_commit,
         patch_ref,
         blob_root,
-        agent_adapter \\ nil
+        agent_adapter \\ nil,
+        plan_path \\ @plan_path
       ) do
     {cand, spec} = CompilerProperties.candidate_fixture(1)
     {:ok, work_graph} = WorkGraphLowering.lower(cand, spec)
@@ -219,7 +223,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
               |> maybe_put("adapter", agent_adapter)
 
             "verify" ->
-              %{"workspace_path" => workspace_path, "plan_path" => @plan_path}
+              %{"workspace_path" => workspace_path, "plan_path" => plan_path}
 
             _ ->
               %{}
@@ -231,7 +235,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
     %{base | "stations" => stations}
   end
 
-  defp git_sample_workspace!(label, break_with) do
+  defp git_sample_workspace!(label, break_with, sample_path) do
     path = Conveyor.FactoryFixtures.temp_dir!(label)
 
     {_, 0} =
@@ -245,7 +249,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
         "__pycache__",
         "--exclude",
         ".git",
-        @sample <> "/",
+        sample_path <> "/",
         path <> "/"
       ])
 
