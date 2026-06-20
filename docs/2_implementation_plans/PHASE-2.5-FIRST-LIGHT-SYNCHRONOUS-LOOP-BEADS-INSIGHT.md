@@ -16,6 +16,41 @@
 
 ---
 
+## ⚠️ Course-correction (2026-06-20) — read before the rest
+
+Two things changed after a deeper ideation pass. Full detail + the bold ideas
+catalog live in **`00-FIRST-LIGHT-HANDOFF.md`** (read it first); this is the
+delta.
+
+**1. The loop cannot terminate today (critical).** Code archaeology found the
+synchronous loop physically can't iterate: `RunSlice.Result.status` is only
+`:succeeded|:failed`; the real verdict is `run_attempt.outcome` (terminal accept
+is `:accepted`, not `:done`); `Gate.Finalizer` dead-ends at `:needs_rework`; and
+`create_retry_attempt!/3` raises unless status is `:failed`. So the
+**loop-closers are prerequisites, not backlog.** Milestone deltas:
+
+- **M0** gains **Falsifier Forge** — execute the dormant `FalsifierSeedDeriver`
+  seeds red-on-base _at contract lock_ (pre-agent), so bad ACs die before spend.
+- **M1** runs **ReferenceSolution-first** (prove loop wiring, $0) then Codex.
+- **M2** needs `Conveyor.Planning.SerialDriver` (multi-slice, width 1).
+- **NEW M2.5 — Back-Edge:** wire `Conveyor.Genome.BackEdge` at gate-pass so the
+  Genome accretes from run 1.
+- **M5** requires `Conveyor.AttemptLoop` + `Conveyor.Recovery.ReworkSynthesizer`
+  (specs in handoff §9) — without them the loop can't rework to green.
+- **NEW M7 — Sealed Verdict:** first DSSE-wrapped gate verdict / `trust_bundle@1`
+  — the first artifact of the actual product.
+
+**2. The strategy: verifier-as-product + the Genome.** Conveyor's defensible
+product is the trust layer for AI-written code; its moat is **the Genome** — a
+content-addressed, gate-verified `intent ↔ code ↔ verdict ↔ outcome` graph that
+accretes every run. The loop generates the Genome; the Genome makes the loop
+succeed more. The "timid 10" in §10 are **superseded** by the clustered bold
+catalog in handoff §10 (Close-the-loop / Genome / Verifier-as-product /
+Debugging) and the bet trio (AttemptLoop + Rework Synthesizer + Falsifier Forge +
+Back-Edge).
+
+---
+
 ## 0. Where this sits
 
 This plan is the **execution** of the serial pilot that the
@@ -331,7 +366,18 @@ Brownfield onboarding. Anything that assumes width > 1.
 
 ---
 
-## 10. Enhancement backlog — the top 10 ideas (distilled from 100)
+## 10. Enhancement backlog
+
+> **⚠️ SUPERSEDED (2026-06-20).** The "top 10" table below was a first, _timid_
+> pass (engineering hygiene dressed as bold). The authoritative, bolder,
+> moat-focused catalog — clustered as **Close-the-loop / Genome /
+> Verifier-as-product / Debugging**, with the bet-trio specs — now lives in
+> **`00-FIRST-LIGHT-HANDOFF.md` §10 and §9.** Use that. The table below is kept
+> for history only; several of its items (self-report↔evidence reconciliation,
+> `mix conveyor.run`, Needs-a-Human inbox, crash-safe station commit) survive as
+> real near-term wins.
+
+### (historical) the original top 10 (distilled from 100)
 
 Adversarially generated and scored; full write-ups in the session record. These
 are sequenced _after_ First Light's M0–M3 except where noted "fold in."
