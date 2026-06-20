@@ -1,0 +1,12 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/velocity.py b/samples/beads_insight/src/br_insight/commands/velocity.py
+index c814bb5..5afce13 100644
+--- a/samples/beads_insight/src/br_insight/commands/velocity.py
++++ b/samples/beads_insight/src/br_insight/commands/velocity.py
+@@ -46,7 +46,7 @@ def weekly_buckets(graph: IssueGraph, as_of, weeks: int = 4):
+         b_start = end - _WEEK * (weeks - i)
+         b_end = end - _WEEK * (weeks - 1 - i)
+-        count = sum(1 for t in closed_times if b_start <= t < b_end)
++        count = sum(1 for t in closed_times if b_start < t < b_end)
+         buckets.append(
+             {
+                 "start": format_as_of(b_start),

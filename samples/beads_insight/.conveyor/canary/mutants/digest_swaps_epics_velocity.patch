@@ -1,0 +1,14 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/digest.py b/samples/beads_insight/src/br_insight/commands/digest.py
+index d5d5f66..6f3a94b 100644
+--- a/samples/beads_insight/src/br_insight/commands/digest.py
++++ b/samples/beads_insight/src/br_insight/commands/digest.py
+@@ -26,8 +26,8 @@ def _render_markdown(graph: IssueGraph, as_of) -> str:
+     bodies = [
+         ready_cmd.render_markdown(graph),
+         cycles_cmd.render_markdown(graph),
+-        epics_cmd.render_markdown(graph),
+         velocity_cmd.render_markdown(graph, as_of),
++        epics_cmd.render_markdown(graph),
+     ]
+     # Title, then each section separated by a blank line; single trailing newline.
+     return title + "\n\n" + "\n\n".join(bodies) + "\n"

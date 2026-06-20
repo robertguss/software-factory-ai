@@ -43,6 +43,7 @@ defmodule Conveyor.Eval.MutantGauntlet do
   def run(opts \\ []) do
     manifest = load_manifest(opts)
     plan = load_plan(opts)
+    opts = Keyword.put_new(opts, :sample_path, manifest["sample_repo_path"])
     mutants = Enum.filter(manifest["mutants"] || [], &Map.get(&1, "enabled", true))
 
     {behavioral, static} =
@@ -90,13 +91,17 @@ defmodule Conveyor.Eval.MutantGauntlet do
   end
 
   defp run_case(plan, case_def, kind, opts) do
-    ws = Workspace.setup!()
+    ws = Workspace.setup!(sample_path: opts[:sample_path])
 
     try do
-      if kind == :mutant and case_def["patch_ref"],
+      Enum.each(case_def["pre_patch_refs"] || [], &Workspace.apply_patch!(ws, &1))
+
+      if case_def["patch_ref"] && (kind == :known_good || kind == :mutant),
         do: Workspace.apply_patch!(ws, case_def["patch_ref"])
 
-      verification_result = ToolchainRunner.verification_result(ws, plan, runner_opts(opts))
+      verification_result =
+        ToolchainRunner.verification_result(ws, plan, runner_opts(opts, case_def))
+
       context = %{verification_result: verification_result, test_pack_calibration: @calibration}
       gate = RunGate.run_gate_only!(context, @stages, @gate_opts)
 
@@ -104,6 +109,9 @@ defmodule Conveyor.Eval.MutantGauntlet do
         "id" => case_def["id"],
         "kind" => Atom.to_string(kind),
         "expected_stage" => get_in(case_def, ["expected_catch", "stage"]),
+        "slice_id" => case_def["slice_id"],
+        "acceptance_refs" => case_def["acceptance_refs"] || [],
+        "test_refs" => test_refs(plan, case_def),
         "gate_passed" => gate.passed?,
         "caught_by_stage" => failed_stage_keys(gate),
         "finding_categories" => Enum.map(gate.findings, &(&1["category"] || &1[:category]))
@@ -119,8 +127,12 @@ defmodule Conveyor.Eval.MutantGauntlet do
     |> Enum.map(&to_string(&1.key))
   end
 
-  defp runner_opts(opts),
-    do: Keyword.merge(Workspace.venv_opts(), Keyword.take(opts, [:backend, :venv_bin]))
+  defp runner_opts(opts, case_def) do
+    opts[:sample_path]
+    |> Workspace.venv_opts()
+    |> Keyword.merge(Keyword.take(opts, [:backend, :venv_bin, :requirements_lock]))
+    |> Keyword.merge(test_refs: test_refs(load_plan(opts), case_def))
+  end
 
   defp load_manifest(opts) do
     (opts[:manifest_path] || @manifest_path) |> File.read!() |> Jason.decode!()
@@ -128,6 +140,28 @@ defmodule Conveyor.Eval.MutantGauntlet do
 
   defp load_plan(opts) do
     YamlElixir.read_from_file!(opts[:plan_path] || @plan_path)
+  end
+
+  defp test_refs(_plan, %{"test_refs" => refs}) when is_list(refs), do: refs
+
+  defp test_refs(plan, %{"acceptance_refs" => acceptance_refs}) when is_list(acceptance_refs) do
+    plan
+    |> acceptance_by_key()
+    |> then(fn by_key ->
+      acceptance_refs
+      |> Enum.flat_map(&(by_key[&1] || []))
+      |> Enum.uniq()
+    end)
+  end
+
+  defp test_refs(_plan, _case_def), do: nil
+
+  defp acceptance_by_key(plan) do
+    plan
+    |> Map.get("acceptance_criteria", [])
+    |> Map.new(fn criterion ->
+      {criterion["key"], criterion["required_test_refs"] || []}
+    end)
   end
 
   defp safe_ratio(_num, 0), do: 0.0

@@ -1,0 +1,11 @@
+diff --git a/samples/beads_insight/src/br_insight/report.py b/samples/beads_insight/src/br_insight/report.py
+index 58f6651..84b60f7 100644
+--- a/samples/beads_insight/src/br_insight/report.py
++++ b/samples/beads_insight/src/br_insight/report.py
+@@ -42,7 +42,6 @@ def build_envelope(kind: str, data, *, generated_as_of, source: str) -> dict:
+         "schema_version": SCHEMA_VERSION,
+         "generated_as_of": format_as_of(generated_as_of),
+         "kind": kind,
+-        "source": source,
+         "data": data,
+     }
