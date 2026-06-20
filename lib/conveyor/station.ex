@@ -526,6 +526,22 @@ defmodule Conveyor.Station do
     )
   end
 
+  # Resolve an artifact's bytes: prefer inline `content`, else read the blob the
+  # producer already wrote and referenced via `content_ref` (the agent diff path).
+  # Without this, a `content_ref`-only artifact persisted as empty (size_bytes: 0).
+  defp artifact_content!(artifact, blob_root) do
+    cond do
+      content = Map.get(artifact, :content) || Map.get(artifact, "content") ->
+        content
+
+      ref = Map.get(artifact, :content_ref) || Map.get(artifact, "content_ref") ->
+        BlobStore.read!(ref, blob_root: blob_root)
+
+      true ->
+        ""
+    end
+  end
+
   defp write_artifacts!(station_run, run_attempt, artifacts, opts) do
     artifacts
     |> Enum.map(&write_artifact!(station_run, run_attempt, &1, opts))
@@ -534,8 +550,9 @@ defmodule Conveyor.Station do
   end
 
   defp write_artifact!(station_run, run_attempt, artifact, opts) do
-    content = Map.get(artifact, :content) || Map.get(artifact, "content") || ""
-    blob = BlobStore.write!(content, blob_root: Keyword.get(opts, :blob_root, ".conveyor/blobs"))
+    blob_root = Keyword.get(opts, :blob_root, ".conveyor/blobs")
+    content = artifact_content!(artifact, blob_root)
+    blob = BlobStore.write!(content, blob_root: blob_root)
     sha256 = Map.get(artifact, :sha256, Map.get(artifact, "sha256", "sha256:#{blob.sha256}"))
     size_bytes = Map.get(artifact, :size_bytes, Map.get(artifact, "size_bytes", blob.size_bytes))
 

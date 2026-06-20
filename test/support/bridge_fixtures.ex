@@ -55,7 +55,14 @@ defmodule Conveyor.Eval.BridgeFixtures do
     run_spec_sha256 = digest("run-spec-#{label}")
 
     station_plan =
-      augmented_station_plan(run_spec_sha256, workspace_path, base_commit, patch_ref, blob_root)
+      augmented_station_plan(
+        run_spec_sha256,
+        workspace_path,
+        base_commit,
+        patch_ref,
+        blob_root,
+        Keyword.get(opts, :agent_adapter)
+      )
 
     project =
       Ash.create!(
@@ -127,8 +134,8 @@ defmodule Conveyor.Eval.BridgeFixtures do
           brief_id: brief.id,
           context_pack_id: context_pack.id,
           template_version: "implementation-prompt@1",
-          body: "Apply the reference solution to the sample.",
-          body_sha256: digest("bridge-prompt"),
+          body: Keyword.get(opts, :prompt_body, "Apply the reference solution to the sample."),
+          body_sha256: digest("bridge-prompt-#{label}"),
           output_schema_version: "conveyor.agent_output@1"
         },
         domain: Factory
@@ -186,7 +193,14 @@ defmodule Conveyor.Eval.BridgeFixtures do
   end
 
   @doc "The pure lowered station_plan augmented with runtime params on the station inputs."
-  def augmented_station_plan(run_spec_sha256, workspace_path, base_commit, patch_ref, blob_root) do
+  def augmented_station_plan(
+        run_spec_sha256,
+        workspace_path,
+        base_commit,
+        patch_ref,
+        blob_root,
+        agent_adapter \\ nil
+      ) do
     {cand, spec} = CompilerProperties.candidate_fixture(1)
     {:ok, work_graph} = WorkGraphLowering.lower(cand, spec)
     {:ok, base} = WorkGraphToStationPlan.lower(work_graph, run_spec_sha256)
@@ -202,6 +216,7 @@ defmodule Conveyor.Eval.BridgeFixtures do
                 "patch_ref" => patch_ref,
                 "blob_root" => blob_root
               }
+              |> maybe_put("adapter", agent_adapter)
 
             "verify" ->
               %{"workspace_path" => workspace_path, "plan_path" => @plan_path}
@@ -327,6 +342,9 @@ defmodule Conveyor.Eval.BridgeFixtures do
       "result_format" => "junit"
     }
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)
 end
