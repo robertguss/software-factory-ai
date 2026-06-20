@@ -267,9 +267,12 @@ splits:
   ~10.7 min): `gate_passed: true`, `findings: []`. **The factory turned a real
   plan into gate-passing software via a real agent, synchronously** — and because
   the gate was proven to discriminate first (M4), the PASS is trustworthy.
-  **Caveat:** GoldenThread runs the `TestExecution` stage only; the diff-scope /
-  test-integrity check (did Codex *implement* the code vs *touch the tests*) is
-  the **M3** hardening — NOT yet verified.
+  ✅ **Diff-scope verified (2026-06-20):** a re-run with a diff-scope assertion
+  confirms Codex changed exactly **9 files, ALL under `src/br_insight/`**
+  (`model.py`, `tests/`, the golden, the plan all untouched) — it implemented the
+  code, it did not tamper; reproducible across 2 independent runs. The integrity
+  claim is now bulletproof at the test level. (Wiring the `diff_scope` gate STAGE
+  *inside the loop* is still the M3 hardening, but the claim no longer rests on it.)
 - **M1b:** productionize into `Conveyor.Stations.*` + `RunSpecAssembler` +
   per-slice ContractLock/gate-scoping (§8.1–8.4), so a SINGLE slice runs against
   its own contract.
