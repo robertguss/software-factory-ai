@@ -256,9 +256,10 @@ the existing harness needs a COMPLETE reference solution. Per-slice gate scoping
 (each slice's gate checks only its own ACs) is M1b productionization. So M1
 splits:
 
-- **M1a (in progress):** drive the WHOLE Beads Insight plan to a real gate-pass
-  via the existing Golden-Thread harness + the complete reference solution
-  (loop-integrity proof on the real plan, $0).
+- **M1a (✅ GREEN — 2026-06-20):** the WHOLE Beads Insight plan drove the full
+  loop to a real gate-pass via the Golden-Thread harness + the complete
+  reference solution (loop-integrity proof on the real plan, $0). Proven by
+  `test/conveyor/eval/beads_insight_golden_thread_test.exs`.
 - **M1b:** productionize into `Conveyor.Stations.*` + `RunSpecAssembler` +
   per-slice ContractLock/gate-scoping (§8.1–8.4), so a SINGLE slice runs against
   its own contract.
@@ -271,7 +272,21 @@ manifest + the regenerated `tests/golden/digest_2026-06-19.md`). It applies via
 committed base src stays RED. This is the known-good every run is verified
 against.
 
-**▶ NEXT — M1a wiring:** generalize `test/support/bridge_fixtures.ex` (today
+**✅ M1a DONE (2026-06-20)** — implemented + GREEN in
+`test/conveyor/eval/beads_insight_golden_thread_test.exs` (`run_status: :succeeded`,
+`verification: "passed"`, `gate_passed: true`); the `tasks_service` regression
+anchor stays green and the gate discriminates (known-good PASS, mutants FAIL).
+**▶ NEXT:** (1) **M4 discrimination on Beads Insight** — add a behavioral mutant
+to `samples/beads_insight/.conveyor/canary/mutants.json` and assert it FAILS the
+gate (confirms beads_insight's own gate discriminates, not just tasks_service's).
+(2) **M1b productionize** — `Conveyor.Stations.*` + `RunSpecAssembler` + per-slice
+ContractLock/gate-scoping (§8.1–8.4) so a SINGLE slice runs against its own
+contract. (3) **M2** — `Conveyor.Planning.SerialDriver` over all 7 slices.
+(4) loop-closers (AttemptLoop + Rework Synthesizer, §9). (5) swap `AgentStation`'s
+adapter to `Codex` for the agent proof. Run cmd:
+`MIX_ENV=test PGPORT=5433 PGUSER=postgres PGPASSWORD=postgres mix test test/conveyor/eval/beads_insight_golden_thread_test.exs --include eval`.
+
+_(historical M1a wiring note:)_ generalize `test/support/bridge_fixtures.ex` (today
 hardcoded to `samples/tasks_service`) to accept a sample path + plan path +
 `patch_ref`; build the Ash chain (Project→Plan→Epic→Slice→RunPrompt→RunSpec→
 RunAttempt→AgentSession) + materialize the workspace for `samples/beads_insight`;
