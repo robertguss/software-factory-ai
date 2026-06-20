@@ -5,7 +5,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
 
   alias Conveyor.CanonicalJson
   alias Conveyor.ContractEvolution
-  alias Conveyor.ContractForge.ContractAuthor
+  alias Conveyor.ContractForge.{ContractAuthor, FalsifierForge}
   alias Conveyor.Factory
 
   alias Conveyor.Factory.{
@@ -126,7 +126,9 @@ defmodule Conveyor.Planning.RunSpecAssembler do
         Map.update!(station, "input", &Map.merge(&1, extra))
       end)
 
-    %{plan | "stations" => stations}
+    plan
+    |> Map.put("falsifier_forge", contract.falsifier_forge)
+    |> Map.put("stations", stations)
   end
 
   defp run_spec_attrs(
@@ -263,7 +265,13 @@ defmodule Conveyor.Planning.RunSpecAssembler do
         domain: Factory
       )
 
-    %{agent_brief: agent_brief, contract_lock: contract_lock, test_pack: test_pack}
+    %{
+      agent_brief: agent_brief,
+      contract_lock: contract_lock,
+      test_pack: test_pack,
+      falsifier_forge:
+        FalsifierForge.run!(spec.acceptance_criteria, author_result.falsifier_seeds)
+    }
   end
 
   defp contract_spec(slice, context, work_graph, opts) do
@@ -550,9 +558,15 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     %{
       agent_brief: agent_brief,
       contract_lock: latest_contract_lock(slice_id, agent_brief && agent_brief.id),
-      test_pack: latest_test_pack(slice_id)
+      test_pack: latest_test_pack(slice_id),
+      falsifier_forge: falsifier_forge_report(agent_brief)
     }
   end
+
+  defp falsifier_forge_report(%AgentBrief{} = agent_brief),
+    do: FalsifierForge.run!(agent_brief.acceptance_criteria)
+
+  defp falsifier_forge_report(_agent_brief), do: nil
 
   defp latest_agent_brief(slice_id) do
     AgentBrief

@@ -111,6 +111,35 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
     assert lock.test_pack_sha256 == test_pack.test_pack_sha256
     assert run_spec.contract_lock_sha256 == ContractEvolution.contract_lock_sha256(lock)
     assert run_spec.test_pack_sha256 == test_pack.test_pack_sha256
+
+    assert run_spec.station_plan["falsifier_forge"] == %{
+             "schema_version" => "conveyor.falsifier_forge@1",
+             "status" => "passed",
+             "phase" => "pre_agent_contract_lock",
+             "red_on_base_count" => 2,
+             "acceptance_criteria" => [
+               %{
+                 "id" => "AC-001",
+                 "expected_on_base" => "fail",
+                 "required_test_refs" => [
+                   "tests/test_loader.py::test_corpus_counts_stable"
+                 ],
+                 "seed_ids" => [
+                   "falsifier:AC-001:table_negative_row:0"
+                 ]
+               },
+               %{
+                 "id" => "AC-002",
+                 "expected_on_base" => "fail",
+                 "required_test_refs" => [
+                   "tests/test_loader.py::test_malformed_line_exit_2"
+                 ],
+                 "seed_ids" => [
+                   "falsifier:AC-002:table_negative_row:0"
+                 ]
+               }
+             ]
+           }
   end
 
   defp slice_fixture!(workspace_path) do
