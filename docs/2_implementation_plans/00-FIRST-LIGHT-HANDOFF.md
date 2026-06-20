@@ -260,6 +260,16 @@ splits:
   loop to a real gate-pass via the Golden-Thread harness + the complete
   reference solution (loop-integrity proof on the real plan, $0). Proven by
   `test/conveyor/eval/beads_insight_golden_thread_test.exs`.
+- **Codex (✅ live build — 2026-06-20):** the live Codex adapter built the whole
+  CLI from the stub workspace + an implementation brief; its diff passed real
+  pytest (16 green) and the deterministic gate
+  (`test/conveyor/eval/beads_insight_codex_live_test.exs`, `:live_agent`,
+  ~10.7 min): `gate_passed: true`, `findings: []`. **The factory turned a real
+  plan into gate-passing software via a real agent, synchronously** — and because
+  the gate was proven to discriminate first (M4), the PASS is trustworthy.
+  **Caveat:** GoldenThread runs the `TestExecution` stage only; the diff-scope /
+  test-integrity check (did Codex *implement* the code vs *touch the tests*) is
+  the **M3** hardening — NOT yet verified.
 - **M1b:** productionize into `Conveyor.Stations.*` + `RunSpecAssembler` +
   per-slice ContractLock/gate-scoping (§8.1–8.4), so a SINGLE slice runs against
   its own contract.
