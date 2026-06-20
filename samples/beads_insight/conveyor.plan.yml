@@ -1,0 +1,248 @@
+schema_version: conveyor.plan@1
+project:
+  key: beads_insight
+  base_ref: main
+goal: >-
+  Build a read-only Python CLI, br-insight, that reads .beads/issues.jsonl and
+  answers five backlog questions (ready, cycles, epics, velocity, digest) as a
+  pure, hermetic, deterministic function of (the JSONL bytes, an injected
+  --as-of clock, the chosen --format), with no network, no live br calls, and no
+  wall-clock reads.
+non_goals:
+  - Writing to or mutating .beads/ (the tool is strictly read-only)
+  - Invoking the live br binary (we read the JSONL export directly)
+  - Any network access (no GitHub, no remote fetch)
+  - A TUI / interactive / curses interface (stdout text only)
+  - Issue creation, editing, sync, auth, pagination, config files, or plugins
+  - Any dependence on wall-clock, locale, environment, or dict/set iteration order
+requirements:
+  - key: REQ-001
+    text: >-
+      Parse .beads/issues.jsonl line-by-line into an in-memory IssueGraph;
+      tolerate a trailing newline; ignore unknown fields; on malformed JSON exit
+      2 with a stderr message naming the offending line number.
+    risk: medium
+    source_ref: plan.md#requirement-req-001
+    status: covered
+  - key: REQ-002
+    text: >-
+      A `ready` command returns issues that are ready to work: status == open
+      AND every blocks-edge into the issue originates from a closed issue;
+      parent-child and related edges never gate readiness; output sorted by
+      (priority asc, id asc).
+    risk: high
+    source_ref: plan.md#requirement-req-002
+    status: covered
+  - key: REQ-003
+    text: >-
+      A `cycles` command detects directed cycles over blocks edges only,
+      reporting each cycle exactly once as the lexicographically-smallest
+      rotation of its node ids; a self-loop is a length-1 cycle.
+    risk: high
+    source_ref: plan.md#requirement-req-003
+    status: covered
+  - key: REQ-004
+    text: >-
+      An `epics` command rolls up, for each issue of type epic, its transitive
+      parent-child descendants: total children, closed children, percent
+      complete (integer floor), and open/blocked counts; sorted by epic id.
+    risk: medium
+    source_ref: plan.md#requirement-req-004
+    status: covered
+  - key: REQ-005
+    text: >-
+      A `velocity` command counts issues whose closed_at falls within each of
+      the trailing K weekly half-open UTC buckets ending at --as-of (default
+      K=4); issues with null closed_at are excluded.
+    risk: medium
+    source_ref: plan.md#requirement-req-005
+    status: covered
+  - key: REQ-006
+    text: >-
+      A `digest` command composes ready + cycles + epics + velocity into one
+      markdown report with fixed section order; it is a pure function of
+      (corpus, --as-of) and is byte-stable across runs and processes.
+    risk: high
+    source_ref: plan.md#requirement-req-006
+    status: covered
+  - key: REQ-007
+    text: >-
+      Every command accepts --format markdown|json (default markdown); json
+      emits the locked br_insight.report@1 envelope; an unknown format exits 2.
+    risk: medium
+    source_ref: plan.md#requirement-req-007
+    status: covered
+  - key: REQ-008
+    text: >-
+      No command reads wall-clock time; --as-of (RFC-3339 UTC) is the sole time
+      source and is never defaulted to now() in library code.
+    risk: high
+    source_ref: plan.md#requirement-req-008
+    status: covered
+acceptance_criteria:
+  - key: AC-001
+    text: Loading the fixture corpus yields exactly the frozen issue and edge counts.
+    requirement_refs: [REQ-001]
+    required_test_refs:
+      - tests/test_loader.py::test_corpus_counts_stable
+  - key: AC-002
+    text: A line with invalid JSON exits 2 and stderr names the bad line number.
+    requirement_refs: [REQ-001]
+    required_test_refs:
+      - tests/test_loader.py::test_malformed_line_exit_2
+  - key: AC-003
+    text: ready returns exactly the expected id set in the exact (priority, id) order.
+    requirement_refs: [REQ-002]
+    required_test_refs:
+      - tests/test_ready.py::test_ready_set_and_order
+  - key: AC-004
+    text: Reopening a blocker removes its dependents from ready; closing it re-admits them.
+    requirement_refs: [REQ-002]
+    required_test_refs:
+      - tests/test_ready.py::test_blocker_gating
+  - key: AC-005
+    text: A planted cycle A->B->C->A is reported exactly once as its canonical rotation; an acyclic fixture reports zero cycles and exits 0.
+    requirement_refs: [REQ-003]
+    required_test_refs:
+      - tests/test_cycles.py::test_canonical_three_cycle
+  - key: AC-006
+    text: Two disjoint cycles are both reported, ordered deterministically; overlapping cycles are not double-counted.
+    requirement_refs: [REQ-003]
+    required_test_refs:
+      - tests/test_cycles.py::test_multi_cycle_dedup
+  - key: AC-007
+    text: Fixture epic E1 reports total=5, closed=2, pct=40.
+    requirement_refs: [REQ-004]
+    required_test_refs:
+      - tests/test_epics.py::test_rollup_counts
+  - key: AC-008
+    text: A childless epic reports total=0, pct=100 and never divides by zero.
+    requirement_refs: [REQ-004]
+    required_test_refs:
+      - tests/test_epics.py::test_empty_epic
+  - key: AC-009
+    text: With --as-of 2026-06-19T00:00:00Z the fixture yields per-bucket counts [3,1,0,2].
+    requirement_refs: [REQ-005]
+    required_test_refs:
+      - tests/test_velocity.py::test_weekly_buckets_as_of
+  - key: AC-010
+    text: An issue closed exactly at a bucket boundary lands in the newer bucket only.
+    requirement_refs: [REQ-005]
+    required_test_refs:
+      - tests/test_velocity.py::test_boundary_half_open
+  - key: AC-011
+    text: digest --as-of 2026-06-19T00:00:00Z --format markdown is byte-identical to the checked-in golden file.
+    requirement_refs: [REQ-006]
+    required_test_refs:
+      - tests/test_digest.py::test_digest_byte_stable
+  - key: AC-012
+    text: digest produces identical bytes across two fresh processes (no dict/set iteration nondeterminism).
+    requirement_refs: [REQ-006]
+    required_test_refs:
+      - tests/test_digest.py::test_digest_idempotent
+  - key: AC-013
+    text: ready --format json validates against br_insight.report@1 with kind == ready.
+    requirement_refs: [REQ-007]
+    required_test_refs:
+      - tests/test_format.py::test_ready_json_schema_valid
+  - key: AC-014
+    text: --format xml exits 2 with stderr naming the allowed formats.
+    requirement_refs: [REQ-007]
+    required_test_refs:
+      - tests/test_format.py::test_bad_format_exit_2
+  - key: AC-015
+    text: Grepping non-test package modules for datetime.now/time.time/utcnow/date.today yields zero hits.
+    requirement_refs: [REQ-008]
+    required_test_refs:
+      - tests/test_determinism.py::test_no_wallclock_calls
+  - key: AC-016
+    text: Same --as-of yields identical velocity/digest bytes; a different --as-of changes the bucket counts.
+    requirement_refs: [REQ-008]
+    required_test_refs:
+      - tests/test_determinism.py::test_as_of_is_sole_clock
+verification_commands:
+  - key: pytest
+    argv: ["pytest", "-q"]
+    profile: verify
+decisions:
+  - key: DEC-001
+    decision: The tool is strictly read-only and hermetic — it parses the JSONL export directly, never invokes the live br binary, and never touches the network.
+    rationale: A read-only, no-network boundary makes every acceptance criterion mechanically checkable under the gate's pytest --network=none profile and removes the largest source of nondeterminism.
+  - key: DEC-002
+    decision: Time enters only through an injected --as-of value; library code never calls now()/utcnow()/today().
+    rationale: An injected clock makes velocity and digest byte-stable, lets the gate assert determinism directly, and mirrors Conveyor's own no-wall-clock rule.
+  - key: DEC-003
+    decision: Exactly two interfaces are locked across slices — the Issue/IssueGraph model and the br_insight.report@1 JSON envelope; evolution mints a new @2, never mutates @1.
+    rationale: Freezing the only two cross-slice contracts lets the four command slices be built independently against a stable interface and gives ContractLock a small, precise surface to freeze.
+  - key: DEC-004
+    decision: v1 is a single archetype (greenfield pure-logic Python) with one verification command (pytest -q).
+    rationale: A single archetype keeps the gate signal clean for the first real plan through the loop; archetype diversity is deferred to a later target.
+slices:
+  - key: SLICE-001
+    title: Loader and IssueGraph model
+    requirement_refs: [REQ-001]
+    likely_files:
+      - src/br_insight/model.py
+      - src/br_insight/loader.py
+      - tests/test_loader.py
+      - tests/fixtures/issues.jsonl
+    conflict_domains:
+      - model_io
+    autonomy_ceiling: L1
+  - key: SLICE-002
+    title: ready command
+    requirement_refs: [REQ-002]
+    likely_files:
+      - src/br_insight/commands/ready.py
+      - tests/test_ready.py
+    conflict_domains:
+      - cmd_ready
+    autonomy_ceiling: L1
+  - key: SLICE-003
+    title: cycles command
+    requirement_refs: [REQ-003]
+    likely_files:
+      - src/br_insight/commands/cycles.py
+      - tests/test_cycles.py
+    conflict_domains:
+      - cmd_cycles
+    autonomy_ceiling: L1
+  - key: SLICE-004
+    title: epics command
+    requirement_refs: [REQ-004]
+    likely_files:
+      - src/br_insight/commands/epics.py
+      - tests/test_epics.py
+    conflict_domains:
+      - cmd_epics
+    autonomy_ceiling: L1
+  - key: SLICE-005
+    title: velocity command with injected clock
+    requirement_refs: [REQ-005, REQ-008]
+    likely_files:
+      - src/br_insight/commands/velocity.py
+      - src/br_insight/clock.py
+      - tests/test_velocity.py
+    conflict_domains:
+      - cmd_velocity
+    autonomy_ceiling: L1
+  - key: SLICE-006
+    title: digest command composing the four reports
+    requirement_refs: [REQ-006]
+    likely_files:
+      - src/br_insight/commands/digest.py
+      - tests/test_digest.py
+    conflict_domains:
+      - cmd_digest
+    autonomy_ceiling: L1
+  - key: SLICE-007
+    title: JSON format envelope and determinism sweep
+    requirement_refs: [REQ-007, REQ-008]
+    likely_files:
+      - src/br_insight/cli.py
+      - src/br_insight/report.py
+      - tests/test_format.py
+      - tests/test_determinism.py
+    conflict_domains:
+      - cli_format
+    autonomy_ceiling: L2
