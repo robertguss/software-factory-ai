@@ -14,6 +14,7 @@ defmodule Conveyor.AttemptLoop do
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
+  alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Ledger
   alias Conveyor.Recovery.ReworkSynthesizer
@@ -36,7 +37,7 @@ defmodule Conveyor.AttemptLoop do
     defstruct [:status, :attempts, :events, :report]
   end
 
-  @terminal_outcomes [:accepted, :policy_blocked, :rejected]
+  @terminal_outcomes [:accepted, :policy_blocked, :rejected, :abstained]
 
   @spec run_to_done!(RunAttempt.t() | Ecto.UUID.t(), keyword()) :: Result.t()
   def run_to_done!(run_attempt_or_id, opts \\ []) do
@@ -49,7 +50,7 @@ defmodule Conveyor.AttemptLoop do
     run_spec = get_by_id!(RunSpec, attempt.run_spec_id)
     slice_result = run_slice!(attempt, opts)
     gate = run_gate!(run_spec, attempt, slice_result, opts)
-    finalization = finalize_gate!(gate, run_spec, attempt, opts)
+    finalization = finalize_gate!(gate, run_spec, attempt, slice_result, opts)
     final_attempt = final_attempt(finalization, attempt)
     attempt_event = attempt_event(final_attempt, gate)
     attempts = attempts ++ [final_attempt]
@@ -165,7 +166,7 @@ defmodule Conveyor.AttemptLoop do
     end
   end
 
-  defp finalize_gate!(gate, run_spec, attempt, opts) do
+  defp finalize_gate!(gate, run_spec, attempt, slice_result, opts) do
     case Keyword.get(opts, :finalize_gate) do
       fun when is_function(fun, 3) ->
         fun.(gate, run_spec, attempt)
@@ -173,11 +174,22 @@ defmodule Conveyor.AttemptLoop do
       nil ->
         Finalizer.finalize!(
           gate,
-          %{run_attempt: attempt, run_spec: run_spec},
+          %{
+            run_attempt: attempt,
+            run_spec: run_spec,
+            trust_evidence: trust_evidence(slice_result)
+          },
           actor: Keyword.get(opts, :actor, "attempt-loop")
         )
     end
   end
+
+  # ADR-23: thread the slice run's calibration/baseline signals so a passed-but-
+  # unconfident attempt abstains. nil => no evidence => legacy auto-accept.
+  defp trust_evidence(%{output: output}) when is_map(output),
+    do: TrustEvidence.from_run_output(output)
+
+  defp trust_evidence(_slice_result), do: nil
 
   defp final_attempt(finalization, fallback) do
     case value(finalization, :run_attempt) do

@@ -114,10 +114,26 @@ digest.
 5. **Tests:** `gate_finalizer_test.exs` — low trust evidence ⇒ `:abstained` +
    `:parked` + no BackEdge/TrustBundle; high trust evidence ⇒ still `:accepted`.
 
-**Remaining (next slices):** thread the *real* IntegritySentinel /
-calibration / baseline / replay signals into the gate context as `:trust_evidence`
-from the production loop (today the loop passes no evidence, so it auto-accepts as
-before — abstain is wired but dormant until the conductor populates it), and carry
+## 4a. Evidence threading — DONE (abstain is now LIVE)
+
+`Conveyor.Gate.TrustEvidence` (`lib/conveyor/gate/trust_evidence.ex`, pure)
+assembles the `TrustScore` evidence from a slice run's accumulated `output` — the
+acceptance-calibration (`"test_pack_calibration".status`) and baseline-health
+(`"baseline_health_status"`) signals the stations already write. Both production
+finalize sites — `Planning.SerialDriver` and `AttemptLoop` — now thread
+`slice_result.output` into the finalize context as `:trust_evidence`, and
+`AttemptLoop` treats `:abstained` as a terminal outcome.
+
+**Safe staged rollout:** unmeasured signals (IntegritySentinel verdict, replay,
+corpus rate) default to **non-blocking**, so a passed gate abstains only on a
+*recognized negative* — `calibration_status: :invalid` or `baseline_status: :red`.
+The happy path (valid calibration + passed baseline) auto-accepts exactly as
+before, so the full merged loop regression (44 tests) stays green; abstain now
+genuinely fires on bad calibration/baseline. Tests:
+`test/conveyor/gate/trust_evidence_test.exs`.
+
+**Remaining (next slices):** wire the real IntegritySentinel verdict + replay
+divergence into the loop output (they currently default non-blocking), and carry
 the `TrustScore` breakdown into the `GateResult`/report schemas.
 
 ## 5. TDD test plan
