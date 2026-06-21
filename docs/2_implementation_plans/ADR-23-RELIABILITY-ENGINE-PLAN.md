@@ -141,11 +141,26 @@ passed gate, nil when no evidence. Abstentions and the score behind every
 auto-accept are now durable and queryable (the foundation for a parked-slice
 inbox). Tests assert the band round-trips (`gate_finalizer_test.exs`).
 
-**Remaining (one next slice):** wire the real IntegritySentinel verdict + replay
-divergence into the loop output so they stop defaulting to non-blocking (the
-anti-vacuity oracle exists — `Conveyor.Verification.IntegritySentinel` — but is
-not yet run in the production station plan; once it is, `TrustEvidence` already
-reads `"integrity_verdict"` / `"replay_divergence"` from the output).
+## 4c. IntegritySentinel verdict — tested SEAM done; observation production deferred
+
+`Conveyor.Gate.IntegrityEvidence.verdict/2` runs the anti-vacuity sentinel over a
+map of probe observations and returns the verdict `TrustEvidence` already reads.
+**Safety property (tested):** a probe with no observation is `not_assessed`
+(never `failed`), and `TrustEvidence` maps `not_assessed` → non-blocking — so the
+sentinel can be wired with *partial* observations and never force a spurious
+abstain; it abstains only on a genuine probe failure (e.g. production source
+mutated, hidden network/secret dependency).
+
+**The one genuinely-deferred item — observation production (its own pass):**
+collecting the probe observations in the production loop (hermeticity from the
+sandbox/toolchain env, source-mutation/mount-boundary from the diff, falsifier
+survival from the contract seeds, …) and writing `output["integrity_verdict"]`.
+This is deferred deliberately, not faked: it needs care to (a) not change the
+asserted station sequence and (b) only assert hermeticity under a hermetic
+backend (docker) so local-backend runs stay `not_assessed`/non-blocking. The seam
+(`IntegrityEvidence` → `output["integrity_verdict"]` → `TrustEvidence`) is built
+and tested; only the producers remain. Replay divergence (`"replay_divergence"`)
+is likewise read by `TrustEvidence` and awaits a producer.
 
 ## 5. TDD test plan
 
