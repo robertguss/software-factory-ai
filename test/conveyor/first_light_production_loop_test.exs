@@ -81,6 +81,11 @@ defmodule Conveyor.FirstLightProductionLoopTest do
     assert verification_result["status"] == "passed"
     assert gate.passed?, inspect(gate.findings)
 
+    # ADR-23: the verify station emits the IntegritySentinel verdict into the run
+    # output (the live TrustEvidence path). On the local backend with no probe
+    # observations it is the honest, non-blocking "not_assessed".
+    assert result.output["integrity_verdict"] == "not_assessed"
+
     assert verification_result
            |> suite("acceptance_locked")
            |> suite_tests()

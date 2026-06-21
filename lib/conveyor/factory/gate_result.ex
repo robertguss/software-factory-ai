@@ -35,6 +35,11 @@ defmodule Conveyor.Factory.GateResult do
     attribute :policy_sha256, :string, allow_nil?: false, public?: true
     attribute :contract_lock_sha256, :string, allow_nil?: false, public?: true
     attribute :canary_suite_version, :string, allow_nil?: false, public?: true
+
+    # ADR-23: the calibrated trust verdict for a passed gate (nil when the
+    # conductor supplied no trust evidence). Records score / band / components /
+    # thresholds / policy_digest so abstentions are durable and queryable.
+    attribute :trust_score, :map, public?: true
   end
 
   relationships do

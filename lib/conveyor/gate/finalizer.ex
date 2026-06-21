@@ -10,41 +10,76 @@ defmodule Conveyor.Gate.Finalizer do
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
+  alias Conveyor.Gate.TrustScore
   alias Conveyor.Genome.BackEdge
   alias Conveyor.SliceLifecycle
   alias Conveyor.TrustBundle
 
   @spec finalize!(Gate.Result.t(), map(), keyword()) :: map()
   def finalize!(%Gate.Result{} = result, context, opts \\ []) when is_map(context) do
-    gate_result = persist_gate_result!(result, context)
+    actor = Keyword.get(opts, :actor, "gate")
+    trust = trust_score(result, context)
+    gate_result = persist_gate_result!(result, trust)
     run_attempt = run_attempt!(context)
     slice = slice!(context, run_attempt)
     project = project!(context, slice)
-    actor = Keyword.get(opts, :actor, "gate")
 
-    transition =
-      if result.passed? do
-        pass_gate!(run_attempt, slice, actor)
-      else
-        fail_gate!(result, run_attempt, slice, project, actor)
+    {transition, pass_outputs} =
+      cond do
+        # ADR-23: a passed gate that the calibrated TrustScore is not confident
+        # about abstains — parked for human review, never auto-accepted, and no
+        # verified-pass provenance is minted. Opt-in: only fires when the conductor
+        # supplied `:trust_evidence`, so existing pass paths are unchanged.
+        result.passed? and abstain?(trust) ->
+          {abstain_gate!(run_attempt, slice, actor), %{}}
+
+        result.passed? ->
+          {pass_gate!(run_attempt, slice, actor), emit_pass_outputs!(context, gate_result, actor)}
+
+        true ->
+          {fail_gate!(result, run_attempt, slice, project, actor), %{}}
       end
 
-    pass_outputs =
-      if result.passed? do
-        emit_pass_outputs!(context, gate_result, actor)
-      else
-        %{}
-      end
+    %{
+      gate_result: gate_result,
+      run_attempt: transition.run_attempt,
+      slice: transition.slice,
+      incident: Map.get(transition, :incident)
+    }
+    |> maybe_put(:trust_score, trust)
+    |> Map.merge(pass_outputs)
+  end
 
-    Map.merge(
-      %{
-        gate_result: gate_result,
-        run_attempt: transition.run_attempt,
-        slice: transition.slice,
-        incident: Map.get(transition, :incident)
-      },
-      pass_outputs
-    )
+  # ADR-23: calibrated trust of a passed gate. Returns nil (no opinion) when the
+  # conductor supplied no `:trust_evidence`, leaving the legacy pass path intact.
+  defp trust_score(%Gate.Result{passed?: true}, context) do
+    case value(context, :trust_evidence) do
+      evidence when is_map(evidence) -> TrustScore.evaluate(evidence)
+      _ -> nil
+    end
+  end
+
+  defp trust_score(_result, _context), do: nil
+
+  defp abstain?(%{band: :abstain}), do: true
+  defp abstain?(_trust), do: false
+
+  defp abstain_gate!(run_attempt, slice, actor) do
+    run_attempt =
+      transition_run_attempt(run_attempt, :gate, actor,
+        reason: "gate passed but trust score abstained",
+        attrs: %{outcome: :abstained}
+      )
+
+    slice =
+      transition_slice(
+        slice,
+        :park,
+        actor,
+        "gate passed but not calibrated-confident; parked for human review"
+      )
+
+    %{run_attempt: run_attempt, slice: slice}
   end
 
   defp emit_pass_outputs!(context, gate_result, actor) do
@@ -58,12 +93,13 @@ defmodule Conveyor.Gate.Finalizer do
     }
   end
 
-  defp persist_gate_result!(result, _context) do
+  defp persist_gate_result!(result, trust) do
     attrs =
       result.gate_result_attrs
       |> Map.put_new(:level, :slice)
       |> Map.put(:passed, result.passed?)
       |> Map.put(:stages, Enum.map(result.stages, &stage_result_map/1))
+      |> maybe_put(:trust_score, trust)
 
     Ash.create!(GateResult, attrs, domain: Factory)
   end
@@ -187,6 +223,10 @@ defmodule Conveyor.Gate.Finalizer do
   defp state_for_action(:fail), do: :failed
   defp state_for_action(:policy_block), do: :policy_blocked
   defp state_for_action(:request_rework), do: :needs_rework
+  defp state_for_action(:park), do: :parked
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp maybe_stop_the_line!(
          %{failure_category: "critical_gate_failure"},

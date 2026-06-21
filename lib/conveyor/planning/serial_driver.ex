@@ -21,6 +21,7 @@ defmodule Conveyor.Planning.SerialDriver do
 
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
+  alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Planning.PilotExecution
   alias Conveyor.Planning.RunSpecAssembler
@@ -118,7 +119,7 @@ defmodule Conveyor.Planning.SerialDriver do
         run_attempt = create_run_attempt!(run_spec, opts)
         slice_result = run_slice!(run_attempt, opts)
         gate = run_gate!(run_spec, run_attempt, slice_result, opts)
-        finalization = finalize_gate!(gate, run_spec, run_attempt, opts)
+        finalization = finalize_gate!(gate, run_spec, run_attempt, slice_result, opts)
 
         passed? =
           slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
@@ -332,27 +333,45 @@ defmodule Conveyor.Planning.SerialDriver do
       raise ArgumentError, "#{inspect(resource)} #{id} was not found"
   end
 
-  defp finalize_gate!(gate, run_spec, run_attempt, opts) do
+  defp finalize_gate!(gate, run_spec, run_attempt, slice_result, opts) do
     case Keyword.get(opts, :finalize_gate) do
       fun when is_function(fun, 3) ->
         fun.(gate, run_spec, run_attempt)
 
       nil ->
-        default_finalize_gate!(gate, run_spec, run_attempt, opts)
+        default_finalize_gate!(gate, run_spec, run_attempt, slice_result, opts)
     end
   end
 
-  defp default_finalize_gate!(%Gate.Result{} = gate, run_spec, %RunAttempt{} = run_attempt, opts) do
+  defp default_finalize_gate!(
+         %Gate.Result{} = gate,
+         run_spec,
+         %RunAttempt{} = run_attempt,
+         slice_result,
+         opts
+       ) do
     Finalizer.finalize!(
       gate,
-      %{run_attempt: run_attempt, run_spec: run_spec},
+      %{
+        run_attempt: run_attempt,
+        run_spec: run_spec,
+        trust_evidence: trust_evidence(slice_result)
+      },
       actor: Keyword.get(opts, :actor, "serial-driver")
     )
   end
 
-  defp default_finalize_gate!(_gate, _run_spec, run_attempt, _opts) do
+  defp default_finalize_gate!(_gate, _run_spec, run_attempt, _slice_result, _opts) do
     %{run_attempt: run_attempt}
   end
+
+  # ADR-23: thread the slice run's calibration/baseline signals into the gate
+  # finalizer so a passed-but-unconfident run abstains. nil => no evidence =>
+  # legacy auto-accept.
+  defp trust_evidence(%{output: output}) when is_map(output),
+    do: TrustEvidence.from_run_output(output)
+
+  defp trust_evidence(_slice_result), do: nil
 
   defp advance_workspace_base!(run_spec, slice_key, finalization, opts) do
     case Keyword.get(opts, :advance_workspace_base) do

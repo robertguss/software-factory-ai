@@ -102,7 +102,16 @@ defmodule Conveyor.Factory.RunAttempt do
 
     attribute :outcome, :atom do
       allow_nil? false
-      constraints one_of: [:none, :needs_rework, :accepted, :rejected, :policy_blocked]
+
+      constraints one_of: [
+                    :none,
+                    :needs_rework,
+                    :accepted,
+                    :rejected,
+                    :policy_blocked,
+                    :abstained
+                  ]
+
       default :none
       public? true
     end

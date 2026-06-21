@@ -18,6 +18,7 @@ defmodule ConveyorWeb.Router do
     pipe_through :browser
 
     live "/runs", RunViewerLive, :index
+    live "/parked", ParkedQueueLive, :index
   end
 
   scope "/api", ConveyorWeb do
