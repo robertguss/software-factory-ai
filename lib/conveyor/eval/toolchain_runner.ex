@@ -81,7 +81,7 @@ defmodule Conveyor.Eval.ToolchainRunner do
   """
   @spec verification_result(String.t(), map(), keyword()) :: map()
   def verification_result(workspace_path, plan, opts \\ []) do
-    {tests, _exit_code, _stdout} = run_pytest(workspace_path, opts)
+    {tests, _exit_code, _stdout, mutated} = run_pytest(workspace_path, opts)
     selected_refs = test_refs(opts)
 
     argv = plan_argv(plan, selected_refs)
@@ -99,7 +99,13 @@ defmodule Conveyor.Eval.ToolchainRunner do
         else: "failed"
 
     result = %{"status" => overall, "suites" => suites}
-    Map.put(result, "result_digest", CanonicalJson.digest(normalized(result)))
+
+    # result_digest is computed over {status, suites} only — BEFORE integrity
+    # observations are attached — so the digest stays stable across backends and
+    # the new key cannot perturb replay/digest assertions.
+    result
+    |> Map.put("result_digest", CanonicalJson.digest(normalized(result)))
+    |> Map.put("integrity_observations", integrity_observations(opts, mutated))
   end
 
   @doc """
@@ -134,7 +140,13 @@ defmodule Conveyor.Eval.ToolchainRunner do
       ["-q", "-p", "no:cacheprovider", "--color=no", "--junitxml=" <> @junit_rel] ++
         (test_refs(opts) || [])
 
+    # source-mutation observation (ADR-23): snapshot production source around the
+    # test run so we detect files the *test run itself* rewrote (an anti-vacuity
+    # cheat). The agent's patch is already applied before verify, so this is the
+    # honest "mutated during pytest" set, not the agent's legitimate diff.
+    before = snapshot_source(workspace_path, opts)
     {out, code} = run_pytest_cmd(backend, workspace_path, argv, opts)
+    mutated = mutated_paths(before, snapshot_source(workspace_path, opts))
 
     tests =
       case File.read(junit_host) do
@@ -143,7 +155,7 @@ defmodule Conveyor.Eval.ToolchainRunner do
       end
 
     _ = File.rm(junit_host)
-    {tests, code, out}
+    {tests, code, out, mutated}
   end
 
   defp run_pytest_cmd(:local, ws, argv, opts) do
@@ -155,7 +167,7 @@ defmodule Conveyor.Eval.ToolchainRunner do
     image = Keyword.get(opts, :docker_image, @docker_image)
 
     docker_args =
-      ["run", "--rm", "--network=none", "-v", ws <> ":/work", "-w", "/work"] ++
+      ["run", "--rm", "--network=" <> network_mode(opts), "-v", ws <> ":/work", "-w", "/work"] ++
         docker_env_flags(opts) ++ ["--entrypoint", "pytest", image] ++ argv
 
     System.cmd("docker", docker_args, stderr_to_stdout: true)
@@ -184,7 +196,7 @@ defmodule Conveyor.Eval.ToolchainRunner do
     case argv(command) do
       [prog | rest] ->
         docker_args =
-          ["run", "--rm", "--network=none", "-v", ws <> ":/work", "-w", "/work"] ++
+          ["run", "--rm", "--network=" <> network_mode(opts), "-v", ws <> ":/work", "-w", "/work"] ++
             docker_env_flags(opts) ++ ["--entrypoint", prog, image] ++ rest
 
         {out, code} = System.cmd("docker", docker_args, stderr_to_stdout: true)
@@ -203,6 +215,66 @@ defmodule Conveyor.Eval.ToolchainRunner do
   defp argv(command) when is_list(command), do: command
   defp argv(%{} = command), do: command["argv"] || Map.get(command, :argv) || []
   defp argv(_), do: []
+
+  # --- integrity observations (ADR-23) --------------------------------------
+
+  defp network_mode(opts), do: Keyword.get(opts, :network, "none")
+
+  # Truthful IntegritySentinel observations for the run. source-mutation is always
+  # provided (snapshot-based, backend-agnostic). hermeticity is provided ONLY under
+  # the docker backend, where the container genuinely enforces all six controls;
+  # under :local we omit it so it stays not_assessed (non-blocking) rather than
+  # falsely claiming an un-isolated host is hermetic.
+  defp integrity_observations(opts, mutated) do
+    base = %{"source_mutation" => %{"mutated_production_paths" => mutated}}
+
+    case Keyword.get(opts, :backend, :local) do
+      :docker -> Map.put(base, "hermeticity", hermeticity_observation(opts))
+      _other -> base
+    end
+  end
+
+  # Maps the docker run's ACTUAL enforced configuration to the sentinel's six
+  # controls. Only `network` varies (the `:network` opt / `--network=`); the rest
+  # are enforced by the pinned env (PYTHONHASHSEED -> rng+ordering, LC/LANG=C ->
+  # locale, TZ=UTC -> clock) and the fresh `--rm` container (shared_state).
+  defp hermeticity_observation(opts) do
+    %{
+      network: if(network_mode(opts) == "none", do: :blocked, else: :unrestricted),
+      clock: :controlled,
+      rng: :seeded,
+      ordering: :stable,
+      locale: :pinned,
+      shared_state: :isolated
+    }
+  end
+
+  # Production source files (default `src/`) the test run changed or removed — an
+  # anti-vacuity cheat. Keyed workspace-relative; excludes caches/bytecode.
+  defp mutated_paths(before, current) do
+    changed = for {path, hash} <- current, Map.get(before, path) != hash, do: path
+    removed = for {path, _hash} <- before, not Map.has_key?(current, path), do: path
+
+    (changed ++ removed) |> Enum.uniq() |> Enum.sort()
+  end
+
+  defp snapshot_source(workspace_path, opts) do
+    root = Path.join(workspace_path, Keyword.get(opts, :source_root, "src"))
+
+    if File.dir?(root) do
+      (root <> "/**/*")
+      |> Path.wildcard()
+      |> Enum.filter(&File.regular?/1)
+      |> Enum.reject(&(String.contains?(&1, "__pycache__") or String.ends_with?(&1, ".pyc")))
+      |> Map.new(fn path -> {Path.relative_to(path, workspace_path), hash_file(path)} end)
+    else
+      %{}
+    end
+  end
+
+  defp hash_file(path) do
+    path |> File.read!() |> then(&:crypto.hash(:sha256, &1)) |> Base.encode16(case: :lower)
+  end
 
   # --- venv management ------------------------------------------------------
 

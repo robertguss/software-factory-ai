@@ -39,6 +39,38 @@ defmodule Conveyor.Gate.IntegrityEvidenceTest do
              "trustworthy"
   end
 
+  test "a full hermetic observation -> trustworthy" do
+    obs = %{
+      "hermeticity" => %{
+        network: :blocked,
+        clock: :controlled,
+        rng: :seeded,
+        ordering: :stable,
+        locale: :pinned,
+        shared_state: :isolated
+      }
+    }
+
+    assert IntegrityEvidence.verdict(obs, required_probes: ["hermeticity"]) == "trustworthy"
+  end
+
+  test "a non-hermetic observation (network unrestricted) -> untrustworthy -> abstain" do
+    obs = %{
+      "hermeticity" => %{
+        network: :unrestricted,
+        clock: :controlled,
+        rng: :seeded,
+        ordering: :stable,
+        locale: :pinned,
+        shared_state: :isolated
+      }
+    }
+
+    verdict = IntegrityEvidence.verdict(obs, required_probes: ["hermeticity"])
+    assert verdict == "untrustworthy"
+    assert TrustEvidence.assemble(%{integrity: verdict}).integrity_verdict == "untrustworthy"
+  end
+
   test "is deterministic (verdict does not depend on the timestamp)" do
     obs = %{"source_mutation" => %{mutated_production_paths: ["a.ex"]}}
     a = IntegrityEvidence.verdict(obs, required_probes: ["source_mutation"], evaluated_at: "x")
