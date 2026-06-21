@@ -141,35 +141,62 @@ passed gate, nil when no evidence. Abstentions and the score behind every
 auto-accept are now durable and queryable (the foundation for a parked-slice
 inbox). Tests assert the band round-trips (`gate_finalizer_test.exs`).
 
-## 4c. IntegritySentinel verdict — tested SEAM done; observation production deferred
+## 4c. IntegritySentinel observation producers — DONE (real, truthful, proven)
 
-`Conveyor.Gate.IntegrityEvidence.verdict/2` runs the anti-vacuity sentinel over a
-map of probe observations and returns the verdict `TrustEvidence` already reads.
-**Safety property (tested):** a probe with no observation is `not_assessed`
-(never `failed`), and `TrustEvidence` maps `not_assessed` → non-blocking — so the
-sentinel can be wired with *partial* observations and never force a spurious
-abstain; it abstains only on a genuine probe failure (e.g. production source
-mutated, hidden network/secret dependency).
+Two truthful observation producers now feed `IntegrityEvidence`, so the verify
+station emits a genuine verdict (no longer always `not_assessed`):
 
-**Producer path — WIRED (verdict honestly `not_assessed`).** The production verify
-station (`Conveyor.Stations.Verify`) now emits `output["integrity_verdict"]` via
-`IntegrityEvidence`, so the full path verify → output → `TrustEvidence` → gate is
-live and asserted (`first_light_production_loop_test`). It currently emits
-`not_assessed` (non-blocking) because the verify station has **no truthful probe
-observations to supply** — and faking them would overclaim. This is the honest
-state, not a stub.
+- **hermeticity (Docker):** `ToolchainRunner` derives a truthful 6-control
+  observation from the *actual* container config (`--network=none` →
+  `network: :blocked`; PYTHONHASHSEED → `rng: :seeded` + `ordering: :stable`;
+  LC/TZ → `locale: :pinned`/`clock: :controlled`; fresh `--rm` container →
+  `shared_state: :isolated`). The configurable `:network` opt flips the network
+  control. **Provided ONLY under the docker backend** — under `:local` it is
+  omitted (→ `not_assessed`, non-blocking), so the host's un-isolated env is never
+  falsely claimed hermetic.
+- **source-mutation:** `ToolchainRunner.run_pytest` snapshots `src/**` hashes
+  around the pytest run; production files the *test run* rewrote →
+  `mutated_production_paths` (the anti-vacuity "the tests cheated" catch).
+  Backend-agnostic, always provided.
 
-**The genuinely-remaining work — probe-observation instrumentation (its own
-subsystem):** each IntegritySentinel probe needs an observation matching its exact
-expectation. The toolchain's `hermeticity/1` descriptor deliberately uses a
-different, honest vocabulary (it pins network/clock/rng/locale but not
-ordering/shared_state, and only blocks the network under docker), so it does not
-satisfy the probe's 6-control check without overclaiming; source-mutation/
-mount-boundary need the sandbox to report writes; falsifier survival needs the
-contract seeds run. Until those producers exist (and assert hermeticity only under
-a hermetic/docker backend so local runs stay non-blocking), the wired path
-correctly reports `not_assessed`. Replay divergence (`"replay_divergence"`) is
-likewise read by `TrustEvidence` and awaits a producer.
+Both surface as `verification_result["integrity_observations"]`;
+`Stations.Verify` runs them through `IntegrityEvidence.verdict(required_probes:
+["hermeticity","source_mutation"])`. Net behavior: **local clean → `not_assessed`
+(non-blocking, no regression); docker hermetic clean → `trustworthy`; docker
+network-open → `untrustworthy` → abstain; any source mutation → `untrustworthy` →
+abstain.**
+
+**Proven end-to-end at $0** (no agent, real Docker) by
+`test/conveyor/eval/integrity_discrimination_docker_test.exs`: the reference
+solution accepts under hermetic Docker, abstains+parks with the network open, and
+abstains on a planted source-mutation cheat — the suite PASSES in every case; only
+the integrity layer flags the untrustworthy runs. Unit tests:
+`integrity_evidence_test.exs` (hermeticity verdict) + `source_mutation_producer_test.exs`.
+
+**Live multi-agent demo:** `test/conveyor/eval/integrity_discrimination_live_test.exs`
+(`:live_agent`) drives real Codex (+ Pi if its runtime is usable) builds of Beads
+Insight through the same path, recording accept/abstain discrimination + variance.
+(Docker runner image: `conveyor/beads-insight-runner:local`, built on demand.
+`@arms` tunes builds-per-agent for heavier stress.)
+
+**Live result (2026-06-21, real tokens):**
+```
+codex#1: loop=true  gate_passed=true  | hermetic: trustworthy/ACCEPTED | open: untrustworthy/ABSTAINED
+pi#1:    loop=false gate_passed=false | (Pi did not complete a build)
+```
+A real Codex build of Beads Insight was **accepted** under hermetic Docker and
+**abstained** (same diff) with the network open — the reliability engine
+discriminating on a genuine agent diff, end to end. **Pi:** its runtime (0.79.6)
+speaks `--mode rpc`, but `AgentRunner.Pi` uses the older `pi rpc --jsonl` protocol
+(`Error: Unknown option: --jsonl`), so the Pi arm did not build — a documented
+runtime/adapter mismatch, not faked. Updating the Pi adapter to the current pi RPC
+is a separate follow-up.
+
+**Remaining (smaller follow-ups, documented not faked):** the other probes
+(mount-boundary, hidden-dependency network/secrets, falsifier survival) need their
+own sandbox/contract instrumentation; replay divergence (`"replay_divergence"`)
+awaits a cassette producer. The clock control rests on TZ=UTC (the standard CI
+pin); a frozen-clock (libfaketime) basis is an optional hardening.
 
 ## 5. TDD test plan
 
