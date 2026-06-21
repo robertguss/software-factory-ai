@@ -141,7 +141,15 @@ this — corrected.)_
 > A bar keeps "harden it first" from expanding forever. **But these numbers are mostly
 > [provisional]** — chosen as starting targets, not derived — and must be calibrated on real
 > runs (M0–M6). Honesty about their status _is_ the rigor; pretending they're derived would
-> be false rigor. Track B (cross-slice fleet) does not start until all hold:
+> be false rigor. Track B (cross-slice fleet) does not start until all hold.
+>
+> **Corpus caveat (load-bearing):** every bar metric below is measured on the **single
+> Beads-Insight greenfield pure-logic target** — about the easiest possible autonomous-coding
+> task (deterministic, golden-file oracle, reference patches committed). The bar therefore
+> proves "serial autonomy works _on that class of task_," **not** general capability;
+> multi-archetype + brownfield generalization is explicitly OUT of this bar and unproven
+> (deferred, §7). A small corpus of ≥3 distinct greenfield targets before the medium-plan run
+> would materially de-risk over-fitting to Beads-Insight.
 
 - [ ] **Joined seam:** the M1 work has produced a real-agent run through the production
   `SerialDriver`, captured as a cassette and replayed in CI. _(This proves **wiring
@@ -187,6 +195,10 @@ Make the instruments trustworthy, and **execute the [needs-run] claims** to conf
   (incl. `usage.json`) as duel reports → filter by `schema_version` (not a "glob" fix).
 - Make `conveyor.gate_canary` run the **real** production stages in CI (today it runs `[]` — an
   empty gate that passes everything).
+- **Fix the P1 ledger-bypass bug [dr1m.1.1]:** the gate `:gate` transition always fails on the
+  live path → a silent raw-write fallback **bypasses the state machine + ledger**. M1's
+  "recorded-vs-replayed digest" and the whole evidence substrate are unreliable until this is
+  fixed — so it is M0 scope, not deferred.
 - Reconcile contradictory docs [dr1m.10]; run the affected paths and tag every prior runtime
   claim verified or refuted.
 - **Exit:** green eval-lift in CI; gate_canary proves discrimination in CI; the [needs-run]
@@ -219,7 +231,10 @@ Make the instruments trustworthy, and **execute the [needs-run] claims** to conf
   `reduce_while`); per-slice workspace isolation (branch/worktree + diff-policy commit) — the
   parallel-ready seam.
 - **Exit:** a real 3–8 slice plan completes fully unattended with **live** Codex, surviving an
-  induced slice failure, N consecutive runs.
+  induced slice failure, N consecutive runs. _Honesty caveat: "green" here = passes the
+  M3-level **4-stage** gate (real `TestExecution` does catch an induced test failure);
+  **trustworthy, false-pass-resistant green** (abstain + integrity signals) does not exist until
+  M4 — so M3 "100% green" can still hide a subtly-wrong-but-tests-pass slice._
 - **Kill/pivot trigger:** if drift/error-accumulation across even 8 slices proves
   unmanageable, scope down the autonomy claim before investing in M4+.
 
@@ -285,9 +300,11 @@ agent (reusing the M4 image); branch-per-slice → integration gate on `dev` →
 ## 7. Deferred backlog, risks & decisions
 
 **Deferred (not on the critical path):** Verifier-as-product / Findings-to-Fix on _external_
-repos (genuinely re-examine: the verifier is the mature subsystem and may be independently
-shippable on recorded evidence — possibly the _cheapest_ real validation; decide its true
-dependency on loop closure); Scar Ledger / FailureMemory + pgvector recall; Divergence
+repos. **OPEN DECISION (parked for M4, non-blocking — does not gate M0):** run the
+_activated_ gate (M4) against a handful of known-buggy external commits as a cheap
+catch-rate **falsification of the core thesis**, vs. keep fully deferred. _Recommended:_ the
+M4 probe — but it only yields signal _after_ M4 activates abstain/integrity (the current
+degenerate gate would mislead), so it can't actually come earlier; Scar Ledger / FailureMemory + pgvector recall; Divergence
 Bisector; Rung-3 honesty eval (fold into M4); multi-archetype + brownfield (today: single
 greenfield pure-logic Python); DSPy/GEPA optimization; CredentialPool/CAAM.
 
