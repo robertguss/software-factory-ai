@@ -56,8 +56,34 @@ defmodule Conveyor.Planning.PlanFoundry.CodexDrafterTest do
       assert CodexDrafter.draft_plan("intent", completion: completion) == {:error, :rate_limited}
     end
 
-    test "the default completion is the not-yet-wired live path" do
-      assert CodexDrafter.draft_plan("intent") == {:error, :codex_completion_unconfigured}
+    test "default completion parses the codex JSONL final message" do
+      jsonl =
+        Jason.encode!(%{
+          "type" => "item.completed",
+          "item" => %{"type" => "agent_message", "text" => @plan_json}
+        })
+
+      exec = fn _prompt, _opts -> {jsonl <> "\n", 0} end
+
+      assert {:ok, %{"schema_version" => "conveyor.plan@1"}} =
+               CodexDrafter.draft_plan("intent", codex_exec: exec)
+    end
+
+    test "an empty codex response is an error" do
+      exec = fn _prompt, _opts -> {"", 0} end
+
+      assert CodexDrafter.draft_plan("intent", codex_exec: exec) ==
+               {:error, :codex_empty_response}
+    end
+
+    @tag :live_agent
+    test "live codex drafts a plan from intent" do
+      assert {:ok, plan} =
+               CodexDrafter.draft_plan(
+                 "Build a tiny Python CLI that prints the number of lines in a file."
+               )
+
+      assert is_map(plan)
     end
   end
 end

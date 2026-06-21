@@ -151,16 +151,25 @@ sentinel can be wired with *partial* observations and never force a spurious
 abstain; it abstains only on a genuine probe failure (e.g. production source
 mutated, hidden network/secret dependency).
 
-**The one genuinely-deferred item — observation production (its own pass):**
-collecting the probe observations in the production loop (hermeticity from the
-sandbox/toolchain env, source-mutation/mount-boundary from the diff, falsifier
-survival from the contract seeds, …) and writing `output["integrity_verdict"]`.
-This is deferred deliberately, not faked: it needs care to (a) not change the
-asserted station sequence and (b) only assert hermeticity under a hermetic
-backend (docker) so local-backend runs stay `not_assessed`/non-blocking. The seam
-(`IntegrityEvidence` → `output["integrity_verdict"]` → `TrustEvidence`) is built
-and tested; only the producers remain. Replay divergence (`"replay_divergence"`)
-is likewise read by `TrustEvidence` and awaits a producer.
+**Producer path — WIRED (verdict honestly `not_assessed`).** The production verify
+station (`Conveyor.Stations.Verify`) now emits `output["integrity_verdict"]` via
+`IntegrityEvidence`, so the full path verify → output → `TrustEvidence` → gate is
+live and asserted (`first_light_production_loop_test`). It currently emits
+`not_assessed` (non-blocking) because the verify station has **no truthful probe
+observations to supply** — and faking them would overclaim. This is the honest
+state, not a stub.
+
+**The genuinely-remaining work — probe-observation instrumentation (its own
+subsystem):** each IntegritySentinel probe needs an observation matching its exact
+expectation. The toolchain's `hermeticity/1` descriptor deliberately uses a
+different, honest vocabulary (it pins network/clock/rng/locale but not
+ordering/shared_state, and only blocks the network under docker), so it does not
+satisfy the probe's 6-control check without overclaiming; source-mutation/
+mount-boundary need the sandbox to report writes; falsifier survival needs the
+contract seeds run. Until those producers exist (and assert hermeticity only under
+a hermetic/docker backend so local runs stay non-blocking), the wired path
+correctly reports `not_assessed`. Replay divergence (`"replay_divergence"`) is
+likewise read by `TrustEvidence` and awaits a producer.
 
 ## 5. TDD test plan
 

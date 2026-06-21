@@ -126,8 +126,17 @@ defmodule Conveyor.Planning.PlanFoundryTest do
                PlanFoundry.draft("ready issues CLI", drafter: FailingDrafter)
     end
 
-    test "the default drafter is the not-yet-wired Codex drafter" do
-      assert {:error, :codex_completion_unconfigured} = PlanFoundry.draft("ready issues CLI")
+    test "the default drafter routes through the Codex CLI seam" do
+      jsonl =
+        Jason.encode!(%{
+          "type" => "item.completed",
+          "item" => %{"type" => "agent_message", "text" => Jason.encode!(clean_plan())}
+        })
+
+      exec = fn _prompt, _opts -> {jsonl <> "\n", 0} end
+
+      assert {:ok, plan} = PlanFoundry.draft("ready issues CLI", codex_exec: exec)
+      assert plan["goal"] == "Print the set of ready issues."
     end
 
     test "end-to-end with the CodexDrafter + an injected completion" do

@@ -19,10 +19,14 @@ defmodule Conveyor.Planning.PlanFoundry.CodexDrafter do
   deterministic critic/audit and human approval in `PlanFoundry` gate it, and the
   downstream implementer is a third actor.
 
-  > **Live wiring is the one remaining step:** `default_completion/2` returns
-  > `{:error, :codex_completion_unconfigured}` until the real `codex` one-shot
-  > completion is wired (CLI specifics + real spend). All drafter *logic* is
-  > exercised today via an injected completion.
+  ## Live completion (wired)
+
+  `default_completion/2` drives the real `codex exec` CLI in a **read-only**
+  sandbox (no file edits — we only want the model's text), one-shot, JSONL output,
+  extracting the final `agent_message`. Like `Conveyor.AgentRunner.Codex`, the CLI
+  call is an injectable seam (`opts[:codex_exec]`) so the parsing logic is tested
+  with canned JSONL and CI stays deterministic + $0; the real path is exercised
+  only by a `:live_agent`-tagged test.
   """
 
   @behaviour Conveyor.Planning.PlanFoundry.Drafter
@@ -86,5 +90,71 @@ defmodule Conveyor.Planning.PlanFoundry.CodexDrafter do
     end
   end
 
-  defp default_completion(_prompt, _opts), do: {:error, :codex_completion_unconfigured}
+  defp default_completion(prompt, opts) do
+    exec = Keyword.get(opts, :codex_exec, &codex_exec/2)
+
+    case exec.(prompt, opts) do
+      {stdout, _exit_code} when is_binary(stdout) ->
+        case final_message(stdout) do
+          "" -> {:error, :codex_empty_response}
+          text -> {:ok, text}
+        end
+
+      other ->
+        {:error, {:codex_exec_failed, other}}
+    end
+  end
+
+  # One-shot Codex completion: read-only sandbox (no edits — we only want text),
+  # JSONL output. stdin is closed via an sh wrapper because `codex exec` otherwise
+  # blocks reading stdin (same gotcha as Conveyor.AgentRunner.Codex). No shell
+  # injection: codex + args are positional params ($0/$@), never interpolated.
+  defp codex_exec(prompt, opts) do
+    cd = Keyword.get(opts, :codex_cd, System.tmp_dir!())
+
+    args =
+      [
+        "exec",
+        "--cd",
+        cd,
+        "--sandbox",
+        "read-only",
+        "--json",
+        "--ephemeral",
+        "--skip-git-repo-check"
+      ] ++
+        model_args(opts) ++ [prompt]
+
+    System.cmd("/bin/sh", ["-c", ~s(exec "$0" "$@" </dev/null), "codex" | args],
+      stderr_to_stdout: true
+    )
+  end
+
+  defp model_args(opts) do
+    case Keyword.get(opts, :codex_model) do
+      nil -> []
+      model -> ["-m", model]
+    end
+  end
+
+  # Extract the last assistant `agent_message` text from Codex's JSONL stream.
+  defp final_message(stdout) do
+    stdout
+    |> String.split("\n", trim: true)
+    |> Enum.flat_map(fn line ->
+      case Jason.decode(line) do
+        {:ok, map} -> [map]
+        _other -> []
+      end
+    end)
+    |> Enum.filter(&(&1["type"] in ["item.started", "item.completed"]))
+    |> Enum.map(& &1["item"])
+    |> Enum.reject(&is_nil/1)
+    |> Enum.filter(&(&1["type"] == "agent_message"))
+    |> List.last()
+    |> case do
+      nil -> ""
+      item -> item["text"] || ""
+    end
+  end
 end

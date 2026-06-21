@@ -46,15 +46,21 @@ needing its own focused pass — both clearly documented:
 | --- | --- |
 | 1. ADR-26 amendment routing | ✅ `Recovery.AmendmentRouter` (classify + route). Follow-up: loop integration. |
 | 2. ADR-24 in-loop verification | ✅ `Gate.MidflightCheck` (advisory, hidden-oracle-safe). Follow-up: ToolContract to live agent. |
-| 3. ADR-27 CodexDrafter | ✅ prompt + parser + seam (full e2e via fake). Deferred: live `codex` completion call (real spend). |
+| 3. ADR-27 CodexDrafter | ✅ prompt + parser + **live `codex exec` wired** (read-only, JSONL, `codex_exec` seam; `:live_agent` smoke test). |
 | 4. ADR-25 speculative parallelism | ✅ `Planning.RaceConductor` (select_winner + race). Follow-up: serial-driver integration. |
-| 5. ADR-23 IntegritySentinel | ✅ `Gate.IntegrityEvidence` seam (safe-rollout property tested). Deferred: probe-observation production. |
+| 5. ADR-23 IntegritySentinel | ✅ `Gate.IntegrityEvidence` seam + **producer path wired** (verify station emits the verdict; honestly `not_assessed` until probe instrumentation). |
 | 6. Operator inbox | ✅ `ParkedQueueLive` at `/parked` + `mix conveyor.parked` + `mix conveyor.show` drill-down. |
 
-Every core ADR mechanism is real and tested. The two deferred items are
-generator/observation *producers* feeding already-built, already-tested seams —
-exactly the kind of work that should not be rushed blind (each risks false
-abstains / real spend if done carelessly).
+Every core ADR mechanism is real and tested, and **both deferred producers are
+now wired** (PR-10 follow-up):
+- **CodexDrafter live completion** — drives real `codex exec` behind an injectable
+  seam; parsing tested with canned JSONL, the live call `:live_agent`-tagged.
+- **IntegritySentinel producer** — the verify station emits `integrity_verdict`
+  through the live `IntegrityEvidence` → `TrustEvidence` path. It honestly reports
+  `not_assessed` (non-blocking) because no *truthful* probe observations are
+  available in the verify station yet; manufacturing them would overclaim. The
+  remaining work is probe-observation instrumentation (its own subsystem), not
+  wiring.
 
 ## Remaining work — sequenced (original plan; now all addressed above)
 

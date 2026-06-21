@@ -103,11 +103,12 @@ an **injectable completion** (`opts[:completion]`). `draft_plan/2` composes them
 the whole intent→prompt→completion→parse→audit→interrogation chain is proven
 end-to-end via an injected fake completion (`plan_foundry_test.exs`).
 
-**The one remaining live step:** `default_completion/2` returns
-`{:error, :codex_completion_unconfigured}` until the real `codex` one-shot
-completion is wired (CLI specifics + real spend). All drafter *logic* is tested
-today without spend; wiring the live call is a thin, isolated change behind the
-seam.
+**Live completion — WIRED.** `default_completion/2` now drives the real
+`codex exec` CLI (read-only sandbox, one-shot, JSONL → final `agent_message`)
+behind an injectable `opts[:codex_exec]` seam. The parsing is tested with canned
+JSONL; the real call is exercised by a `:live_agent`-tagged smoke test (excluded
+by default). The full chain — intent → prompt → codex → parse → audit →
+interrogation — is green via the seam, so CI stays deterministic + $0.
 
 **Later slices** (deepen the deterministic gate): add the 10-lens
 `ContractCritic` and the full DB-backed `plan_audit` / `handoff_ready` bar to the
