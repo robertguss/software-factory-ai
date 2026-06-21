@@ -55,3 +55,7 @@ erl_crash.dump
 
 # Ignore package tarball (built via "mix hex.build").
 conveyor-*.tar
+
+.claude/worktrees/
+.codescent/
+.conveyor/
