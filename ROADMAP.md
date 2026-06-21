@@ -1,391 +1,353 @@
-# Conveyor — ROADMAP
+# Conveyor — ROADMAP (v2)
 
-> **Purpose.** The single source of truth for _where Conveyor is, where it's
-> going, and in what order._ Grounded in an evidence-based code assessment
-> (2026-06-21, 16-agent audit of the live execution path), not in aspirational
-> docs. When this doc and any older plan disagree, **this doc wins** until
-> superseded.
+> **Purpose.** The single source of truth for _where Conveyor is, where it's going, and in
+> what order._ Grounded in a static code assessment (2026-06-21) and then **adversarially
+> red-teamed** against itself (see `ROADMAP-REVIEW.md` for the audit trail and the
+> corrections that produced this v2). When this doc and any older plan disagree, **this doc
+> wins** until superseded.
 >
-> **North star.** Hand Conveyor a large plan → it decomposes the plan into a
-> dependency-ordered work-graph of contract-bearing slices → a fleet of AI
-> agents builds the whole thing end-to-end, unattended, with parallelism for
-> speed. The human reviews a morning digest and a small "needs-judgment" queue.
+> **Evidence convention.** Claims are tagged: **[verified-static]** = confirmed by reading
+> code (file:line); **[needs-run]** = a runtime claim (crash, pass-rate, hang, "never
+> fires") _inferred from static reading but NOT yet reproduced by executing_; **[provisional]**
+> = a target/number chosen as a starting point, not derived. Nothing in the underlying audit
+> was executed — M0 includes actually running the affected paths to convert [needs-run] →
+> verified.
 >
-> **Current strategic call (ratified 2026-06-21).** Get a **width-1, strictly
-> serial, but _fully autonomous_** loop working rock-solid on real plans
-> **first**; introduce parallelism only after the serial loop clears a _numeric_
-> exit bar (§4). Parallelism is a throughput multiplier on a proven loop — not a
-> capability — and you cannot parallelize a loop that does not yet reliably
-> close.
+> **North star.** Hand Conveyor a large plan → it decomposes it into a dependency-ordered
+> work-graph of contract-bearing slices → a fleet of AI agents builds the whole thing
+> end-to-end, unattended, with parallelism for speed. The human reviews a morning digest and
+> a small "needs-judgment" queue.
+>
+> **Strategic call (ratified 2026-06-21).** Get a **width-1, strictly serial, but _fully
+> autonomous_** loop working rock-solid on real plans **first**; introduce **cross-slice**
+> parallelism only after the serial loop clears the exit bar (§4). (Note the scoping fixed in
+> v2: _within-slice_ speculative racing is a reliability lever that lives **inside** Track A —
+> see Principle 5 and M2.)
 
 ---
 
-## 1. Executive summary — the state of the union
+## 1. Executive summary — the honest state
 
-Conveyor has accumulated an enormous, genuinely sophisticated substrate (≈230
-`lib` modules, 307 test files, 27 ADRs, ~120 canonical schemas). **The depth is
-real, but it is overwhelmingly concentrated on the _verifier_, while the
-_end-to-end execution loop_ — the thing that actually takes a plan to done
-unattended — is thin and, at its center, not yet joined.**
+Conveyor has a large, sophisticated substrate (**383** `lib` modules [verified-static; the
+v1 "≈230" figure was wrong], 307 test files, 27 ADRs, ~120 schemas). The headline is **not**
+"a world-class judge bolted to a skeleton defendant." It is blunter:
 
-The three findings that drive this entire roadmap:
+> **Nothing works end-to-end yet.** The _verifier_ has extensive scaffolding but is largely
+> **non-functional / under-wired**; the _execution loop_ has neither the scaffolding nor the
+> function. The hard, durable half (trustworthy autonomous adjudication) was built first —
+> a **deliberate and defensible** bet, since you cannot calibrate a trust gate without first
+> building one. The task now is to **activate and finish the verifier _and_ build the loop
+> that exercises it** — wiring what's dormant, finishing what's half-built, without inventing
+> new gate _concepts_.
 
-1. **The verifier is ~7.5× the execution loop and dramatically more mature.**
-   ~12k LOC of judge vs ~1.6k LOC of wired loop core; 14 gate stages built, 4
-   wired. (Audit 6: _confirmed_.)
-2. **The headline loop's two halves have never been joined in one run.** The
-   production `SerialDriver` loop has only run with canned `ReferenceSolution`
-   patches; the real Codex agent has only run through a _separate, slimmed_ eval
-   harness (`Eval.GoldenThread`). The single most valuable next action is to
-   **join them.** (Audit 1: _partially-real_.)
-3. **The closers exist but are dormant.** `AttemptLoop` (rework/retry),
-   `MidflightCheck` (ADR-24), `AmendmentRouter` (ADR-26), `RaceConductor`
-   (ADR-25), `PlanFoundry`/ `CodexDrafter` (ADR-27) are all **built, tested, and
-   unwired** — zero production callers. Today a single non-passing slice parks
-   and **halts the whole plan.**
+The findings that drive the plan (all [verified-static] unless tagged):
 
-**Implication:** the next era is not "build more." It is **wire what exists,
-join the seam, and harden for unattended duration** — exactly the "activate the
-dormant verifier" thesis already on record.
+1. **The verifier is larger than the wired loop — by ~2.3–4× like-for-like** (whole-subsystem
+   vs whole-subsystem), up to ~8× only if you pair the broadest verifier bucket against the
+   narrowest loop bucket. _(The v1 "~7.5× / 12k vs 1.6k LOC" was one extreme of that range
+   presented as a point measurement — corrected.)_ More important than size: the verifier is
+   **not functional** — 4 of 14 gate stages wired on the live path; the IntegritySentinel
+   gate **requires** only 2 probes and supplies exactly those 2; abstain has never been
+   observed to fire in a normal run [needs-run]; calibration is hardcoded constants.
+2. **The loop's two halves have never been joined in one run.** The production `SerialDriver`
+   has only run with canned `ReferenceSolution` patches (7/7 Beads-Insight slices accepted —
+   but that measures the _patch applier_, not an agent). The real Codex agent has only run
+   through **non-`SerialDriver` eval paths** (one of which is `Eval.GoldenThread`). Joining
+   them is the keystone (M1).
+3. **The closers are dormant.** `AttemptLoop`, `RaceConductor`, `MidflightCheck`,
+   `AmendmentRouter`, `PlanFoundry`/`CodexDrafter` each have **zero production callers** (one
+   test file each). Today a single non-passing slice parks and **halts the whole plan**.
+4. **No autonomous orchestration.** **Zero `Oban.insert`/`insert_all` calls** in `lib/`; the
+   "orchestrator" is a synchronous, human-invoked mix task.
+5. **No autonomous decomposition.** `mix conveyor.run` _requires_ a hand-authored
+   `conveyor.plan@1` contract; `Decomposer.propose` reads only `List.first(requirements)` and
+   emits one hardcoded slice; the dependency graph is a fabricated linear chain.
+
+**Implication:** activate + finish the verifier, join + close the loop, then add decomposition,
+then parallelism — earning trust at each step against a stated bar.
 
 ---
 
-## 2. Where we are — evidence-grounded subsystem map
+## 2. Where we are — subsystem map
 
-Legend: **maturity** = how built-out · **wired** = actually on the live
-`mix conveyor.run` execution path (the only path a real autonomous run would
-take).
+Legend: **maturity** = built-out · **functional** = actually works on the live `mix
+conveyor.run` path (not just "code exists").
 
-| Subsystem                                                                           | Maturity        | Wired into live loop     | One-line reality                                                                                                                                                                                                                               |
-| ----------------------------------------------------------------------------------- | --------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core execution loop** (PlanRunner→SerialDriver→6 stations→4-stage gate→Finalizer) | high            | **partial**              | Real & autonomous on the _decision_ side; but only ever closed with **canned patches**, never a real agent. Single-attempt: any non-accept **halts the plan**.                                                                                 |
-| **Planning / decomposition / dep-graph**                                            | low–partial     | **no**                   | `mix conveyor.run` **requires a hand-authored `conveyor.plan@1` contract**. `Decomposer.propose` is a content-blind stub. Dep-graph is a **fabricated linear chain**, not computed. `PlanFoundry`/`CodexDrafter` not connected to any command. |
-| **Verification gate / trust**                                                       | very high       | **partial (degenerate)** | Rich scaffolding runs, but collapses to a **binary 4-stage gate + auto-accept**: `TrustScore` defaults unmeasured→trustworthy; only 2/10 IntegritySentinel probes have producers; abstain never fires in a normal run.                         |
-| **Test Architect / contract forge**                                                 | high            | **partial**              | `ContractAuthor`/`FalsifierForge` are **deterministic projections** of fields the human already wrote — no independent test _authoring_, no falsifier _execution_. `test_architect/*` is a disconnected island.                                |
-| **Evidence / replay / ledger**                                                      | high            | **partial**              | Ledger + recorder + blob store are load-bearing; but `replay_fidelity` is **hardcoded `"matched"`**, the event outbox relay is **never invoked**, cassettes/replay are eval-only.                                                              |
-| **Autonomy / self-heal / recovery**                                                 | high            | **no**                   | Rich library (`AttemptLoop`, `Recovery`, `FailureDiagnosis`, `EmergencyStop`, watchdog primitives) — **almost none wired.** Live loop has zero retry, zero watchdog, halts on first failure.                                                   |
-| **Orchestration / runtime**                                                         | partial         | **no**                   | "Orchestrator" = a **synchronous human-invoked mix task.** **Zero `Oban.insert` calls.** Conductor children are no-op skeletons; Oban `plugins: []`; Docker isolation unwired. No crash-recovery (state in BEAM process memory).               |
-| **Eval program (Rungs 0–2)**                                                        | production-real | partial                  | Real, CI-gated, runs real pytest. But only **3 of 8 mutants** covered e2e; `mix conveyor.eval.lift` **currently crashes** (glob collision); one real seed, **pass@1 lift = 0.0**.                                                              |
-| **ADRs 01–23**                                                                      | —               | mostly wired             | Evidence-kernel + serial-loop ADRs built into the live path.                                                                                                                                                                                   |
-| **ADRs 24–27**                                                                      | —               | **no**                   | Newest "autonomy" ADRs exist only as **test-covered islands with zero callers.**                                                                                                                                                               |
+| Subsystem | Maturity | Functional on live path | One-line reality |
+|---|---|---|---|
+| **Core execution loop** | high | **partial** | Autonomous on the _decision_ side; only ever closed with **canned patches**, never an agent. Single-attempt: any non-accept **halts** the plan. |
+| **Planning / decomposition** | low–partial | **no** | Requires a hand-authored `conveyor.plan@1`. `Decomposer` is content-blind. Dep-graph is a fabricated linear chain. `PlanFoundry`/`CodexDrafter` wired to no command. |
+| **Verification gate / trust** | high surface, **low function** | **partial (degenerate)** | Rich scaffolding runs but collapses to a **binary 4-stage gate + auto-accept**. `TrustScore` defaults unmeasured→trustworthy. Of 10 catalogued integrity probes the gate **requires 2 and has 2**; the other 8 are optional/aspirational (not "80% blind" — but also not adding signal). Abstain not observed to fire in normal runs [needs-run]. |
+| **Test Architect / contract forge** | high | **partial** | Deterministic projections of fields the human already wrote — no independent test _authoring_, no falsifier _execution_. `test_architect/*` disconnected. |
+| **Evidence / replay / ledger** | high | **partial** | Ledger + recorder + blob store load-bearing; but `replay_fidelity` is **hardcoded `"matched"`** (a vacuous signal), the outbox relay is never invoked, cassettes/replay are eval-only. |
+| **Autonomy / self-heal / recovery** | high | **no** | Rich library (`AttemptLoop`, `Recovery`, `EmergencyStop`, watchdog primitives) — almost none wired. Live loop has zero retry, zero watchdog, halts on first failure. |
+| **Orchestration / runtime** | partial | **no** | Synchronous human-invoked mix task. **Zero `Oban.insert` calls.** Conductor children are no-op skeletons; Docker isolation unwired; no crash-recovery (state in process memory). |
+| **Eval program (Rungs 0–2)** | real | partial | Real, CI-gated, runs real pytest. Only **3 of 8 mutants** covered e2e; `mix conveyor.eval.lift` **crashes** [needs-run] (cause: `load_reports` decodes `usage.json` alongside duel reports — _not_ a "glob collision"; there is no glob). |
+| **ADRs 01–23 / 24–27** | — | mostly / **no** | Evidence-kernel + serial-loop ADRs functional; the four "autonomy" ADRs (24–27) are test-covered islands with zero callers. |
 
-**The severed seam, visually:**
+**The one real lift measurement (read carefully):** the committed `eval/lift/seed.json` duel
+shows **pass@1 lift Δ = 0.0** — but **both arms passed 3/3 (100%)** on one trivial greenfield
+task (n=3, k=1, 95% CI [0.292, 1.0]). That is **"the task was too easy to show any signal,"
+not "Conveyor failed to help."** It cannot bear weight in either direction. _(v1 over-read
+this — corrected.)_
 
 ```
-  HEADLINE DREAM:  prose plan ─▶ DECOMPOSE ─▶ dep-graph ─▶ [agent builds each slice] ─▶ gate ─▶ merge ─▶ done (unattended)
-                                  ▲                          ▲                            ▲
-  REALITY:           ✗ not wired ─┘          ✗ fabricated ───┘     two halves never joined ┘     ✗ halts on 1st fail
-                     (hand-author              (linear chain,      A) prod loop: canned patches    (no rework wired)
-                      the contract)             not computed)      B) real Codex: slimmed eval harness
+  DREAM:    prose plan ─▶ DECOMPOSE ─▶ dep-graph ─▶ [agent builds each slice] ─▶ gate ─▶ merge ─▶ done (unattended)
+  REALITY:               ✗ stub        ✗ linear      A) prod loop: canned patches    degenerate    ✗ halts on
+                       (hand-author)   (fabricated)  B) real agent: eval-only paths   (4/14 stages)   1st fail
+                                                     — A and B never joined —
 ```
 
 ---
 
-## 3. Operating principles for this era (durable; apply to every milestone)
+## 3. Operating principles for this era (durable)
 
-1. **Freeze net-new verification surface area.** The judge is over-built
-   relative to the loop. Until the loop closes unattended, the gate budget is
-   spent **wiring/activating what exists** (dormant IntegritySentinel producers,
-   calibration, corpus signal), never adding new gate concepts. ("Activate the
-   dormant verifier, don't build more.")
-2. **The real dragon is autonomous _duration_, not parallelism.** "One slice at
-   a time until done" on a real plan is a long unattended chain. The failure
-   mode that kills it is **drift / error-accumulation** (slice 47 building on
-   slice 12's subtly-wrong-but-green output) and **a single stuck slice halting
-   the train.** Hardening "serial" means hardening _long-horizon_ autonomy
-   (rework, skip-and-continue, watchdog, drift detection, resumability) — not
-   "make one slice green."
-3. **Stage on plan _size_, not just width.** Turn one dial at a time: close the
-   loop unattended on a **small** plan (3–8 slices) before a **medium** one
-   (15–40) before reaching for **large**. Drift only appears at scale; meet it
-   on a plan you can still hold in your head.
-4. **Architect parallel-ready while running serial.** Serial execution _hides
-   dependency-graph bugs_ — a wrong/missing edge quietly works serially but
-   detonates the instant you go parallel. So: keep the parallel seams now
-   (branch/worktree per slice, a merge-queue seam that's a trivial fast-forward
-   at width 1, interface contracts locked at plan time) and **validate the
-   dep-graph as if parallel** (build each slice against its deps' frozen
-   interface stubs). Flipping to parallel must be _raising a cap from 1→N_, not
-   a re-plumb.
-5. **Measure Conveyor's value over bare-agent, or stop.** The one real
-   measurement showed **pass@1 lift = 0.0.** That's a yellow flag, not a verdict
-   (n=3, single greenfield seed) — but it forces the question: _what does
-   Conveyor do that "just run Codex" can't?_ The answer is almost certainly
-   **trustworthy unattended completion + defects-caught**, not raw pass@1. The
-   exit bar (§4) therefore measures **unattended completion rate and
-   gate-honesty (zero false-pass)**, and every milestone must move one of those
-   numbers.
+1. **Activate _and finish_ the verifier; freeze new gate _concepts_.** The verifier is
+   under-wired, not over-built — much of it is half-finished (missing producers, hardcoded
+   calibration, dormant probes). So "wiring" here legitimately includes **net-new completion
+   work** (e.g. M4). The freeze is narrow and real: **do not add new gate _concepts/stages_**
+   to a gate that doesn't yet function. _(v1 sloganed "don't build more," which contradicted
+   M4 — corrected.)_
+2. **The real dragon is autonomous _duration_, not parallelism.** A long unattended serial
+   chain dies of drift/error-accumulation and of one stuck slice halting the train. Hardening
+   "serial" means hardening _long-horizon_ autonomy (rework, skip-and-continue, watchdog,
+   drift detection, resumability).
+3. **Stage on plan _size_.** Small (3–8) → medium (15–40) → large. Drift only shows at scale.
+   Note: a "large" rung lives in Track B / the north star, not in a Track-A milestone.
+4. **Architect parallel-ready while running serial.** A _missing_ dep-graph edge (false
+   independence) detonates in parallel though it's invisible serially; a _spurious_ edge just
+   over-serializes (harmless now). The "validate the graph as if parallel" insurance (build
+   each slice against deps' frozen interface stubs — itself real work, ~ADR-18) only has a
+   _computed_ graph to validate **from M5 on**; before that (M3) the graph is small and
+   hand-authored, so the residual risk is low. Keep the seams (per-slice isolation, a
+   merge-queue seam that's a no-op fast-forward at width 1) so going parallel is a cap change,
+   not a re-plumb.
+5. **Two kinds of parallelism — don't conflate them.** **Cross-slice fleet** parallelism
+   (Track B) is a _throughput_ multiplier; defer it until the single-slice verdict is
+   trustworthy, because false-passes _compound_ across a fleet. **Within-slice speculative
+   racing** (ADR-25) is a _reliability/capability_ lever that can make a hard slice close —
+   it belongs **inside Track A** (an option from M2). _(v1 declared "parallelism is only
+   throughput" and then used within-slice racing as a quality lever — corrected.)_
+6. **Measure value over bare-agent on the differentiating axis.** pass@1 is the wrong metric
+   (and unmeasurable as signal on trivial tasks — see §2). Conveyor's value is **trustworthy
+   unattended completion + defects-caught** — which are _verifier outputs_, so they are only
+   measurable once M4 activates the gate. Hence verifier activation is itself the load-bearing
+   evidence step, not a distraction from it.
 
 ---
 
-## 4. The exit bar — "serial is done" (a _number_, decided up front)
+## 4. The exit bar — "serial is done" (gates Track B)
 
-> This project has a strong gravitational pull toward verification depth.
-> Without a measurable bar, "harden it before parallelism" expands to fill all
-> available time. The discipline is **"serial to a _defined_ bar, then
-> parallel."** Parallel work (Track B) does not start until **all** of the
-> following hold:
+> A bar keeps "harden it first" from expanding forever. **But these numbers are mostly
+> [provisional]** — chosen as starting targets, not derived — and must be calibrated on real
+> runs (M0–M6). Honesty about their status _is_ the rigor; pretending they're derived would
+> be false rigor. Track B (cross-slice fleet) does not start until all hold:
 
-- [ ] **Joined seam:** a committed CI test runs `mix conveyor.run` → real
-      `SerialDriver` → **real Codex adapter** (recorded cassette) end-to-end.
-      (Kills the "stubbed by `Process.put`" gap.)
-- [ ] **Unattended medium plan:** Conveyor takes a hand-authored **≥20-slice**
-      real plan to **100% green, fully unattended (zero mid-run human commands),
-      5 consecutive runs.**
-- [ ] **Autonomous front-end:** a prose intent → `mix conveyor.author` →
-      decomposed `conveyor.plan@1` → that same unattended run, for at least one
-      real plan.
-- [ ] **First-pass gate success ≥ 70%** (currently unmet; phase-2's own bar).
-- [ ] **Material-dispute rate < 20%** (currently ≥ 20%; phase-2's own bar).
-- [ ] **Parked rate < 15%** of slices route to the human queue.
-- [ ] **Gate honesty:** `gate_canary` runs the **real production gate stages**
-      (not `[]`), in CI, with **zero false-passes** on the labeled mutant set;
-      integrity-discrimination test in CI.
-- [ ] **Survivability:** watchdog bounds every agent call; a hung/stuck slice is
-      reaped and routed, never hangs the run; a crashed run **resumes** from
-      durable state.
-- [ ] **Demonstrated lift:** a repeated measurement shows Conveyor beats
-      bare-agent baseline on **completion-under-autonomy and/or defects-caught**
-      (not necessarily pass@1).
+- [ ] **Joined seam:** the M1 work has produced a real-agent run through the production
+  `SerialDriver`, captured as a cassette and replayed in CI. _(This proves **wiring
+  stability**, not agent reliability — see M1.)_
+- [ ] **Autonomous decomposition is in the loop:** `mix conveyor.author "intent"` → a
+  computed `conveyor.plan@1` → unattended run. **This is an M5 deliverable, so M5 is a
+  precondition of this bar** (fixed in v2 — the bar cannot be met at M4).
+- [ ] **Unattended medium plan:** a **≥20-slice** [provisional; sits in the §3 "medium 15–40"
+  band — see M6] real plan reaches 100% green, fully unattended, **live** (fresh agent
+  invocations, not cassette replay — replay only tests determinism), **5 consecutive runs**
+  [provisional].
+- [ ] **First-pass gate success ≥ 70%** and **material-dispute < 20%** — note these are
+  **inherited "INITIAL HYPOTHESES"** from the Phase-2 plan (explicitly "subject to revision"),
+  **not derived**; the one prior real gate run reportedly missed both [needs-run]. Treat as
+  provisional and recalibrate.
+- [ ] **Parked rate < 15%** [provisional] **AND** an absolute cap of **≤ N judgment-items/day
+  for one reviewer** at target plan size (set N from real M6 data — the solo-reviewer
+  bandwidth assumption must be quantified, not assumed).
+- [ ] **Gate honesty:** `gate_canary` runs the **real** production stages (not `[]`) in CI
+  with **zero false-pass** on the labeled mutant set; integrity-discrimination in CI.
+- [ ] **Survivability:** watchdog bounds every agent call; stuck slices are reaped/routed, not
+  hung; a crashed run **resumes** from durable state.
+- [ ] **Demonstrated lift** on the differentiating axis (defects-caught / honest abstention,
+  not pass@1) over bare-agent — measurable only after M4.
 
 ---
 
 ## 5. The milestone roadmap
 
-Two tracks. **Track A (M0–M6): serial to the bar.** **Track B (M7+): parallel.**
-Within Track A, "wire existing" milestones are cheap (the code exists); treat
-them as the spine.
+Sizes are rough solo-dev T-shirts (**S** ≈ days · **M** ≈ 1–2 wks · **L** ≈ 3–5 wks · **XL** ≈
+6+ wks) — directional, not commitments. "Wire existing" is genuinely cheaper than net-new, but
+**not free** (it still needs tests, real-agent runs, and de-bugging the dormant code).
 
-### TRACK A — Serial, fully autonomous, to the exit bar
+> **br note:** M0–M3 are filed under epic `software-factory-ai-jwxp`. The **resequencing
+> below (M5 decomposition moved _before_ the medium-plan milestone; within-slice racing pulled
+> into M2) only affects M4+**, which are not yet filed — M0–M3 are unchanged.
 
-#### M0 — Honesty cleanup _(days; pure de-risking)_
+### TRACK A — serial, fully autonomous, to the bar
 
-Make our own dashboard trustworthy before we steer by it.
+#### M0 — Honesty cleanup **(S)**
+Make the instruments trustworthy, and **execute the [needs-run] claims** to confirm them.
+- Reproduce + fix the `eval.lift` crash. **Real cause:** `load_reports` decodes _all_ `.json`
+  (incl. `usage.json`) as duel reports → filter by `schema_version` (not a "glob" fix).
+- Make `conveyor.gate_canary` run the **real** production stages in CI (today it runs `[]` — an
+  empty gate that passes everything).
+- Reconcile contradictory docs [dr1m.10]; run the affected paths and tag every prior runtime
+  claim verified or refuted.
+- **Exit:** green eval-lift in CI; gate_canary proves discrimination in CI; the [needs-run]
+  tags in this doc are resolved.
 
-- Fix `mix conveyor.eval.lift` crash (usage.json/seed.json glob collision in
-  `lift_duel.ex`).
-- Make `conveyor.gate_canary` pass the **real** production gate stages (today it
-  passes `[]` — an empty gate that approves everything) and run it as a **CI
-  guardrail.**
-- Reconcile contradictory docs: `00-FIRST-LIGHT-HANDOFF.md` (stale — lists
-  shipped closers as "next") and `RAW-LEVERAGE-PROGRAM-PLAN.md` ("ALL ITEMS
-  IMPLEMENTED" — they're unwired islands). Point both at this ROADMAP.
-- **Exit:** green eval-lift in CI; gate_canary proves discrimination in CI; no
-  doc claims a capability that has zero callers.
+#### M1 — Join the seam: real agent through the production loop **(M) — KEYSTONE**
+- Run real Codex through `PlanRunner`/`SerialDriver` (6 stations + 4 gate stages + `Finalizer`)
+  on the Beads-Insight plan; capture as a cassette; add a committed CI test (removes the
+  `Process.put` stub). Back "reproducibly" with a **real recorded-vs-replayed digest compare**
+  (the eval `ReplayEngine`), **not** the hardcoded `replay_fidelity:"matched"` field.
+- **Exit (precise):** the joined seam executes end-to-end and **the recorded run replays
+  deterministically in CI (wiring stability).** This does **not** prove the stochastic agent
+  reliably succeeds — that's M3/M6 with live runs.
+- **Kill/pivot trigger:** if joining reveals the station/gate contract is structurally wrong
+  for real-agent output (not a quick fix), **stop and redesign the loop contract before M2** —
+  do not paper over it with rework.
 
-#### M1 — Join the seam: real agent through the production loop _(the keystone)_
+#### M2 — Close the loop on ONE slice: wire the dormant closers **(M)**
+- Wire `AttemptLoop`/`ReworkSynthesizer` into `SerialDriver` (rework-on-fail, bounded budget)
+  [dr1m.9 — decision is "wire"]. Wire ADR-26 `AmendmentRouter` (fix dr1m.4.1 first). Wire
+  ADR-24 `MidflightCheck` [tracked in dr1m.2 — already in progress]. Add a **watchdog/timeout**
+  around the agent call (today unbounded).
+- **Optional reliability lever (Principle 5):** within-slice speculative racing (ADR-25
+  `RaceConductor`, fix dr1m.3.1 crash first) [dr1m.3] — available here to help hard slices
+  close; cost-governed; _not_ Track B.
+- **Exit:** a slice can fail→rework→pass, or fail→escalate/park, **without halting**.
 
-The single highest-leverage action in the whole codebase.
+#### M3 — Unattended on a SMALL multi-slice plan (3–8) **(M)**
+- Skip-and-continue over the dep subgraph; durable resumability (replace in-memory
+  `reduce_while`); per-slice workspace isolation (branch/worktree + diff-policy commit) — the
+  parallel-ready seam.
+- **Exit:** a real 3–8 slice plan completes fully unattended with **live** Codex, surviving an
+  induced slice failure, N consecutive runs.
+- **Kill/pivot trigger:** if drift/error-accumulation across even 8 slices proves
+  unmanageable, scope down the autonomy claim before investing in M4+.
 
-- Run the real **Codex adapter** through `PlanRunner`/`SerialDriver` — all 6
-  stations + 4 gate stages + real `Finalizer` — on the existing Beads-Insight
-  plan (today this exact path has never run with a real agent).
-- Record it as a **cassette** and add it as a committed CI test of
-  `mix conveyor.run` (replaces the `Process.put` stub).
-- **Exit:** one real-agent slice goes
-  context→implement→evidence→gate→accept→commit through the _production_ loop,
-  reproducibly, in CI.
+#### M4 — Activate + finish the gate **(L — the heaviest Track-A milestone; this is net-new verifier completion, not mere wiring)**
+- Wire the dormant IntegritySentinel producers; write `corpus_pass_rate` + `replay_divergence`
+  from production stations (so `TrustScore` stops defaulting unmeasured→trustworthy); make
+  abstain fire on real signals; replace hardcoded `replay_fidelity`.
+- **Network-isolated gate verification** (for hermeticity) — see D1: this needs a
+  network-blocking sandbox; Docker is the wired path, but `unshare -n` / an egress policy is an
+  alternative. _Distinct from agent isolation._
+- Re-validate honesty (real `gate_canary` + integrity-discrimination in CI).
+- **Exit:** the live gate measurably discriminates (zero false-pass on mutants); abstain fires
+  for real; first-pass-gate-success + dispute-rate **measured** (meeting the §4 targets is
+  owned by M2's rework + this milestone's gate work, iterated).
 
-#### M2 — Close the loop unattended on ONE slice: wire the dormant closers _(wire existing)_
+#### M5 — Autonomous decomposition **(L)** _(moved earlier in v2 — it's a precondition of the §4 bar and of M6's large plans)_
+- Wire `PlanFoundry`/`CodexDrafter` into `mix conveyor.author "intent"` → `conveyor.plan@1`.
+- Replace the content-blind `Decomposer` stub with a real one. **Compute real
+  `work_dependencies`** from interface bindings (`SliceDependency`/`InterfaceGraph`) — this is
+  what gives Principle 4 a real graph to stub-validate. Fire the Interrogator (ADR-27) on
+  genuine ambiguity.
+- **Exit:** prose intent → autonomous decomposition → a runnable plan; the dep-graph is
+  _computed_ and stub-validated.
 
-Stop halting on first failure.
+#### M6 — Long-horizon autonomy + medium plan **(L)**
+- Drift/no-progress detection; Convergence Sentinel (anti-thrash); Repeat-Offender escalation;
+  enforce `EmergencyStop` + activate `BudgetReservations`; retention/GC sweeper (ADR-10); wire
+  the morning digest + parked-queue triage (`ParkedQueueLive`).
+- Agent runs inside the M4 container here (blast-radius — D1 #1).
+- **Exit:** a **medium plan (15–40 slices)** — now feasible because M5 can author it —
+  completes unattended overnight, live, surviving stuck/runaway conditions. This is the
+  milestone that produces the §4 bar's ≥20-slice / 5-run result.
 
-- Wire **`AttemptLoop`/`ReworkSynthesizer`** into `SerialDriver.run_one!`: a
-  non-accepted slice triggers automatic, budgeted rework instead of
-  park-and-halt.
-- Wire **ADR-24 `MidflightCheck`** (conductor-mediated read-only "which AC am I
-  failing / did I touch a locked path") to raise pass@1.
-- Wire **ADR-26 `AmendmentRouter`** so a _contract-defect_ failure proposes an
-  amendment (separation-of-duties preserved: implementer can't relax its own
-  contract).
-- Add a **watchdog/timeout** around `codex.ex` `System.cmd` (today unbounded — a
-  hung Codex hangs the run forever).
-- **Exit:** one slice can fail→rework→pass, or fail→escalate/park, **without
-  halting**, with a bounded attempt budget.
+**→ Track A exit gate = §4 bar fully met (M5 + M6 are both required for it). Only then Track B.**
 
-#### M3 — Close the loop unattended on a SMALL multi-slice plan (3–8 slices)
+### TRACK B — cross-slice parallelism
 
-- **Skip-and-continue / park-and-proceed** over the dependency subgraph: a
-  parked slice skips its dependents but lets independent slices proceed (today
-  abstain/park/fail all `:halt`).
-- **Durable resumability:** persist work-graph progress so a crashed run resumes
-  (replace in-memory `Enum.reduce_while`).
-- **Per-slice workspace isolation seam:** branch/worktree per slice +
-  diff-policy-enforced commit (replaces blind `git add -A && commit`). _This is
-  the parallel-ready seam (principle 4) AND a real-repo safety fix._
-- **Exit:** a real 3–8 slice plan completes fully unattended with real Codex,
-  surviving at least one induced slice failure, N consecutive runs.
-
-#### M4 — De-neuter the gate (activate the judge that's already built) _(wire existing, not build)_
-
-Now that the loop closes, make the verdict trustworthy. **Wiring, not new
-verifier.**
-
-- Wire the dormant **IntegritySentinel** producers (8 of 10 probes have none)
-  and default the production loop to the **hermetic Docker backend** so
-  hermeticity is actually asserted.
-- **Agent isolation becomes a HARD requirement here (see D1, §7).** Wire the
-  dormant `DockerRunner` + `ToolchainRunner` hermetic backend + `Sandbox.Reaper`
-  so the agent **and** the gate run in **one pinned hermetic image** — this is
-  precisely what lets the hermeticity probe fire and makes the §4
-  zero-false-pass bar achievable (it cannot be met on the host). That same image
-  becomes the per-worker container at M8, so this spend pays forward to parallel.
-  _(File the Docker-wiring task under M4 when M4 is cut.)_
-- Write **`corpus_pass_rate`** and **`replay_divergence`** from production
-  stations so `TrustScore` stops defaulting unmeasured→trustworthy.
-- Make **abstain fire on real signals**, not just the two recognized negatives.
-- Replace hardcoded `replay_fidelity: "matched"` with a real
-  recorded-vs-replayed compare.
-- Re-validate honesty: real `gate_canary` + integrity-discrimination in CI (from
-  M0).
-- **Exit:** the live gate measurably discriminates (zero false-pass on mutants);
-  abstain fires for real on low-confidence passes; first-pass-gate-success and
-  material-dispute-rate measured against the §4 bar.
-
-#### M5 — Long-horizon autonomy & drift defense _(the real dragon)_
-
-Make an overnight unattended run trustworthy.
-
-- **Drift / no-progress detection:** heartbeat, "N slices no forward progress,"
-  agent looping on the same failing test.
-- **Convergence Sentinel** (anti-thrash) + **Repeat-Offender Escalation**
-  (re-cut the slice / park after K attempts).
-- **Enforce `EmergencyStop`** + activate **`BudgetReservations`** (runaway
-  kill-switch; reserve-before-effect).
-- **Retention/GC sweeper** (ADR-10) so long runs don't accumulate unbounded
-  blobs/evidence.
-- Wire the **morning digest + parked-queue triage** (`ParkedQueueLive` exists —
-  connect it).
-- **Exit:** a **medium plan (15–40 slices)** completes unattended overnight;
-  stuck/runaway conditions are detected and handled, not hung.
-
-#### M6 — Autonomous decomposition (close the front of the loop; the bridge to parallel)
-
-This is where "hand over a large plan" becomes real — and it produces the
-parallel-ready substrate. Can be developed concurrently with M4/M5 (separate
-subsystem).
-
-- Wire **`PlanFoundry`/`CodexDrafter`** into `mix conveyor.author "intent"` →
-  `conveyor.plan@1` → run.
-- Replace the **content-blind `Decomposer` stub** with a real one that derives
-  epics/slices/atomicity from plan content.
-- **Compute real `work_dependencies`** from declared interface bindings
-  (`SliceDependency` + `InterfaceGraph`) instead of the linear pairwise chain.
-- Fire the **Interrogator** (ADR-27) on genuine ambiguity
-  (`:needs_clarification`) instead of guessing.
-- **Validate the graph as if parallel** (principle 4): build each slice against
-  its deps' frozen interface stubs, even while executing serially.
-- **Exit:** a prose plan → autonomous decomposition → unattended serial build to
-  green; the dep-graph is _computed_ and _stub-validated_, so it's trustworthy
-  as a parallel substrate.
-
-**→ Track A exit gate = §4 bar fully met. Only then does Track B begin.**
-
-### TRACK B — Parallel (the dial from 1 → N)
-
-#### M7 — Within-slice speculative parallelism _(wire existing: ADR-25)_
-
-Lowest-risk parallelism first: race N candidate implementations for one slice,
-gate + `TrustScore` pick the winner. `RaceConductor` is already built and
-unwired; cost-governed.
-
-#### M8 — Cross-slice fleet
-
-Dispatcher + WorkerPool + MergeQueue + Governor; **activate the dormant
-Oban/Conductor substrate** (first-ever `Oban.insert`; turn on Conductor
-children + Cron/Pruner plugins); container isolation per agent; branch-per-slice
-→ integration gate on `dev` → phase-gate to `main`. Then BEAM distribution for
-horizontal scale.
+#### M7 — Cross-slice fleet **(XL)**
+Dispatcher + WorkerPool + MergeQueue + Governor; **activate the dormant Oban/Conductor
+substrate** (first-ever `Oban.insert`; Conductor children; Cron/Pruner plugins); container per
+agent (reusing the M4 image); branch-per-slice → integration gate on `dev` → phase-gate to
+`main`; then BEAM distribution. _(Within-slice racing already landed in M2.)_
 
 ---
 
-## 6. Deferred / parked backlog (explicitly NOT on the critical path)
+## 6. Cost, dogfooding & self-hosting (new in v2)
 
-Real ideas, deliberately parked with rationale — revisit after the §4 bar, or
-when a milestone pulls one in:
-
-- **Verifier-as-product / Findings-to-Fix** (the strategic moat — point the gate
-  at _external_ repos). High value, but premature until our own loop closes.
-  _Park._
-- **Scar Ledger / FailureMemory + pgvector recall** (institutional memory; the
-  "compounding flywheel"). Pull in once we have enough real runs to learn from
-  (post-M5). _Park._
-- **Divergence Bisector** (git-bisect over the event log via
-  `ReplayDiagnostics`). Depends on a real replay corpus. _Park._
-- **Honesty/calibration eval (Rung 3)** + **adversarial agent /
-  cheat-resistance + self- growing corpus (Rung 2)**. Fold into M4's
-  gate-honesty validation. _Partially pulled into M4._
-- **Multi-archetype + brownfield onboarding** (today: single greenfield
-  pure-logic Python archetype; `ToolchainRunner` hardcodes pytest). Needed
-  before "any plan," not before "a plan." _Park until post-bar._
-- **CredentialPool / CAAM, multi-model routing, economic governor reporting.**
-  Parallel-era concerns. _Park to Track B._
-- **DSPy/GEPA prompt-template optimization.** Needs the eval flywheel turning
-  first. _Park._
+- **Cost/budget.** Every Track-A milestone burns real agent tokens; M3/M6 (repeated full-plan
+  live runs) and M7 (N-way racing) are the expensive ones. **Set a dev-phase not-to-exceed
+  budget and a rough per-milestone token estimate** before M3; cost is a scheduling input, not
+  an afterthought (the project's own economic-governor thesis).
+- **How Conveyor gets built (dogfooding).** **M0–M5 are hand-built** (with Claude/Codex as
+  assistants, not as the factory): the factory cannot author its own plans until M5 and cannot
+  safely touch a real repo until the M4 container exists. **Dogfooding starts no earlier than
+  M6**, advisory-only, against sterile targets.
+- **Self-hosting capstone.** "The factory builds the factory" (RADICAL-LEVERAGE idea #12,
+  explicitly "earn it last") is the truest test and the north star's proof. It is a **post-bar
+  capstone (call it M8)**: advisory/read-only runs against this repo's own `.beads/`, earning
+  auto-merge as trust accrues. Named here so it stops being a one-word parenthetical.
 
 ---
 
-## 7. Risks & open questions
+## 7. Deferred backlog, risks & decisions
 
-- **R1 — Zero demonstrated lift so far.** The only real measurement is pass@1
-  lift = 0.0. Mitigation: M0 fixes the eval; M4/M5 reframe the metric to
-  completion-under-autonomy + defects-caught. _If, after M5, Conveyor still
-  shows no lift over bare-agent on any axis, that is a stop-and-rethink signal._
-- **R2 — Two divergent execution paths** (production `SerialDriver` vs eval
-  `GoldenThread`). M1 collapses them; until then, every "it works" claim must
-  say _which_ path.
-- **R3 — Real-repo safety.** The loop commits in-place with `git add -A`. M3's
-  per-slice isolation is a prerequisite for running against anything but a
-  sterile sample repo.
-- **R4 — Decomposition quality is unproven** and is the load-bearing artifact
-  for the whole dream. M6 + principle-4 stub-validation are the guardrails;
-  expect iteration here.
-- **D1 — Agent isolation: DECIDED (staged, not binary).** "Isolation" bundles
-  five distinct jobs; only one is parallel-only, so Docker is gated on the
-  _autonomy/duration_ dials, **not** width:
-  1. **Blast-radius containment** (your host, _other_ repos, creds) — serial;
-     importance scales with _unattendedness_ → needed by **M5**.
-  2. **Hermeticity / reproducibility** (gate honesty; the IntegritySentinel
-     hermeticity probe is `not_assessed` without it) — **makes Docker a HARD
-     requirement at M4**; the zero-false-pass exit bar cannot be met on the host.
-  3. **Clean-slate teardown** (trustworthy repeats + clean-env gate re-verify) —
-     M3–M4.
-  4. **Concurrency isolation** (N agents not colliding) — **parallel-only → M8.**
-  5. **Network egress control** — M5.
+**Deferred (not on the critical path):** Verifier-as-product / Findings-to-Fix on _external_
+repos (genuinely re-examine: the verifier is the mature subsystem and may be independently
+shippable on recorded evidence — possibly the _cheapest_ real validation; decide its true
+dependency on loop closure); Scar Ledger / FailureMemory + pgvector recall; Divergence
+Bisector; Rung-3 honesty eval (fold into M4); multi-archetype + brownfield (today: single
+greenfield pure-logic Python); DSPy/GEPA optimization; CredentialPool/CAAM.
 
-  **Plan:** keep host `codex --sandbox workspace-write` through **M0–M2** (don't
-  slow the keystone; Docker Desktop's VM layer would drag the inner loop). Make
-  Docker a hard requirement at **M4** (hermeticity) and **M5** (blast-radius), by
-  _wiring the existing_ `DockerRunner` + `ToolchainRunner` hermetic backend +
-  `Sandbox.Reaper`. **Architecture rule: one pinned image shared by the agent AND
-  the gate** — else "passes in agent, fails in gate" returns; that image is
-  reused as the per-worker container at M8 (pays forward, not throwaway).
-  **Open sub-decision that sets urgency — what repos do unattended runs target?**
-  Sterile/disposable sample repos → host sandbox tolerable into M5; real/valuable
-  repos (e.g. self-hosting) → blast-radius (#1) pulls Docker earlier. _Decide
-  before the first unattended real-repo run._
-- **D2 — `br` tracking: DONE.** M0–M3 filed under epic
-  `software-factory-ai-jwxp` (ROADMAP Track A) with the milestone chain
-  M0←M1←M2←M3; existing `dr1m` issues (`.9` AttemptLoop, `.10` docs, `.12` eval
-  venv, `.4.1` AmendmentRouter) linked, not duplicated. M4–M8 filed as they near.
+**Risks:** **R1** — value over bare-agent is unmeasured and only becomes measurable at M4;
+treat M4 as load-bearing evidence, not overhead. **R2** — two execution paths until M1 joins
+them. **R3** — real-repo safety needs M3 isolation + the M4 container. **R4** — decomposition
+quality (M5) is the load-bearing artifact for the whole dream; expect iteration. **R5
+(method)** — this plan rests on a _static_ audit with leading-prompt risk; the conclusions
+most exposed (drift behavior, "abstain never fires") are exactly the ones a run would settle —
+hence M0 executes them.
+
+- **D1 — Agent isolation: DECIDED (staged), with corrected rationale.** "Isolation" bundles
+  five jobs; **Docker is the path we have wired, not the only path, and is _not_ strictly
+  required for the zero-false-pass bar** (corrected from v1):
+  1. **Blast-radius** (host/repos/creds) — serial, scales with unattendedness → **M6**.
+  2. **Hermeticity** — needs a **network-blocking sandbox**; 5 of 6 hermeticity controls are
+     already satisfied by the host `:local` backend, only `network:blocked` is missing.
+     Docker supplies it; so does `unshare -n` / an egress policy. **Hermeticity is a property
+     of the GATE's verification re-run, not the agent's build step.** Missing it makes the
+     gate **abstain more** (`not_assessed` is non-blocking → park; honest, lower throughput) —
+     it does **not** cause false-passes. The behavioral zero-false-pass metric already runs on
+     the host. → wanted at **M4**.
+  3. **Clean-slate teardown** — M3–M4.  4. **Concurrency isolation** — **parallel-only → M7.**
+     5. **Network egress** — M4/M6.
+
+  **Plan:** host `codex --sandbox` through M0–M3; introduce the network-isolated gate at M4
+  and the containerized agent by M6, by _wiring existing_ `DockerRunner` + `ToolchainRunner`
+  hermetic backend + `Sandbox.Reaper`, **one pinned image shared by agent + gate** (else
+  "passes here, fails there" returns); that image becomes the M7 per-worker container.
+  **Open sub-decision that sets urgency:** what repos do unattended runs target? Sterile →
+  host sandbox tolerable longer; real/valuable → blast-radius pulls the container earlier.
+- **D2 — `br` tracking: reconciled.** M0–M3 under epic `jwxp`. Corrections applied:
+  `dr1m.2` (ADR-24, in_progress) is the canonical issue — duplicate `onfq` closed and `dr1m.2`
+  linked under M2; `dr1m.9` retitled to the decided "wire" action; `dr1m.3` (ADR-25 racing)
+  linked as M2's optional lever; epic `sgp` (deferred Phase 0–8) annotated as superseded by
+  this roadmap. M4–M8 filed as they near.
 
 ---
 
 ## 8. Mapping to prior planning
 
-- **Supersedes** the abstract "Phase 0–8" list in `BRAINSTORM.md` §6 with
-  reality-grounded milestones. Rough map: BRAINSTORM Phase 1 (tracer) ≈
-  _done-ish but seam-severed_ → M1; Phase 2 (decomposition) → M6; Phase 3
-  (parallel fleet) → M8; Phase 4 (verification pyramid) → mostly _built, M4
-  wires it_; Phase 5 (self-healing) → M2/M3/M5; Phase 6 (governor/observability)
-  → M5; Phase 7 (learning) → parked §6; Phase 8 (parallelism) → M7/M8.
-- **ADRs 01–23** are largely realized in the live path. **ADRs 24–27** are the
-  dormant closers this roadmap _wires_ (M2 wires 24/26; M6 wires 27; M7 wires
-  25).
-- The **raw-leverage thesis** ("activate the dormant verifier, aim it at
-  throughput") is the spine of Track A — M2/M4/M5 are that thesis made concrete.
+- **Supersedes** the abstract "Phase 0–8" list in `BRAINSTORM.md` §6 and the deferred `br`
+  epic `sgp.2–7` (annotated in-tracker). Rough map: Phase 1→M1; Phase 2→M5; Phase 3 (parallel
+  fleet)→M7; Phase 4 (verification pyramid)→_M4 finishes/activates it_; Phase 5
+  (self-healing)→M2/M3/M6; Phase 6→M6; Phase 7→deferred §7; Phase 8→M7.
+- **ADRs 01–23** largely functional. **24–27** are the dormant closers this roadmap wires:
+  M2 (24/25/26), M5 (27). The **raw-leverage thesis** ("activate the dormant verifier — it's
+  an engine, not a product") is the spine; v2 corrects the v1 overreach that read "activate"
+  as "freeze / stop building."
 
 ---
 
-_Last updated: 2026-06-21, from a 16-agent evidence audit of the live execution
-path._
+## 9. Provenance & confidence
+
+This roadmap = a 16-agent **static** code audit (2026-06-21) + an adversarial self red-team
+(15 agents) that corrected six classes of defect (factual errors, the over-built→under-wired
+reframe, M5/M6 resequencing, exit-bar false rigor, the Docker necessity overstatement, and
+tracker duplication). Full trail: **`ROADMAP-REVIEW.md`**. Headline facts survived a _blind_
+re-verification (loop not closed, real agent never through production loop, decomposer is a
+stub, zero `Oban.insert`, dormant closers). The numbers (LOC ratio, the exit-bar thresholds)
+are **ranges/provisional**, not measurements. Anything tagged [needs-run] is resolved in M0.
+
+_Last updated: 2026-06-21 (v2, post red-team)._
