@@ -132,9 +132,20 @@ before, so the full merged loop regression (44 tests) stays green; abstain now
 genuinely fires on bad calibration/baseline. Tests:
 `test/conveyor/gate/trust_evidence_test.exs`.
 
-**Remaining (next slices):** wire the real IntegritySentinel verdict + replay
-divergence into the loop output (they currently default non-blocking), and carry
-the `TrustScore` breakdown into the `GateResult`/report schemas.
+## 4b. Persisted verdict — DONE
+
+The `GateResult` resource gains a nullable `:trust_score` (jsonb) column
+(`priv/repo/migrations/20260620210000_*.exs`); `Finalizer` persists the full
+`TrustScore` map (score / band / components / thresholds / policy_digest) on every
+passed gate, nil when no evidence. Abstentions and the score behind every
+auto-accept are now durable and queryable (the foundation for a parked-slice
+inbox). Tests assert the band round-trips (`gate_finalizer_test.exs`).
+
+**Remaining (one next slice):** wire the real IntegritySentinel verdict + replay
+divergence into the loop output so they stop defaulting to non-blocking (the
+anti-vacuity oracle exists — `Conveyor.Verification.IntegritySentinel` — but is
+not yet run in the production station plan; once it is, `TrustEvidence` already
+reads `"integrity_verdict"` / `"replay_divergence"` from the output).
 
 ## 5. TDD test plan
 

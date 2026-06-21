@@ -171,6 +171,8 @@ defmodule Conveyor.GateFinalizerTest do
     finalized = Finalizer.finalize!(result, ctx)
 
     assert finalized.trust_score.band == :abstain
+    # the verdict is durably persisted on the gate result (jsonb -> string keys)
+    assert get_by_id!(GateResult, finalized.gate_result.id).trust_score["band"] == "abstain"
     assert get_by_id!(RunAttempt, context.run_attempt.id).status == :gated
     assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
     assert get_by_id!(Slice, context.slice.id).state == :parked
@@ -198,6 +200,7 @@ defmodule Conveyor.GateFinalizerTest do
     finalized = Finalizer.finalize!(result, ctx)
 
     assert finalized.trust_score.band == :auto_accept
+    assert get_by_id!(GateResult, finalized.gate_result.id).trust_score["band"] == "auto_accept"
     assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :accepted
     assert get_by_id!(Slice, context.slice.id).state == :gated
   end

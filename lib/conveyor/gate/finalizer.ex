@@ -17,13 +17,12 @@ defmodule Conveyor.Gate.Finalizer do
 
   @spec finalize!(Gate.Result.t(), map(), keyword()) :: map()
   def finalize!(%Gate.Result{} = result, context, opts \\ []) when is_map(context) do
-    gate_result = persist_gate_result!(result, context)
+    actor = Keyword.get(opts, :actor, "gate")
+    trust = trust_score(result, context)
+    gate_result = persist_gate_result!(result, trust)
     run_attempt = run_attempt!(context)
     slice = slice!(context, run_attempt)
     project = project!(context, slice)
-    actor = Keyword.get(opts, :actor, "gate")
-
-    trust = trust_score(result, context)
 
     {transition, pass_outputs} =
       cond do
@@ -94,12 +93,13 @@ defmodule Conveyor.Gate.Finalizer do
     }
   end
 
-  defp persist_gate_result!(result, _context) do
+  defp persist_gate_result!(result, trust) do
     attrs =
       result.gate_result_attrs
       |> Map.put_new(:level, :slice)
       |> Map.put(:passed, result.passed?)
       |> Map.put(:stages, Enum.map(result.stages, &stage_result_map/1))
+      |> maybe_put(:trust_score, trust)
 
     Ash.create!(GateResult, attrs, domain: Factory)
   end
