@@ -27,6 +27,7 @@ defmodule Conveyor.Planning.PlanFoundryTest do
   use ExUnit.Case, async: true
 
   alias Conveyor.Planning.PlanFoundry
+  alias Conveyor.Planning.PlanFoundry.CodexDrafter
   alias Conveyor.Planning.PlanFoundryTest.{FailingDrafter, StubDrafter}
 
   describe "interrogation_questions/1 (built)" do
@@ -126,7 +127,19 @@ defmodule Conveyor.Planning.PlanFoundryTest do
     end
 
     test "the default drafter is the not-yet-wired Codex drafter" do
-      assert {:error, :not_implemented} = PlanFoundry.draft("ready issues CLI")
+      assert {:error, :codex_completion_unconfigured} = PlanFoundry.draft("ready issues CLI")
+    end
+
+    test "end-to-end with the CodexDrafter + an injected completion" do
+      completion = fn _prompt, _opts -> {:ok, Jason.encode!(clean_plan())} end
+
+      assert {:ok, plan} =
+               PlanFoundry.draft("ready issues CLI",
+                 drafter: CodexDrafter,
+                 completion: completion
+               )
+
+      assert plan["goal"] == "Print the set of ready issues."
     end
   end
 

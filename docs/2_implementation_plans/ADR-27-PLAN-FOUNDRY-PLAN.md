@@ -94,13 +94,20 @@ actor, isolated so the orchestration is pure and testable without a live agent.
 `{:needs_clarification, questions}` when the audit finds gaps, and
 `{:error, reason}` on drafter failure. Tests inject a fake drafter.
 
-**Staged — the live `CodexDrafter`** (`.../codex_drafter.ex`, currently
-`{:error, :not_implemented}`): the decided **agent-drafted** path. Next slice:
+**CodexDrafter — built (logic complete; one live step remaining).**
+`.../codex_drafter.ex` now implements the decided agent-drafted path as three
+parts: `build_prompt/1` (versioned `plan-drafter@1` prompt embedding the intent +
+`conveyor.plan@1` shape + separation-of-duties framing — pure, tested),
+`parse_plan/1` (raw or ```json-fenced response → contract map — pure, tested), and
+an **injectable completion** (`opts[:completion]`). `draft_plan/2` composes them;
+the whole intent→prompt→completion→parse→audit→interrogation chain is proven
+end-to-end via an injected fake completion (`plan_foundry_test.exs`).
 
-1. A versioned plan-drafting prompt (intent + `conveyor.plan@1` output schema +
-   non-goals / separation-of-duties framing).
-2. Call `Conveyor.AgentRunner.Codex`; parse the result into a contract map.
-3. A `:live_agent`-tagged test for the real path.
+**The one remaining live step:** `default_completion/2` returns
+`{:error, :codex_completion_unconfigured}` until the real `codex` one-shot
+completion is wired (CLI specifics + real spend). All drafter *logic* is tested
+today without spend; wiring the live call is a thin, isolated change behind the
+seam.
 
 **Later slices** (deepen the deterministic gate): add the 10-lens
 `ContractCritic` and the full DB-backed `plan_audit` / `handoff_ready` bar to the
