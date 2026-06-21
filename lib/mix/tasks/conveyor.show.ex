@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Conveyor.Show do
 
   alias Conveyor.CLI.ExitCodes
   alias Conveyor.Factory
+  alias Conveyor.Factory.GateResult
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.Slice
   alias Conveyor.Factory.StationRun
@@ -28,6 +29,8 @@ defmodule Mix.Tasks.Conveyor.Show do
       "state" => Atom.to_string(slice.state),
       "latest_run_attempt_id" => run_attempt && run_attempt.id,
       "latest_run_attempt_status" => run_attempt && Atom.to_string(run_attempt.status),
+      "latest_run_attempt_outcome" => run_attempt && Atom.to_string(run_attempt.outcome),
+      "trust_verdict" => trust_verdict(run_attempt),
       "station_runs" => Enum.map(station_runs, & &1.station)
     }
     |> Jason.encode!()
@@ -44,6 +47,21 @@ defmodule Mix.Tasks.Conveyor.Show do
     |> Enum.filter(&(&1.slice_id == slice_id))
     |> Enum.sort_by(& &1.attempt_no, :desc)
     |> List.first()
+  end
+
+  # ADR-23: the calibrated trust verdict from the latest gate result, so an
+  # operator can see *why* a slice abstained/parked.
+  defp trust_verdict(nil), do: nil
+
+  defp trust_verdict(run_attempt) do
+    GateResult
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.run_attempt_id == run_attempt.id and &1.trust_score))
+    |> List.last()
+    |> case do
+      nil -> nil
+      gate_result -> Map.take(gate_result.trust_score, ["band", "score"])
+    end
   end
 
   defp station_runs(nil), do: []
