@@ -3,6 +3,7 @@ defmodule Conveyor.Planning.SerialDriver do
   Width-1 driver for executing a frozen pilot selection serially.
   """
 
+  alias Conveyor.AttemptLoop
   alias Conveyor.CanonicalJson
   alias Conveyor.ContractEvolution
   alias Conveyor.Factory
@@ -117,26 +118,82 @@ defmodule Conveyor.Planning.SerialDriver do
       :continue ->
         run_spec = assemble_run_spec!(slice_key, single_slice_graph, opts)
         run_attempt = create_run_attempt!(run_spec, opts)
-        slice_result = run_slice!(run_attempt, opts)
-        gate = run_gate!(run_spec, run_attempt, slice_result, opts)
-        finalization = finalize_gate!(gate, run_spec, run_attempt, slice_result, opts)
 
-        passed? =
-          slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
-
-        if passed? do
-          advance_workspace_base!(run_spec, slice_key, finalization, opts)
+        if rework_enabled?(opts) do
+          run_one_with_rework!(slice_key, sequence, run_spec, run_attempt, opts)
+        else
+          run_one_single_attempt!(slice_key, sequence, run_spec, run_attempt, opts)
         end
-
-        %{
-          "slice_id" => slice_key,
-          "sequence" => sequence,
-          "status" => if(passed?, do: "passed", else: "parked"),
-          "gate_result" => if(passed?, do: "first_pass", else: "eventual_pending"),
-          "run_attempt_outcome" => final_outcome(finalization),
-          "findings" => finding_categories(gate)
-        }
     end
+  end
+
+  # Default (keystone) path — a single attempt, then park on non-accept. Behaviour
+  # is UNCHANGED from before M2(b); rework is strictly opt-in (see rework_enabled?/1).
+  defp run_one_single_attempt!(slice_key, sequence, run_spec, run_attempt, opts) do
+    slice_result = run_slice!(run_attempt, opts)
+    gate = run_gate!(run_spec, run_attempt, slice_result, opts)
+    finalization = finalize_gate!(gate, run_spec, run_attempt, slice_result, opts)
+
+    passed? =
+      slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
+
+    if passed? do
+      advance_workspace_base!(run_spec, slice_key, finalization, opts)
+    end
+
+    %{
+      "slice_id" => slice_key,
+      "sequence" => sequence,
+      "status" => if(passed?, do: "passed", else: "parked"),
+      "gate_result" => if(passed?, do: "first_pass", else: "eventual_pending"),
+      "run_attempt_outcome" => final_outcome(finalization),
+      "findings" => finding_categories(gate)
+    }
+  end
+
+  # M2(b): opt-in rework-on-fail via `AttemptLoop` — a non-accepted slice reworks
+  # within a bounded budget instead of parking + halting the plan. We INJECT this
+  # driver's `run_slice!`/`run_gate!` (so the rich gate context + 4 wired stages are
+  # preserved; AttemptLoop's own defaults are thinner) and let AttemptLoop use its
+  # default finalize (== `default_finalize_gate!`) + the real ReworkSynthesizer/
+  # RunSpecForge retry path. Enable with `rework: true` (+ optional `max_attempts`).
+  defp run_one_with_rework!(slice_key, sequence, run_spec, run_attempt, opts) do
+    loop_opts =
+      opts
+      |> Keyword.put(:run_slice, fn attempt -> run_slice!(attempt, opts) end)
+      |> Keyword.put(:run_gate, fn rs, attempt, sr -> run_gate!(rs, attempt, sr, opts) end)
+      |> Keyword.put_new(:actor, "serial-driver")
+      |> Keyword.put_new(:max_attempts, 3)
+
+    loop_result = AttemptLoop.run_to_done!(run_attempt, loop_opts)
+    passed? = loop_result.status == :accepted
+    last_attempt = List.last(loop_result.attempts)
+
+    if passed? do
+      advance_workspace_base!(run_spec, slice_key, loop_result, opts)
+    end
+
+    %{
+      "slice_id" => slice_key,
+      "sequence" => sequence,
+      "status" => if(passed?, do: "passed", else: "parked"),
+      "gate_result" => rework_gate_label(passed?, loop_result),
+      "run_attempt_outcome" => last_attempt && last_attempt.outcome,
+      "findings" => loop_findings(loop_result),
+      "attempt_count" => loop_result.report["attempt_count"]
+    }
+  end
+
+  defp rework_enabled?(opts), do: Keyword.get(opts, :rework, false) == true
+
+  defp rework_gate_label(false, _loop_result), do: "eventual_pending"
+
+  defp rework_gate_label(true, loop_result) do
+    if loop_result.report["rework_recovered"], do: "eventual_pass", else: "first_pass"
+  end
+
+  defp loop_findings(loop_result) do
+    loop_result.events |> List.last(%{}) |> Map.get("finding_categories", [])
   end
 
   defp interrogate_slice(slice_key, single_slice_graph, sequence, opts) do
