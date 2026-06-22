@@ -41,6 +41,7 @@ other commands' `compute` functions — it must not re-derive their algorithms.
 
 ## Verification
 
-Run `pytest -q` from this directory. When you implement `digest` (SLICE-006),
-regenerate `tests/golden/digest.md` from your digest's markdown output (overwrite the
-`GOLDEN PENDING` sentinel with the real bytes).
+Run `pytest -q` from this directory. `tests/` (including the checked-in golden
+`tests/golden/digest.md`) is LOCKED — never edit anything under `tests/`. When you
+implement `digest` (SLICE-006), read the committed golden and make your digest's
+markdown output **byte-match it exactly**; do not modify the golden.

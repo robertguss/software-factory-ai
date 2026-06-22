@@ -1,8 +1,8 @@
 """SLICE-006 acceptance: the ``digest`` command (AC-012, AC-013).
 
-RED on seed: ``digest.run`` is a stub AND the golden file is a placeholder sentinel
-(tests/golden/digest.md carries ``GOLDEN PENDING``). The implementer regenerates the
-golden from the reference implementation once SLICE-006 produces stable bytes.
+RED on seed: ``digest.run`` is a stub. The golden (tests/golden/digest.md) ships REAL
+and LOCKED — the implementer makes the digest's markdown byte-match it (never edits the
+golden, which lives under the locked ``tests/`` tree).
 """
 
 from __future__ import annotations
@@ -24,10 +24,6 @@ def test_digest_byte_stable():
     assert code == 0
 
     golden_bytes = GOLDEN_DIGEST.read_text(encoding="utf-8")
-    assert "GOLDEN PENDING" not in golden_bytes, (
-        "golden is still the placeholder sentinel; regenerate it from the reference "
-        "implementation once SLICE-006 produces stable digest bytes"
-    )
     assert rendered == golden_bytes
 
 

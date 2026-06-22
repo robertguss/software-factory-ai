@@ -231,7 +231,6 @@ slices:
     likely_files:
       - src/gx/commands/digest.py
       - tests/test_digest.py
-      - tests/golden/digest.md
     conflict_domains:
       - cmd_digest
     autonomy_ceiling: L1
