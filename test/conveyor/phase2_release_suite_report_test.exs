@@ -1,7 +1,7 @@
 defmodule Conveyor.Phase2ReleaseSuiteReportTest do
   use ExUnit.Case, async: true
 
-  @report_path "docs/phase-2/p2-b8/release-suite-report.md"
+  @report_path "test/fixtures/phase-2/p2-b8/release-suite-report.md"
 
   @suite_classes ~w(contract security property replay recovery retention legibility)
 

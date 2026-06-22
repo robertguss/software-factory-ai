@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningStaticCompilerAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-a4/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-a4/acceptance-gate.md"
 
   @criteria [
     "acyclicity/stable-identity/traceability/scope-provenance/interface-consistency/atomicity/invalidation/digest-separation properties pass",

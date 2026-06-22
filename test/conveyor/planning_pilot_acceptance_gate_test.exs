@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningPilotAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-b7/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-b7/acceptance-gate.md"
 
   @criteria [
     "no selected contract is rewritten from scratch just to pass",
@@ -30,7 +30,7 @@ defmodule Conveyor.PlanningPilotAcceptanceGateTest do
           "Conveyor.Planning.PilotExecution",
           "Conveyor.Planning.PilotRetrospective",
           "conveyor.pilot_selection@1",
-          "docs/phase-2/p2-b7/pilot-plan.json"
+          "test/fixtures/phase-2/p2-b7/pilot-plan.json"
         ] do
       assert gate =~ evidence_ref
     end

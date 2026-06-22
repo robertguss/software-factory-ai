@@ -1,7 +1,7 @@
 defmodule Conveyor.BatteryAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-1.5/p15-b1/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-1.5/p15-b1/acceptance-gate.md"
 
   @criteria [
     "fixture validation precedes provider calls",

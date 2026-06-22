@@ -1,7 +1,7 @@
 defmodule Conveyor.Phase2ReleaseRecordTest do
   use ExUnit.Case, async: true
 
-  @record_path "docs/phase-2/p2-b8/release-record.md"
+  @record_path "test/fixtures/phase-2/p2-b8/release-record.md"
 
   test "release record publishes limitations debt grants waivers and residual risks" do
     record = File.read!(@record_path)

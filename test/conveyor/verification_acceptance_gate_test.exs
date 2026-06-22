@@ -1,7 +1,7 @@
 defmodule Conveyor.VerificationAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-1.5/p15-b4/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-1.5/p15-b4/acceptance-gate.md"
 
   @criteria [
     "readiness is per obligation, not TestPack aggregate",

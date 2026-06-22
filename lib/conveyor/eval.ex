@@ -19,7 +19,7 @@ defmodule Conveyor.Eval do
     * **Data** — committed datasets live under `eval/` (`corpora/`, `cassettes/`,
       `scorecards/`); generated scorecard inputs under `eval/scorecards/inputs/`.
 
-  See `docs/3_evals/IMPLEMENTATION-PLAN-RUNGS-0-1.md` for the full plan.
+  See `ROADMAP.md` for current eval-program status and direction.
   """
 
   @doc "Canonical-JSON sha256 digest (`\"sha256:\" <> lowerhex`) of any term."

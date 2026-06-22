@@ -1,7 +1,7 @@
 defmodule Conveyor.Phase2ReleaseAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-b8/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-b8/acceptance-gate.md"
 
   @criteria [
     "every hard correctness invariant passes",

@@ -3,7 +3,7 @@ defmodule Conveyor.ContextGroundTruthFixturesTest do
 
   alias Conveyor.ContextGroundTruth
 
-  @fixture_path "docs/phase-2/p2-a1/context-ground-truth-fixtures.json"
+  @fixture_path "test/fixtures/phase-2/p2-a1/context-ground-truth-fixtures.json"
 
   test "battery-only labelled fixtures report precision recall while unlabelled cases use proxies" do
     manifest = @fixture_path |> File.read!() |> Jason.decode!()

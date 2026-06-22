@@ -3,7 +3,7 @@ defmodule Conveyor.PlanningPilotSelectionTest do
 
   alias Conveyor.Planning.PilotSelection
 
-  @plan_path "docs/phase-2/p2-b7/pilot-plan.json"
+  @plan_path "test/fixtures/phase-2/p2-b7/pilot-plan.json"
   @schema_path "docs/schemas/conveyor.pilot_selection@1.json"
 
   test "freezes every machine-executable slice before the first selected attempt" do

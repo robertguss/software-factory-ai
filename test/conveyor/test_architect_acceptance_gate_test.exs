@@ -1,7 +1,7 @@
 defmodule Conveyor.TestArchitectAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-b2/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-b2/acceptance-gate.md"
 
   @criteria [
     "the Test Architect cannot edit source",

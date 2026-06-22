@@ -3,7 +3,7 @@ defmodule Conveyor.PlanningPhase2QualityComparisonTest do
 
   alias Conveyor.Planning.Phase2QualityComparison
 
-  @report_path "docs/phase-2/p2-b8/quality-hypothesis-comparison.md"
+  @report_path "test/fixtures/phase-2/p2-b8/quality-hypothesis-comparison.md"
   @hypotheses [
     "approved_without_rewrite",
     "median_repair_rounds",

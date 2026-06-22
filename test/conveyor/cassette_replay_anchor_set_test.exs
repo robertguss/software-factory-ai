@@ -3,7 +3,7 @@ defmodule Conveyor.CassetteReplayAnchorSetTest do
 
   alias Conveyor.Cassettes.ReplayAnchorSet
 
-  @fixture_path "docs/phase-1.5/p15-b3/replay-anchor-set.json"
+  @fixture_path "test/fixtures/phase-1.5/p15-b3/replay-anchor-set.json"
 
   test "builds a content-addressed anchor set from pre-change representative recordings" do
     anchor_set =

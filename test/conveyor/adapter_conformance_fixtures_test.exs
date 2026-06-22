@@ -1,7 +1,7 @@
 defmodule Conveyor.AdapterConformanceFixturesTest do
   use ExUnit.Case, async: true
 
-  @fixture_path "docs/phase-1.5/p15-b2/adapter-conformance-fixtures.json"
+  @fixture_path "test/fixtures/phase-1.5/p15-b2/adapter-conformance-fixtures.json"
 
   @required_cases [
     "cancellation",

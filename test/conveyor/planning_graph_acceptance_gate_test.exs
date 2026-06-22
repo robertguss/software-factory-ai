@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningGraphAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-a3/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-a3/acceptance-gate.md"
 
   @criteria [
     "likely-file overlap does not create a hard work edge",

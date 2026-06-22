@@ -6,8 +6,9 @@ fleet of AI coding agents (Codex, Claude Code, Gemini CLI) in isolated
 containers to implement it — 24/7, as autonomously as the verification gate can
 be trusted to allow.
 
-> Successor to **Conveyor AI**. Status: **early design / brainstorming.** See
-> [`docs/BRAINSTORM.md`](docs/BRAINSTORM.md) for the living strategy doc.
+> Successor to **Conveyor AI**. Status: **active development** — current focus is a
+> width-1 serial autonomous loop. See [`ROADMAP.md`](ROADMAP.md) for the real state of
+> what's built vs. planned (the single source of truth), tracked in `br` (beads).
 
 ## Core bets (so far)
 

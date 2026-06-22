@@ -1,8 +1,8 @@
 defmodule Conveyor.TrustToolCanariesTest do
   use ExUnit.Case, async: true
 
-  @manifest_path "docs/phase-1.5/p15-b5/trust-tool-canaries.json"
-  @clean_controls_path "docs/phase-1.5/p15-b5/clean-controls.json"
+  @manifest_path "test/fixtures/phase-1.5/p15-b5/trust-tool-canaries.json"
+  @clean_controls_path "test/fixtures/phase-1.5/p15-b5/clean-controls.json"
   @required_tools MapSet.new([
                     "battery_runner_scorer",
                     "integrity_sentinel",

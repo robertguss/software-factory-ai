@@ -12,7 +12,7 @@ defmodule Conveyor.Planning.PlanFoundry do
   implementer are three distinct actors, and the human still approves. ADR-19
   (compiler-owned falsifier seeds) and decision 6d (Test Architect) are unchanged.
 
-  Plan: docs/2_implementation_plans/ADR-27-PLAN-FOUNDRY-PLAN.md
+  Decision record: docs/adrs/adr-27-in-factory-plan-authoring.md
 
   ## Status
 

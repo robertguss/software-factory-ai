@@ -1,7 +1,7 @@
 defmodule Conveyor.Phase3HardeningPlanTest do
   use ExUnit.Case, async: true
 
-  @plan_path "docs/phase-2/p2-b8/phase3-hardening-plan.md"
+  @plan_path "test/fixtures/phase-2/p2-b8/phase3-hardening-plan.md"
 
   @readiness_dimensions [
     "Evidence/gate integrity",

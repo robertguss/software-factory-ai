@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-a0/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-a0/acceptance-gate.md"
 
   @criteria [
     "formatting-only edits need not create semantic revisions",

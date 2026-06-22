@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningCompilerAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-a2/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-a2/acceptance-gate.md"
 
   @criteria [
     "compiler passes run in unit tests without Oban/Postgres/provider",

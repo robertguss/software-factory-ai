@@ -346,8 +346,9 @@ hence M0 executes them.
 
 ## 8. Mapping to prior planning
 
-- **Supersedes** the abstract "Phase 0–8" list in `BRAINSTORM.md` §6 and the deferred `br`
-  epic `sgp.2–7` (annotated in-tracker). Rough map: Phase 1→M1; Phase 2→M5; Phase 3 (parallel
+- **Supersedes** the abstract "Phase 0–8" planning list (formerly `docs/BRAINSTORM.md`, now
+  removed — recoverable from git history) and the deferred `br` epic `sgp.2–7` (annotated
+  in-tracker). Rough map: Phase 1→M1; Phase 2→M5; Phase 3 (parallel
   fleet)→M7; Phase 4 (verification pyramid)→_M4 finishes/activates it_; Phase 5
   (self-healing)→M2/M3/M6; Phase 6→M6; Phase 7→deferred §7; Phase 8→M7.
 - **ADRs 01–23** largely functional. **24–27** are the dormant closers this roadmap wires:

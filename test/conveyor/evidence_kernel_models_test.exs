@@ -70,7 +70,7 @@ defmodule Conveyor.EvidenceKernelModelsTest do
 
   test "P15-A3 formal models define transitions, invariants, and counterexamples" do
     for {slug, expected} <- @models do
-      model = read_json!("docs/phase-1.5/p15-a3/state-machines/#{slug}.json")
+      model = read_json!("test/fixtures/phase-1.5/p15-a3/state-machines/#{slug}.json")
 
       assert model["schema_version"] == "conveyor.state_model@1"
       assert model["slug"] == slug

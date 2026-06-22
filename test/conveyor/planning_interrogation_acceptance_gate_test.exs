@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningInterrogationAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-a1/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-a1/acceptance-gate.md"
 
   @criteria [
     "contradiction/unbounded/missing-decision/oracle fixtures are caught",

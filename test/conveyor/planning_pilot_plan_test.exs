@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningPilotPlanTest do
   use ExUnit.Case, async: true
 
-  @plan_path "docs/phase-2/p2-b7/pilot-plan.json"
+  @plan_path "test/fixtures/phase-2/p2-b7/pilot-plan.json"
 
   @required_coverage ~w(
     fork_join

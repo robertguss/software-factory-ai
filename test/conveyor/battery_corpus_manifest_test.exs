@@ -1,7 +1,7 @@
 defmodule Conveyor.BatteryCorpusManifestTest do
   use ExUnit.Case, async: true
 
-  @manifest_path "docs/phase-1.5/p15-b1/battery-corpus.json"
+  @manifest_path "test/fixtures/phase-1.5/p15-b1/battery-corpus.json"
 
   @required_repos ~w(disposable-battery-repo conveyor-adjacent-repo)
 

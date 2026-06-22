@@ -3,7 +3,7 @@ defmodule Conveyor.PlanningCompatibilityFixturesTest do
 
   alias Conveyor.Planning.PlanningSpec
 
-  @fixture_path "docs/phase-2/p2-a0/schema-pass-compatibility.json"
+  @fixture_path "test/fixtures/phase-2/p2-a0/schema-pass-compatibility.json"
 
   test "schema/pass compatibility fixture has stable digests and explicit unknown-schema failure" do
     fixture = @fixture_path |> File.read!() |> Jason.decode!()

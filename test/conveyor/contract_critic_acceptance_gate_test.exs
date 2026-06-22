@@ -1,7 +1,7 @@
 defmodule Conveyor.ContractCriticAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-b3/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-b3/acceptance-gate.md"
 
   @criteria [
     "planted loopholes/scope-laundering are caught",

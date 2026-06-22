@@ -1,9 +1,9 @@
 defmodule Conveyor.EvidenceKernelDogfoodTest do
   use ExUnit.Case, async: true
 
-  @route_path "docs/phase-1.5/p15-a5/tracer-kernel-route.json"
-  @report_path "docs/phase-1.5/p15-a5/static-evidence-report.md"
-  @audit_path "docs/phase-1.5/p15-a5/no-bypass-audit.json"
+  @route_path "test/fixtures/phase-1.5/p15-a5/tracer-kernel-route.json"
+  @report_path "test/fixtures/phase-1.5/p15-a5/static-evidence-report.md"
+  @audit_path "test/fixtures/phase-1.5/p15-a5/no-bypass-audit.json"
 
   @required_paths ~w(
     PolicyDecision

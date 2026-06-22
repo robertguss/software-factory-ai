@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningPromptBudgetAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-b4/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-b4/acceptance-gate.md"
 
   @criteria [
     "critical-context drop fails before the provider",

@@ -1,0 +1,40 @@
+{
+  "authorization_result": "hardening_required",
+  "baseline_freeze_ref": "test/fixtures/phase-2/p2-b8/release-suite-report.md",
+  "created_at": "2026-06-19T12:05:00Z",
+  "decision_digest": "sha256:2ead0458ff9fb4094bcaade957e1cfc9e7dfe0bd64b0512124b388ed4cdc349a",
+  "evidence_refs": [
+    "test/fixtures/phase-2/p2-b8/release-suite-report.md",
+    "test/fixtures/phase-2/p2-b8/quality-hypothesis-comparison.md",
+    "test/fixtures/phase-2/p2-b8/release-record.md",
+    "test/fixtures/phase-2/p2-b7/acceptance-gate.md"
+  ],
+  "hardening_branch": "gate_first",
+  "notes": "P15-B8 grant scope is insufficient; hardening branch required before P2 authorization. Roadmap pressure is visible in phase2_gate and grants no automatic authority.",
+  "phase0_1_report_ref": "test/fixtures/phase-2/p2-b8/release-record.md",
+  "qualification_grant_id": "qualification_grant:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "requested_scope": {
+    "adapter": "offline",
+    "archetype": "planning",
+    "authority": "phase3",
+    "environment": "production"
+  },
+  "schema_version": "conveyor.phase_next_decision@1",
+  "selected_branches": [
+    {
+      "blocks_requested_grant": true,
+      "branch": "gate_first",
+      "justification_refs": [
+        "test/fixtures/phase-2/p2-b8/release-suite-report.md",
+        "test/fixtures/phase-2/p2-b8/quality-hypothesis-comparison.md",
+        "test/fixtures/phase-2/p2-b8/release-record.md",
+        "test/fixtures/phase-2/p2-b7/acceptance-gate.md"
+      ],
+      "response": "Requested P2 scope adapter=offline,archetype=planning,authority=phase3,environment=production exceeds grant scope adapter=offline,archetype=planning,authority=phase2_local,environment=local_dev; open targeted hardening."
+    }
+  ],
+  "status": "accepted",
+  "stop_the_line": [
+    "gate_first"
+  ]
+}

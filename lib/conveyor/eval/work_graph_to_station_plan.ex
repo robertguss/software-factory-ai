@@ -3,8 +3,7 @@ defmodule Conveyor.Eval.WorkGraphToStationPlan do
   MINIMAL, ON-PATH lowering of a `work_graph@2` Slice into a provisional executable
   `station_plan` (idea #2, the bridge).
 
-  > **Divergence (read `docs/3_evals/IMPLEMENTATION-PLAN-RUNGS-0-1.md` §B2).**
-  > `station_plan` is **not** the architecture's intended runtime form. The program
+  > **Divergence.** `station_plan` is **not** the architecture's intended runtime form. The program
   > plan intends `Source → Intent → Candidate → Work → Contract → Authority`
   > (ADR-14), where the `Work → Contract` lowering is owned by the **P2-B Contract
   > Forge**, producing `ContractLock + AgentBrief` (+ `TestPack`). This module is a

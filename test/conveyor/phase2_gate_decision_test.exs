@@ -1,8 +1,8 @@
 defmodule Conveyor.Phase2GateDecisionTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-b8/phase2-gate.json"
-  @decision_path "docs/phase-2/p2-b8/phase-next-decision.json"
+  @gate_path "test/fixtures/phase-2/p2-b8/phase2-gate.json"
+  @decision_path "test/fixtures/phase-2/p2-b8/phase-next-decision.json"
 
   test "phase2_gate records a visible failed gate without automatic authority" do
     gate = read_json!(@gate_path)

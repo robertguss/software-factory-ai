@@ -1,7 +1,7 @@
 defmodule Conveyor.PlanningAmendmentAcceptanceGateTest do
   use ExUnit.Case, async: true
 
-  @gate_path "docs/phase-2/p2-b6/acceptance-gate.md"
+  @gate_path "test/fixtures/phase-2/p2-b6/acceptance-gate.md"
 
   @criteria [
     "the implementer cannot self-declare nonmaterial",

@@ -6,8 +6,8 @@ defmodule Conveyor.QualificationPhaseNextDecisionTest do
   test "authorizes the requested P2 scope when the grant covers it" do
     decision =
       PhaseNextDecision.authorize_or_harden(%{
-        phase0_1_report_ref: "docs/phase-1.5/p15-a0/phase-0-1-retrospective.md",
-        baseline_freeze_ref: "docs/phase-1.5/p15-a0/phase-1-baseline-freeze.json",
+        phase0_1_report_ref: "test/fixtures/phase-1.5/p15-a0/phase-0-1-retrospective.md",
+        baseline_freeze_ref: "test/fixtures/phase-1.5/p15-a0/phase-1-baseline-freeze.json",
         requested_scope: %{"adapter" => "primary-live", "archetype" => "planning"},
         grant: %{
           "id" => "qualification_grant:sha256:grant",
@@ -33,8 +33,8 @@ defmodule Conveyor.QualificationPhaseNextDecisionTest do
   test "opens a targeted hardening branch when the grant scope is insufficient" do
     decision =
       PhaseNextDecision.authorize_or_harden(%{
-        phase0_1_report_ref: "docs/phase-1.5/p15-a0/phase-0-1-retrospective.md",
-        baseline_freeze_ref: "docs/phase-1.5/p15-a0/phase-1-baseline-freeze.json",
+        phase0_1_report_ref: "test/fixtures/phase-1.5/p15-a0/phase-0-1-retrospective.md",
+        baseline_freeze_ref: "test/fixtures/phase-1.5/p15-a0/phase-1-baseline-freeze.json",
         requested_scope: %{"adapter" => "primary-live", "environment" => "prod"},
         grant: %{
           "id" => "qualification_grant:sha256:grant",

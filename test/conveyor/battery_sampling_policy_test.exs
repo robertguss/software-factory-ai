@@ -3,7 +3,7 @@ defmodule Conveyor.BatterySamplingPolicyTest do
 
   alias Conveyor.Battery.SamplingPolicy
 
-  @policy_path "docs/phase-1.5/p15-b1/sampling-policy.json"
+  @policy_path "test/fixtures/phase-1.5/p15-b1/sampling-policy.json"
 
   test "predeclare returns a content-addressed policy digest independent of map key order" do
     attrs = %{

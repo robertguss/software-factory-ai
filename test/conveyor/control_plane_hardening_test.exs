@@ -122,7 +122,7 @@ defmodule Conveyor.ControlPlaneHardeningTest do
     ]
 
     manifest =
-      "docs/phase-1.5/p15-a4/control-plane-canaries.json"
+      "test/fixtures/phase-1.5/p15-a4/control-plane-canaries.json"
       |> File.read!()
       |> Jason.decode!()
 
