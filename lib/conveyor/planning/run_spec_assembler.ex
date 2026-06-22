@@ -90,6 +90,12 @@ defmodule Conveyor.Planning.RunSpecAssembler do
 
   defp augment_station_plan(plan, workspace_path, base_commit, blob_root, contract, opts) do
     patch_ref = Keyword.get(opts, :patch_ref)
+    # Optional reference/test-only map of attempt_no (string) => patch path, so a
+    # retry can apply a DIFFERENT canned patch than the first attempt. Rides in the
+    # implement-station input; `RunSpecForge.forge_retry!` copies it forward verbatim
+    # (the map is stable — only the attempt_no lookup key changes). Production Codex
+    # ignores it.
+    patch_refs_by_attempt = Keyword.get(opts, :patch_refs_by_attempt)
     plan_path = Keyword.get(opts, :plan_path, Path.join(workspace_path, "conveyor.plan.yml"))
     adapter = Keyword.get(opts, :agent_adapter)
 
@@ -113,6 +119,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
                 "blob_root" => blob_root
               }
               |> maybe_put("patch_ref", patch_ref)
+              |> maybe_put("patch_refs_by_attempt", patch_refs_by_attempt)
               |> maybe_put("adapter", module_name(adapter))
 
             "verify" ->

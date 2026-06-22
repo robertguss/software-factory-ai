@@ -18,10 +18,16 @@ defmodule Conveyor.Gate.MidflightCheck do
       survival, and red-team are *not gate stages* (they live in the eval surface),
       so the agent cannot mine them through this channel; and the expensive
       execution stages (build/test/canary) are excluded from the default subset to
-      keep the check cheap and free of the test-execution oracle.
+      keep the check cheap and free of the test-execution oracle. This is enforced
+      by a **hard allowlist**, not just the default — `run/2` raises if a caller
+      tries to slip a non-allowlisted stage (e.g. `TestExecution`) into the subset,
+      so the guarantee does not rest on the default a caller could override. The
+      conductor-facing entry is `run/1` (no overridable stages at all).
   """
 
-  # Cheap static stages safe + useful to show the implementer mid-flight.
+  # The ONLY stages this advisory channel may ever run — cheap, static, oracle-free.
+  # Doubles as the allowlist: `run/2` can narrow to a subset of these but can never
+  # introduce anything else (hidden-oracle guard).
   @default_stages [
     Conveyor.Gate.Stages.DiffScope,
     Conveyor.Gate.Stages.ContractLock,
@@ -42,12 +48,14 @@ defmodule Conveyor.Gate.MidflightCheck do
 
   @doc """
   Run the advisory mid-flight check over a gate context. Returns a read-only
-  report; nothing is persisted or transitioned. `opts[:stages]` overrides the
-  subset (used in tests / for narrower checks).
+  report; nothing is persisted or transitioned. `opts[:stages]` may narrow the
+  subset to a subset of the allowlist, but a non-allowlisted stage raises
+  `ArgumentError` (hidden-oracle guard). Prefer `run/1` at the conductor boundary,
+  which exposes no stage override at all.
   """
   @spec run(map(), keyword()) :: report()
   def run(context, opts \\ []) when is_map(context) and is_list(opts) do
-    stages = Keyword.get(opts, :stages, @default_stages)
+    stages = opts |> Keyword.get(:stages, @default_stages) |> reject_non_allowlisted!()
 
     # Invoke each stage's behaviour directly — advisory only. Unlike the real
     # gate, this builds no GateResult, persists nothing, and transitions nothing.
@@ -61,6 +69,22 @@ defmodule Conveyor.Gate.MidflightCheck do
       findings: findings,
       stages_run: Enum.map(stages, &stage_label/1)
     }
+  end
+
+  # Hidden-oracle guard (ADR-24): the advisory channel may run ONLY the cheap
+  # static stages. A caller may narrow to a subset, but introducing any other
+  # stage — the expensive execution stages or, worse, an eval-surface oracle —
+  # is refused loudly. The guarantee must not rest on a default a caller overrides.
+  defp reject_non_allowlisted!(stages) do
+    case stages -- @default_stages do
+      [] ->
+        stages
+
+      forbidden ->
+        raise ArgumentError,
+              "MidflightCheck may run only the allowlisted static stages " <>
+                "#{inspect(@default_stages)}; refused: #{inspect(forbidden)}"
+    end
   end
 
   defp stage_label(module) do

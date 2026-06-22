@@ -155,6 +155,7 @@ defmodule Conveyor.AgentRunner.ReferenceSolution do
   defp apply_reference_patch!(workspace, opts) do
     patch_ref = Keyword.fetch!(opts, :reference_patch)
     ws_path = workspace_path!(workspace)
+    if Keyword.get(opts, :reset_workspace, false), do: reset_workspace_to_base!(ws_path)
     patch_abs = Path.expand(patch_ref, File.cwd!())
     reverse_args = if Keyword.get(opts, :reverse, false), do: ["-R"], else: []
     existing_backups = patch_backup_files(ws_path)
@@ -168,6 +169,30 @@ defmodule Conveyor.AgentRunner.ReferenceSolution do
 
       {out, status} ->
         raise "reference patch #{patch_ref} failed to apply (#{status}): #{out}"
+    end
+  end
+
+  # Reset the working tree to the committed base before applying. Runs before EVERY
+  # per-attempt apply (a no-op on attempt 1's already-clean tree); on a retry it
+  # discards the prior attempt's uncommitted patch so the next patch lands clean.
+  # Opt-in (only the per-attempt reference path sets it) and confined to this
+  # adapter — real-agent retry semantics are untouched. No-op outside a git work
+  # tree (other reference uses may not be git-backed).
+  defp reset_workspace_to_base!(ws_path) do
+    if git_work_tree?(ws_path) do
+      {_, 0} = System.cmd("git", ["-C", ws_path, "checkout", "--", "."], stderr_to_stdout: true)
+      {_, 0} = System.cmd("git", ["-C", ws_path, "clean", "-fdq"], stderr_to_stdout: true)
+    end
+
+    :ok
+  end
+
+  defp git_work_tree?(ws_path) do
+    case System.cmd("git", ["-C", ws_path, "rev-parse", "--is-inside-work-tree"],
+           stderr_to_stdout: true
+         ) do
+      {out, 0} -> String.trim(out) == "true"
+      _ -> false
     end
   end
 

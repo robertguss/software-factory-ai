@@ -1,39 +1,54 @@
 defmodule Conveyor.Gate.MidflightCheckTest do
-  @moduledoc "ADR-24 — read-only advisory in-loop verification."
+  @moduledoc """
+  ADR-24 — read-only advisory in-loop verification.
+
+  These tests run the REAL static gate stages (DiffScope, ContractLock,
+  SecretSafety, AcceptanceMapping) through MidflightCheck — not fixture stubs —
+  so a pass means the advisory channel is shape-compatible with the actual stage
+  modules the gate uses, and the hidden-oracle allowlist actually holds.
+  """
   use ExUnit.Case, async: true
 
   alias Conveyor.Gate.MidflightCheck
 
-  defmodule PassStage do
-    @behaviour Conveyor.Gate.Stage
-    @impl true
-    def run(_context, _opts), do: %{status: :passed, evidence_refs: ["e.json"]}
-  end
-
-  defmodule FailStage do
-    @behaviour Conveyor.Gate.Stage
-    @impl true
-    def run(_context, _opts) do
-      %{
-        status: :failed,
-        findings: [%{"category" => "diff_scope_violation", "message" => "out of scope"}]
-      }
-    end
-  end
-
-  test "reports on-track for a passing subset, advisory and side-effect free" do
-    report = MidflightCheck.run(%{}, stages: [PassStage])
+  test "run/1 executes the 4 REAL static stages and aggregates an advisory report" do
+    # A sparse context drives each real stage down its missing-input path — proving
+    # the concrete stage modules run through MidflightCheck without a shape mismatch.
+    report = MidflightCheck.run(%{})
 
     assert report.advisory == true
-    assert report.on_track? == true
-    assert report.findings == []
+    refute report.on_track?
+
+    assert report.stages_run ==
+             ["diff_scope", "contract_lock", "secret_safety", "acceptance_mapping"]
+
+    # the findings are the agent-actionable ones the REAL stages emit, not stubs
+    categories = Enum.map(report.findings, & &1["category"])
+    assert "missing_patch_set" in categories
   end
 
-  test "reports off-track with the findings the agent can act on" do
-    report = MidflightCheck.run(%{}, stages: [FailStage])
+  test "on-track: a real stage with nothing to flag reports on_track? with no findings" do
+    # SecretSafety on an empty context has no secrets to report -> passes.
+    report = MidflightCheck.run(%{}, stages: [Conveyor.Gate.Stages.SecretSafety])
 
+    assert report.on_track? == true
+    assert report.findings == []
+    assert report.stages_run == ["secret_safety"]
+  end
+
+  test "a caller may NARROW to a subset of the allowlist" do
+    report = MidflightCheck.run(%{}, stages: [Conveyor.Gate.Stages.DiffScope])
+
+    assert report.stages_run == ["diff_scope"]
     refute report.on_track?
-    assert [%{"category" => "diff_scope_violation"}] = report.findings
+  end
+
+  test "hidden-oracle guard: a non-allowlisted stage is refused, even alongside allowed ones" do
+    assert_raise ArgumentError, ~r/allowlisted static stages/, fn ->
+      MidflightCheck.run(%{},
+        stages: [Conveyor.Gate.Stages.DiffScope, Conveyor.Gate.Stages.TestExecution]
+      )
+    end
   end
 
   test "the default subset is the cheap static stages — no execution or hidden oracle" do
