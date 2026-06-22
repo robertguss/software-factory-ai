@@ -22,7 +22,7 @@ defmodule Conveyor.Planning.PlanFoundryTest do
   spine are GREEN, the latter exercised through an injected `Drafter` so no live
   agent is needed. The live `CodexDrafter` is the next slice.
 
-  Plan: docs/2_implementation_plans/ADR-27-PLAN-FOUNDRY-PLAN.md
+  Decision record: docs/adrs/adr-27-in-factory-plan-authoring.md
   """
   use ExUnit.Case, async: true
 

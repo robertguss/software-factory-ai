@@ -39,6 +39,13 @@ defmodule Conveyor.AgentRunner.Codex do
   @default_in_per_1m 1.25
   @default_out_per_1m 10.0
 
+  # Watchdog: bound the (blocking) agent shell-out so a hung `codex exec` can't hang an
+  # unattended multi-hour run (M2). Configurable via opts[:agent_timeout_ms]. On timeout
+  # the run is unblocked and reported as a non-zero (124) run with empty output -> the
+  # slice fails its gate and parks/reworks instead of the whole plan hanging forever.
+  @default_agent_timeout_ms 900_000
+  @agent_timeout_exit_code 124
+
   @impl true
   def capabilities do
     %Capabilities{
@@ -63,8 +70,9 @@ defmodule Conveyor.AgentRunner.Codex do
     ws_path = workspace_path!(workspace)
 
     exec = Keyword.get(opts, :codex_exec, &default_exec/3)
+    timeout_ms = Keyword.get(opts, :agent_timeout_ms, @default_agent_timeout_ms)
     started = System.monotonic_time(:millisecond)
-    {stdout, exit_code} = exec.(run_prompt.body, ws_path, opts)
+    {stdout, exit_code} = run_with_timeout(exec, run_prompt.body, ws_path, opts, timeout_ms)
     latency_ms = max(System.monotonic_time(:millisecond) - started, 0)
 
     events = parse_jsonl(stdout)
@@ -176,6 +184,19 @@ defmodule Conveyor.AgentRunner.Codex do
   end
 
   # --- codex exec --------------------------------------------------------------
+
+  # Watchdog around the blocking agent exec. Runs it in a Task; on timeout, brutally
+  # shuts the Task down (closing the System.cmd port, which terminates the child) and
+  # reports a timeout (empty stdout, exit #{@agent_timeout_exit_code}) so the loop treats
+  # the slice as a failed attempt instead of hanging the unattended run.
+  defp run_with_timeout(exec, prompt, ws_path, opts, timeout_ms) do
+    task = Task.async(fn -> exec.(prompt, ws_path, opts) end)
+
+    case Task.yield(task, timeout_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {stdout, exit_code}} -> {stdout, exit_code}
+      _ -> {"", @agent_timeout_exit_code}
+    end
+  end
 
   defp default_exec(prompt, ws_path, opts) do
     # `--ephemeral`: don't persist session rollout files to disk (recommended for

@@ -1,0 +1,106 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/digest.py b/samples/beads_insight/src/br_insight/commands/digest.py
+index 3c1b65b..0f4186b 100644
+--- a/samples/beads_insight/src/br_insight/commands/digest.py
++++ b/samples/beads_insight/src/br_insight/commands/digest.py
+@@ -7,13 +7,98 @@ byte-stable across runs and processes.
+ 
+ from __future__ import annotations
+ 
++import json
+ from datetime import datetime
+ 
+ from ..model import IssueGraph
++from ..report import build_envelope
++from . import cycles, epics, ready, velocity
+ 
+ __all__ = ["run"]
+ 
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the composed digest. STUB — implemented in SLICE-006."""
+-    raise NotImplementedError("digest.run is implemented in SLICE-006")
++def _format_instant(value: datetime | str) -> str:
++    if isinstance(value, str):
++        return value
++    return value.isoformat().replace("+00:00", "Z")
++
++
++def _report_data(
++    graph: IssueGraph, *, as_of: datetime | str, source: str
++) -> dict[str, object]:
++    ready_data = json.loads(
++        ready.run(graph, as_of=as_of, fmt="json", source=source)
++    )["data"]
++    cycles_rendered, _found = cycles.run(graph, as_of=as_of, fmt="json", source=source)
++    cycles_data = json.loads(cycles_rendered)["data"]
++    epics_data = json.loads(
++        epics.run(graph, as_of=as_of, fmt="json", source=source)
++    )["data"]
++    velocity_data = json.loads(
++        velocity.run(graph, as_of=as_of, fmt="json", source=source)
++    )["data"]
++
++    return {
++        "ready": ready_data,
++        "cycles": cycles_data,
++        "epics": epics_data,
++        "velocity": velocity_data,
++    }
++
++
++def _render_markdown(data: dict[str, object], *, as_of: datetime | str) -> str:
++    lines = [f"# Beads Insight Digest \u2014 {_format_instant(as_of)}", ""]
++
++    lines.extend(["## Ready", ""])
++    for row in data["ready"]["ready"]:
++        lines.append(f"- [P{row['priority']}] {row['id']} \u2014 {row['title']}")
++
++    lines.extend(["", "## Cycles", ""])
++    cycle_rows = data["cycles"]["cycles"]
++    if cycle_rows:
++        for cycle in cycle_rows:
++            lines.append(f"- {' -> '.join([*cycle, cycle[0]])}")
++    else:
++        lines.append("_No dependency cycles._")
++
++    lines.extend(["", "## Epics", ""])
++    for row in data["epics"]["epics"]:
++        lines.append(
++            f"- {row['id']} \u2014 {row['title']}: "
++            f"{row['closed']}/{row['total']} closed ({row['pct']}%), "
++            f"open={row['open']}, blocked={row['blocked']}"
++        )
++
++    lines.extend(["", "## Velocity", ""])
++    for bucket in data["velocity"]["buckets"]:
++        lines.append(f"- {bucket['start']} .. {bucket['end']}: {bucket['count']}")
++
++    return "\n".join(lines) + "\n"
++
++
++def run(graph: IssueGraph, *, as_of: datetime | str, fmt: str, source: str) -> str:
++    """Render the composed digest."""
++    data = _report_data(graph, as_of=as_of, source=source)
++
++    if fmt == "json":
++        sections = [
++            {"kind": "ready", "data": data["ready"]},
++            {"kind": "cycles", "data": data["cycles"]},
++            {"kind": "epics", "data": data["epics"]},
++            {"kind": "velocity", "data": data["velocity"]},
++        ]
++        return json.dumps(
++            build_envelope(
++                "digest",
++                {"sections": sections},
++                generated_as_of=as_of,
++                source=source,
++            ),
++            sort_keys=True,
++            separators=(",", ":"),
++        )
++
++    if fmt == "markdown":
++        return _render_markdown(data, as_of=as_of)
++
++    raise ValueError(f"unsupported format: {fmt}")

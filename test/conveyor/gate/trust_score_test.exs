@@ -3,10 +3,10 @@ defmodule Conveyor.Gate.TrustScoreTest do
   ADR-23 TDD skeletons for the pure `Conveyor.Gate.TrustScore`.
 
   These are the executable contract for the Reliability Engine (ADR-23 Part A —
-  the pure `TrustScore`). Part B (the `Finalizer` `:abstain` wiring) is deferred;
-  see the plan.
+  the pure `TrustScore`). Part B (the `Finalizer` `:abstain` wiring) is now live —
+  see `Conveyor.Gate.Finalizer` (a passed-but-unconfident run abstains → parked).
 
-  Plan: docs/2_implementation_plans/ADR-23-RELIABILITY-ENGINE-PLAN.md
+  Decision record: docs/adrs/adr-23-ternary-gate-verdict-calibrated-abstention.md
   """
   use ExUnit.Case, async: true
 

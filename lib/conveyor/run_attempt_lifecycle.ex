@@ -15,13 +15,20 @@ defmodule Conveyor.RunAttemptLifecycle do
 
   @spec transition!(struct(), atom(), keyword()) :: struct()
   def transition!(%RunAttempt{} = attempt, action, opts \\ []) when is_atom(action) do
-    previous_status = attempt.status
-
     Repo.transaction(fn ->
       context = context_for!(attempt.slice_id)
 
+      # Transition from PERSISTED truth, not the caller's in-memory struct. A caller may
+      # hold a stale attempt: e.g. the SerialDriver's run_attempt predates the stations
+      # that advanced it to :evidence_recorded, so finalize's `:gate` would otherwise be
+      # validated against the stale :planned state and raise NoMatchingTransition. (The
+      # old silent raw-write rescue masked this; dr1m.1.1 removed it and the M1 live run
+      # surfaced the latent bug.) Re-load inside the txn so the from-state is current.
+      fresh = Ash.get!(RunAttempt, attempt.id, domain: Factory)
+      previous_status = fresh.status
+
       {updated_attempt, notifications} =
-        Ash.update!(attempt, Keyword.get(opts, :attrs, %{}),
+        Ash.update!(fresh, Keyword.get(opts, :attrs, %{}),
           action: action,
           domain: Factory,
           return_notifications?: true

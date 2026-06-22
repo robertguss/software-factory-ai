@@ -2,11 +2,13 @@ defmodule Conveyor.Planning.PlanFoundry do
   @moduledoc """
   ADR-27 — in-factory plan authoring ("Plan Foundry").
 
-  Turns a short statement of intent into a critiqued, `handoff_ready`
-  `conveyor.plan@1` by driving the existing machinery: `ContractForge` drafts,
-  `ContractCritic` challenges (a distinct actor), `Readiness`/the compiler surface
-  genuine ambiguities, and the operator is interrogated only on those before
-  approving.
+  **Intended design** (see Status below for what is actually wired): turn a short
+  statement of intent into a critiqued, `handoff_ready` `conveyor.plan@1` by driving
+  the existing machinery — `ContractForge` drafts, `ContractCritic` challenges (a
+  distinct actor), `Readiness`/the compiler surface genuine ambiguities, and the
+  operator is interrogated only on those before approving. Today only the
+  deterministic `draft/2` spine exists (Status); the critic/readiness/handoff_ready
+  composition is not yet wired.
 
   Separation of duties is preserved: the drafter, the critic, and the downstream
   implementer are three distinct actors, and the human still approves. ADR-19

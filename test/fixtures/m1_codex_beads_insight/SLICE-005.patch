@@ -1,0 +1,80 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/velocity.py b/samples/beads_insight/src/br_insight/commands/velocity.py
+index 3c6af16..d5eff8c 100644
+--- a/samples/beads_insight/src/br_insight/commands/velocity.py
++++ b/samples/beads_insight/src/br_insight/commands/velocity.py
+@@ -8,13 +8,71 @@ boundary lands in the newer bucket (start-inclusive).
+ 
+ from __future__ import annotations
+ 
+-from datetime import datetime
++import json
++from datetime import datetime, timedelta
+ 
++from ..clock import parse_as_of
+ from ..model import IssueGraph
++from ..report import build_envelope
+ 
+ __all__ = ["run"]
+ 
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str, weeks: int = 4) -> str:
+-    """Render weekly velocity buckets. STUB — implemented in SLICE-005."""
+-    raise NotImplementedError("velocity.run is implemented in SLICE-005")
++def _format_instant(value: datetime) -> str:
++    return value.isoformat().replace("+00:00", "Z")
++
++
++def _coerce_as_of(value: datetime | str) -> datetime:
++    if isinstance(value, str):
++        return parse_as_of(value)
++    return value
++
++
++def _bucket_rows(graph: IssueGraph, *, as_of: datetime, weeks: int) -> list[dict[str, object]]:
++    bucket_width = timedelta(days=7)
++    starts = [as_of - (bucket_width * offset) for offset in range(weeks, 0, -1)]
++    buckets = [
++        {"start": start, "end": start + bucket_width, "count": 0}
++        for start in starts
++    ]
++
++    for issue in sorted(graph.issues.values(), key=lambda item: item.id):
++        if issue.closed_at is None:
++            continue
++        for bucket in buckets:
++            if bucket["start"] <= issue.closed_at < bucket["end"]:
++                bucket["count"] += 1
++                break
++
++    return [
++        {
++            "start": _format_instant(bucket["start"]),
++            "end": _format_instant(bucket["end"]),
++            "count": bucket["count"],
++        }
++        for bucket in buckets
++    ]
++
++
++def run(
++    graph: IssueGraph, *, as_of: datetime | str, fmt: str, source: str, weeks: int = 4
++) -> str:
++    """Render weekly velocity buckets."""
++    as_of_dt = _coerce_as_of(as_of)
++    data = {"buckets": _bucket_rows(graph, as_of=as_of_dt, weeks=weeks)}
++    if fmt == "json":
++        return json.dumps(
++            build_envelope("velocity", data, generated_as_of=as_of_dt, source=source),
++            sort_keys=True,
++            separators=(",", ":"),
++        )
++
++    if fmt == "markdown":
++        lines = ["# Velocity", ""]
++        for bucket in data["buckets"]:
++            lines.append(
++                f"- {bucket['start']} to {bucket['end']}: {bucket['count']} closed"
++            )
++        return "\n".join(lines) + "\n"
++
++    raise ValueError(f"unsupported format: {fmt}")

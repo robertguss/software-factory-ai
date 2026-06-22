@@ -54,6 +54,36 @@ defmodule Conveyor.AgentRunner.CodexTest do
     assert result.metadata["cost_usd_estimated"] >= 0.0
   end
 
+  test "watchdog bounds a hung exec (M2): a slow agent returns a timeout, never hangs the run" do
+    fixture =
+      BridgeFixtures.sample_fixture!(
+        label: "codex-watchdog",
+        adapter_name: "codex",
+        patch_ref: @known_good
+      )
+
+    # An exec that would block for a minute (a hung `codex exec`). Without the watchdog
+    # this would hang the unattended run; with it, run/4 returns promptly as a timeout.
+    slow_exec = fn _p, _ws, _o ->
+      Process.sleep(60_000)
+      {"", 0}
+    end
+
+    {:ok, result} =
+      Codex.run(fixture.run_prompt, fixture.workspace, fixture.policy,
+        agent_session_id: fixture.agent_session.id,
+        run_attempt_id: fixture.run_attempt.id,
+        blob_root: fixture.blob_root,
+        codex_exec: slow_exec,
+        agent_timeout_ms: 100
+      )
+
+    # Reported as a non-zero (124) run with no output -> the slice fails its gate and
+    # parks/reworks instead of the plan hanging forever.
+    assert result.metadata["exit_code"] == 124
+    assert result.metadata["latency_ms"] < 5_000
+  end
+
   test "usage parsing sums turns and tolerates missing fields" do
     fixture =
       BridgeFixtures.sample_fixture!(

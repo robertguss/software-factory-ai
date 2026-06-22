@@ -1,0 +1,88 @@
+diff --git a/samples/beads_insight/src/br_insight/commands/ready.py b/samples/beads_insight/src/br_insight/commands/ready.py
+index c866299..ee139e4 100644
+--- a/samples/beads_insight/src/br_insight/commands/ready.py
++++ b/samples/beads_insight/src/br_insight/commands/ready.py
+@@ -7,13 +7,53 @@ Output is sorted by ``(priority asc, id asc)``.
+ 
+ from __future__ import annotations
+ 
++import json
+ from datetime import datetime
+ 
+ from ..model import IssueGraph
++from ..report import build_envelope
+ 
+ __all__ = ["run"]
+ 
+ 
++def _ready_rows(graph: IssueGraph) -> list[dict[str, object]]:
++    blockers_by_issue: dict[str, list[str]] = {}
++    for blocker_id, blocked_id in sorted(graph.blocks_edges):
++        blockers_by_issue.setdefault(blocked_id, []).append(blocker_id)
++
++    ready = []
++    for issue in graph.issues.values():
++        if issue.status != "open":
++            continue
++        blockers = blockers_by_issue.get(issue.id, ())
++        if any(
++            graph.issues.get(blocker_id) is None
++            or graph.issues[blocker_id].status != "closed"
++            for blocker_id in blockers
++        ):
++            continue
++        ready.append(issue)
++
++    return [
++        {"id": issue.id, "title": issue.title, "priority": issue.priority}
++        for issue in sorted(ready, key=lambda item: (item.priority, item.id))
++    ]
++
++
+ def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the ready set. STUB — implemented in SLICE-002."""
+-    raise NotImplementedError("ready.run is implemented in SLICE-002")
++    """Render the ready set."""
++    data = {"ready": _ready_rows(graph)}
++    if fmt == "json":
++        return json.dumps(
++            build_envelope("ready", data, generated_as_of=as_of, source=source),
++            sort_keys=True,
++            separators=(",", ":"),
++        )
++
++    if fmt == "markdown":
++        lines = ["# Ready", ""]
++        for row in data["ready"]:
++            lines.append(f"- {row['id']} (P{row['priority']}): {row['title']}")
++        return "\n".join(lines) + "\n"
++
++    raise ValueError(f"unsupported format: {fmt}")
+diff --git a/samples/beads_insight/src/br_insight/report.py b/samples/beads_insight/src/br_insight/report.py
+index a242d3c..e7888f1 100644
+--- a/samples/beads_insight/src/br_insight/report.py
++++ b/samples/beads_insight/src/br_insight/report.py
+@@ -23,9 +23,19 @@ __all__ = ["SCHEMA_VERSION", "build_envelope"]
+ SCHEMA_VERSION = "br_insight.report@1"
+ 
+ 
+-def build_envelope(kind: str, data, *, generated_as_of: datetime, source: str) -> dict:
+-    """Wrap kind-specific ``data`` in the locked ``br_insight.report@1`` envelope.
++def _format_as_of(value: datetime | str) -> str:
++    if isinstance(value, datetime):
++        return value.isoformat().replace("+00:00", "Z")
++    return value
++
+ 
+-    STUB — implemented in SLICE-007.
++def build_envelope(kind: str, data, *, generated_as_of: datetime | str, source: str) -> dict:
++    """Wrap kind-specific ``data`` in the locked ``br_insight.report@1`` envelope.
+     """
+-    raise NotImplementedError("report.build_envelope is implemented in SLICE-007")
++    return {
++        "schema_version": SCHEMA_VERSION,
++        "generated_as_of": _format_as_of(generated_as_of),
++        "kind": kind,
++        "source": source,
++        "data": data,
++    }
