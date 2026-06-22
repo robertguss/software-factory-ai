@@ -138,4 +138,5 @@ PY
   — never copy it into a file).
 
 **First action next session:** re-orient from `conveyor-roadmap-and-state` (has the Phase-2 results)
-+ `br ready`; confirm the two branches above; then either land the PRs (ask Robert) or start **M4**.
++ `br ready`; confirm `main` is current (Phase 2 already merged — PR #16/#17, nothing pending to
+land); then start **M4** (activate + finish the gate). See §4 for the alternative (more Phase-2 stress).
