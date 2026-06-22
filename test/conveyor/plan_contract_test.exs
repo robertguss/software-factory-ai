@@ -126,6 +126,57 @@ defmodule Conveyor.PlanContractTest do
     assert {:error, %Error{code: :schema_validation_failed}} = PlanContract.load(path)
   end
 
+  test "rejects work_dependencies that reference a nonexistent slice" do
+    path = Path.join(temp_dir(), "dangling_dep.json")
+
+    bad =
+      contract_with_work_dependencies()
+      |> put_in(["work_dependencies", Access.at(0), "to"], "SLICE-099")
+
+    File.write!(path, Jason.encode!(bad))
+
+    assert {:error, %Error{code: :invalid_work_dependencies, message: message}} =
+             PlanContract.load(path)
+
+    assert message =~ "SLICE-099"
+  end
+
+  test "rejects a work_dependency self-loop" do
+    path = Path.join(temp_dir(), "self_loop_dep.json")
+
+    bad =
+      contract_with_work_dependencies()
+      |> put_in(["work_dependencies"], [
+        %{"from" => "SLICE-002", "to" => "SLICE-002", "kind" => "execution_hard"}
+      ])
+
+    File.write!(path, Jason.encode!(bad))
+
+    assert {:error, %Error{code: :invalid_work_dependencies, message: message}} =
+             PlanContract.load(path)
+
+    assert message =~ "self-loop"
+  end
+
+  test "rejects a cyclic work_dependencies graph" do
+    path = Path.join(temp_dir(), "cyclic_dep.json")
+
+    bad =
+      contract_with_work_dependencies()
+      |> put_in(["work_dependencies"], [
+        %{"from" => "SLICE-001", "to" => "SLICE-002", "kind" => "execution_hard"},
+        %{"from" => "SLICE-002", "to" => "SLICE-003", "kind" => "execution_hard"},
+        %{"from" => "SLICE-003", "to" => "SLICE-001", "kind" => "execution_hard"}
+      ])
+
+    File.write!(path, Jason.encode!(bad))
+
+    assert {:error, %Error{code: :invalid_work_dependencies, message: message}} =
+             PlanContract.load(path)
+
+    assert message =~ "cycle"
+  end
+
   test "rejects a work_dependency carrying unknown properties" do
     path = Path.join(temp_dir(), "bad_dep_extra.json")
 
