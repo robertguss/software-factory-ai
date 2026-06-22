@@ -49,6 +49,12 @@ defmodule Mix.Tasks.ConveyorInitTest do
   end
 
   defp temp_project_path do
-    Path.join(System.tmp_dir!(), "conveyor-init-#{System.unique_integer([:positive])}")
+    path = Path.join(System.tmp_dir!(), "conveyor-init-#{System.unique_integer([:positive])}")
+    # Clean any leftover from a prior run: System.unique_integer resets per VM, so the
+    # same path recurs across runs and these dirs are never auto-removed. A stale
+    # AGENTS.md would make conveyor.init SKIP generation (init.ex generate_agents!),
+    # so a later run would read the previous run's file — a cross-run isolation flake.
+    File.rm_rf!(path)
+    path
   end
 end
