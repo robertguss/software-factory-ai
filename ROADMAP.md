@@ -1,5 +1,13 @@
 # Conveyor — ROADMAP (v2)
 
+> **🟢 Execution status (2026-06-22, PR #11 merged).** **M0 ✅ done.** **M1 ✅ done — the
+> keystone is PROVEN:** real Codex drove the production `PlanRunner → SerialDriver`
+> end-to-end on all 7 Beads-Insight slices (first-pass gate 1.0, all gated/accepted); a
+> stale-`run_attempt`-struct transition bug the live run surfaced was fixed; a deterministic
+> CI guard replays the real-Codex run. **M2 🟡 in progress** — agent watchdog ✅ done;
+> `AttemptLoop` rework-on-fail (b) designed + parked [`dr1m.9`]; ADR-26 (c) / ADR-24 (d)
+> pending. M3+ unstarted.
+
 > **Purpose.** The single source of truth for _where Conveyor is, where it's going, and in
 > what order._ Grounded in a static code assessment (2026-06-21) and then **adversarially
 > red-teamed** against itself (see `ROADMAP-REVIEW.md` for the audit trail and the
