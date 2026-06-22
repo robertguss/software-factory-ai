@@ -32,7 +32,9 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
         # deterministic fail-then-pass at the slice/gate/finalize seams; the REAL
         # AttemptLoop rework path (synthesize -> forge retry spec -> create retry
         # attempt) runs between attempts.
-        run_slice: fn _attempt -> %{status: :succeeded, output: %{"verification_result" => %{}}} end,
+        run_slice: fn _attempt ->
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
         run_gate: fn _run_spec, attempt, _slice_result ->
           if attempt.attempt_no == 1 do
             gate_result(false, [
@@ -51,7 +53,10 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
         end,
         finalize_gate: fn gate, _run_spec, attempt ->
           if gate.passed? do
-            %{run_attempt: Ash.update!(attempt, %{status: :gated, outcome: :accepted}, domain: Factory)}
+            %{
+              run_attempt:
+                Ash.update!(attempt, %{status: :gated, outcome: :accepted}, domain: Factory)
+            }
           else
             rework =
               Ash.update!(
@@ -60,7 +65,10 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
                 domain: Factory
               )
 
-            %{run_attempt: rework, slice: Ash.update!(slice, %{state: :needs_rework}, domain: Factory)}
+            %{
+              run_attempt: rework,
+              slice: Ash.update!(slice, %{state: :needs_rework}, domain: Factory)
+            }
           end
         end,
         # don't touch a real workspace in this deterministic test
@@ -84,7 +92,7 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
     assert retry.outcome == :accepted
   end
 
-  test "default (no rework): a failing slice still parks + halts — keystone path unchanged" do
+  test "rework: false — a failing slice still parks + halts (legacy single-attempt path)" do
     fixture = fixture!("serial-no-rework")
     slice = Map.fetch!(fixture.slices_by_stable_key, @slice)
 
@@ -94,10 +102,19 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
         slices_by_stable_key: fixture.slices_by_stable_key,
         run_spec_opts: [plan_path: @plan_path, blob_root: fixture.blob_root],
         actor: "serial-no-rework-test",
-        run_slice: fn _attempt -> %{status: :succeeded, output: %{"verification_result" => %{}}} end,
+        # rework is ON by default now — opt out to exercise the single-attempt path
+        rework: false,
+        run_slice: fn _attempt ->
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
         run_gate: fn _run_spec, _attempt, _slice_result -> gate_result(false, []) end,
         finalize_gate: fn _gate, _run_spec, attempt ->
-          %{run_attempt: Ash.update!(attempt, %{status: :needs_rework, outcome: :needs_rework}, domain: Factory)}
+          %{
+            run_attempt:
+              Ash.update!(attempt, %{status: :needs_rework, outcome: :needs_rework},
+                domain: Factory
+              )
+          }
         end,
         advance_workspace_base: fn _r, _s, _f -> :ok end
       )
@@ -125,7 +142,12 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
     project =
       Ash.create!(
         Project,
-        %{name: "Beads Insight", local_path: git_workspace!(label), default_branch: "main", default_autonomy_level: 2},
+        %{
+          name: "Beads Insight",
+          local_path: git_workspace!(label),
+          default_branch: "main",
+          default_autonomy_level: 2
+        },
         domain: Factory
       )
 
@@ -144,7 +166,10 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
         domain: Factory
       )
 
-    epic = Ash.create!(Epic, %{plan_id: plan.id, title: "epic", description: "M2(b)."}, domain: Factory)
+    epic =
+      Ash.create!(Epic, %{plan_id: plan.id, title: "epic", description: "M2(b)."},
+        domain: Factory
+      )
 
     slices_by_stable_key =
       contract_result.contract
@@ -170,7 +195,11 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
         {sc["key"], slice}
       end)
 
-    %{blob_root: blob_root, slices_by_stable_key: slices_by_stable_key, work_graph: work_graph(contract_result.contract)}
+    %{
+      blob_root: blob_root,
+      slices_by_stable_key: slices_by_stable_key,
+      work_graph: work_graph(contract_result.contract)
+    }
   end
 
   defp work_graph(contract) do
@@ -195,8 +224,17 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
 
     {_, 0} =
       System.cmd("rsync", [
-        "-a", "--exclude", ".venv", "--exclude", ".pytest_cache",
-        "--exclude", "__pycache__", "--exclude", ".git", @sample <> "/", path <> "/"
+        "-a",
+        "--exclude",
+        ".venv",
+        "--exclude",
+        ".pytest_cache",
+        "--exclude",
+        "__pycache__",
+        "--exclude",
+        ".git",
+        @sample <> "/",
+        path <> "/"
       ])
 
     git!(path, ["init", "-b", "main"])

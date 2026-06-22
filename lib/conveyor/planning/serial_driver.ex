@@ -184,7 +184,9 @@ defmodule Conveyor.Planning.SerialDriver do
     }
   end
 
-  defp rework_enabled?(opts), do: Keyword.get(opts, :rework, false) == true
+  # Rework is ON by default (the loop survives a non-first-pass slice); pass
+  # `rework: false` to force the legacy single-attempt-then-park path.
+  defp rework_enabled?(opts), do: Keyword.get(opts, :rework, true) == true
 
   defp rework_gate_label(false, _loop_result), do: "eventual_pending"
 

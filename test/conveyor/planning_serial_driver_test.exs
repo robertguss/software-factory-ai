@@ -12,6 +12,8 @@ defmodule Conveyor.PlanningSerialDriverTest do
           work_graph: work_graph(),
           selected_slice_ids: ["SLICE-003", "SLICE-001", "SLICE-002"]
         },
+        # single-attempt orchestration unit test (map-fakes, no DB) — pin legacy path
+        rework: false,
         assemble_run_spec: fn slice_key, single_slice_graph ->
           send(send_to, {:assemble, slice_key, hd(single_slice_graph["slices"])["stable_key"]})
           %{id: "run-spec:#{slice_key}", slice_key: slice_key}
@@ -64,6 +66,8 @@ defmodule Conveyor.PlanningSerialDriverTest do
           work_graph: work_graph(),
           selected_slice_ids: ["SLICE-001", "SLICE-002", "SLICE-003"]
         },
+        # legacy halt-at-first-failed-gate semantics (rework off)
+        rework: false,
         assemble_run_spec: fn slice_key, _single_slice_graph ->
           %{id: "run-spec:#{slice_key}", slice_key: slice_key}
         end,
@@ -108,6 +112,8 @@ defmodule Conveyor.PlanningSerialDriverTest do
           work_graph: work_graph(),
           selected_slice_ids: ["SLICE-001", "SLICE-002", "SLICE-003"]
         },
+        # park-on-blocking-question unit test (rework off)
+        rework: false,
         interrogation_preflight: fn
           "SLICE-002", _single_slice_graph ->
             %{
