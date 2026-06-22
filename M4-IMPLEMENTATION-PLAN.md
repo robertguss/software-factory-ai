@@ -1,7 +1,7 @@
 # M4 — Activate + Finish the Gate: Comprehensive Implementation Plan
 
-> **Status:** PLAN — not started.
-> **Date:** 2026-06-22.
+> **Status:** PLAN — not started; revised to be self-contained for external review (Background A & B added).
+> **Date:** 2026-06-23 (self-contained revision; original plan dated 2026-06-22).
 > **Source:** an 8-reader code map of the live tree (8 designer sub-streams, each of which Read every named module/line and verified the seed facts before designing) + Robert's 5 ratified decisions for this session.
 > **Relationship to ROADMAP.md:** this is the execution plan for **ROADMAP.md → M4 — "Activate + finish the gate"** (the heaviest Track-A milestone: net-new verifier completion, not mere wiring). ROADMAP M4's one-line exit — *"the live gate measurably discriminates (zero false-pass on mutants); abstain fires for real; first-pass-gate-success + dispute-rate measured"* — is decomposed here into 8 sub-streams, ~50 green-committable slices, and an explicit ordered master sequence. M4 satisfies a **subset** of the ROADMAP §4 serial bar (gate honesty + abstain-fires + hermeticity + measured first-pass/dispute/parked); the joined-seam / decomposition-in-loop / unattended-medium-plan items remain for M1/M5/M6 and are explicitly out of scope here.
 
@@ -10,6 +10,203 @@
 ## 1. Title & status banner
 
 This document is the single source of truth for executing M4. It is written to be executed **top to bottom by a brand-new agent with zero prior context**. Every sub-stream section was authored by a designer who Read the real code at the named lines; the per-slice detail (files, functions, exact CURRENT→TARGET edits, discrimination tests, green criteria, br issues, risks) is preserved **verbatim** below in Section 8 — that is the execution body. Sections 1–7 and 9–14 are the connective tissue and master sequencing.
+
+> **For a reader with zero prior knowledge of this codebase (an external reviewer, or another model such as GPT Pro asked to critique this plan):** read **Background A** and **Background B** immediately below *first*. They were added to make this document fully self-contained. **Background A** explains what Conveyor (this project) is, how it works end-to-end, what makes it compelling, and why M4 is the load-bearing milestone. **Background B** explains Codex — the autonomous coding agent Conveyor wraps and whose output the gate exists to verify — and the exact mechanics of how the two integrate. Everything in Sections 2–14 (and the dense per-slice detail in Section 8) assumes the vocabulary those two sections establish; a reviewer who skips them will not be able to tell a real design flaw from an unfamiliar term.
+
+---
+
+## Background A — What Conveyor is and how it works (zero-context primer)
+
+> This section is orientation for a reader who has never seen this codebase. It is descriptive (what exists today), not part of the M4 work. Where it states a number or behavior the M4 plan changes, it says so.
+
+### A.1 — What Conveyor is, in one paragraph
+
+**Conveyor** (this repository, internally `software-factory-ai`) is an **AI-first "software factory" built on the BEAM** (the Erlang/Elixir/OTP runtime). You hand it a high-level **plan**; it compiles that plan into a dependency-ordered work-graph of **contract-bearing slices** (each slice = one unit of work with an immutable, machine-checkable acceptance contract); then it drives an autonomous coding agent (Codex by default — see Background B) to implement each slice inside an isolated workspace, and runs every result through a **deterministic verification gate** that decides — with *no human watching* — whether the work is correct, safe, and good enough to merge. The human's job shrinks to reviewing a morning digest and a small "needs-judgment" queue of items the gate honestly could not adjudicate. Conveyor is event-sourced and content-addressed: every run is recorded, replayable deterministically, and becomes permanent machine-checkable evidence. It is a solo-developer project; its current target is **serial, single-agent, fully-autonomous** completion of one class of task before any cross-slice parallelism is added.
+
+### A.2 — The core thesis (why Conveyor exists)
+
+Conveyor's bet is that the field's **hardest unsolved problem is trustworthy autonomous verification when no human is watching** — and that Conveyor is "accidentally sitting on this problem with most of the substrate already built and dormant." Coding agents have become good at *producing plausible diffs*; what nobody has solved is an automatic judge that can look at an agent's output and say "this is genuinely correct and safe — merge it" or, crucially, "**I cannot tell — escalate this one**," and be *calibrated* about which is which. Tests and linters catch *known* failure modes; they do not adjudicate *unspecified* intent. Conveyor's wager is that a deterministic, evidence-backed, **ternary** gate (pass / **abstain** / fail) — fed by real measurement rather than fabricated signals — is the missing piece that turns a stochastic coding agent into an autonomous system you can leave running.
+
+The phrase the plan quotes as the north star is **"trustworthy autonomous verification when no human is watching."** M4 is the milestone that makes that real: today the gate is fully wired but **vacuous** — it launders unmeasured trust signals into passing tokens, so a clean run always scores ~0.925 and always auto-accepts, and *abstain can never fire*. Until M4 lands, "green" from the factory is unverified. (Section 3 of this document is the full diagnosis.)
+
+### A.3 — What makes Conveyor special / compelling
+
+- **Verification lift, not raw agent capability, is the product.** The differentiator vs. running a bare agent (Codex, Claude Code, etc. on their own) is *proof* that the code is actually correct — and concrete evidence of **defects caught that a bare agent would have merged**. Conveyor measures this directly (its "lift duel" runs the same task through the full Conveyor loop and through a naive one-shot prompt, both judged by the *identical* gate; see Background B.7).
+- **Calibrated abstention (the 90/10 problem).** Agent reliability improves far slower than raw capability; a 90%-accurate agent that fails *unpredictably* on the other 10% is "a useful assistant but an unacceptable autonomous system." Conveyor's gate is built to **abstain — park the slice for a human — instead of confidently auto-merging a result it cannot vouch for.** Abstention being *honest* (firing on real missing signals) is exactly what M4 delivers.
+- **A hard determinism boundary.** Agents own *drafting and implementation* (inherently stochastic); the **Conductor** (the BEAM/OTP core) owns *verdicts, policy, and evidence* (deterministic, pure functions, replayable). This split is load-bearing: the gate's judgment is byte-reproducible from recorded evidence, even though the code it judges came from a stochastic agent.
+- **Everything is recorded (event-sourced + content-addressed).** Every decision, artifact, and run trace is immutable and hashed. This buys reproducible AI review, time-travel debugging, deterministic replay for CI at $0, and an eval dataset the factory learns from.
+- **Built on the BEAM.** Long-horizon, crash-resilient, resumable orchestration is OTP's home turf — structurally where Python/cloud incumbents are weakest for hours-to-days unattended runs.
+- **Cost-per-verified-outcome as a first-class metric.** Conveyor meters tokens and a list-price-equivalent cost *per verified acceptance criterion*, not just raw spend — leverage governance for a solo operator.
+
+### A.4 — How it works: a slice's journey end-to-end
+
+A unit of work is a **slice**. It flows through a **pure-function planning compiler**, then an **execution pipeline of "stations,"** then the **gate**, then the **finalizer**:
+
+1. **Planning (Conductor-owned, deterministic).** A plan is audited (`StructuralAudit`), decomposed into candidate slice-graphs (`Decomposer`), one decomposition is selected by strict domination (`DecompositionSelection`; ties require a human decision), analyzed (`GraphAnalyses`, `InterfaceGraph`), and lowered to a `conveyor.work_graph@2` IR (`WorkGraphLowering`). Every pass is a pure function with content-addressed caching.
+2. **RunSpec assembly.** `RunSpecAssembler` freezes an immutable, content-addressed **`RunSpec`** for the slice attempt: base commit, the **station plan**, the contract/contract-lock, policy, prompt, and all digests. This is the reproducible input object.
+3. **Stations (the executable pipeline; Oban jobs, idempotent).** In order: **context_scout** (read-only code-context gathering), **baseline_health** (run the project's regression suite on a clean base checkout), **acceptance_calibration** (run the slice's *locked acceptance tests* on the base commit — they must be **red on base**, proving they actually assert the new behavior), **implement** (launch the agent — Codex — to produce a `PatchSet` + an `AgentSession`), **verify** (re-run the locked verification commands via the `ToolchainRunner`, produce a structured `verification_result` + integrity observations), **record_evidence** (independently map acceptance criteria → results, scan for secrets, write a content-addressed `evidence.json` packet + `Artifact` rows).
+4. **The gate.** `Gate.run!` runs **14 stages** (pure functions over a context map) and produces a `GateResult`. The gate *passes* only if every **required** stage passes.
+5. **The finalizer.** `Finalizer.finalize!` turns a passed gate + the trust evidence into a **ternary verdict** and persists the outcome (and, on a real accept, mints provenance — see A.8).
+
+### A.5 — The verification gate in detail (the thing M4 activates)
+
+The gate is a list-driven pipeline of **14 stages**, each a `StageSpec{key, module, required?}` (canonical numbering from `droid-wiki/systems/gate.md`):
+
+> 1. workspace_integrity · 2. diff_scope · 3. observed_risk · 4. policy_compliance · 5. secret_safety · 6. build_install · 7. test_execution · 8. acceptance_mapping · 9. contract_lock · 10. code_quality_delta · 11. run_check · 12. provenance_attestation · 13. reviewer_aggregation · 14. canary_freshness
+
+- A stage returns `:passed | :failed | :skipped` plus `findings` (each with a **category** / `rule_key`, severity, message). A **required** stage that fails (or reads a missing required input → fails *closed*) makes the whole gate `passed? == false`. A non-required (**advisory**) stage records findings but never blocks.
+- The gate's outcome lives on `RunAttempt.outcome` (`:accepted | :needs_rework | :rejected | :policy_blocked | :abstained`) and `Slice.state` (`:gated | :parked | :needs_rework | :policy_blocked | :failed | …`). (M4 also adds a first-class `verdict` column to `GateResult` so this is queryable directly.)
+- **The state today vs. at M4 exit:** only **4** stages run live today (diff_scope, secret_safety, test_execution, contract_lock). M4 brings the cheap deterministic stages live (workspace_integrity, observed_risk, policy_compliance, acceptance_mapping, run_check) for **9 required-live**, with provenance_attestation/canary_freshness/build_install/code_quality_delta/reviewer_aggregation **advisory** (some with a gated, deferred "required" flip). M4 also makes the two long-dead Finalizer branches — `:policy_blocked` and the critical "stop-the-line" rejection — actually *reachable* from real wired stages.
+
+### A.6 — TrustScore + TrustEvidence: the calibrated-confidence layer (ADR-23)
+
+A *passed* gate is necessary but not sufficient for auto-merge. The **TrustScore** (`lib/conveyor/gate/trust_score.ex`) fuses **five evidence signals** into a band:
+
+| signal | weight | good token → 1.0 | "soft"/0.5 | bad token → 0.0 |
+|---|---|---|---|---|
+| **integrity** (IntegritySentinel verdict) | 0.30 | `"trustworthy"` | `"suspect"` / `"not_assessed"` | `"untrustworthy"` |
+| **calibration** (acceptance test-pack) | 0.20 | `:valid` | `:not_assessed` | `:invalid` |
+| **baseline** (baseline-health) | 0.20 | `:green` | `:unknown` | `:red` |
+| **replay** (recorded-vs-replayed divergence) | 0.15 | `:none` | `:unknown` | `:diverged` |
+| **corpus** (historical pass-rate, boost-only) | 0.15 | float | `nil` → 0.5 (cold start) | low float |
+
+- **Threshold:** `auto_accept: 0.9`. **Auto-accept requires BOTH** the hard gate `trustworthy?/1` (integrity `"trustworthy"` ∧ calibration `:valid` ∧ baseline `:green` ∧ replay `:none` — corpus deliberately excluded so cold-start never blocks) **AND** weighted `score ≥ 0.9`. Otherwise the band is **`:abstain`**.
+- **`TrustEvidence`** (`trust_evidence.ex`) assembles the evidence map from a slice's raw `output` via `from_run_output/1`. **This is where the vacuity lives today:** it *launders* every absent/unmeasured signal to its passing token (`calibration(_) → :valid`, `baseline(_) → :green`, `integrity(_) → "trustworthy"`, `replay(_) → :none`), so a run with *no real measurement at all* assembles as fully-good evidence and scores `0.30+0.20+0.20+0.15+0.15·0.5 = 0.925 ≥ 0.9` → auto-accept. **Making `from_run_output` stop laundering — and flipping each signal "fail-closed" only once its real producer exists and the known-good reference still auto-accepts — is the spine of M4.**
+
+### A.7 — IntegritySentinel: the anti-vacuity oracle (the integrity signal's producer)
+
+`IntegritySentinel` (`lib/conveyor/verification/integrity_sentinel.ex`) is a deterministic oracle that folds **10 probes** into the integrity verdict (`trustworthy | suspect | not_assessed | untrustworthy`). Its purpose is to detect tests that *pass vacuously* — suites that run but don't actually exercise the code, or that pass regardless of the change. The 10 probes:
+
+> `base_calibration` · `repeatability` · `hidden_dependency` · `mount_boundary` · `mapping` · `required_artifacts` · `falsifier_survival` · `falsifier_preservation` · `source_mutation` · `hermeticity`
+
+Today **only 2 of 10** ever receive an observation (`source_mutation`, `hermeticity`), and `hermeticity` is observed only under a Docker backend; on the default `:local` backend the verdict is honestly `not_assessed` — which the laundering then maps to `"trustworthy"`, scoring 1.0. M4 builds real producers for the dormant probes and admits the cheap, high-confidence ones to the live required set (this is sub-stream C). "**Hermeticity**" specifically means a 6-control observation (`network/clock/rng/ordering/locale/shared_state`) only honestly measurable inside a `docker --network=none` container — the basis for M4's hermetic-gate work (sub-stream D).
+
+### A.8 — The Genome (provenance + historical priors)
+
+The **Genome** is Conveyor's institutional memory. When a slice passes the gate for real, `BackEdge.mint!` writes immutable **`CodeProvenanceEdge`** rows (`role: "verified_by_gate"`) linking the verified code symbols ↔ acceptance criteria ↔ patch digest ↔ gate result. This provenance graph (a) is the audit trail for "what verified this code and why," and (b) eventually supplies the **`corpus_pass_rate`** historical prior to the TrustScore. (M4 also fixes a real correctness bug here — duplicate edges minted on every re-finalization because the edge hash included a per-finalization nonce; sub-stream G.)
+
+### A.9 — The honesty machinery: the eval harness and `scorecard --gate`
+
+Conveyor *gates its own CI on whether its gate is honest.* The key pieces:
+
+- **MutantGauntlet** (`lib/conveyor/eval/mutant_gauntlet.ex`): applies a corpus of known-defect "mutant" patches to a sample project and asserts the gate **catches each one** — emitting a `false_pass_rate` metric (blocking, target **0**). Today it only exercises *behavioral* mutants (the `test_execution` stage); M4 extends it to the *static-stage* mutants (policy/contract/run_check) and demands each be caught **for the right reason** (`caught_by_expected?`), so a stage that rejects by accident doesn't count as a real catch.
+- **SentinelTournament**: plants one vacuity per IntegritySentinel probe and measures `sentinel_evasion_rate` (target 0) and `sentinel_probe_coverage` (target 1).
+- **Scorecard / `mix conveyor.eval.scorecard --gate`**: aggregates every eval suite's metrics; exits non-zero (CI red) if any *blocking* metric is off-target. This is the **hard, $0, deterministic CI gate** that the M4 exit criteria hang on.
+- **The canary corpus & sample projects:** `samples/tasks_service` (the gauntlet's primary, with a `mutants.json`), `samples/beads_insight` (7 greenfield slices, with reference patches), `samples/gx` (per-slice reference patches, no mutants yet). The "**known-good reference**" — the reference patches run through the gate — **must auto-accept at every single M4 commit** (the `loop_integrity` invariant). The whole incremental-fail-closed discipline exists to never park the reference.
+
+### A.10 — Cassettes & deterministic replay
+
+Every real agent run is recorded into a **cassette** (a sealed, redacted, content-addressed event stream + the workspace diff it produced). A `ReplayEngine` can then re-drive a recorded run deterministically (`:full` / `:hybrid` modes) — which is what lets CI re-verify a real-agent run for **$0** and lets the gate compute a real **replay-divergence** signal (recorded digest vs. replayed digest). M4 replaces a hardcoded `replay_fidelity = "matched"` with a real per-slice divergence producer (sub-stream B).
+
+### A.11 — Tech stack
+
+Elixir (`~> 1.20`) on OTP; **Ash** (`~> 3.29`) for resource/domain modeling (45+ resources: Project, Plan, Slice, RunAttempt, RunSpec, GateResult, Artifact, AgentSession, CodeProvenanceEdge, …) with `ash_state_machine` for lifecycles; **Ecto + AshPostgres** over **Postgres**; **Oban** for durable, transactional jobs (queues: `default`, `conductor`, `gate`, `maintenance`); **Phoenix + LiveView** for a *read-only* dashboard (the web layer never creates authority). Verification runs in a hermetic **Docker** runner (`docker --network=none`) or a local venv fallback. Conductor-side code is pure (no I/O, clock, or RNG in the gate/scorer) so verdicts are replayable. CI runs everything under `Ecto.Adapters.SQL.Sandbox` (ephemeral DB), which is why one M4 data-integrity fix (sub-stream G2) is *latent* in CI.
+
+### A.12 — Milestones, and where M4 sits
+
+Track A is "get serial, single-agent autonomy fully working, to the bar." Rough sequence (status as of this plan):
+
+- **M0 — Honesty cleanup** ✅ done.
+- **M1 — Join the seam: real agent through the production loop** ✅ done (the keystone — proved *wiring* stability, not agent reliability).
+- **M2 — Close the loop on one slice** (rework-on-fail, mid-flight self-check, watchdog) — in progress.
+- **M3 — Unattended on a small (3–8 slice) plan** — planned.
+- **M4 — Activate + finish the gate** ← **this document.** The heaviest Track-A milestone: real trust producers, real abstain, a hermetic gate, all 14 stages live with the dead failure branches reachable, the MutantGauntlet extended, two data-integrity fixes — all under *incremental fail-closed* discipline. Exit (a subset of the §4 serial bar): zero false-pass on the full mutant corpus in CI; abstain proven to fire; hermeticity-absent abstains rather than false-passes; first-pass-gate-success / dispute-rate / parked-rate **measured** (not gated — see B.9).
+- **M5 — Autonomous decomposition**, **M6 — Long-horizon autonomy + medium (15–40 slice) plan** — planned. (Cross-slice parallelism is a later track, deliberately deferred until serial clears the bar.)
+
+### A.13 — Vocabulary a reviewer needs (used everywhere below)
+
+- **Fail-open vs. fail-closed.** A signal "fails *open*" if, when unmeasured, it defaults to the *passing* token (the current vacuity). It "fails *closed*" if it defaults to the *abstaining/blocking* token (the M4 target). **Incremental fail-closed** = flip a signal fail-closed *only* in the same change that lands its real producer, *and* only after confirming the known-good reference still auto-accepts.
+- **`not_assessed` (non-blocking) vs. `missing` (blocking)** — the keystone taxonomy (Section 6). `not_assessed` = a *positive, recorded* "genuinely cannot be measured on this backend" declaration (e.g. hermeticity with no Docker) → contributes 0.5, never hard-blocks. `missing` = "a producer that *should* have run is absent/empty" → fail-closed → abstain. `from_run_output` must never default an *expected* signal to its passing token.
+- **Abstain / park.** A *passed* gate that the TrustScore cannot vouch for → `RunAttempt.outcome = :abstained`, `Slice.state = :parked`, **no auto-merge, no provenance minted** — routed to a human queue. This is the calibrated "I don't know."
+- **"Looks-wired-but-vacuous."** The recurring failure mode this whole milestone fights: code that *appears* to do honest verification but produces no real signal (e.g. a canary harness whose patch carries no `changed_files`, so every static stage sees an empty diff and "passes"). The antidote is the **discrimination test**: every signal must be proven in *both* directions — a BROKEN input must abstain/reject *with the exact expected finding category*, and a GOOD input must accept. A test that only checks the green direction is disallowed.
+- **Greenfield vs. brownfield; width-1.** Conveyor's current bar is measured on *greenfield, pure-logic, golden-oracle* tasks (the easiest class). The loop is **width-1** (strictly serial, one slice at a time) on purpose; parallelism is a later concern.
+
+---
+
+## Background B — What Codex is, and how Conveyor uses it (zero-context primer)
+
+> Conveyor is agent-agnostic in principle (it has several adapters), but **Codex is the default and the agent the M4 plan validates against** ("a bounded live-Codex pass"). A reviewer needs to understand Codex because *the entire gate exists to verify a stochastic Codex diff*, and because the plan's value claim ("lift vs. a bare agent") and its live-measurement step are both defined relative to Codex.
+
+### B.1 — What Codex is
+
+**Codex** is OpenAI's autonomous software-engineering agent. (The name has lineage: "Codex" was originally OpenAI's 2021 code-generation *model* that powered early GitHub Copilot; OpenAI revived the name in 2025 for an *agentic coding product* — a fundamentally different thing: not a single completion model but an agent that operates a real development environment.) In its modern form Codex is given a task in natural language and **autonomously drives an iterative loop**: it reads the repository, plans, edits files, runs commands and tests in a sandbox, observes the results, and keeps going until it believes the task is done — then it produces a diff (and, in its hosted form, a pull request) with citations to the terminal logs and test output that justify its changes.
+
+It ships in two main forms:
+- **Codex CLI** — an open-source terminal agent you run locally; it edits files and runs commands on your machine within a configurable sandbox. It has a non-interactive/headless mode (`codex exec`) suitable for automation, and can emit structured JSON/JSONL output. **This is the form Conveyor drives.**
+- **Cloud Codex** — a hosted agent inside ChatGPT that runs each task in its own cloud sandbox, can work on many tasks in parallel, and returns PRs.
+
+Both are powered by SWE-tuned models in the Codex family (e.g. `codex-1`, a software-engineering-optimized variant of OpenAI's reasoning models, and successor `*-codex` models). Access is bundled into ChatGPT subscriptions (Plus / **Pro at $200/mo** / Team / Enterprise) and is also available via API. *(Exact model names and tier details evolve; the repo-grounded integration facts below are the authoritative part of this section.)*
+
+### B.2 — How Codex works (the agentic loop)
+
+1. **Context-build.** Codex explores the repo (reads files, greps, inspects structure) to ground itself in the actual code rather than hallucinating an API.
+2. **Plan + act.** It proposes and applies edits, then runs build/test/lint commands inside its sandbox.
+3. **Observe + iterate.** It reads command output and test results and revises — a test-driven loop, not a single completion. This iteration is the source of its leverage *and* its non-determinism.
+4. **Produce a justified diff.** It returns the workspace changes plus a transcript citing the commands/logs that support the result.
+
+Its **sandbox modes** govern what it may touch (e.g. read-only, *workspace-write*, or full access) and whether it has network — the safety surface that lets it run commands autonomously.
+
+### B.3 — What makes Codex special / compelling
+
+- **End-to-end autonomy on real repos** (not just snippet completion): it edits, runs, tests, and iterates by itself.
+- **Test-driven self-correction:** it uses real command/test feedback to converge, which is why it can finish non-trivial tasks unattended.
+- **Sandboxed execution:** running commands inside a permissioned sandbox makes "let an agent run your test suite" tractable.
+- **Transparency / citations:** it surfaces the logs and test results behind its diff, which is exactly the kind of *evidence* a downstream verifier can record.
+- **Parallel cloud tasks** (hosted form) and **subscription economics:** under a flat-rate ChatGPT Pro plan, the *marginal* cost of an additional run is effectively $0, which changes the economics of running many verification passes.
+
+### B.4 — Why Codex is the *reason the gate exists* (the design tension a reviewer must hold)
+
+Codex is powerful but **stochastic and not perfectly reliable** — the "90/10 problem": it succeeds most of the time but fails *unpredictably* on a minority of tasks, and a confidently-wrong diff is indistinguishable, on its face, from a correct one. That is precisely the gap Conveyor's gate is built to close. So when reviewing this plan, hold this frame: **Codex produces; the gate adjudicates; the two must be on opposite sides of a determinism boundary.** Codex's diff is the *untrusted input*; the gate's job is to be *unfoolable* by a plausible-but-wrong Codex diff — which is impossible if the gate launders unmeasured signals into "trustworthy" (today's bug, M4's fix).
+
+### B.5 — Exactly how Conveyor invokes Codex (repo-grounded)
+
+Conveyor uses a **pluggable adapter** pattern. `Conveyor.AgentRunner` is a behaviour (`run/4`, `cancel/2`, `capabilities/0`); the **implement** station selects an adapter module and calls it. The Codex adapter (`lib/conveyor/agent_runner/codex.ex`) drives the **Codex CLI as a host subprocess** — *not* in a container:
+
+```
+codex exec --cd <workspace> --sandbox workspace-write --json --ephemeral \
+  --skip-git-repo-check [-m <model>] [-c model_reasoning_effort="<level>"] "<prompt>"
+```
+
+Key, somewhat non-obvious mechanics (all real, in the adapter):
+- **It is the default adapter** — if no `--adapter` is given, Codex is assumed.
+- **Run on the host via `System.cmd`, not Docker.** (Important: the Docker `--network=none` sandbox in Conveyor is for the *gate's verification rerun* — sub-stream D — **not** for the agent. Codex's own `--sandbox workspace-write` is Codex's internal write-permission, a separate thing.)
+- **Headless stdin trap handled:** `codex exec` blocks forever reading stdin under `System.cmd`, so the adapter wraps it in `sh` and closes stdin (`</dev/null`).
+- **Timeout watchdog** (default 900s) so a hung agent can't stall an unattended multi-hour run (returns exit 124 on timeout).
+- **Injectable exec for determinism/$0:** the adapter takes an injectable `codex_exec` function; the default drives real `codex exec`, while tests inject canned JSONL + a patch so CI stays deterministic and free.
+- **What it's given:** a versioned, content-hashed **`RunPrompt`** (the AgentBrief + acceptance criteria + cited `ContextPack` from the scout) and the **workspace** (repo path + base commit).
+- **What it produces:** a **`PatchSet`** (the captured diff), an **`AgentSession`** row (tokens, cost estimate, status, a blob reference to the raw JSONL transcript), and the agent's final message — parsed out of Codex's `--json` JSONL stream.
+
+### B.6 — The adapter abstraction (Codex is one of several)
+
+| adapter | module | role |
+|---|---|---|
+| **codex** (default) | `AgentRunner.Codex` | real OpenAI Codex via the CLI |
+| **reference_solution** | `AgentRunner.ReferenceSolution` | deterministic **$0** baseline: applies a fixed `.patch` *as if* an agent produced it (supports reverse-apply to model "the agent undid a mutation"); the "vanilla"/control arm and the CI stand-in |
+| **pi** | `AgentRunner.Pi` | RPC interface to other agents (e.g. Claude Code) |
+| **fake / mock_degraded** | test-only | canned / deliberately-malformed output for conformance tests |
+
+This is why the plan can speak of "live Codex" vs. the deterministic reference arm interchangeably as *adapters behind the same `run/4` seam* — and why CI can be $0 and deterministic while live validation uses real Codex.
+
+### B.7 — Cost & "lift vs. bare agent" (why the live step is bounded)
+
+- **Token/cost accounting:** the adapter extracts `input + output + reasoning` tokens from Codex's JSONL `usage` and persists them on `AgentSession`, plus a **cost *estimate*** computed from list-price rates (≈ $1.25/1M input, $10/1M output) purely for telemetry — because under Robert's **$200/mo ChatGPT Pro subscription the marginal spend is ≈ $0** (flat-rate). The plan budgets the live pass in *tokens* (baseline ≈ **570k tokens/slice**; ~5 runs of 7-slice plans ≈ tens of millions of tokens) with a dev-phase not-to-exceed, and reports *both* a token total and a list-price-equivalent dollar figure.
+- **Lift duel (`lib/conveyor/eval/lift_duel.ex`):** runs the *same* tasks through two arms — **treatment** (full Conveyor loop: rich brief + ContextPack, Codex) vs. **baseline** (naive one-shot prompt, same agent/adapter) — both judged by the **byte-identical gate** — and reports the Δ in pass@1, verified-acceptance-criteria, and **cost-per-verified-AC**. "Lift" = what Conveyor's contract+context+gate add over a bare agent. This is the operationalization of A.3's value claim.
+
+### B.8 — Recording Codex runs → deterministic replay
+
+Because Codex is stochastic, a live run is **recorded into a cassette** (sealed, redacted JSONL + patch digest, content-addressed). Thereafter the run can be **replayed deterministically** for CI at $0, and the gate can compute a real **replay-divergence** signal by comparing the recorded result digest to a re-derived one. This is how Conveyor gets the best of both worlds: real stochastic Codex output as *ground truth*, and deterministic, free re-verification in CI. (M1 — already done — proved exactly this seam end-to-end; M4 makes the divergence signal real rather than hardcoded.)
+
+### B.9 — The determinism boundary (the single most important thing to grasp)
+
+> **Agents own drafting and implementation (stochastic). The Conductor owns verdicts, policy, and evidence (deterministic, pure, replayable).**
+
+This boundary is *why the M4 exit is split the way it is*, and a reviewer should sanity-check the plan against it:
+- **CI-hard (deterministic, $0, blocking):** gate honesty (zero false-pass on the mutant corpus), abstain-fires-for-real, hermeticity-absent-abstains, the falsifier probe. These are provable without invoking Codex at all (the gauntlet runs *pytest*, the falsifier applies *patches*, the scorecard aggregates).
+- **Live-measured (stochastic, REPORTED, never a gate):** first-pass-gate-success, dispute-rate, parked-rate, lift. The plan deliberately refuses to gate the milestone on these because they are a function of *Codex's* reliability, not Conveyor's correctness — and "coupling a milestone exit to a stochastic agent is a category error." If a reviewer's instinct is "why isn't first-pass ≥70% a hard gate?", *this* is the answer, and it is load-bearing.
+
+### B.10 — What to keep in mind while reviewing this plan
+
+The gate is the product; Codex is the (replaceable, stochastic) supplier of the diffs it judges. Every M4 design choice — stop laundering signals, flip fail-closed only with a real producer, prove discrimination in both directions, keep the known-good reference auto-accepting, gate CI on a deterministic mutant corpus but only *report* live-Codex numbers — follows from the relationship between these two systems: **make the deterministic judge genuinely unfoolable by a plausible-but-wrong stochastic agent, and prove it with evidence rather than assertion.**
 
 ---
 
