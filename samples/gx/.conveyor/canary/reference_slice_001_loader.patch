@@ -1,0 +1,75 @@
+diff --git a/samples/gx/src/gx/loader.py b/samples/gx/src/gx/loader.py
+index 4577f0c..c2e7cbb 100644
+--- a/samples/gx/src/gx/loader.py
++++ b/samples/gx/src/gx/loader.py
+@@ -1,18 +1,11 @@
+-"""SLICE-001 (STUB): edge-list text -> Graph parser.
+-
+-Implementer contract:
+-
+-* Read ``path`` line by line (track 1-based physical line numbers for errors).
+-* Skip blank lines and ``#`` comment lines; tolerate a trailing newline.
+-* A valid line is either ``"SRC DST"`` (a directed edge ``SRC -> DST``) or a single
+-  token ``"NODE"`` (an isolated-node declaration). Tokens are whitespace-split.
+-* Any line with three or more whitespace-separated tokens is malformed: raise
+-  :class:`LoaderError` carrying the offending 1-based line number so the CLI exits
+-  ``2`` naming it.
+-* Build a fully-canonical :class:`~gx.model.Graph` (sorted nodes, sorted edges,
+-  sorted per-node adjacency; every node present in both adjacency maps).
+-
+-Left unimplemented on the seed so the acceptance tests are RED.
++"""SLICE-001: edge-list text -> Graph parser.
++
++Reads the file at ``path`` line by line, skipping blank and ``#`` comment lines. A
++valid line is ``"SRC DST"`` (a directed edge) or a single token (an isolated node); a
++line with three or more whitespace-separated tokens is malformed and raises
++:class:`LoaderError` carrying the offending 1-based line number. The resulting
++:class:`~gx.model.Graph` is fully canonical (sorted nodes, sorted edges, sorted
++per-node adjacency), so every downstream computation is deterministic.
+ """
+ 
+ from __future__ import annotations
+@@ -31,8 +24,38 @@ class LoaderError(ValueError):
+ 
+ 
+ def load(path) -> Graph:
+-    """Parse an edge-list file into a :class:`Graph`.
+-
+-    STUB — implemented in SLICE-001.
+-    """
+-    raise NotImplementedError("loader.load is implemented in SLICE-001")
++    """Parse an edge-list file into a canonical :class:`Graph`."""
++    node_set: set[str] = set()
++    edge_set: set[tuple[str, str]] = set()
++
++    with open(path, "r", encoding="utf-8") as handle:
++        for line_number, raw in enumerate(handle, start=1):
++            line = raw.strip()
++            if not line or line.startswith("#"):
++                continue
++            tokens = line.split()
++            if len(tokens) == 1:
++                node_set.add(tokens[0])
++            elif len(tokens) == 2:
++                src, dst = tokens
++                node_set.update((src, dst))
++                edge_set.add((src, dst))
++            else:
++                raise LoaderError(
++                    f"expected 'SRC DST' or a single node, got {len(tokens)} tokens",
++                    line_number=line_number,
++                )
++
++    nodes = tuple(sorted(node_set))
++    edges = tuple(sorted(edge_set))
++
++    succ: dict[str, list[str]] = {node: [] for node in nodes}
++    pred: dict[str, list[str]] = {node: [] for node in nodes}
++    for src, dst in edges:
++        succ[src].append(dst)
++        pred[dst].append(src)
++
++    successors = {node: tuple(sorted(set(neighbours))) for node, neighbours in succ.items()}
++    predecessors = {node: tuple(sorted(set(neighbours))) for node, neighbours in pred.items()}
++
++    return Graph(nodes=nodes, edges=edges, successors=successors, predecessors=predecessors)

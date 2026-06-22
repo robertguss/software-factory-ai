@@ -1,0 +1,66 @@
+diff --git a/samples/gx/src/gx/commands/toposort.py b/samples/gx/src/gx/commands/toposort.py
+index 4941a82..e5158fd 100644
+--- a/samples/gx/src/gx/commands/toposort.py
++++ b/samples/gx/src/gx/commands/toposort.py
+@@ -1,31 +1,46 @@
+-"""SLICE-003 (STUB): the ``toposort`` command.
++"""SLICE-003: the ``toposort`` command.
+ 
+-Produce a topological ordering of the directed graph via Kahn's algorithm, breaking
+-ties by smallest node id so the order is deterministic. If the graph has a directed
+-cycle, no order exists: report that and signal exit code ``1``.
++Kahn's algorithm with a smallest-node-id tie-break (via a min-heap of ready nodes), so
++the topological order is deterministic. A graph with a directed cycle has no order: it
++is reported as cyclic and signals exit code ``1``.
+ """
+ 
+ from __future__ import annotations
+ 
++import heapq
++
+ from ..model import Graph
++from ..report import build_envelope
+ 
+ __all__ = ["compute", "run"]
+ 
+ 
+ def compute(graph: Graph) -> dict:
+-    """Return ``{"acyclic": bool, "order": [node, ...]}``.
++    """Return ``{"acyclic": bool, "order": [node, ...]}`` (order is ``[]`` if cyclic)."""
++    indegree = {node: len(graph.predecessors[node]) for node in graph.nodes}
++    ready = [node for node in graph.nodes if indegree[node] == 0]
++    heapq.heapify(ready)
+ 
+-    On a cyclic graph ``acyclic`` is ``False`` and ``order`` is ``[]``. On a DAG
+-    ``order`` is the deterministic Kahn ordering (smallest-id tie-break).
++    order: list[str] = []
++    while ready:
++        node = heapq.heappop(ready)
++        order.append(node)
++        for successor in graph.successors[node]:
++            indegree[successor] -= 1
++            if indegree[successor] == 0:
++                heapq.heappush(ready, successor)
+ 
+-    STUB — implemented in SLICE-003.
+-    """
+-    raise NotImplementedError("toposort.compute is implemented in SLICE-003")
++    if len(order) != len(graph.nodes):
++        return {"acyclic": False, "order": []}
++    return {"acyclic": True, "order": order}
+ 
+ 
+ def run(graph: Graph, *, fmt: str, source: str) -> tuple[str, int]:
+-    """Render the topological order; exit ``1`` if the graph is cyclic.
+-
+-    STUB — implemented in SLICE-003.
+-    """
+-    raise NotImplementedError("toposort.run is implemented in SLICE-003")
++    """Render the topological order; exit ``1`` if the graph is cyclic."""
++    data = compute(graph)
++    code = 0 if data["acyclic"] else 1
++    if fmt == "json":
++        return build_envelope("toposort", data, source=source), code
++    if not data["acyclic"]:
++        return "# Topological order\n\n_graph is cyclic; no topological order_\n", 1
++    return "# Topological order\n\n" + ", ".join(data["order"]) + "\n", 0

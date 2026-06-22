@@ -1,0 +1,77 @@
+diff --git a/samples/gx/src/gx/commands/cycles.py b/samples/gx/src/gx/commands/cycles.py
+index c0444da..082a6d6 100644
+--- a/samples/gx/src/gx/commands/cycles.py
++++ b/samples/gx/src/gx/commands/cycles.py
+@@ -1,29 +1,59 @@
+-"""SLICE-005 (STUB): the ``cycles`` command.
++"""SLICE-005: the ``cycles`` command.
+ 
+-Detect directed cycles. Each cycle is reported exactly once as its canonical
+-rotation — the rotation whose node-id sequence is lexicographically smallest (i.e.
+-rotated to start at the cycle's smallest node id). The list of cycles is sorted. If
+-any cycle exists, signal exit code ``1``.
++Enumerate elementary directed cycles. Each cycle is found exactly once — from its
++smallest member — by a DFS that only extends along nodes greater than the start node
++(the Johnson-style restriction) and records a cycle when an edge returns to the start.
++Each cycle is reported in canonical rotation (smallest node first); the list of cycles
++is sorted. Any cycle signals exit code ``1``.
+ """
+ 
+ from __future__ import annotations
+ 
+ from ..model import Graph
++from ..report import build_envelope
+ 
+ __all__ = ["compute", "run"]
+ 
+ 
++def _canonical(cycle: list[str]) -> tuple[str, ...]:
++    """Rotate a cycle so it starts at its lexicographically smallest node."""
++    pivot = min(range(len(cycle)), key=cycle.__getitem__)
++    return tuple(cycle[pivot:] + cycle[:pivot])
++
++
+ def compute(graph: Graph) -> dict:
+-    """Return ``{"count": int, "cycles": [[node, ...], ...]}``.
++    """Return ``{"count": int, "cycles": [[node, ...], ...]}`` in canonical rotation."""
++    successors = graph.successors
++    found: set[tuple[str, ...]] = set()
++
++    def dfs(start: str, node: str, path: list[str], on_path: set[str]) -> None:
++        for nxt in successors[node]:
++            if nxt == start:
++                found.add(_canonical(path))
++            elif nxt > start and nxt not in on_path:
++                on_path.add(nxt)
++                path.append(nxt)
++                dfs(start, nxt, path, on_path)
++                path.pop()
++                on_path.remove(nxt)
+ 
+-    Each inner list is one cycle in canonical rotation (smallest node first); the
+-    outer list is sorted. An acyclic graph yields ``{"count": 0, "cycles": []}``.
++    for start in graph.nodes:
++        dfs(start, start, [start], {start})
+ 
+-    STUB — implemented in SLICE-005.
+-    """
+-    raise NotImplementedError("cycles.compute is implemented in SLICE-005")
++    cycles = sorted(list(cycle) for cycle in found)
++    return {"count": len(cycles), "cycles": cycles}
+ 
+ 
+ def run(graph: Graph, *, fmt: str, source: str) -> tuple[str, int]:
+-    """Render detected cycles; exit ``1`` if any exist. STUB — implemented in SLICE-005."""
+-    raise NotImplementedError("cycles.run is implemented in SLICE-005")
++    """Render detected cycles; exit ``1`` if any exist."""
++    data = compute(graph)
++    code = 1 if data["count"] > 0 else 0
++    if fmt == "json":
++        return build_envelope("cycles", data, source=source), code
++
++    if data["count"] == 0:
++        return "# Cycles\n\n_no directed cycles_\n", 0
++    lines = ["# Cycles", ""]
++    for cycle in data["cycles"]:
++        lines.append("- " + " -> ".join(cycle) + f" -> {cycle[0]}")
++    return "\n".join(lines) + "\n", code
