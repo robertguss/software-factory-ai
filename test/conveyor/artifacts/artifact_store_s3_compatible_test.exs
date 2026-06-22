@@ -59,6 +59,10 @@ defmodule Conveyor.Artifacts.ArtifactStoreS3CompatibleTest do
 
   defp temp_dir!(label) do
     path = Path.join(System.tmp_dir!(), "conveyor-#{label}-#{System.unique_integer([:positive])}")
+    # System.unique_integer resets per VM and these dirs are never auto-removed, so the
+    # same path recurs across runs. list_segments! enumerates everything under root, so a
+    # prior run's artifacts would be double-counted — a cross-run flake (see commit 353827e).
+    File.rm_rf!(path)
     File.mkdir_p!(path)
     path
   end

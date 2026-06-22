@@ -54,10 +54,25 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/slice" }
+    },
+    "work_dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/work_dependency" }
     }
   },
   "$defs": {
     "key": { "type": "string", "pattern": "^[A-Z]+-[0-9]{3}$" },
+    "slice_key": { "type": "string", "pattern": "^SLICE-[0-9]{3}$" },
+    "work_dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "kind"],
+      "properties": {
+        "from": { "$ref": "#/$defs/slice_key" },
+        "to": { "$ref": "#/$defs/slice_key" },
+        "kind": { "enum": ["execution_hard", "integration_order"] }
+      }
+    },
     "requirement": {
       "type": "object",
       "additionalProperties": false,

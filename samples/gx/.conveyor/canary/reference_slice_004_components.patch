@@ -1,0 +1,75 @@
+diff --git a/samples/gx/src/gx/commands/components.py b/samples/gx/src/gx/commands/components.py
+index 17dfea3..770efaf 100644
+--- a/samples/gx/src/gx/commands/components.py
++++ b/samples/gx/src/gx/commands/components.py
+@@ -1,28 +1,56 @@
+-"""SLICE-004 (STUB): the ``components`` command.
++"""SLICE-004: the ``components`` command.
+ 
+-Partition the nodes into weakly-connected components (treating every directed edge as
+-undirected for reachability). Each component is a sorted list of node ids; components
+-are sorted by their smallest member. Pure, deterministic.
++Weakly-connected components: every directed edge is treated as undirected for
++reachability. A deterministic BFS started from each not-yet-seen node (in sorted order)
++yields each component; nodes within a component are sorted and components are sorted by
++their smallest member.
+ """
+ 
+ from __future__ import annotations
+ 
++from collections import deque
++
+ from ..model import Graph
++from ..report import build_envelope
+ 
+ __all__ = ["compute", "run"]
+ 
+ 
+ def compute(graph: Graph) -> dict:
+-    """Return ``{"count": int, "components": [[node, ...], ...]}``.
+-
+-    Each component's node list is sorted; the outer list is sorted by each
+-    component's first (smallest) node.
+-
+-    STUB — implemented in SLICE-004.
+-    """
+-    raise NotImplementedError("components.compute is implemented in SLICE-004")
++    """Return ``{"count": int, "components": [[node, ...], ...]}``."""
++    undirected: dict[str, set[str]] = {node: set() for node in graph.nodes}
++    for src, dst in graph.edges:
++        undirected[src].add(dst)
++        undirected[dst].add(src)
++
++    seen: set[str] = set()
++    components: list[list[str]] = []
++    for start in graph.nodes:  # sorted, so the smallest unseen node opens each component
++        if start in seen:
++            continue
++        component: list[str] = []
++        queue = deque([start])
++        seen.add(start)
++        while queue:
++            node = queue.popleft()
++            component.append(node)
++            for neighbour in sorted(undirected[node]):
++                if neighbour not in seen:
++                    seen.add(neighbour)
++                    queue.append(neighbour)
++        components.append(sorted(component))
++
++    components.sort(key=lambda component: component[0])
++    return {"count": len(components), "components": components}
+ 
+ 
+ def run(graph: Graph, *, fmt: str, source: str) -> tuple[str, int]:
+-    """Render the weakly-connected components. STUB — implemented in SLICE-004."""
+-    raise NotImplementedError("components.run is implemented in SLICE-004")
++    """Render the weakly-connected components."""
++    data = compute(graph)
++    if fmt == "json":
++        return build_envelope("components", data, source=source), 0
++
++    lines = ["# Connected components", ""]
++    for component in data["components"]:
++        lines.append(f"- {', '.join(component)}")
++    return "\n".join(lines) + "\n", 0

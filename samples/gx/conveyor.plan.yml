@@ -1,0 +1,257 @@
+schema_version: conveyor.plan@1
+project:
+  key: gx
+  base_ref: main
+goal: >-
+  Build a read-only Python CLI, gx, that reads a directed edge-list and answers
+  five graph questions (degrees, toposort, components, cycles, digest) as a pure,
+  hermetic, deterministic function of (the edge-list bytes, the chosen --format),
+  with no network, no clock, and no dependence on dict/set iteration order.
+non_goals:
+  - Writing to, mutating, or deleting any input (the tool is strictly read-only)
+  - Any network access (no HTTP, no sockets, no remote fetch)
+  - A TUI / interactive / curses interface (stdout text only)
+  - Weighted edges, edge attributes, graph mutation, or persistence
+  - Any dependence on wall-clock, locale, environment, or dict/set iteration order
+  - Graph algorithms beyond the five listed (no shortest-path, no MST, no flow)
+requirements:
+  - key: REQ-001
+    text: >-
+      Parse an edge-list file into a canonical immutable Graph; skip blank and #
+      comment lines; tolerate a trailing newline; a valid line is "SRC DST" (a
+      directed edge) or a single token (an isolated node); a line with three or
+      more tokens exits 2 with a stderr message naming the offending line number.
+    risk: medium
+    source_ref: plan.md#requirement-req-001
+    status: covered
+  - key: REQ-002
+    text: >-
+      A `degrees` command reports each node's in-degree and out-degree, with the
+      emitted array explicitly sorted by node id.
+    risk: low
+    source_ref: plan.md#requirement-req-002
+    status: covered
+  - key: REQ-003
+    text: >-
+      A `toposort` command returns a topological ordering via Kahn's algorithm with
+      a smallest-node-id tie-break (deterministic); a cyclic graph has no order, so
+      it reports the cyclic condition and exits 1.
+    risk: high
+    source_ref: plan.md#requirement-req-003
+    status: covered
+  - key: REQ-004
+    text: >-
+      A `components` command partitions nodes into weakly-connected components (each
+      directed edge treated as undirected); each component is sorted and the
+      components are sorted by their smallest member.
+    risk: medium
+    source_ref: plan.md#requirement-req-004
+    status: covered
+  - key: REQ-005
+    text: >-
+      A `cycles` command detects directed cycles, reporting each exactly once as its
+      canonical rotation (rotated to start at the cycle's smallest node id) with the
+      list of cycles sorted; any cycle exits 1, an acyclic graph exits 0.
+    risk: high
+    source_ref: plan.md#requirement-req-005
+    status: covered
+  - key: REQ-006
+    text: >-
+      A `digest` command composes summary + degrees + toposort + components + cycles
+      into one markdown report with a fixed section order; it reuses the other
+      commands' compute functions and is byte-stable across runs and processes.
+    risk: high
+    source_ref: plan.md#requirement-req-006
+    status: covered
+  - key: REQ-007
+    text: >-
+      Every command accepts --format markdown|json (default markdown); json emits
+      the locked gx.report@1 envelope {schema_version, kind, source, data} with
+      deterministically sorted arrays; an unknown format exits 2.
+    risk: medium
+    source_ref: plan.md#requirement-req-007
+    status: covered
+  - key: REQ-008
+    text: >-
+      Output is a pure function of (edge-list, --format) with no wall-clock,
+      environment, or locale reads and no dependence on dict/set iteration order;
+      digest output is byte-identical across two processes run with different
+      PYTHONHASHSEED values.
+    risk: high
+    source_ref: plan.md#requirement-req-008
+    status: covered
+acceptance_criteria:
+  - key: AC-001
+    text: Loading the fixture edge-list yields exactly the frozen, canonically-ordered nodes and edge count.
+    requirement_refs: [REQ-001]
+    required_test_refs:
+      - tests/test_loader.py::test_corpus_counts_and_canonical_order
+  - key: AC-002
+    text: A line with three tokens exits 2 and stderr names the offending line number.
+    requirement_refs: [REQ-001]
+    required_test_refs:
+      - tests/test_loader.py::test_malformed_line_exit_2
+  - key: AC-003
+    text: Per-node adjacency is sorted and every node, including the lone isolate, is present.
+    requirement_refs: [REQ-001]
+    required_test_refs:
+      - tests/test_loader.py::test_adjacency_and_isolated_node
+  - key: AC-004
+    text: In/out degrees match the frozen values and the array is sorted by node id.
+    requirement_refs: [REQ-002]
+    required_test_refs:
+      - tests/test_degrees.py::test_degree_counts
+  - key: AC-005
+    text: The degrees markdown lists each node with its degrees and exits 0.
+    requirement_refs: [REQ-002]
+    required_test_refs:
+      - tests/test_degrees.py::test_degrees_markdown_cli
+  - key: AC-006
+    text: The toposort of the DAG respects every edge and equals the deterministic Kahn order.
+    requirement_refs: [REQ-003]
+    required_test_refs:
+      - tests/test_toposort.py::test_topological_order_dag
+  - key: AC-007
+    text: toposort on the cyclic fixture reports the cyclic condition and exits 1.
+    requirement_refs: [REQ-003]
+    required_test_refs:
+      - tests/test_toposort.py::test_toposort_cyclic_exit_1
+  - key: AC-008
+    text: Weakly-connected components are exact, each sorted, outer list sorted by min member.
+    requirement_refs: [REQ-004]
+    required_test_refs:
+      - tests/test_components.py::test_weakly_connected_components
+  - key: AC-009
+    text: The components markdown lists one component per line and exits 0.
+    requirement_refs: [REQ-004]
+    required_test_refs:
+      - tests/test_components.py::test_components_markdown_cli
+  - key: AC-010
+    text: An acyclic graph reports zero cycles and exits 0.
+    requirement_refs: [REQ-005]
+    required_test_refs:
+      - tests/test_cycles.py::test_acyclic_graph_reports_none
+  - key: AC-011
+    text: Two disjoint cycles are reported once each in canonical rotation, sorted, and exit 1.
+    requirement_refs: [REQ-005]
+    required_test_refs:
+      - tests/test_cycles.py::test_directed_cycles_canonical_and_exit_1
+  - key: AC-012
+    text: digest --format markdown is byte-identical to the checked-in golden file.
+    requirement_refs: [REQ-006]
+    required_test_refs:
+      - tests/test_digest.py::test_digest_byte_stable
+  - key: AC-013
+    text: digest contains every section in the fixed order and is idempotent across renders.
+    requirement_refs: [REQ-006]
+    required_test_refs:
+      - tests/test_digest.py::test_digest_section_order
+      - tests/test_digest.py::test_digest_idempotent
+  - key: AC-014
+    text: Every command's --format json output is the frozen gx.report@1 envelope; bad format exits 2.
+    requirement_refs: [REQ-007]
+    required_test_refs:
+      - tests/test_format.py::test_each_command_emits_locked_envelope
+      - tests/test_format.py::test_bad_format_exit_2
+  - key: AC-015
+    text: Arrays inside the json data are explicitly sorted.
+    requirement_refs: [REQ-007]
+    required_test_refs:
+      - tests/test_format.py::test_json_arrays_are_sorted
+  - key: AC-016
+    text: digest json bytes are identical across two processes run with different PYTHONHASHSEED.
+    requirement_refs: [REQ-008]
+    required_test_refs:
+      - tests/test_determinism.py::test_digest_byte_stable_across_hash_seeds
+verification_commands:
+  - key: pytest
+    argv: ["pytest", "-q"]
+    profile: verify
+decisions:
+  - key: DEC-001
+    decision: The tool is strictly read-only and hermetic — it parses the edge-list bytes directly, never touches the network, and never reads the clock.
+    rationale: A read-only, no-network, no-clock boundary makes every acceptance criterion mechanically checkable under the gate's hermetic pytest profile and removes the largest sources of nondeterminism.
+  - key: DEC-002
+    decision: Exactly two interfaces are locked across slices — the Graph model and the gx.report@1 JSON envelope; evolution mints a new @2, never mutates @1.
+    rationale: Freezing the only two cross-slice contracts lets the four algorithm slices be built independently against a stable interface and gives the loop a small, precise surface to freeze.
+  - key: DEC-003
+    decision: v1 is a single archetype (greenfield pure-logic Python) with one verification command (pytest -q).
+    rationale: A single archetype keeps the gate signal clean for a fresh plan through the loop; archetype diversity is deferred.
+slices:
+  - key: SLICE-001
+    title: Loader and Graph model
+    requirement_refs: [REQ-001]
+    likely_files:
+      - src/gx/loader.py
+      - src/gx/model.py
+      - tests/test_loader.py
+      - tests/fixtures/graph.txt
+    conflict_domains:
+      - model_io
+    autonomy_ceiling: L1
+  - key: SLICE-002
+    title: degrees command
+    requirement_refs: [REQ-002]
+    likely_files:
+      - src/gx/commands/degrees.py
+      - tests/test_degrees.py
+    conflict_domains:
+      - cmd_degrees
+    autonomy_ceiling: L1
+  - key: SLICE-003
+    title: toposort command
+    requirement_refs: [REQ-003]
+    likely_files:
+      - src/gx/commands/toposort.py
+      - tests/test_toposort.py
+    conflict_domains:
+      - cmd_toposort
+    autonomy_ceiling: L1
+  - key: SLICE-004
+    title: components command
+    requirement_refs: [REQ-004]
+    likely_files:
+      - src/gx/commands/components.py
+      - tests/test_components.py
+    conflict_domains:
+      - cmd_components
+    autonomy_ceiling: L1
+  - key: SLICE-005
+    title: cycles command
+    requirement_refs: [REQ-005]
+    likely_files:
+      - src/gx/commands/cycles.py
+      - tests/test_cycles.py
+    conflict_domains:
+      - cmd_cycles
+    autonomy_ceiling: L1
+  - key: SLICE-006
+    title: digest command composing the four analyses
+    requirement_refs: [REQ-006]
+    likely_files:
+      - src/gx/commands/digest.py
+      - tests/test_digest.py
+    conflict_domains:
+      - cmd_digest
+    autonomy_ceiling: L1
+  - key: SLICE-007
+    title: JSON envelope and determinism sweep
+    requirement_refs: [REQ-007, REQ-008]
+    likely_files:
+      - src/gx/report.py
+      - src/gx/cli.py
+      - tests/test_format.py
+      - tests/test_determinism.py
+    conflict_domains:
+      - cli_format
+    autonomy_ceiling: L2
+work_dependencies:
+  - {from: SLICE-001, to: SLICE-002, kind: execution_hard}
+  - {from: SLICE-001, to: SLICE-003, kind: execution_hard}
+  - {from: SLICE-001, to: SLICE-004, kind: execution_hard}
+  - {from: SLICE-001, to: SLICE-005, kind: execution_hard}
+  - {from: SLICE-002, to: SLICE-006, kind: execution_hard}
+  - {from: SLICE-003, to: SLICE-006, kind: execution_hard}
+  - {from: SLICE-004, to: SLICE-006, kind: execution_hard}
+  - {from: SLICE-005, to: SLICE-006, kind: execution_hard}
+  - {from: SLICE-006, to: SLICE-007, kind: execution_hard}

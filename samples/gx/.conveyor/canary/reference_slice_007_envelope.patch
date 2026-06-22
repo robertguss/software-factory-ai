@@ -1,0 +1,47 @@
+diff --git a/samples/gx/src/gx/report.py b/samples/gx/src/gx/report.py
+index f32e517..a5d6950 100644
+--- a/samples/gx/src/gx/report.py
++++ b/samples/gx/src/gx/report.py
+@@ -1,4 +1,4 @@
+-"""SLICE-007 (STUB): the ``gx.report@1`` JSON envelope builder (locked interface #2).
++"""SLICE-007: the ``gx.report@1`` JSON envelope builder (locked interface #2).
+ 
+ ``--format json`` emits exactly this envelope::
+ 
+@@ -9,22 +9,27 @@
+       "data": { ... }   # kind-specific, with deterministically sorted arrays
+     }
+ 
+-The envelope is frozen; arrays inside ``data`` are explicitly sorted so the bytes are
+-stable across runs and processes. ``build_envelope`` returns the serialized JSON
+-string (sorted keys, fixed separators, trailing newline) so command ``run`` functions
+-can return it verbatim.
++The envelope is frozen. ``build_envelope`` serializes with ``sort_keys=True`` and a
++fixed indent; because every array inside ``data`` is already explicitly sorted by the
++producing command, the bytes are stable across runs and across processes (no reliance
++on dict/set iteration order).
+ """
+ 
+ from __future__ import annotations
+ 
++import json
++
+ __all__ = ["SCHEMA_VERSION", "build_envelope"]
+ 
+ SCHEMA_VERSION = "gx.report@1"
+ 
+ 
+ def build_envelope(kind: str, data, *, source: str) -> str:
+-    """Serialize kind-specific ``data`` as the locked ``gx.report@1`` envelope JSON.
+-
+-    STUB — implemented in SLICE-007.
+-    """
+-    raise NotImplementedError("report.build_envelope is implemented in SLICE-007")
++    """Serialize kind-specific ``data`` as the locked ``gx.report@1`` envelope JSON."""
++    envelope = {
++        "schema_version": SCHEMA_VERSION,
++        "kind": kind,
++        "source": source,
++        "data": data,
++    }
++    return json.dumps(envelope, sort_keys=True, indent=2) + "\n"

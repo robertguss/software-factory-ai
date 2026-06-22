@@ -1,0 +1,11 @@
+# gx sample directed graph: a DAG with two weakly-connected pieces + one isolate.
+# Lines are "SRC DST" (a directed edge) or a single token (an isolated node).
+a b
+a c
+b d
+c d
+c e
+d e
+f g
+g h
+z

@@ -1,0 +1,50 @@
+diff --git a/samples/gx/src/gx/commands/degrees.py b/samples/gx/src/gx/commands/degrees.py
+index 28cf9d3..fdda494 100644
+--- a/samples/gx/src/gx/commands/degrees.py
++++ b/samples/gx/src/gx/commands/degrees.py
+@@ -1,24 +1,35 @@
+-"""SLICE-002 (STUB): the ``degrees`` command.
++"""SLICE-002: the ``degrees`` command.
+ 
+-For every node (sorted by id) report its in-degree and out-degree. Pure function of
+-the graph; the emitted array is explicitly sorted by node id for byte-stability.
++For every node (in canonical sorted order) report its in-degree and out-degree.
+ """
+ 
+ from __future__ import annotations
+ 
+ from ..model import Graph
++from ..report import build_envelope
+ 
+ __all__ = ["compute", "run"]
+ 
+ 
+ def compute(graph: Graph) -> list[dict]:
+-    """Return ``[{"node", "in_degree", "out_degree"}, ...]`` sorted by node.
+-
+-    STUB — implemented in SLICE-002.
+-    """
+-    raise NotImplementedError("degrees.compute is implemented in SLICE-002")
++    """Return ``[{"node", "in_degree", "out_degree"}, ...]`` sorted by node id."""
++    return [
++        {
++            "node": node,
++            "in_degree": len(graph.predecessors[node]),
++            "out_degree": len(graph.successors[node]),
++        }
++        for node in graph.nodes
++    ]
+ 
+ 
+ def run(graph: Graph, *, fmt: str, source: str) -> tuple[str, int]:
+-    """Render the degrees report. STUB — implemented in SLICE-002."""
+-    raise NotImplementedError("degrees.run is implemented in SLICE-002")
++    """Render the degrees report."""
++    data = compute(graph)
++    if fmt == "json":
++        return build_envelope("degrees", {"degrees": data}, source=source), 0
++
++    lines = ["# Degrees", ""]
++    for entry in data:
++        lines.append(f"- {entry['node']}: in={entry['in_degree']} out={entry['out_degree']}")
++    return "\n".join(lines) + "\n", 0

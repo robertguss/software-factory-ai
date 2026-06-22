@@ -1,0 +1,89 @@
+diff --git a/samples/gx/src/gx/commands/digest.py b/samples/gx/src/gx/commands/digest.py
+index d3e0211..c701bd6 100644
+--- a/samples/gx/src/gx/commands/digest.py
++++ b/samples/gx/src/gx/commands/digest.py
+@@ -1,28 +1,73 @@
+-"""SLICE-006 (STUB): the ``digest`` command.
++"""SLICE-006: the ``digest`` command.
+ 
+ Compose the four analyses into one markdown report with a FIXED section order:
+ ``Summary`` -> ``Degrees`` -> ``Topological order`` -> ``Components`` -> ``Cycles``.
+-The digest is a pure function of the graph and byte-stable across runs and processes.
+-
+-It reuses the other commands' ``compute`` functions (it never re-derives the
+-algorithms), so it depends on SLICE-002..005 being implemented.
++It reuses each command's ``compute`` (never re-deriving the algorithms), so it depends
++on SLICE-002..005. The output is a pure function of the graph and byte-stable.
+ """
+ 
+ from __future__ import annotations
+ 
+ from ..model import Graph
++from ..report import build_envelope
++from . import components as components_cmd
++from . import cycles as cycles_cmd
++from . import degrees as degrees_cmd
++from . import toposort as toposort_cmd
+ 
+ __all__ = ["compute", "run"]
+ 
+ 
+ def compute(graph: Graph) -> dict:
+-    """Return the combined structured digest (summary + the four analyses).
++    """Return the combined structured digest (summary + the four analyses)."""
++    toposort_data = toposort_cmd.compute(graph)
++    return {
++        "summary": {
++            "nodes": len(graph.nodes),
++            "edges": len(graph.edges),
++            "acyclic": toposort_data["acyclic"],
++        },
++        "degrees": degrees_cmd.compute(graph),
++        "toposort": toposort_data,
++        "components": components_cmd.compute(graph),
++        "cycles": cycles_cmd.compute(graph),
++    }
++
++
++def _render_markdown(data: dict) -> str:
++    summary = data["summary"]
++    lines = ["# Graph Digest", "", "## Summary", ""]
++    lines.append(f"- nodes: {summary['nodes']}")
++    lines.append(f"- edges: {summary['edges']}")
++    lines.append(f"- acyclic: {'yes' if summary['acyclic'] else 'no'}")
++
++    lines += ["", "## Degrees", ""]
++    for entry in data["degrees"]:
++        lines.append(f"- {entry['node']}: in={entry['in_degree']} out={entry['out_degree']}")
++
++    lines += ["", "## Topological order", ""]
++    if data["toposort"]["acyclic"]:
++        lines.append(", ".join(data["toposort"]["order"]))
++    else:
++        lines.append("_graph is cyclic; no topological order_")
++
++    lines += ["", "## Components", ""]
++    for component in data["components"]["components"]:
++        lines.append(f"- {', '.join(component)}")
++
++    lines += ["", "## Cycles", ""]
++    if data["cycles"]["count"] == 0:
++        lines.append("_no directed cycles_")
++    else:
++        for cycle in data["cycles"]["cycles"]:
++            lines.append("- " + " -> ".join(cycle) + f" -> {cycle[0]}")
+ 
+-    STUB — implemented in SLICE-006.
+-    """
+-    raise NotImplementedError("digest.compute is implemented in SLICE-006")
++    return "\n".join(lines) + "\n"
+ 
+ 
+ def run(graph: Graph, *, fmt: str, source: str) -> tuple[str, int]:
+-    """Render the composed digest report. STUB — implemented in SLICE-006."""
+-    raise NotImplementedError("digest.run is implemented in SLICE-006")
++    """Render the composed digest report."""
++    data = compute(graph)
++    if fmt == "json":
++        return build_envelope("digest", data, source=source), 0
++    return _render_markdown(data), 0
