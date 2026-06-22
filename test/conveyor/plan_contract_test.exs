@@ -101,6 +101,43 @@ defmodule Conveyor.PlanContractTest do
     assert message =~ "missing plan schema_version"
   end
 
+  test "loads a plan that declares an optional work_dependencies graph" do
+    path = Path.join(temp_dir(), "with_deps.json")
+
+    File.write!(path, Jason.encode!(contract_with_work_dependencies()))
+
+    assert {:ok, result} = PlanContract.load(path)
+
+    assert result.contract["work_dependencies"] == [
+             %{"from" => "SLICE-001", "to" => "SLICE-002", "kind" => "execution_hard"},
+             %{"from" => "SLICE-001", "to" => "SLICE-003", "kind" => "integration_order"}
+           ]
+  end
+
+  test "rejects a work_dependency with an unknown kind" do
+    path = Path.join(temp_dir(), "bad_dep_kind.json")
+
+    bad =
+      contract_with_work_dependencies()
+      |> put_in(["work_dependencies", Access.at(0), "kind"], "wishful")
+
+    File.write!(path, Jason.encode!(bad))
+
+    assert {:error, %Error{code: :schema_validation_failed}} = PlanContract.load(path)
+  end
+
+  test "rejects a work_dependency carrying unknown properties" do
+    path = Path.join(temp_dir(), "bad_dep_extra.json")
+
+    bad =
+      contract_with_work_dependencies()
+      |> put_in(["work_dependencies", Access.at(0), "weight"], 5)
+
+    File.write!(path, Jason.encode!(bad))
+
+    assert {:error, %Error{code: :schema_validation_failed}} = PlanContract.load(path)
+  end
+
   test "schema violations fail with schema_validation_failed" do
     path = Path.join(temp_dir(), "invalid.json")
 
@@ -117,10 +154,38 @@ defmodule Conveyor.PlanContractTest do
     assert is_map(details)
   end
 
+  defp contract_with_work_dependencies do
+    base = @valid_example |> File.read!() |> Jason.decode!()
+
+    extra_slices =
+      Enum.map(["SLICE-002", "SLICE-003"], fn key ->
+        %{
+          "key" => key,
+          "title" => "Slice #{key}",
+          "requirement_refs" => ["REQ-001"],
+          "likely_files" => ["app/#{String.downcase(key)}.py"],
+          "conflict_domains" => ["tasks_api"],
+          "autonomy_ceiling" => "L1"
+        }
+      end)
+
+    base
+    |> Map.update!("slices", &(&1 ++ extra_slices))
+    |> Map.put("work_dependencies", [
+      %{"from" => "SLICE-001", "to" => "SLICE-002", "kind" => "execution_hard"},
+      %{"from" => "SLICE-001", "to" => "SLICE-003", "kind" => "integration_order"}
+    ])
+  end
+
   defp temp_dir do
     path =
       Path.join(System.tmp_dir!(), "conveyor-plan-contract-#{System.unique_integer([:positive])}")
 
+    # Clean any leftover from a prior run: System.unique_integer resets per VM, so the
+    # same path recurs across runs and these dirs are never auto-removed. A stale
+    # conveyor.plan.yml sidecar would make the fenced-block test's load find the sidecar
+    # instead of the fenced contract — a cross-run isolation flake (see commit 353827e).
+    File.rm_rf!(path)
     File.mkdir_p!(path)
     path
   end
