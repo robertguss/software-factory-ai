@@ -1,0 +1,111 @@
+diff --git a/src/br_insight/commands/epics.py b/src/br_insight/commands/epics.py
+index 759ccf1..f65f786 100644
+--- a/src/br_insight/commands/epics.py
++++ b/src/br_insight/commands/epics.py
+@@ -8,13 +8,104 @@ Sorted by epic id.
+ 
+ from __future__ import annotations
+ 
++import json
+ from datetime import datetime
+ 
+ from ..model import IssueGraph
++from ..report import build_envelope
+ 
+ __all__ = ["run"]
+ 
+ 
++def _children_by_parent(graph: IssueGraph) -> dict[str, list[str]]:
++    children: dict[str, list[str]] = {}
++    for parent_id, child_id in sorted(graph.parent_edges):
++        children.setdefault(parent_id, []).append(child_id)
++    return children
++
++
++def _descendant_ids(
++    epic_id: str, children_by_parent: dict[str, list[str]]
++) -> list[str]:
++    descendants: set[str] = set()
++    stack = list(reversed(children_by_parent.get(epic_id, ())))
++
++    while stack:
++        issue_id = stack.pop()
++        if issue_id == epic_id or issue_id in descendants:
++            continue
++        descendants.add(issue_id)
++        stack.extend(reversed(children_by_parent.get(issue_id, ())))
++
++    return sorted(descendants)
++
++
++def _blocked_issue_ids(graph: IssueGraph) -> set[str]:
++    blocked: set[str] = set()
++    for blocker_id, blocked_id in sorted(graph.blocks_edges):
++        blocker = graph.issues.get(blocker_id)
++        if blocker is None or blocker.status != "closed":
++            blocked.add(blocked_id)
++    return blocked
++
++
++def _epic_rows(graph: IssueGraph) -> list[dict[str, object]]:
++    children_by_parent = _children_by_parent(graph)
++    blocked_ids = _blocked_issue_ids(graph)
++    rows = []
++
++    for epic in sorted(graph.issues.values(), key=lambda issue: issue.id):
++        if epic.issue_type != "epic":
++            continue
++
++        descendants = [
++            graph.issues[issue_id]
++            for issue_id in _descendant_ids(epic.id, children_by_parent)
++            if issue_id in graph.issues
++        ]
++        total = len(descendants)
++        closed = sum(1 for issue in descendants if issue.status == "closed")
++        open_count = sum(1 for issue in descendants if issue.status == "open")
++        blocked = sum(
++            1
++            for issue in descendants
++            if issue.status == "open" and issue.id in blocked_ids
++        )
++        pct = 100 if total == 0 else (closed * 100) // total
++
++        rows.append(
++            {
++                "id": epic.id,
++                "title": epic.title,
++                "total": total,
++                "closed": closed,
++                "pct": pct,
++                "open": open_count,
++                "blocked": blocked,
++            }
++        )
++
++    return rows
++
++
+ def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render the epic rollup. STUB — implemented in SLICE-004."""
+-    raise NotImplementedError("epics.run is implemented in SLICE-004")
++    """Render the epic rollup."""
++    data = {"epics": _epic_rows(graph)}
++    if fmt == "json":
++        return json.dumps(
++            build_envelope("epics", data, generated_as_of=as_of, source=source),
++            sort_keys=True,
++            separators=(",", ":"),
++        )
++
++    if fmt == "markdown":
++        lines = ["# Epics", ""]
++        for row in data["epics"]:
++            lines.append(
++                f"- {row['id']} — {row['title']}: "
++                f"{row['closed']}/{row['total']} closed ({row['pct']}%), "
++                f"open={row['open']}, blocked={row['blocked']}"
++            )
++        return "\n".join(lines) + "\n"
++
++    raise ValueError(f"unsupported format: {fmt}")

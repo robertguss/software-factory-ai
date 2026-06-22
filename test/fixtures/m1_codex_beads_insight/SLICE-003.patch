@@ -1,0 +1,76 @@
+diff --git a/src/br_insight/commands/cycles.py b/src/br_insight/commands/cycles.py
+index 1149235..d8d178c 100644
+--- a/src/br_insight/commands/cycles.py
++++ b/src/br_insight/commands/cycles.py
+@@ -8,18 +8,66 @@ reports zero cycles and exits ``0``.
+ 
+ from __future__ import annotations
+ 
++import json
+ from datetime import datetime
+ 
+ from ..model import IssueGraph
++from ..report import build_envelope
+ 
+ __all__ = ["run", "find_cycles"]
+ 
+ 
++def _canonical_rotation(cycle: tuple[str, ...]) -> tuple[str, ...]:
++    return min(cycle[index:] + cycle[:index] for index in range(len(cycle)))
++
++
+ def find_cycles(graph: IssueGraph) -> list[tuple[str, ...]]:
+-    """Return canonical cycles over blocks edges. STUB — implemented in SLICE-003."""
+-    raise NotImplementedError("cycles.find_cycles is implemented in SLICE-003")
++    """Return canonical cycles over blocks edges."""
++    adjacency: dict[str, list[str]] = {}
++    nodes: set[str] = set()
++    for src, dst in sorted(graph.blocks_edges):
++        adjacency.setdefault(src, []).append(dst)
++        nodes.add(src)
++        nodes.add(dst)
++
++    for src in adjacency:
++        adjacency[src].sort()
++
++    cycles: set[tuple[str, ...]] = set()
++
++    def visit(start: str, current: str, path: tuple[str, ...], seen: set[str]) -> None:
++        for next_id in adjacency.get(current, []):
++            if next_id == start:
++                cycles.add(_canonical_rotation(path))
++            elif next_id not in seen:
++                visit(start, next_id, path + (next_id,), seen | {next_id})
++
++    for node_id in sorted(nodes):
++        visit(node_id, node_id, (node_id,), {node_id})
++
++    return sorted(cycles)
++
++
++def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> tuple[str, bool]:
++    """Render detected cycles and whether any were found."""
++    cycles = find_cycles(graph)
++    data = {"cycles": [list(cycle) for cycle in cycles]}
++
++    if fmt == "json":
++        rendered = json.dumps(
++            build_envelope("cycles", data, generated_as_of=as_of, source=source),
++            sort_keys=True,
++            separators=(",", ":"),
++        )
++        return rendered, bool(cycles)
+ 
++    if fmt == "markdown":
++        lines = ["# Cycles", ""]
++        if cycles:
++            for cycle in cycles:
++                lines.append(f"- {' -> '.join(cycle + (cycle[0],))}")
++        else:
++            lines.append("No cycles found.")
++        return "\n".join(lines) + "\n", bool(cycles)
+ 
+-def run(graph: IssueGraph, *, as_of: datetime, fmt: str, source: str) -> str:
+-    """Render detected cycles. STUB — implemented in SLICE-003."""
+-    raise NotImplementedError("cycles.run is implemented in SLICE-003")
++    raise ValueError(f"unsupported format: {fmt}")
