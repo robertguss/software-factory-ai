@@ -19,11 +19,16 @@ defmodule Conveyor.Stations.Implementer do
     run_prompt = Ash.get!(RunPrompt, agent_session.run_prompt_id, domain: Factory)
     workspace = %{path: get(input, "workspace_path"), base_commit: get(input, "base_commit")}
 
+    by_attempt = get(input, "patch_refs_by_attempt")
+
     opts = [
       agent_session_id: agent_session.id,
       run_attempt_id: context.run_attempt.id,
       blob_root: get(input, "blob_root"),
-      reference_patch: get(input, "patch_ref"),
+      reference_patch: reference_patch_for(input, by_attempt, context.run_attempt.attempt_no),
+      # a per-attempt reference run re-applies a different patch each attempt, so the
+      # tree must be reset to base first (the prior attempt's patch is uncommitted).
+      reset_workspace: is_map(by_attempt) and map_size(by_attempt) > 0,
       session_id: "run-#{context.run_attempt.id}"
     ]
 
@@ -56,6 +61,16 @@ defmodule Conveyor.Stations.Implementer do
       name when is_binary(name) -> Module.concat([String.trim_leading(name, "Elixir.")])
     end
   end
+
+  # Reference/test-only: pick the canned patch for THIS attempt from an attempt-keyed
+  # map (string keys survive the run_spec JSON round-trip), falling back to the single
+  # "patch_ref". Production Codex has no patch_ref and is unaffected.
+  defp reference_patch_for(input, by_attempt, attempt_no)
+       when is_map(by_attempt) and map_size(by_attempt) > 0 do
+    Map.get(by_attempt, to_string(attempt_no)) || get(input, "patch_ref")
+  end
+
+  defp reference_patch_for(input, _by_attempt, _attempt_no), do: get(input, "patch_ref")
 
   defp agent_session!(run_attempt, input) do
     AgentSession

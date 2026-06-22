@@ -250,6 +250,7 @@ defmodule Conveyor.Planning.SerialDriver do
           |> Keyword.get(:run_spec_opts, [])
           |> Keyword.merge(work_graph: single_slice_graph)
           |> maybe_put(:patch_ref, patch_ref_for(slice_key, opts))
+          |> maybe_put(:patch_refs_by_attempt, patch_refs_by_attempt_for(slice_key, opts))
 
         RunSpecAssembler.assemble!(slice, assembler_opts)
     end
@@ -559,6 +560,16 @@ defmodule Conveyor.Planning.SerialDriver do
 
       true ->
         Keyword.get(opts, :patch_ref)
+    end
+  end
+
+  # Reference/test-only: the %{attempt_no(string) => patch_path} map for one slice,
+  # from a `:patch_refs_by_slice_attempt` opt. Lets a deterministic run apply a
+  # failing patch on attempt 1 and a passing patch on attempt 2 (the M2-exit proof).
+  defp patch_refs_by_attempt_for(slice_key, opts) do
+    case Keyword.get(opts, :patch_refs_by_slice_attempt) do
+      map when is_map(map) -> Map.get(map, slice_key)
+      _ -> nil
     end
   end
 

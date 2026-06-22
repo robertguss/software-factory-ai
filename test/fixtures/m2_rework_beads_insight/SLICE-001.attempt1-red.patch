@@ -1,0 +1,101 @@
+diff --git a/samples/beads_insight/src/br_insight/clock.py b/samples/beads_insight/src/br_insight/clock.py
+index 295bfbc..e7842af 100644
+--- a/samples/beads_insight/src/br_insight/clock.py
++++ b/samples/beads_insight/src/br_insight/clock.py
+@@ -10,14 +10,18 @@ timezone-aware :class:`datetime`; a malformed value raises so the CLI exits ``2`
+
+ from __future__ import annotations
+
+-from datetime import datetime
++from datetime import datetime, timezone
+
+ __all__ = ["parse_as_of"]
+
+
+ def parse_as_of(value: str) -> datetime:
+     """Parse an RFC-3339 UTC ``--as-of`` string into an aware datetime.
+-
+-    STUB — implemented in SLICE-005.
+     """
+-    raise NotImplementedError("clock.parse_as_of is implemented in SLICE-005")
++    if not value.endswith("Z"):
++        raise ValueError("expected UTC timestamp ending in Z")
++
++    parsed = datetime.fromisoformat(value[:-1] + "+00:00")
++    if parsed.tzinfo != timezone.utc:
++        raise ValueError("expected UTC timestamp")
++    return parsed
+diff --git a/samples/beads_insight/src/br_insight/loader.py b/samples/beads_insight/src/br_insight/loader.py
+index d658bd3..59a2292 100644
+--- a/samples/beads_insight/src/br_insight/loader.py
++++ b/samples/beads_insight/src/br_insight/loader.py
+@@ -14,7 +14,10 @@ This is left unimplemented on the seed so the acceptance tests are RED.
+
+ from __future__ import annotations
+
+-from .model import IssueGraph
++import json
++from datetime import datetime
++
++from .model import Issue, IssueGraph
+
+ __all__ = ["load", "LoaderError"]
+
+@@ -27,9 +30,54 @@ class LoaderError(ValueError):
+         self.line_number = line_number
+
+
++def _parse_datetime(value: str | None) -> datetime | None:
++    if value is None:
++        return None
++    return datetime.fromisoformat(value.replace("Z", "+00:00"))
++
++
+ def load(path) -> IssueGraph:
+     """Parse a ``.beads/issues.jsonl`` export into an :class:`IssueGraph`.
+-
+-    STUB — implemented in SLICE-001.
+     """
+-    raise NotImplementedError("loader.load is implemented in SLICE-001")
++    issues: dict[str, Issue] = {}
++    blocks_edges: set[tuple[str, str]] = set()
++    parent_edges: set[tuple[str, str]] = set()
++    related_edges: set[tuple[str, str]] = set()
++
++    with open(path, encoding="utf-8") as handle:
++        for line_number, line in enumerate(handle, start=1):
++            try:
++                record = json.loads(line)
++            except json.JSONDecodeError as exc:
++                raise LoaderError(str(exc), line_number=line_number) from exc
++
++            issue_id = record["id"]
++            issues[issue_id] = Issue(
++                id=issue_id,
++                title=record["title"],
++                status=record["status"],
++                priority=record["priority"],
++                issue_type=record["issue_type"],
++                assignee=record["assignee"],
++                created_at=_parse_datetime(record["created_at"]),
++                closed_at=_parse_datetime(record["closed_at"]),
++                labels=tuple(record.get("labels", ())),
++            )
++
++            for dependency in record.get("dependencies", ()):
++                src = dependency["depends_on_id"]
++                dst = dependency.get("issue_id", issue_id)
++                dependency_type = dependency["type"]
++                if dependency_type == "blocks":
++                    blocks_edges.add((src, dst))
++                elif dependency_type == "parent-child":
++                    parent_edges.add((src, dst))
++                elif dependency_type == "relates":
++                    related_edges.add((src, dst))
++
++    return IssueGraph(
++        issues=issues,
++        blocks_edges=blocks_edges,
++        parent_edges=parent_edges,
++        related_edges=related_edges,
++    )
