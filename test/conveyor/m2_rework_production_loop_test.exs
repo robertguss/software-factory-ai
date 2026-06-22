@@ -97,8 +97,10 @@ defmodule Conveyor.M2ReworkProductionLoopTest do
     result = run_slice!(fixture, %{@slice => %{"1" => @red_patch, "2" => @red_patch}})
 
     # the slice parked (its run terminated) — but only AFTER a bounded rework, not a
-    # halt on the first failure. (Skip-and-continue past a parked slice is M3.)
-    assert result.status == :halted
+    # halt on the first failure. With M3 skip-and-continue a single-slice plan whose
+    # only slice parks completes as :partial (the run advanced over its whole subgraph
+    # and isolated the failure), not :halted.
+    assert result.status == :partial
     [event] = result.events
     assert event["status"] == "parked"
     assert event["attempt_count"] == 2

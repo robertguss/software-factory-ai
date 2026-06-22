@@ -92,7 +92,7 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
     assert retry.outcome == :accepted
   end
 
-  test "rework: false — a failing slice still parks + halts (legacy single-attempt path)" do
+  test "rework: false — a failing slice parks on a single attempt (run is :partial)" do
     fixture = fixture!("serial-no-rework")
     slice = Map.fetch!(fixture.slices_by_stable_key, @slice)
 
@@ -119,7 +119,9 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
         advance_workspace_base: fn _r, _s, _f -> :ok end
       )
 
-    assert result.status == :halted
+    # single-slice plan, its only slice parks -> the run advanced over its whole
+    # (one-node) subgraph and isolated the failure: :partial, not :halted.
+    assert result.status == :partial
     assert [%{"status" => "parked"}] = result.events
     # exactly one attempt — no rework
     assert RunAttempt |> Ash.read!(domain: Factory) |> Enum.count(&(&1.slice_id == slice.id)) == 1
@@ -160,7 +162,7 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
         advance_workspace_base: fn _r, _s, _f -> :ok end
       )
 
-    assert result.status == :halted
+    assert result.status == :partial
     [event] = result.events
     assert event["status"] == "parked"
     assert event["gate_result"] == "contract_amendment_proposed"
