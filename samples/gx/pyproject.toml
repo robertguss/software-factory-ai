@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gx"
+version = "0.1.0"
+description = "Read-only, hermetic CLI over a directed edge-list (degrees/toposort/components/cycles/digest)."
+requires-python = ">=3.11"
+# Runtime is stdlib-only (argparse, json, dataclasses, collections, typing).
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.0"]
+
+[project.scripts]
+gx = "gx.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

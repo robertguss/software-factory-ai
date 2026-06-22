@@ -1,0 +1,7 @@
+# Cyclic fixture: one 3-cycle (x->y->z->x), one 2-cycle (p->q->p), one acyclic edge.
+x y
+y z
+z x
+p q
+q p
+m n

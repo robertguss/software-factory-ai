@@ -1,0 +1,5 @@
+# Malformed fixture: line 5 has three tokens (only 1 or 2 are valid).
+a b
+b c
+
+a b c
