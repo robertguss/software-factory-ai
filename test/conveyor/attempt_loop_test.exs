@@ -116,7 +116,130 @@ defmodule Conveyor.AttemptLoopTest do
     assert event.payload["finding_categories"] == ["acceptance_mapping"]
   end
 
-  defp attempt_fixture! do
+  test "ADR-26: a rework-exhausted slice proposes a contract amendment (injected audit seam)" do
+    fixture = attempt_fixture!()
+
+    proposal = %{
+      "dispute_kind" => "contract_defect",
+      "status" => "human_review_required",
+      "affected_refs" => [%{"kind" => "requirement", "id_or_key" => "REQ-009"}]
+    }
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        max_attempts: 1,
+        actor: "attempt-loop-test",
+        run_slice: fn _attempt ->
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          gate_result(false, [%{"category" => "acceptance_locked_failed"}])
+        end,
+        finalize_gate: &finalize_needs_rework/3,
+        contract_audit: fn _attempt -> {:amend, proposal} end
+      )
+
+    assert result.status == :amendment_proposed
+    assert result.report["amendment_proposal"] == proposal
+
+    last_event = List.last(result.events)
+    assert last_event["status"] == "amendment_proposed"
+    assert last_event["affected_refs"] == proposal["affected_refs"]
+
+    assert [%LedgerEvent{} = event] =
+             LedgerEvent
+             |> Ash.read!(domain: Factory)
+             |> Enum.filter(&(&1.type == "plan.amendment_proposed"))
+
+    assert event.payload["dispute_kind"] == "contract_defect"
+    assert event.payload["status"] == "human_review_required"
+  end
+
+  test "ADR-26: a structurally broken contract really drives an amendment (no injected seam)" do
+    fixture = attempt_fixture!(normalized_contract: broken_contract())
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        max_attempts: 1,
+        actor: "attempt-loop-test",
+        run_slice: fn _attempt ->
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          gate_result(false, [%{"category" => "acceptance_locked_failed"}])
+        end,
+        finalize_gate: &finalize_needs_rework/3
+      )
+
+    assert result.status == :amendment_proposed
+    proposal = result.report["amendment_proposal"]
+    assert proposal["dispute_kind"] == "contract_defect"
+    assert proposal["status"] == "human_review_required"
+
+    # the REAL StructuralAudit named the contradictory requirements AS requirements
+    pairs = for r <- proposal["affected_refs"], do: {r["kind"], r["id_or_key"]}
+    assert {"requirement", "REQ-A"} in pairs
+    assert {"requirement", "REQ-B"} in pairs
+  end
+
+  test "a clean contract that exhausts rework parks as plain exhaustion (no amendment)" do
+    fixture = attempt_fixture!()
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        max_attempts: 1,
+        actor: "attempt-loop-test",
+        run_slice: fn _attempt ->
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          gate_result(false, [%{"category" => "acceptance_locked_failed"}])
+        end,
+        finalize_gate: &finalize_needs_rework/3
+      )
+
+    assert result.status == :attempt_budget_exhausted
+    refute Map.has_key?(result.report, "amendment_proposal")
+  end
+
+  defp finalize_needs_rework(_gate, _run_spec, attempt) do
+    %{
+      run_attempt:
+        Ash.update!(
+          attempt,
+          %{status: :needs_rework, outcome: :needs_rework, failure_category: "gate_failed"},
+          domain: Factory
+        )
+    }
+  end
+
+  # Two requirements that contradict ("must" vs "must not"), and REQ-B has no
+  # acceptance criterion -> contradictory_requirement + missing_requirement_acceptance,
+  # both implicating REQUIREMENT subjects.
+  defp broken_contract do
+    %{
+      "requirements" => [
+        %{"key" => "REQ-A", "text" => "The list must return tasks.", "source_ref" => "p#a"},
+        %{"key" => "REQ-B", "text" => "The list must not return tasks.", "source_ref" => "p#b"}
+      ],
+      "acceptance_criteria" => [
+        %{
+          "key" => "AC-A",
+          "text" => "Returns tasks.",
+          "requirement_refs" => ["REQ-A"],
+          "required_test_refs" => ["t"],
+          "source_ref" => "p#aca"
+        }
+      ],
+      "non_goals" => ["auth"],
+      "decisions" => [%{"key" => "DEC-001", "decision" => "scope"}]
+    }
+  end
+
+  defp attempt_fixture!(opts \\ []) do
     {:ok, contract_result} = PlanContract.load(@beads_plan_path)
     contract = contract_result.contract
     slice_contract = Enum.find(contract["slices"], &(&1["key"] == "SLICE-002"))
@@ -141,7 +264,7 @@ defmodule Conveyor.AttemptLoopTest do
           title: "Beads Insight plan",
           intent: contract["goal"],
           source_document: contract_result.source_path,
-          normalized_contract: contract,
+          normalized_contract: Keyword.get(opts, :normalized_contract, contract),
           contract_sha256: contract_result.contract_sha256,
           status: :handoff_ready
         },

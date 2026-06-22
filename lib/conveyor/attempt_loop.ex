@@ -17,6 +17,8 @@ defmodule Conveyor.AttemptLoop do
   alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Ledger
+  alias Conveyor.Planning.StructuralAudit
+  alias Conveyor.Recovery.AmendmentRouter
   alias Conveyor.Recovery.ReworkSynthesizer
   alias Conveyor.RunAttemptLifecycle
   alias Conveyor.RunSlice
@@ -68,7 +70,7 @@ defmodule Conveyor.AttemptLoop do
         loop(retry_attempt, budget, attempts, events ++ [escalation_event(event)], opts)
 
       final_attempt.outcome == :needs_rework ->
-        result(:attempt_budget_exhausted, attempts, events)
+        on_budget_exhausted(final_attempt, attempts, events, opts)
 
       true ->
         result(:failed, attempts, events)
@@ -93,6 +95,81 @@ defmodule Conveyor.AttemptLoop do
           |> Enum.sort()
       }
     }
+  end
+
+  # ADR-26: the code could not satisfy the contract within the rework budget. A
+  # hand-authored plan reaches the serial loop WITHOUT a structural audit
+  # (PlanRunner skips it), so before parking as a plain exhaustion we re-audit the
+  # *contract*. If it is structurally broken, no amount of rework can pass it — we
+  # surface a human-review amendment proposal instead of a silent rework death-
+  # spiral. A clean contract falls straight through to the existing exhaustion park.
+  defp on_budget_exhausted(final_attempt, attempts, events, opts) do
+    case audit_contract!(final_attempt, opts) do
+      {:amend, proposal} ->
+        ledger_event = amendment_event!(final_attempt, proposal, opts)
+        amended_result(attempts, events ++ [amendment_event(ledger_event, proposal)], proposal)
+
+      :rework ->
+        result(:attempt_budget_exhausted, attempts, events)
+    end
+  end
+
+  # Injectable `:contract_audit` seam for deterministic tests; the default runs the
+  # real StructuralAudit on the plan's normalized contract and routes via ADR-26.
+  defp audit_contract!(final_attempt, opts) do
+    case Keyword.get(opts, :contract_audit) do
+      fun when is_function(fun, 1) ->
+        fun.(final_attempt)
+
+      nil ->
+        plan = plan_for_attempt!(final_attempt)
+        findings = StructuralAudit.audit(plan.normalized_contract || %{}).findings
+        AmendmentRouter.route(findings, plan_id: plan.id)
+    end
+  end
+
+  defp amended_result(attempts, events, proposal) do
+    base = result(:amendment_proposed, attempts, events)
+    %Result{base | report: Map.put(base.report, "amendment_proposal", proposal)}
+  end
+
+  defp amendment_event!(final_attempt, proposal, opts) do
+    project = project_for_attempt!(final_attempt)
+    actor = Keyword.get(opts, :actor, "attempt-loop")
+
+    Ledger.write!(%{
+      project_id: project.id,
+      slice_id: final_attempt.slice_id,
+      run_attempt_id: final_attempt.id,
+      idempotency_key: "amendment_proposed:#{final_attempt.id}",
+      type: "plan.amendment_proposed",
+      payload: %{
+        "actor" => actor,
+        "run_attempt_id" => final_attempt.id,
+        "dispute_kind" => proposal["dispute_kind"],
+        "status" => proposal["status"],
+        "affected_refs" => proposal["affected_refs"]
+      }
+    })
+  end
+
+  defp amendment_event(%LedgerEvent{} = event, proposal) do
+    %{
+      "status" => "amendment_proposed",
+      "dispute_kind" => proposal["dispute_kind"],
+      "affected_refs" => proposal["affected_refs"],
+      "finding_categories" => amendment_finding_categories(proposal),
+      "ledger_event_id" => event.id
+    }
+  end
+
+  defp amendment_finding_categories(proposal) do
+    proposal
+    |> Map.get("affected_refs", [])
+    |> Enum.map(& &1["kind"])
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+    |> Enum.sort()
   end
 
   defp prepare_retry!(final_attempt, run_spec, gate, budget, attempts, opts) do
@@ -252,10 +329,14 @@ defmodule Conveyor.AttemptLoop do
   defp slice_for_attempt!(%RunAttempt{} = attempt), do: get_by_id!(Slice, attempt.slice_id)
 
   defp project_for_attempt!(%RunAttempt{} = attempt) do
+    plan = plan_for_attempt!(attempt)
+    get_by_id!(Project, plan.project_id)
+  end
+
+  defp plan_for_attempt!(%RunAttempt{} = attempt) do
     slice = get_by_id!(Slice, attempt.slice_id)
     epic = get_by_id!(Epic, slice.epic_id)
-    plan = get_by_id!(Plan, epic.plan_id)
-    get_by_id!(Project, plan.project_id)
+    get_by_id!(Plan, epic.plan_id)
   end
 
   defp get_by_id!(resource, id) do

@@ -173,7 +173,7 @@ defmodule Conveyor.Planning.SerialDriver do
       advance_workspace_base!(run_spec, slice_key, loop_result, opts)
     end
 
-    %{
+    event = %{
       "slice_id" => slice_key,
       "sequence" => sequence,
       "status" => if(passed?, do: "passed", else: "parked"),
@@ -182,12 +182,20 @@ defmodule Conveyor.Planning.SerialDriver do
       "findings" => loop_findings(loop_result),
       "attempt_count" => loop_result.report["attempt_count"]
     }
+
+    # ADR-26: a rework-exhausted slice whose contract is structurally broken parks
+    # with the human-review amendment proposal attached, not as a blind failure.
+    case loop_result.report["amendment_proposal"] do
+      proposal when is_map(proposal) -> Map.put(event, "amendment_proposal", proposal)
+      _ -> event
+    end
   end
 
   # Rework is ON by default (the loop survives a non-first-pass slice); pass
   # `rework: false` to force the legacy single-attempt-then-park path.
   defp rework_enabled?(opts), do: Keyword.get(opts, :rework, true) == true
 
+  defp rework_gate_label(false, %{status: :amendment_proposed}), do: "contract_amendment_proposed"
   defp rework_gate_label(false, _loop_result), do: "eventual_pending"
 
   defp rework_gate_label(true, loop_result) do

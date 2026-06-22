@@ -125,6 +125,49 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
     assert RunAttempt |> Ash.read!(domain: Factory) |> Enum.count(&(&1.slice_id == slice.id)) == 1
   end
 
+  test "ADR-26: rework exhausted -> the plan parks with a contract-amendment proposal" do
+    fixture = fixture!("serial-amend")
+    slice = Map.fetch!(fixture.slices_by_stable_key, @slice)
+
+    proposal = %{
+      "dispute_kind" => "contract_defect",
+      "status" => "human_review_required",
+      "affected_refs" => [%{"kind" => "requirement", "id_or_key" => "REQ-007"}]
+    }
+
+    result =
+      SerialDriver.run!(
+        %{work_graph: fixture.work_graph, selected_slice_ids: [@slice]},
+        slices_by_stable_key: fixture.slices_by_stable_key,
+        run_spec_opts: [plan_path: @plan_path, blob_root: fixture.blob_root],
+        actor: "serial-amend-test",
+        rework: true,
+        max_attempts: 1,
+        run_slice: fn _attempt ->
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result -> gate_result(false, []) end,
+        finalize_gate: fn _gate, _run_spec, attempt ->
+          %{
+            run_attempt:
+              Ash.update!(attempt, %{status: :needs_rework, outcome: :needs_rework},
+                domain: Factory
+              )
+          }
+        end,
+        # the rework budget is exhausted; classify the contract as structurally broken
+        contract_audit: fn _attempt -> {:amend, proposal} end,
+        advance_workspace_base: fn _r, _s, _f -> :ok end
+      )
+
+    assert result.status == :halted
+    [event] = result.events
+    assert event["status"] == "parked"
+    assert event["gate_result"] == "contract_amendment_proposed"
+    assert event["amendment_proposal"] == proposal
+    assert RunAttempt |> Ash.read!(domain: Factory) |> Enum.count(&(&1.slice_id == slice.id)) == 1
+  end
+
   defp gate_result(passed?, findings) do
     %Gate.Result{
       status: if(passed?, do: :passed, else: :failed),
