@@ -52,6 +52,17 @@ defmodule Conveyor.AgentRunner.CodexTest do
     assert result.metadata["usage"]["reasoning_output_tokens"] == 50
     assert is_integer(result.metadata["latency_ms"])
     assert result.metadata["cost_usd_estimated"] >= 0.0
+
+    # the live token spend is PERSISTED onto the agent_session row, not just the
+    # ephemeral metadata/telemetry (M3 live-validation finding: it was dropped before
+    # the DB write). 1000 input + 200 output + 50 reasoning = 1250.
+    session =
+      Conveyor.Factory.AgentSession
+      |> Ash.read!(domain: Conveyor.Factory)
+      |> Enum.find(&(&1.id == fixture.agent_session.id))
+
+    assert session.tokens == 1250
+    refute is_nil(session.cost_estimate)
   end
 
   test "watchdog bounds a hung exec (M2): a slow agent returns a timeout, never hangs the run" do
