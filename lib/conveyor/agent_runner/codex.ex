@@ -389,13 +389,21 @@ defmodule Conveyor.AgentRunner.Codex do
         :ok
 
       session ->
+        usage = result.metadata["usage"] || %{}
+
         Ash.update!(
           session,
           %{
             adapter_session_id: result.metadata["session_id"] || session_id,
             status: :succeeded,
             completed_at: DateTime.utc_now(:microsecond),
-            raw_result_ref: raw_transcript_ref
+            raw_result_ref: raw_transcript_ref,
+            # Persist the live token spend (captured but previously dropped) so the
+            # agent_session row — not just an ephemeral telemetry metric — carries it.
+            tokens:
+              num(usage["input_tokens"]) + num(usage["output_tokens"]) +
+                num(usage["reasoning_output_tokens"]),
+            cost_estimate: result.metadata["cost_usd_estimated"]
           },
           domain: Factory
         )
