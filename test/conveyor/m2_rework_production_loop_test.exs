@@ -60,6 +60,14 @@ defmodule Conveyor.M2ReworkProductionLoopTest do
     assert gate_passed?(a1) == false
     assert gate_passed?(a2) == true
 
+    # pin the failure to the REAL pytest acceptance suite (not a different stage):
+    # attempt 1's test_execution stage failed with an acceptance_locked_failed
+    # finding; attempt 2's test_execution stage passed.
+    a1_stage = test_execution_stage(a1)
+    assert a1_stage["status"] == "failed"
+    assert Enum.any?(a1_stage["findings"], &(&1["category"] == "acceptance_locked_failed"))
+    assert test_execution_stage(a2)["status"] == "passed"
+
     # rework feedback genuinely fired: a v2 brief + an escalation ledger event
     assert AgentBrief
            |> Ash.read!(domain: Factory)
@@ -70,6 +78,16 @@ defmodule Conveyor.M2ReworkProductionLoopTest do
     assert LedgerEvent
            |> Ash.read!(domain: Factory)
            |> Enum.any?(&(&1.type == "attempt.escalated"))
+
+    # reproducibility: a second fresh run yields the same replay_digest (determinism)
+    replay =
+      run_slice!(fixture!("m2-rework-replay"), %{
+        @slice => %{"1" => @red_patch, "2" => @green_patch}
+      })
+
+    assert replay.status == :passed
+    assert is_binary(result.report["replay_digest"])
+    assert result.report["replay_digest"] == replay.report["replay_digest"]
   end
 
   test "fail -> bounded rework -> escalate/park: an unfixable slice exhausts its budget, not halt-on-first-fail" do
@@ -88,8 +106,9 @@ defmodule Conveyor.M2ReworkProductionLoopTest do
     attempts = attempts_for(fixture, @slice)
     assert Enum.map(attempts, & &1.attempt_no) == [1, 2]
     refute Enum.any?(attempts, &(&1.outcome == :accepted))
-    # the REAL gate genuinely failed both attempts (real pytest stayed red)
+    # the REAL gate genuinely failed both attempts at the pytest acceptance suite
     assert Enum.all?(attempts, &(gate_passed?(&1) == false))
+    assert Enum.all?(attempts, &(test_execution_stage(&1)["status"] == "failed"))
   end
 
   defp run_slice!(fixture, patches_by_attempt) do
@@ -125,6 +144,16 @@ defmodule Conveyor.M2ReworkProductionLoopTest do
       [] -> nil
       results -> Enum.any?(results, & &1.passed)
     end
+  end
+
+  # The persisted test_execution stage result for an attempt, so the proof can pin
+  # WHICH stage failed (the real pytest lever), not just that the gate failed.
+  defp test_execution_stage(run_attempt) do
+    GateResult
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.run_attempt_id == run_attempt.id))
+    |> Enum.flat_map(& &1.stages)
+    |> Enum.find(%{}, &(&1["key"] == "test_execution"))
   end
 
   defp fixture!(label) do

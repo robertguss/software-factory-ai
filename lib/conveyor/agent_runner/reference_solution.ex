@@ -172,11 +172,12 @@ defmodule Conveyor.AgentRunner.ReferenceSolution do
     end
   end
 
-  # Reset the working tree to the committed base before a re-apply, so a retry's
-  # patch lands on a clean tree (the prior attempt's patch is uncommitted working
-  # state). Opt-in (only the per-attempt reference path sets it) and confined to
-  # this adapter — real-agent retry semantics are untouched. No-op outside a git
-  # work tree (other reference uses may not be git-backed).
+  # Reset the working tree to the committed base before applying. Runs before EVERY
+  # per-attempt apply (a no-op on attempt 1's already-clean tree); on a retry it
+  # discards the prior attempt's uncommitted patch so the next patch lands clean.
+  # Opt-in (only the per-attempt reference path sets it) and confined to this
+  # adapter — real-agent retry semantics are untouched. No-op outside a git work
+  # tree (other reference uses may not be git-backed).
   defp reset_workspace_to_base!(ws_path) do
     if git_work_tree?(ws_path) do
       {_, 0} = System.cmd("git", ["-C", ws_path, "checkout", "--", "."], stderr_to_stdout: true)
