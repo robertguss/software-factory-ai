@@ -24,8 +24,12 @@ def test_degree_counts():
 
 
 def test_degrees_markdown_cli():
-    """AC-005: the markdown rendering lists each node with its degrees, exit 0."""
+    """AC-005: the markdown rendering lists EVERY node with its degrees, exit 0."""
     code, out, _err = run_cli(["--path", str(GRAPH_TXT), "degrees"])
     assert code == 0
-    assert "a: in=0 out=2" in out
-    assert "e: in=2 out=0" in out
+    expected = [
+        ("a", 0, 2), ("b", 1, 1), ("c", 1, 2), ("d", 2, 1), ("e", 2, 0),
+        ("f", 0, 1), ("g", 1, 1), ("h", 1, 0), ("z", 0, 0),
+    ]
+    for node, in_deg, out_deg in expected:
+        assert f"- {node}: in={in_deg} out={out_deg}" in out

@@ -39,6 +39,12 @@ other commands' `compute` functions — it must not re-derive their algorithms.
 - `cycles` finds a cycle, or `toposort` runs on a cyclic graph → exit `1`
 - success                                                  → exit `0`
 
+## Runtime / environment
+
+`gx` runs via `PYTHONPATH=src` — the locked tests and `conftest.py` already wire this
+(and `pyproject.toml` sets `pythonpath = ["src"]`). Do NOT add a `pip install`/editable
+install or edit `pyproject.toml`; the package is import-only from `src/`.
+
 ## Verification
 
 Run `pytest -q` from this directory. `tests/` (including the checked-in golden

@@ -22,8 +22,9 @@ def test_weakly_connected_components():
 
 
 def test_components_markdown_cli():
-    """AC-009: the markdown rendering lists one component per line, exit 0."""
+    """AC-009: the markdown rendering lists EVERY component (incl. the isolate), exit 0."""
     code, out, _err = run_cli(["--path", str(GRAPH_TXT), "components"])
     assert code == 0
-    assert "a, b, c, d, e" in out
-    assert "f, g, h" in out
+    assert "- a, b, c, d, e" in out
+    assert "- f, g, h" in out
+    assert "- z" in out

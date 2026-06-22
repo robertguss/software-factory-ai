@@ -30,5 +30,7 @@ def test_directed_cycles_canonical_and_exit_1():
     assert data["count"] == 2
     assert data["cycles"] == [["p", "q"], ["x", "y", "z"]]
 
-    code, _out, _err = run_cli(["--path", str(CYCLIC_TXT), "cycles"])
+    code, out, _err = run_cli(["--path", str(CYCLIC_TXT), "cycles"])
     assert code == 1
+    assert "- p -> q -> p" in out
+    assert "- x -> y -> z -> x" in out

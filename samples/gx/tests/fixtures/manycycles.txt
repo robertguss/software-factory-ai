@@ -1,0 +1,14 @@
+# Six disjoint 2-cycles: a set-derived cycles array large enough that an
+# unsorted implementation's iteration order diverges across PYTHONHASHSEED values.
+a b
+b a
+c d
+d c
+e f
+f e
+g h
+h g
+i j
+j i
+k l
+l k

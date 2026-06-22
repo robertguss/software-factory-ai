@@ -23,6 +23,7 @@ GOLDEN = Path(__file__).resolve().parent / "golden"
 
 GRAPH_TXT = FIXTURES / "graph.txt"
 CYCLIC_TXT = FIXTURES / "cyclic.txt"
+MANYCYCLES_TXT = FIXTURES / "manycycles.txt"
 MALFORMED_TXT = FIXTURES / "malformed.txt"
 
 # Ensure the src/ layout is importable even without an editable install.
