@@ -1,12 +1,18 @@
 # Conveyor — ROADMAP (v2)
 
-> **🟢 Execution status (2026-06-22, PR #11 merged).** **M0 ✅ done.** **M1 ✅ done — the
+> **🟢 Execution status (2026-06-22, PRs #11–#13 merged).** **M0 ✅ done.** **M1 ✅ done — the
 > keystone is PROVEN:** real Codex drove the production `PlanRunner → SerialDriver`
 > end-to-end on all 7 Beads-Insight slices (first-pass gate 1.0, all gated/accepted); a
 > stale-`run_attempt`-struct transition bug the live run surfaced was fixed; a deterministic
-> CI guard replays the real-Codex run. **M2 🟡 in progress** — agent watchdog ✅ done;
-> `AttemptLoop` rework-on-fail (b) designed + parked [`dr1m.9`]; ADR-26 (c) / ADR-24 (d)
-> pending. M3+ unstarted.
+> CI guard replays the real-Codex run. **M2 🟡 in progress** — closers wired:
+> **(a) watchdog ✅**; **(b) `AttemptLoop` rework-on-fail ✅ wired + ON by default** (the loop
+> reworks a bad slice within a budget instead of halting); **(c) ADR-26 amendment ✅** (on
+> rework-budget exhaustion the contract is re-audited → a structurally-broken plan yields a
+> human-review amendment proposal, not a silent death-spiral); **(d) ADR-24 `MidflightCheck`
+> ✅ hardened** (hidden-oracle allowlist + real-stage tests) — **active mid-flight wiring
+> deferred to M4** (needs agent re-entrancy; the post-generation seam is a cf54-shaped trap).
+> Suite 866 green. **Next: the M2 exit** — an unattended small multi-slice run that recovers a
+> real failure without halting. M3+ unstarted.
 
 > **Purpose.** The single source of truth for _where Conveyor is, where it's going, and in
 > what order._ Grounded in a static code assessment (2026-06-21) and then **adversarially
