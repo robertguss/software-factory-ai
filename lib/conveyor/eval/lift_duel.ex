@@ -242,7 +242,13 @@ defmodule Conveyor.Eval.LiftDuel do
     path
   end
 
-  @doc "Load every report under `dir` as `{name, report}` (sorted; missing dir → [])."
+  @doc """
+  Load every eval-lift report under `dir` as `{name, report}` (sorted; missing dir → []).
+
+  Only `#{@schema_version}` documents are returned: sibling JSON in the same dir that is
+  **not** a report (e.g. `usage.json`, a `conveyor.agent_usage@1` array) is skipped, so
+  `mix conveyor.eval.lift` no longer feeds a non-report to `metrics/1` and crashes.
+  """
   @spec load_reports(String.t()) :: [{String.t(), map()}]
   def load_reports(dir \\ @reports_dir) do
     case File.ls(dir) do
@@ -253,6 +259,9 @@ defmodule Conveyor.Eval.LiftDuel do
         |> Enum.map(
           &{Path.basename(&1, ".json"), dir |> Path.join(&1) |> File.read!() |> Jason.decode!()}
         )
+        |> Enum.filter(fn {_name, decoded} ->
+          is_map(decoded) and decoded["schema_version"] == @schema_version
+        end)
 
       {:error, _} ->
         []
