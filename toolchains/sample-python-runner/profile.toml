@@ -3,7 +3,7 @@ key = "sample-python-runner"
 image_ref = "ghcr.io/conveyor/sample-python-runner:2026-06-17"
 image_digest = "sha256:18be896c98e13585f4d2701490a5be39126ec1b14d429f72b5707b99516b5548"
 dependency_lock_refs = ["toolchains/sample-python-runner/requirements.lock"]
-dependency_lock_sha256 = "sha256:3bad749fa453aac70aa1fc476dc015126b4a97f1337be48cf286ef02732c3235"
+dependency_lock_sha256 = "sha256:3f56558bc4764fcbb7df9a506047997c0b1ea7e25ce80d82746a1dc16e52cce1"
 sbom_ref = "toolchains/sample-python-runner/sbom.cyclonedx.json"
 
 [toolchain_profile.cache_policy]

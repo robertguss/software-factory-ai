@@ -168,8 +168,10 @@ this — corrected.)_
 - [ ] **Parked rate < 15%** [provisional] **AND** an absolute cap of **≤ N judgment-items/day
   for one reviewer** at target plan size (set N from real M6 data — the solo-reviewer
   bandwidth assumption must be quantified, not assumed).
-- [ ] **Gate honesty:** `gate_canary` runs the **real** production stages (not `[]`) in CI
-  with **zero false-pass** on the labeled mutant set; integrity-discrimination in CI.
+- [ ] **Gate honesty:** `MutantGauntlet` runs the canary corpus through the real
+  `test_execution` stage in CI with a **zero false-pass** rate on the behavioral mutant set
+  (gated by `conveyor.eval.scorecard --gate`); integrity-discrimination in CI. _(Full
+  static-stage mutant coverage — policy/contract/run_check/code_quality — is M4.)_
 - [ ] **Survivability:** watchdog bounds every agent call; stuck slices are reaped/routed, not
   hung; a crashed run **resumes** from durable state.
 - [ ] **Demonstrated lift** on the differentiating axis (defects-caught / honest abstention,
@@ -193,16 +195,18 @@ Sizes are rough solo-dev T-shirts (**S** ≈ days · **M** ≈ 1–2 wks · **L*
 Make the instruments trustworthy, and **execute the [needs-run] claims** to confirm them.
 - Reproduce + fix the `eval.lift` crash. **Real cause:** `load_reports` decodes _all_ `.json`
   (incl. `usage.json`) as duel reports → filter by `schema_version` (not a "glob" fix).
-- Make `conveyor.gate_canary` run the **real** production stages in CI (today it runs `[]` — an
-  empty gate that passes everything).
+- **Gate honesty [w49f]:** retired the misleading `conveyor.gate_canary` mix task (it ran an
+  empty `[]` gate → "passed" everything). Real gate-honesty discrimination is `MutantGauntlet`
+  (canary corpus → real pytest → `test_execution` stage → real false-pass rate), already
+  CI-gated via `conveyor.eval.scorecard --gate`. Full static-stage coverage deferred to M4.
 - **Fix the P1 ledger-bypass bug [dr1m.1.1]:** the gate `:gate` transition always fails on the
   live path → a silent raw-write fallback **bypasses the state machine + ledger**. M1's
   "recorded-vs-replayed digest" and the whole evidence substrate are unreliable until this is
   fixed — so it is M0 scope, not deferred.
 - Reconcile contradictory docs [dr1m.10]; run the affected paths and tag every prior runtime
   claim verified or refuted.
-- **Exit:** green eval-lift in CI; gate_canary proves discrimination in CI; the [needs-run]
-  tags in this doc are resolved.
+- **Exit:** green eval-lift in CI; MutantGauntlet (behavioral) gate-discrimination CI-gated;
+  the empty-gate canary footgun removed; the [needs-run] tags in this doc are resolved.
 
 #### M1 — Join the seam: real agent through the production loop **(M) — KEYSTONE**
 - Run real Codex through `PlanRunner`/`SerialDriver` (6 stations + 4 gate stages + `Finalizer`)
@@ -245,7 +249,9 @@ Make the instruments trustworthy, and **execute the [needs-run] claims** to conf
 - **Network-isolated gate verification** (for hermeticity) — see D1: this needs a
   network-blocking sandbox; Docker is the wired path, but `unshare -n` / an egress policy is an
   alternative. _Distinct from agent isolation._
-- Re-validate honesty (real `gate_canary` + integrity-discrimination in CI).
+- Extend `MutantGauntlet` to the **static-stage** mutants (policy/contract/run_check/
+  code_quality — the `deferred_static_stage` cases) so the full canary corpus discriminates,
+  not just the behavioral subset; keep it CI-gated. Re-validate integrity-discrimination in CI.
 - **Exit:** the live gate measurably discriminates (zero false-pass on mutants); abstain fires
   for real; first-pass-gate-success + dispute-rate **measured** (meeting the §4 targets is
   owned by M2's rework + this milestone's gate work, iterated).

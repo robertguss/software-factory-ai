@@ -104,8 +104,8 @@ defmodule Conveyor.ThreatMatrixAudit do
       coverage: [
         {"test", "test/conveyor/run_gate_canary_test.exs",
          "Gate canary detects false-negative mutants."},
-        {"test", "test/mix/tasks/conveyor_gate_canary_test.exs",
-         "CLI exits with the canary/eval false-negative code."},
+        {"test", "test/conveyor/eval/mutant_gauntlet_test.exs",
+         "MutantGauntlet measures a real false-pass rate over the behavioral mutant corpus."},
         {"test", "test/conveyor/gate_canary_fixtures_test.exs",
          "Initial mutant corpus includes known-bad changes."}
       ]
