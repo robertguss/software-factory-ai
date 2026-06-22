@@ -36,10 +36,16 @@ defmodule Conveyor.Planning.SerialDriver do
   ]
 
   defmodule Result do
-    @moduledoc "Serial driver execution result."
+    @moduledoc """
+    Serial driver execution result.
+
+    `:passed` — every selected slice passed. `:partial` — the run carried on over
+    the dependency subgraph past ≥1 parked/skipped slice (M3 skip-and-continue):
+    independents completed, a parked slice's dependents were skipped.
+    """
 
     @type t :: %__MODULE__{
-            status: :passed | :halted,
+            status: :passed | :partial,
             order: [String.t()],
             events: [map()],
             report: map()
@@ -52,19 +58,37 @@ defmodule Conveyor.Planning.SerialDriver do
   @spec run!(map(), keyword()) :: Result.t()
   def run!(input, opts \\ []) when is_map(input) do
     work_graph = value(input, :work_graph) || input
-    selected_slice_ids = list(input, :selected_slice_ids)
-    order = topo_order(work_graph, selected_slice_ids)
+    # Dedup so a duplicated slice id can't run (and accept-commit) twice — do_topo
+    # keeps duplicates and a slice has no self-edge to block its own re-run.
+    selected_slice_ids = input |> list(:selected_slice_ids) |> Enum.uniq()
+    edges = work_edges(work_graph, selected_slice_ids)
+    order = do_topo(selected_slice_ids, edges, [])
 
-    {status, events} =
-      Enum.reduce_while(order, {:passed, []}, fn slice_key, {_status, events} ->
-        event = run_one!(slice_key, work_graph, length(events) + 1, opts)
-        next_events = events ++ [event]
+    # M3 skip-and-continue: a parked/failed slice no longer HALTS the run. We carry
+    # on over the dep subgraph — independent slices still run; a parked slice's
+    # transitive dependents are SKIPPED. A one-hop predecessor check suffices: topo
+    # order visits every execution_hard dependency before its dependents, so a slice
+    # blocked transitively always has a direct predecessor already in `blocked`.
+    #
+    # `agent_ran?` gates the per-slice workspace reset: we only reset once a prior
+    # slice's agent has actually run (and may have left an uncommitted parked tree).
+    # The FIRST agent run is never preceded by a reset, so a user's pre-run working
+    # tree is never destroyed — the reset is the loop's own between-slice cleanup.
+    {events, _blocked, _agent_ran?} =
+      order
+      |> Enum.with_index(1)
+      |> Enum.reduce({[], MapSet.new(), false}, fn {slice_key, sequence},
+                                                   {events, blocked, agent_ran?} ->
+        {event, ran_now?} =
+          case blocking_predecessors(slice_key, edges, blocked) do
+            [] -> run_one!(slice_key, work_graph, sequence, agent_ran?, opts)
+            blockers -> {skipped_event(slice_key, sequence, blockers), false}
+          end
 
-        if event["status"] == "passed" do
-          {:cont, {:passed, next_events}}
-        else
-          {:halt, {:halted, next_events}}
-        end
+        next_blocked =
+          if event["status"] == "passed", do: blocked, else: MapSet.put(blocked, slice_key)
+
+        {events ++ [event], next_blocked, agent_ran? or ran_now?}
       end)
 
     report =
@@ -75,7 +99,37 @@ defmodule Conveyor.Planning.SerialDriver do
       })
       |> Map.merge(replay_report(order, events))
 
-    %Result{status: status, order: order, events: events, report: report}
+    %Result{status: run_status(events), order: order, events: events, report: report}
+  end
+
+  # All-passed => :passed; any park/skip => :partial (the run advanced but did not
+  # complete every slice). The run never bails early — the whole order is processed.
+  defp run_status(events) do
+    if Enum.all?(events, &(&1["status"] == "passed")), do: :passed, else: :partial
+  end
+
+  # Direct execution_hard predecessors of `slice_key` that are already blocked
+  # (parked or skipped). Non-empty => this slice is skipped.
+  defp blocking_predecessors(slice_key, edges, blocked) do
+    edges
+    |> Enum.filter(fn edge ->
+      value(edge, :to) == slice_key and MapSet.member?(blocked, value(edge, :from))
+    end)
+    |> Enum.map(&value(&1, :from))
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  defp skipped_event(slice_key, sequence, blockers) do
+    %{
+      "slice_id" => slice_key,
+      "sequence" => sequence,
+      "status" => "skipped",
+      "gate_result" => "skipped_upstream_parked",
+      "run_attempt_outcome" => :skipped,
+      "findings" => [],
+      "blocked_by" => blockers
+    }
   end
 
   defp replay_report(order, events) do
@@ -108,22 +162,34 @@ defmodule Conveyor.Planning.SerialDriver do
     }
   end
 
-  defp run_one!(slice_key, work_graph, sequence, opts) do
+  # Returns {event, agent_ran?}. `agent_ran?` is true only when the slice's agent
+  # actually executed (so it may have left an uncommitted tree); an interrogation
+  # preflight park returns false (it touches nothing). `reset?` says whether a PRIOR
+  # slice's agent already ran — only then do we reset this slice's workspace to base.
+  defp run_one!(slice_key, work_graph, sequence, reset?, opts) do
     single_slice_graph = single_slice_graph!(work_graph, slice_key)
 
     case interrogate_slice(slice_key, single_slice_graph, sequence, opts) do
       {:park, event} ->
-        event
+        {event, false}
 
       :continue ->
         run_spec = assemble_run_spec!(slice_key, single_slice_graph, opts)
+        # M3 isolation: start this slice from the last ACCEPTED commit, discarding
+        # any uncommitted leftovers from a prior parked slice so an independent slice
+        # never builds on a half-applied/parked tree (no-op when the tree is clean;
+        # skipped on the first agent run to protect the user's pre-run tree).
+        if reset?, do: reset_workspace_to_base!(run_spec, opts)
         run_attempt = create_run_attempt!(run_spec, opts)
 
-        if rework_enabled?(opts) do
-          run_one_with_rework!(slice_key, sequence, run_spec, run_attempt, opts)
-        else
-          run_one_single_attempt!(slice_key, sequence, run_spec, run_attempt, opts)
-        end
+        event =
+          if rework_enabled?(opts) do
+            run_one_with_rework!(slice_key, sequence, run_spec, run_attempt, opts)
+          else
+            run_one_single_attempt!(slice_key, sequence, run_spec, run_attempt, opts)
+          end
+
+        {event, true}
     end
   end
 
@@ -441,6 +507,38 @@ defmodule Conveyor.Planning.SerialDriver do
 
   defp trust_evidence(_slice_result), do: nil
 
+  # M3 isolation: reset the shared workspace tree to the last accepted commit (HEAD)
+  # before a slice runs, discarding any uncommitted changes a prior PARKED slice left
+  # behind. Injectable (`:reset_workspace_base`) and a no-op when there is no
+  # workspace (map-fake unit tests) or the tree is already clean (accepted slices
+  # committed, so HEAD already holds their work).
+  defp reset_workspace_to_base!(run_spec, opts) do
+    case Keyword.get(opts, :reset_workspace_base) do
+      fun when is_function(fun, 1) ->
+        fun.(run_spec)
+
+      false ->
+        :ok
+
+      nil ->
+        default_reset_workspace_to_base!(run_spec)
+    end
+  end
+
+  defp default_reset_workspace_to_base!(run_spec) do
+    case workspace_path(run_spec) do
+      nil ->
+        :ok
+
+      workspace_path ->
+        git!(workspace_path, ["reset", "--hard", "HEAD"])
+        # Drop untracked, non-ignored files (e.g. a parked slice's new modules);
+        # ignored paths (venv, caches) are preserved (no -x).
+        git!(workspace_path, ["clean", "-fdq"])
+        :ok
+    end
+  end
+
   defp advance_workspace_base!(run_spec, slice_key, finalization, opts) do
     case Keyword.get(opts, :advance_workspace_base) do
       fun when is_function(fun, 3) ->
@@ -495,16 +593,21 @@ defmodule Conveyor.Planning.SerialDriver do
     end
   end
 
-  defp topo_order(work_graph, selected_slice_ids) do
+  # The execution_hard edges among the selected slices — used both to order the run
+  # (do_topo) and to compute skip cascades (blocking_predecessors), so skip follows
+  # the SAME edge kind that defines ordering (the one-hop==transitive-closure proof
+  # only holds for that kind). execution_hard means "B's code depends on A", which is
+  # what justifies skipping B when A parks; integration_order is a softer "integrate
+  # after" constraint that does not imply a build dependency, so it is intentionally
+  # excluded here. The ordering gap for integration_order is pre-existing; both are
+  # tracked for reconciliation in br 9z4r.1.
+  defp work_edges(work_graph, selected_slice_ids) do
     selected = MapSet.new(selected_slice_ids)
 
-    edges =
-      work_graph
-      |> list(:work_dependencies)
-      |> Enum.filter(&(value(&1, :kind) in ["execution_hard", :execution_hard]))
-      |> Enum.filter(&(value(&1, :from) in selected and value(&1, :to) in selected))
-
-    do_topo(selected_slice_ids, edges, [])
+    work_graph
+    |> list(:work_dependencies)
+    |> Enum.filter(&(value(&1, :kind) in ["execution_hard", :execution_hard]))
+    |> Enum.filter(&(value(&1, :from) in selected and value(&1, :to) in selected))
   end
 
   defp do_topo([], _edges, done), do: Enum.reverse(done)

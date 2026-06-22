@@ -78,7 +78,10 @@ defmodule Mix.Tasks.Conveyor.Run do
   defp adapter_name(adapter), do: inspect(adapter)
 
   defp exit_code(:passed), do: ExitCodes.fetch!(:success)
-  defp exit_code(:halted), do: ExitCodes.fetch!(:deterministic_gate_failed)
+  # M3: a :partial run advanced past ≥1 parked/skipped slice — non-zero so an
+  # unattended caller still treats "not fully green" as needs-attention. (Refining
+  # the parked-vs-hard-fail exit distinction is tracked in dr1m.6.1.)
+  defp exit_code(:partial), do: ExitCodes.fetch!(:deterministic_gate_failed)
 
   defp usage do
     "usage: mix conveyor.run PLAN.md [--adapter codex|reference_solution] [--workspace PATH]"

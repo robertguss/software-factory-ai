@@ -22,6 +22,9 @@ defmodule Conveyor.Planning.PilotExecution do
         "eventual_gate_success_rate" => count_eventual_success(events) / selected_count,
         "clarification_or_dispute_rate" =>
           count_clarification_or_dispute(events) / selected_count,
+        "passed_count" => count_status(events, "passed"),
+        "parked_count" => count_status(events, "parked"),
+        "skipped_count" => count_status(events, "skipped"),
         "context_miss_count" => count_finding(events, "context_miss"),
         "missing_obligation_or_interface_count" =>
           count_any_finding(events, ["missing_obligation", "missing_interface"]),
@@ -35,6 +38,9 @@ defmodule Conveyor.Planning.PilotExecution do
 
   defp count_gate(events, gate_result),
     do: Enum.count(events, &(value(&1, :gate_result) == gate_result))
+
+  defp count_status(events, status),
+    do: Enum.count(events, &(value(&1, :status) == status))
 
   defp count_eventual_success(events) do
     Enum.count(events, &(value(&1, :gate_result) in ["first_pass", "recovered"]))
