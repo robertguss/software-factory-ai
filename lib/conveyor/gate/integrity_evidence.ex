@@ -18,14 +18,13 @@ defmodule Conveyor.Gate.IntegrityEvidence do
 
   ## Remaining work (the producers — a dedicated pass)
 
-  This is the tested seam. What is NOT yet wired is the *collection* of probe
-  observations in the production loop (hermeticity from the sandbox/toolchain env,
-  source-mutation/mount-boundary from the diff, falsifier survival from the
-  contract's seeds, etc.) and the write of `output["integrity_verdict"]`. That
-  needs care: it must not change the asserted station sequence, and hermeticity
-  must only be asserted under a hermetic backend (docker) so local-backend runs
-  stay `not_assessed`/non-blocking. Until then this helper has no production
-  caller; calling it with `%{}` is a safe no-op verdict.
+  `Conveyor.Stations.Verify` now wires this helper in the production loop
+  (`verify.ex`), supplying the `hermeticity` + `source_mutation` observations. What
+  is NOT yet wired is the *collection* of the remaining probe observations
+  (mount-boundary from the diff, falsifier survival from the contract's seeds, etc.)
+  and, since hermeticity is only asserted under a hermetic backend (docker),
+  local-backend runs keep most probes `not_assessed`/non-blocking. Completing the
+  full producer set is M4. Calling this helper with `%{}` is a safe no-op verdict.
   """
 
   alias Conveyor.Verification.IntegritySentinel
