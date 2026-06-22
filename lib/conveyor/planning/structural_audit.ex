@@ -25,6 +25,32 @@ defmodule Conveyor.Planning.StructuralAudit do
     defstruct [:status, :findings]
   end
 
+  # The canonical set of rule keys `audit/1` can emit. Exposed as the single
+  # source of truth so downstream routing (ADR-26 `AmendmentRouter`) classifies
+  # against the real finding shape instead of a hand-maintained guess. Every one
+  # is a contract defect (no code change satisfies it). The structural-audit and
+  # amendment-router tests guard this against drift from the `finding(...)` calls.
+  @rule_keys ~w(
+    missing_requirement_acceptance
+    orphan_acceptance_criterion
+    undefined_requirement_ref
+    missing_non_goals
+    missing_decisions
+    unmeasurable_acceptance
+    missing_oracle_path
+    contradictory_requirement
+    contradictory_enum
+    contradictory_status
+    contradictory_interface
+    contradictory_hard_constraint
+    source_map_mismatch
+    claim_subject_mismatch
+  )
+
+  @doc "The canonical rule keys `audit/1` can emit (each one is a contract defect)."
+  @spec rule_keys() :: [String.t()]
+  def rule_keys, do: @rule_keys
+
   @spec audit(map()) :: Result.t()
   def audit(contract) when is_map(contract) do
     normalized = normalize_keys(contract)
