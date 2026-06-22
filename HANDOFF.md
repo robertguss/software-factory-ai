@@ -1,7 +1,7 @@
 # Session Handoff — Conveyor (Phase 2 DONE: work_dependencies + a 2nd live plan)
 
 > Written 2026-06-22 for a fresh agent starting with a clean context window.
-> **This session: Phase 2 shipped on branch `feat/plan-work-deps-schema` (NOT merged).**
+> **This session: Phase 2 MERGED to `main` (PR #16 schema+gx, PR #17 codex token fix).**
 > The `work_dependencies` schema gap is fixed and the loop was proven LIVE on a NEW
 > hand-authored branching plan (`gx`) — including **independents proceeding past a
 > park** (the M3 headline the old linear fallback couldn't do).
@@ -26,9 +26,10 @@
 
 ## 2. Where things stand (2026-06-22)
 
-**M0–M3 ✅. Phase 2 ✅** — the `work_dependencies` schema gap is fixed + a 2nd hand-authored plan
-ran live through the production loop. **All on branch `feat/plan-work-deps-schema` (7 commits,
-NOT merged — Robert drives PR timing).** Default suite **874 green** (stable).
+**M0–M3 ✅. Phase 2 ✅ + MERGED** — the `work_dependencies` schema gap is fixed + a 2nd
+hand-authored plan ran live through the production loop. **Both branches merged to `main`:
+PR #16 (schema + `gx` sample) and PR #17 (codex token-spend persistence).** main green —
+default suite **874**.
 
 ### What was built + proven this session
 - **Schema fix** (`plan-schema-work-deps-2ho5`, CLOSED): optional `work_dependencies:[{from,to,kind}]`
@@ -49,10 +50,10 @@ NOT merged — Robert drives PR timing).** Default suite **874 green** (stable).
 
 ## 3. Findings to carry
 
-1. **Token spend is STILL not captured on `main`/this branch** — the fix lives on the unmerged
-   `feat/codex-token-observability` (handoff finding #1, last session). So the gx live runs have NO
-   token numbers (estimate ~570k tok/slice from the beads baseline). **Land that PR** to make
-   cost-per-verified-outcome real. **There are now TWO branches pending PR.**
+1. **Token spend now persists** (PR #17 merged: `agent_sessions.tokens`/`.cost_estimate`). The gx
+   live runs PREDATE the merge, so they have NO token numbers (estimate ~570k tok/slice from the
+   beads baseline) — any FUTURE live run will record real spend. Query the dev DB to confirm capture
+   on the next run; track cost-per-verified-outcome from here.
 2. **Generator defense-in-depth gaps** [`q8dz`]: the digest golden is in NO `protected_path_globs`
    (a golden edit is blocked only single-layer by DiffScope); locked tests sit in `allowed_path_globs`
    and skew `max_files_changed`. Not blocking (gx live was fine) — real hardening for `run_spec_assembler`.
@@ -63,13 +64,13 @@ NOT merged — Robert drives PR timing).** Default suite **874 green** (stable).
 
 ## 4. Next work — your call (recommend in this order)
 
-1. **Land the two pending PRs** when Robert says: `feat/plan-work-deps-schema` (this session) +
-   `feat/codex-token-observability` (token fix). Both clean, validated. Don't PR unless asked.
-2. **M4 — activate + finish the gate** (the next ROADMAP milestone; the load-bearing evidence step).
+> Both Phase-2 PRs are MERGED (#16, #17) — nothing pending to land.
+
+1. **M4 — activate + finish the gate** (the next ROADMAP milestone; the load-bearing evidence step).
    Today "green" = passes the 4-stage gate; M4 makes it false-pass-resistant (wire dormant
    IntegritySentinel producers, real abstain, `corpus_pass_rate`/`replay_divergence`, network-isolated
    gate, extend MutantGauntlet to static stages). This is net-new verifier completion, not wiring.
-3. **OR more Phase-2 stress** (cheaper, optional): a 2nd contrasting plan — a deep-PIPELINE shape
+2. **OR more Phase-2 stress** (cheaper, optional): a 2nd contrasting plan — a deep-PIPELINE shape
    (e.g. `calc`: tokenizer→parser→evaluator) to exercise a long cascade-skip, or a brownfield target.
    Robert deferred a 2nd plan this session (one done thoroughly).
 
@@ -110,12 +111,13 @@ PY
 
 ---
 
-## 6. Git state to reconcile
+## 6. Git state
 
-- `main`: M3 merged (`a1e4db4`). Clean.
-- **`feat/plan-work-deps-schema`** (current branch, 7 commits, local-only): schema fix + semantic
-  validation + 2 flake fixes + the whole `gx` sample. **Ready to PR.**
-- **`feat/codex-token-observability`** (2 commits, local-only): the token-persist fix. **Ready to PR.**
+- `main` (`a39ed69`): Phase 2 merged — **PR #16** (`feat/plan-work-deps-schema`: schema fix +
+  semantic validation + 2 flake fixes + the whole `gx` sample) and **PR #17**
+  (`feat/codex-token-observability`: token-persist fix, rebased to a single clean commit — its
+  stale `c1106a8` HANDOFF/`.beads` edits were dropped as already-superseded). Clean, 874 green.
+- The two merged feature branches still exist (local + remote); safe to delete.
 - M6 durable crash-recovery filed (`m6-crash-recovery-bzkr`).
 
 ---
