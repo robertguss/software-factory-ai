@@ -79,10 +79,12 @@ defmodule Conveyor.GateFinalizerTest do
     fixture = create_artifact_run!(blob_root: temp_dir!("gate-finalizer"))
     slice = get_by_id!(Slice, fixture.run_attempt.slice_id)
 
+    # Production reality: the station sequence ends at :evidence_recorded (there is no
+    # separate reviewer station), so finalization gates directly from there (dr1m.1.1).
     run_attempt =
       Ash.update!(
         fixture.run_attempt,
-        %{status: :reviewed, outcome: :none},
+        %{status: :evidence_recorded, outcome: :none},
         domain: Factory
       )
 
@@ -119,6 +121,29 @@ defmodule Conveyor.GateFinalizerTest do
     assert artifact.run_attempt_id == context.run_attempt.id
     assert artifact.subject_kind == "gate_result"
     assert artifact.projection_path =~ finalized.gate_result.id
+  end
+
+  test "drives the :gate state-machine transition + writes its ledger event (dr1m.1.1: no raw-write bypass)",
+       context do
+    result = Gate.run!(gate_context(context), [%{key: "pass", module: PassStage}])
+    Finalizer.finalize!(result, gate_context(context))
+
+    gate_event =
+      Conveyor.Factory.LedgerEvent
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(
+        &(&1.run_attempt_id == context.run_attempt.id and &1.type == "run_attempt.transitioned")
+      )
+      |> Enum.find(&(&1.payload["action"] == "gate"))
+
+    # Before the fix, transition_run_attempt used a raw `Ash.update!` (no lifecycle
+    # ledger event) and, from :evidence_recorded, the `:gate` action raised → silent
+    # status-only fallback. So this event was absent on every live finalization.
+    assert gate_event,
+           "expected a run_attempt.transitioned ledger event for the :gate transition"
+
+    assert gate_event.payload["previous_status"] == "evidence_recorded"
+    assert gate_event.payload["status"] == "gated"
   end
 
   test "policy failures record GateResult and policy-block the slice", context do

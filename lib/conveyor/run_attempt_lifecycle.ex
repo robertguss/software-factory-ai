@@ -21,7 +21,7 @@ defmodule Conveyor.RunAttemptLifecycle do
       context = context_for!(attempt.slice_id)
 
       {updated_attempt, notifications} =
-        Ash.update!(attempt, %{},
+        Ash.update!(attempt, Keyword.get(opts, :attrs, %{}),
           action: action,
           domain: Factory,
           return_notifications?: true

@@ -30,6 +30,7 @@ defmodule Conveyor.Factory.RunAttempt do
     end
 
     update :gate do
+      accept [:outcome]
       change transition_state(:gated)
     end
 
@@ -38,6 +39,7 @@ defmodule Conveyor.Factory.RunAttempt do
     end
 
     update :fail do
+      accept [:outcome, :failure_category]
       change transition_state(:failed)
     end
 
@@ -50,6 +52,7 @@ defmodule Conveyor.Factory.RunAttempt do
     end
 
     update :request_rework do
+      accept [:outcome, :failure_category]
       change transition_state(:needs_rework)
     end
 
@@ -228,7 +231,11 @@ defmodule Conveyor.Factory.RunAttempt do
       transition(:start, from: :planned, to: :running)
       transition(:record_evidence, from: :running, to: :evidence_recorded)
       transition(:review, from: :evidence_recorded, to: :reviewed)
-      transition(:gate, from: :reviewed, to: :gated)
+      # `:gate` is valid directly from :evidence_recorded: the production station
+      # sequence has no separate reviewer station (the Finalizer reviews + gates the
+      # recorded dossier in one step), so requiring :reviewed made `:gate` raise on
+      # every live finalization and silently fall back to a raw write (dr1m.1.1).
+      transition(:gate, from: [:reviewed, :evidence_recorded], to: :gated)
       transition(:report, from: :gated, to: :reported)
       transition(:fail, from: [:running, :evidence_recorded, :reviewed, :gated], to: :failed)
 

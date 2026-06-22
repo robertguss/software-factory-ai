@@ -12,6 +12,7 @@ defmodule Conveyor.Gate.Finalizer do
   alias Conveyor.Gate
   alias Conveyor.Gate.TrustScore
   alias Conveyor.Genome.BackEdge
+  alias Conveyor.RunAttemptLifecycle
   alias Conveyor.SliceLifecycle
   alias Conveyor.TrustBundle
 
@@ -195,24 +196,15 @@ defmodule Conveyor.Gate.Finalizer do
     ]
   end
 
-  defp transition_run_attempt(run_attempt, action, _actor, opts) do
-    attrs = Keyword.get(opts, :attrs, %{})
-
-    try do
-      Ash.update!(run_attempt, attrs, action: action, domain: Factory)
-    rescue
-      _error ->
-        Ash.update!(
-          run_attempt,
-          Map.merge(attrs, status_for_action(action)),
-          domain: Factory
-        )
-    end
+  # Drive the guarded RunAttempt state-machine transition AND its `run_attempt.transitioned`
+  # ledger event (dr1m.1.1). This previously used a raw `Ash.update!` with a blanket rescue
+  # that fell back to a status-only write — bypassing the state machine + ledger on every
+  # live gate finalization (the production attempt is :evidence_recorded, and the old
+  # `:gate` transition required :reviewed, so the action raised every time) and swallowing
+  # any real error. Routing through the lifecycle wrapper restores both; errors now surface.
+  defp transition_run_attempt(run_attempt, action, actor, opts) do
+    RunAttemptLifecycle.transition!(run_attempt, action, Keyword.put(opts, :actor, actor))
   end
-
-  defp status_for_action(:gate), do: %{status: :gated}
-  defp status_for_action(:fail), do: %{status: :failed}
-  defp status_for_action(:request_rework), do: %{status: :needs_rework}
 
   defp transition_slice(slice, action, actor, reason) do
     SliceLifecycle.transition!(slice, action, actor: actor, reason: reason)
