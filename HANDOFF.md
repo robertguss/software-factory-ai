@@ -1,148 +1,139 @@
-# Session Handoff — Conveyor (next up: M3 Phase 2 — live stress on hand-authored plans)
+# Session Handoff — Conveyor (Phase 2 DONE: work_dependencies + a 2nd live plan)
 
 > Written 2026-06-22 for a fresh agent starting with a clean context window.
-> **Previous session: M3 shipped + merged (PR #15), then validated LIVE on Codex.**
-> **Next session's focus: Phase 2 — put the loop through its paces on NEW hand-authored plans.**
-> This doc orients you; it does not duplicate the ROADMAP, ADRs, PRs, commits, or the
-> auto-loaded memory — it points at them. Read the referenced sources before acting.
+> **This session: Phase 2 shipped on branch `feat/plan-work-deps-schema` (NOT merged).**
+> The `work_dependencies` schema gap is fixed and the loop was proven LIVE on a NEW
+> hand-authored branching plan (`gx`) — including **independents proceeding past a
+> park** (the M3 headline the old linear fallback couldn't do).
+> This doc orients you; it points at the sources — read them before acting.
 
 ---
 
 ## 1. Read these first (source of truth — do not re-derive)
 
-- **Auto-memory** (`MEMORY.md` → `conveyor-roadmap-and-state.md`) — has the full M3 + **M3 LIVE
-  VALIDATION** write-up (survivability, findings, token spend). Start there.
-- **`ROADMAP.md`** (v2) + **`ROADMAP-REVIEW.md`** — the milestone spine. M3 = epic `9z4r`.
-- **`HUMAN.md`** (Robert's operating manual — auto-loaded) and `~/.claude/CLAUDE.md` (global, incl.
-  the notification webhook — **token lives there; never inline it**).
-- **`br`**: `br ready`, `br show <id>`, `br list`. New this session: `plan-schema-work-deps-2ho5`,
-  `m6-crash-recovery-bzkr`, `9z4r.1`.
-- **PR #15** (merged) = M3 skip-and-continue + reset-on-park. Read its body + the commits on `main`.
+- **Auto-memory** (`MEMORY.md` → `conveyor-roadmap-and-state.md`) — has the full **PHASE 2**
+  write-up (schema fix, the `gx` sample, the 4-agent pre-flight review, the LIVE results).
+  Start there.
+- **`ROADMAP.md`** (v2) + **`ROADMAP-REVIEW.md`** — the milestone spine. M0–M3 ✅; next is **M4**
+  (activate + finish the gate — the heaviest, net-new verifier completion).
+- **`HUMAN.md`** (auto-loaded) + `~/.claude/CLAUDE.md` (global; notification webhook token —
+  **never inline it**).
+- **`br`**: `br ready`, `br show <id>`. New this session: `q8dz`, `r7wa`, `hx41` (review follow-ups).
+- **`samples/gx/`** — the new sample. Mirror of `samples/beads_insight/` structure, different
+  domain (directed-graph algorithms) + a real branching `work_dependencies` graph.
 
 ---
 
 ## 2. Where things stand (2026-06-22)
 
-**M0–M2 ✅, M3 ✅ done + merged (PR #15), and M3 survivability proven LIVE.** All M3 code on `main`.
+**M0–M3 ✅. Phase 2 ✅** — the `work_dependencies` schema gap is fixed + a 2nd hand-authored plan
+ran live through the production loop. **All on branch `feat/plan-work-deps-schema` (7 commits,
+NOT merged — Robert drives PR timing).** Default suite **874 green** (stable).
 
-M3 delivered: **skip-and-continue** over the dep subgraph (a parked slice no longer halts; dependents
-skip; new `:partial` status) + **lean reset-on-park** isolation. Adversarial review caught a data-loss
-blocker (first-slice reset) which was fixed. See PR #15.
-
-### The live validation (the headline of last session)
-Robert: *"put it through its paces using Codex and live token spend."* **5 live `mix conveyor.run
---adapter codex`** runs of the 7-slice Beads-Insight plan through the production loop:
-
-- **SURVIVABILITY = 5/5** — every run terminated cleanly, unattended, zero halt/hang. **3 green-complete**
-  (`:passed`, first_pass 1.0), **2 survived-park** (`:partial`).
-- **Agent green-rate = 3/4 clean runs (~75%)** — run #2's loader was a genuine stochastic Codex
-  gate-failure (NOT a timeout — Codex was responsive) that bounded rework couldn't recover → parked →
-  cascade-skip → `:partial`. The M2 watchdog + M3 skip-and-continue absorbed it cleanly.
-- **Induced failure proven LIVE** — an unsatisfiable locked test (`assert 1 == 2`) on velocity (SLICE-005):
-  Codex built 001-004 green, velocity parked (`acceptance_locked_failed`), 006-007 skipped → `:partial` (4/7).
-- **Token spend now visible** — ~**13.7M tokens / ~$18.57 est / ~570k tokens per slice** (estimated at
-  configured rates; actual marginal cost ~$0 on Robert's $200 ChatGPT/Codex sub).
-- **Bar chosen by Robert = SURVIVABILITY** (the loop is reliable even when the agent isn't), NOT strict
-  all-green. Honest caveat: "green" here = passes the 4-stage gate; **M4** is what makes green
-  false-pass-resistant.
+### What was built + proven this session
+- **Schema fix** (`plan-schema-work-deps-2ho5`, CLOSED): optional `work_dependencies:[{from,to,kind}]`
+  in `conveyor.plan@1` + `PlanContract` **semantic validation** (refs/self-loop/cycle → clean
+  `:invalid_work_dependencies` load error, not a mid-run `do_topo` crash). Also fixed 2 pre-existing
+  cross-run temp-dir flakes (artifact-store + plan_contract tests; same class as `353827e`).
+- **`samples/gx/`**: a 7-slice BRANCHING plan — loader (001) → 4 independent algo slices
+  (degrees/toposort/components/cycles 002-005) → digest (006) → json+determinism (007). Stubs +
+  RED locked tests + reference solution + `.conveyor/canary` per-slice patches.
+- **`$0` pre-flight**: `reference_solution` loop `:passed` 7/7 deterministic. A 4-agent adversarial
+  review (built venvs, mutated the reference) caught 3 real gaps BEFORE live tokens — all fixed
+  (the determinism test was blind to its #1 target; json content unasserted; the semantic validation).
+- **LIVE (`--adapter codex`), survivability 2/2:** happy path `:passed` **7/7** (first_pass 1.0);
+  induced (broke SLICE-003's locked test) `:partial` **4/7** — 003 parked, **004/005 proceeded past
+  the park**, 006/007 skip-cascade. Verified via `run_attempt.outcome` in the dev DB.
 
 ---
 
-## 3. Findings from the live validation (carry these)
+## 3. Findings to carry
 
-1. **Token spend was dropped before the DB write** → **FIXED** on branch `feat/codex-token-observability`
-   (commits `7c41004` token fix + `c1106a8` tracker). Adapter-test-validated + confirmed on a real run.
-   **NOT pushed / not PR'd** (Robert defers PR timing). **Action: PR this branch** (`gh pr create`)
-   when Robert says — it's a clean, validated win.
-2. **`conveyor.plan@1` schema forbids `work_dependencies`** [`br plan-schema-work-deps-2ho5`] — PlanRunner
-   *reads* it and the work_graph fully supports branches, but the JSON schema has
-   `additionalProperties:false`, so `PlanContract.load` rejects any plan that declares deps → forced into
-   the linear `chunk_every` fallback. **This BLOCKS Phase 2** (hand-authored plans can't express
-   independents/branches) and the richest live skip-and-continue demo. **Fix first** (add an optional
-   `work_dependencies` array `{from,to,kind}` to the plan@1 schema; low-risk — consumer already exists).
-3. **`reference_solution` rework re-applies the same canned patch** → "already applied" crash (the
-   carry-forward follow-up; reference-adapter-only — live Codex writes fresh each attempt, so it's fine
-   on the `--adapter codex` path).
+1. **Token spend is STILL not captured on `main`/this branch** — the fix lives on the unmerged
+   `feat/codex-token-observability` (handoff finding #1, last session). So the gx live runs have NO
+   token numbers (estimate ~570k tok/slice from the beads baseline). **Land that PR** to make
+   cost-per-verified-outcome real. **There are now TWO branches pending PR.**
+2. **Generator defense-in-depth gaps** [`q8dz`]: the digest golden is in NO `protected_path_globs`
+   (a golden edit is blocked only single-layer by DiffScope); locked tests sit in `allowed_path_globs`
+   and skew `max_files_changed`. Not blocking (gx live was fine) — real hardening for `run_spec_assembler`.
+3. **`advisory` kind enum drift** [`r7wa`, low]; **`integration_order` is inert** in SerialDriver
+   [`9z4r.1`, pre-existing]; **gx edge-case fixtures + a `$0` skip eval test** [`hx41`, low].
 
 ---
 
-## 4. Phase 2 — the next work (your job)
+## 4. Next work — your call (recommend in this order)
 
-**Goal (Robert's choice): stress the live loop on NEW hand-authored plans to find where it breaks.**
-M3's survivability bar is met; Phase 2 is exploratory hardening on fresh substrate.
+1. **Land the two pending PRs** when Robert says: `feat/plan-work-deps-schema` (this session) +
+   `feat/codex-token-observability` (token fix). Both clean, validated. Don't PR unless asked.
+2. **M4 — activate + finish the gate** (the next ROADMAP milestone; the load-bearing evidence step).
+   Today "green" = passes the 4-stage gate; M4 makes it false-pass-resistant (wire dormant
+   IntegritySentinel producers, real abstain, `corpus_pass_rate`/`replay_divergence`, network-isolated
+   gate, extend MutantGauntlet to static stages). This is net-new verifier completion, not wiring.
+3. **OR more Phase-2 stress** (cheaper, optional): a 2nd contrasting plan — a deep-PIPELINE shape
+   (e.g. `calc`: tokenizer→parser→evaluator) to exercise a long cascade-skip, or a brownfield target.
+   Robert deferred a 2nd plan this session (one done thoroughly).
 
-**Do this in order:**
-1. **Land the `work_dependencies` schema fix** (`plan-schema-work-deps-2ho5`) — prereq for any
-   branching plan. Then you can finally show **independents proceeding past a park** LIVE (the M3
-   headline), which the linear fallback can't.
-2. **Author 1–2 NEW `conveyor.plan@1` plans** in a *different* domain/shape (decomposition is M5, so you
-   hand-write the contracts). Keep them **Python + pytest acceptance** (the gate's `test_execution` stage
-   + the venv builder expect that). Mirror `samples/beads_insight/`'s structure (`conveyor.plan.yml` +
-   `src/` + `tests/` + `requirements.lock` + locked acceptance tests).
-3. **Run them live** (`--adapter codex`), measuring **survivability** (terminate clean) + green-rate +
-   token spend. Induce failures (unsatisfiable locked test) to exercise skip-and-continue on a real
-   branch. Report findings (expect to surface more gaps — that's the point).
-
-**Honest stance to keep:** live Codex is stochastic (~75% green on the EASY Beads task). Don't chase
-"all-green"; certify **survivability** + report green-rate as the agent-reliability signal. A
-subtly-wrong-but-tests-pass slice still slips through until **M4** activates the gate.
+**Honest stance:** live Codex is stochastic; certify SURVIVABILITY + report green-rate. gx happy path
+hit 7/7 first-pass (the strengthened locked tests held), but don't assume that repeats — run N times
+if you want a green-rate. A subtly-wrong-but-tests-pass slice still slips until **M4**.
 
 ---
 
 ## 5. Build / verify / run commands
 
 ```bash
-mix test --exclude eval --seed 0                 # default CI suite (~868 tests)
+mix test --exclude eval --seed 0                 # default CI suite (~874 tests)
 mix test <files> --include eval --seed 0         # real-pytest :eval tests
 mix format --check-formatted
 MIX_ENV=test mix compile --warnings-as-errors
 
-# LIVE run recipe (codex is authed to Robert's ChatGPT sub; ~15-45 min for 7 slices):
-WS="${TMPDIR}/conveyor-live-$(date +%s)"
-rsync -a --exclude .venv --exclude .pytest_cache --exclude __pycache__ --exclude .git \
-  samples/beads_insight/ "$WS/"
-git -C "$WS" init -q -b main && git -C "$WS" add -A \
-  && git -C "$WS" -c user.email=c@e.test -c user.name=c commit -qm base
-mix conveyor.run "$WS/conveyor.plan.yml" --adapter codex --workspace "$WS"   # live Codex
-mix conveyor.run "$WS/conveyor.plan.yml" --adapter reference_solution --workspace "$WS"  # $0 harness smoke
+# $0 harness smoke (deterministic, no tokens) — gx or beads:
+WS="${TMPDIR}gx-ref-$(date +%s)"
+rsync -a --exclude .venv --exclude .pytest_cache --exclude __pycache__ --exclude .git samples/gx/ "$WS/"
+git -C "$WS" init -q -b main && git -C "$WS" add -A && git -C "$WS" -c user.email=c@e.test -c user.name=c commit -qm base
+MIX_ENV=dev mix conveyor.run "$WS/conveyor.plan.yml" --adapter reference_solution --workspace "$WS"
 
-# Induce a deterministic LIVE park (unsatisfiable locked test):
-python3 -c "p='$WS/tests/test_velocity.py'; s=open(p).read(); \
-  s=s.replace('def test_weekly_buckets_as_of():\n','def test_weekly_buckets_as_of():\n    assert 1 == 2\n',1); \
-  open(p,'w').write(s)"
+# LIVE (codex authed to Robert's ChatGPT sub; ~15-45 min for 7 slices):
+MIX_ENV=dev mix conveyor.run "$WS/conveyor.plan.yml" --adapter codex --workspace "$WS"
+
+# Induce a deterministic LIVE park (break a slice's locked test so no impl can pass):
+python3 - "$WS/tests/test_toposort.py" <<'PY'
+import re,sys; p=sys.argv[1]; s=open(p).read()
+s=re.sub(r'(def test_topological_order_dag\(\):\n)', r'\1    assert 1 == 2\n', s, count=1)
+open(p,'w').write(s)
+PY
 ```
-- The gate auto-builds a venv from the workspace's `requirements.lock` (cached in `$TMPDIR/conveyor_eval_venv_*`).
 - `mix conveyor.run` exits **non-zero on `:partial`** (correct) — don't `set -e` a run-loop on it.
-- Token/cost are now on `agent_sessions.tokens` / `.cost_estimate` (query the dev DB).
-- Run state lands in the **dev DB** (real Ash records). Temp workspaces accumulate in `$TMPDIR/conveyor-*`.
+- Skipped slices stay `drafted` (nil outcome); parked = `needs_rework`; passed = run_attempt
+  `outcome="accepted"` (slice.state stays `ready`). Query the **dev DB** for ground truth.
+- The gate auto-builds a venv from `requirements.lock` (cached in `$TMPDIR/conveyor_eval_venv_*`).
 
 ---
 
 ## 6. Git state to reconcile
 
 - `main`: M3 merged (`a1e4db4`). Clean.
-- `feat/codex-token-observability`: **2 commits ahead, local-only** — token fix (`7c41004`) + tracker
-  chore (`c1106a8`). **Ready to PR** when Robert asks. (The working tree is currently on this branch.)
-- M6 durable crash-recovery is filed (`m6-crash-recovery-bzkr`); M3 resumability was folded into it.
+- **`feat/plan-work-deps-schema`** (current branch, 7 commits, local-only): schema fix + semantic
+  validation + 2 flake fixes + the whole `gx` sample. **Ready to PR.**
+- **`feat/codex-token-observability`** (2 commits, local-only): the token-persist fix. **Ready to PR.**
+- M6 durable crash-recovery filed (`m6-crash-recovery-bzkr`).
 
 ---
 
 ## 7. How to work with Robert (see `HUMAN.md`)
 
 - **True partner, not a yes-man** — push back; hunt for flaws; be the brake on complexity.
-- **Planning/deciding → tight & interactive, one question at a time** until ~95% confident. **Executing →
-  autonomous, milestone-by-milestone**, green commit per milestone, brief pause at boundaries.
-- **Truth over optimism** — verify, don't assert (last session caught a data-loss blocker + a vacuous
-  test this way; the live runs surfaced real findings, not a green-rubber-stamp).
-- **Cost:** Robert is **not** worried about Codex spend (his $200 sub) — he WANTS live runs. Track
-  cost-per-verified-outcome as a metric, not a constraint.
-- **Git discipline:** don't commit/push/PR unless asked; branch off `main`; commit trailer ends with
+- **Planning → tight & interactive, one question at a time; executing → autonomous milestone-by-milestone**,
+  green commit per milestone, brief pause at boundaries.
+- **Truth over optimism — verify, don't assert** (this session: the `$0` pre-flight caught a
+  locked-path block + a vacuous determinism test before any tokens; the live skip-cascade was
+  confirmed from `run_attempt.outcome`, not assumed).
+- **Cost:** Robert WANTS live runs (his $200 sub); track cost-per-verified-outcome as a metric.
+- **Git:** don't commit/push/PR unless asked; branch off `main`; commit trailer ends with
   `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`; PR bodies end with the
   Claude Code generation line.
-- **Notifications:** on done/blocked/needs-input, POST the getmoshi webhook in `~/.claude/CLAUDE.md`
-  (this session's plugin redirects Bash `curl` — send via the context-mode sandbox / `ctx_execute`).
-  **Token is in CLAUDE.md — never copy it into a file.**
+- **Notifications:** on done/blocked/needs-input, POST the getmoshi webhook (token in `~/.claude/CLAUDE.md`
+  — never copy it into a file).
 
-**First action next session:** re-orient from the `conveyor-roadmap-and-state` memory (has the live
-results) + `br ready`, confirm PR #15 is on `main`, then start Phase 2 by landing the
-`work_dependencies` schema fix (`plan-schema-work-deps-2ho5`) before authoring the new plans.
+**First action next session:** re-orient from `conveyor-roadmap-and-state` (has the Phase-2 results)
++ `br ready`; confirm the two branches above; then either land the PRs (ask Robert) or start **M4**.
