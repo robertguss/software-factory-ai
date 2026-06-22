@@ -1,7 +1,7 @@
-diff --git a/src/br_insight/commands/epics.py b/src/br_insight/commands/epics.py
+diff --git a/samples/beads_insight/src/br_insight/commands/epics.py b/samples/beads_insight/src/br_insight/commands/epics.py
 index 759ccf1..f65f786 100644
---- a/src/br_insight/commands/epics.py
-+++ b/src/br_insight/commands/epics.py
+--- a/samples/beads_insight/src/br_insight/commands/epics.py
++++ b/samples/beads_insight/src/br_insight/commands/epics.py
 @@ -8,13 +8,104 @@ Sorted by epic id.
  
  from __future__ import annotations

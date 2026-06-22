@@ -1,7 +1,7 @@
-diff --git a/src/br_insight/commands/ready.py b/src/br_insight/commands/ready.py
+diff --git a/samples/beads_insight/src/br_insight/commands/ready.py b/samples/beads_insight/src/br_insight/commands/ready.py
 index c866299..ee139e4 100644
---- a/src/br_insight/commands/ready.py
-+++ b/src/br_insight/commands/ready.py
+--- a/samples/beads_insight/src/br_insight/commands/ready.py
++++ b/samples/beads_insight/src/br_insight/commands/ready.py
 @@ -7,13 +7,53 @@ Output is sorted by ``(priority asc, id asc)``.
  
  from __future__ import annotations
@@ -58,10 +58,10 @@ index c866299..ee139e4 100644
 +        return "\n".join(lines) + "\n"
 +
 +    raise ValueError(f"unsupported format: {fmt}")
-diff --git a/src/br_insight/report.py b/src/br_insight/report.py
+diff --git a/samples/beads_insight/src/br_insight/report.py b/samples/beads_insight/src/br_insight/report.py
 index a242d3c..e7888f1 100644
---- a/src/br_insight/report.py
-+++ b/src/br_insight/report.py
+--- a/samples/beads_insight/src/br_insight/report.py
++++ b/samples/beads_insight/src/br_insight/report.py
 @@ -23,9 +23,19 @@ __all__ = ["SCHEMA_VERSION", "build_envelope"]
  SCHEMA_VERSION = "br_insight.report@1"
  

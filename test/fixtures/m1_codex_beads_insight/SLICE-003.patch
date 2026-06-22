@@ -1,7 +1,7 @@
-diff --git a/src/br_insight/commands/cycles.py b/src/br_insight/commands/cycles.py
+diff --git a/samples/beads_insight/src/br_insight/commands/cycles.py b/samples/beads_insight/src/br_insight/commands/cycles.py
 index 1149235..d8d178c 100644
---- a/src/br_insight/commands/cycles.py
-+++ b/src/br_insight/commands/cycles.py
+--- a/samples/beads_insight/src/br_insight/commands/cycles.py
++++ b/samples/beads_insight/src/br_insight/commands/cycles.py
 @@ -8,18 +8,66 @@ reports zero cycles and exits ``0``.
  
  from __future__ import annotations

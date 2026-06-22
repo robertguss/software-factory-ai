@@ -1,7 +1,7 @@
-diff --git a/src/br_insight/commands/digest.py b/src/br_insight/commands/digest.py
+diff --git a/samples/beads_insight/src/br_insight/commands/digest.py b/samples/beads_insight/src/br_insight/commands/digest.py
 index 3c1b65b..0f4186b 100644
---- a/src/br_insight/commands/digest.py
-+++ b/src/br_insight/commands/digest.py
+--- a/samples/beads_insight/src/br_insight/commands/digest.py
++++ b/samples/beads_insight/src/br_insight/commands/digest.py
 @@ -7,13 +7,98 @@ byte-stable across runs and processes.
  
  from __future__ import annotations

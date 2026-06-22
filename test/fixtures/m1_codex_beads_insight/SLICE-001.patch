@@ -1,7 +1,7 @@
-diff --git a/src/br_insight/clock.py b/src/br_insight/clock.py
+diff --git a/samples/beads_insight/src/br_insight/clock.py b/samples/beads_insight/src/br_insight/clock.py
 index 295bfbc..e7842af 100644
---- a/src/br_insight/clock.py
-+++ b/src/br_insight/clock.py
+--- a/samples/beads_insight/src/br_insight/clock.py
++++ b/samples/beads_insight/src/br_insight/clock.py
 @@ -10,14 +10,18 @@ timezone-aware :class:`datetime`; a malformed value raises so the CLI exits ``2`
  
  from __future__ import annotations
@@ -25,10 +25,10 @@ index 295bfbc..e7842af 100644
 +    if parsed.tzinfo != timezone.utc:
 +        raise ValueError("expected UTC timestamp")
 +    return parsed
-diff --git a/src/br_insight/loader.py b/src/br_insight/loader.py
+diff --git a/samples/beads_insight/src/br_insight/loader.py b/samples/beads_insight/src/br_insight/loader.py
 index d658bd3..59a2292 100644
---- a/src/br_insight/loader.py
-+++ b/src/br_insight/loader.py
+--- a/samples/beads_insight/src/br_insight/loader.py
++++ b/samples/beads_insight/src/br_insight/loader.py
 @@ -14,7 +14,10 @@ This is left unimplemented on the seed so the acceptance tests are RED.
  
  from __future__ import annotations

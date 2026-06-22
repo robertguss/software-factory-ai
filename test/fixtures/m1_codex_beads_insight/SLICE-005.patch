@@ -1,7 +1,7 @@
-diff --git a/src/br_insight/commands/velocity.py b/src/br_insight/commands/velocity.py
+diff --git a/samples/beads_insight/src/br_insight/commands/velocity.py b/samples/beads_insight/src/br_insight/commands/velocity.py
 index 3c6af16..d5eff8c 100644
---- a/src/br_insight/commands/velocity.py
-+++ b/src/br_insight/commands/velocity.py
+--- a/samples/beads_insight/src/br_insight/commands/velocity.py
++++ b/samples/beads_insight/src/br_insight/commands/velocity.py
 @@ -8,13 +8,71 @@ boundary lands in the newer bucket (start-inclusive).
  
  from __future__ import annotations
