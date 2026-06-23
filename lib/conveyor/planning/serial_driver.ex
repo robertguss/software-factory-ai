@@ -28,15 +28,21 @@ defmodule Conveyor.Planning.SerialDriver do
   alias Conveyor.Planning.RunSpecAssembler
   alias Conveyor.RunSlice
 
-  # M4-E: the static gate stages wired live on the production path. policy_compliance and
-  # acceptance_mapping are required — both pass for the reference (it touches no
-  # policy-controlled paths, and every acceptance criterion's required tests are run and
-  # green), and both enforce in production: a forbidden policy edit blocks, and a slice whose
-  # acceptance criterion lacks passing evidence for a required test blocks. acceptance_mapping
-  # reads agent_brief + verification_result, both already in default_gate_context, so it needs
-  # no new producer. Other static stages (workspace_integrity, code_quality_delta, …) stay
-  # unwired until their producers exist (head_tree digest, analyzer results, …).
+  # M4-E: the static gate stages wired live on the production path, each gated on the green
+  # reference. workspace_integrity, policy_compliance and acceptance_mapping are required —
+  # all pass for the reference and all enforce in production:
+  #   - workspace_integrity: base_commit match + clean apply + no locked-path touch + a
+  #     recorded head-tree digest. base_commit is clean by construction (PatchSet.base_commit
+  #     = run_attempt.base_commit) and the head-tree digest is produced here (the dormant
+  #     PatchSetApplicator producer is never called in the live loop), so a real
+  #     base/workspace tampering blocks.
+  #   - policy_compliance: a forbidden policy-controlled-path edit blocks.
+  #   - acceptance_mapping: a slice whose criterion lacks passing evidence for a required
+  #     test blocks; reads agent_brief + verification_result, already in the context.
+  # Other static stages (code_quality_delta, observed_risk, …) stay unwired until their
+  # producers exist (analyzer results, review policy, …).
   @default_gate_stages [
+    Conveyor.Gate.Stages.WorkspaceIntegrity,
     Conveyor.Gate.Stages.ContractLock,
     Conveyor.Gate.Stages.DiffScope,
     Conveyor.Gate.Stages.SecretSafety,
@@ -405,12 +411,50 @@ defmodule Conveyor.Planning.SerialDriver do
       contract_lock: contract.contract_lock,
       diff_policy: diff_policy_for(run_attempt.slice_id),
       evidence: evidence,
+      head_tree_sha256: gate_head_tree_sha256(run_spec),
       patch_set: patch_set,
       security_findings: value(slice_result.output, :security_findings, []),
       test_pack: contract.test_pack
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
+  end
+
+  # M4-E producer for workspace_integrity: a non-mutating head-tree digest of the live
+  # workspace at gate time. The dormant PatchSetApplicator producer (which would persist
+  # run_attempt.head_tree_sha256) is never called in the production loop, so the digest is
+  # computed here from the implement-station workspace. Staging happens in a throwaway index
+  # (GIT_INDEX_FILE) so the real index stays clean for the later commit_workspace_changes! /
+  # reset; `git add -A` respects .gitignore, so volatile ignored paths (venv, pytest caches)
+  # are excluded and the digest is deterministic across a run and its replay (git trees are
+  # content-addressed, so an identical post-patch tree yields an identical digest).
+  defp gate_head_tree_sha256(run_spec) do
+    case workspace_path(run_spec) do
+      nil -> nil
+      workspace_path -> head_tree_digest(workspace_path)
+    end
+  end
+
+  defp head_tree_digest(workspace_path) do
+    tmp_index =
+      Path.join(System.tmp_dir!(), "conveyor-gate-index-#{System.unique_integer([:positive])}")
+
+    env = [{"GIT_INDEX_FILE", tmp_index}]
+
+    try do
+      with {_add, 0} <- git_cmd(workspace_path, ["add", "-A"], env),
+           {tree, 0} <- git_cmd(workspace_path, ["write-tree"], env) do
+        digest(String.trim(tree))
+      else
+        _ -> nil
+      end
+    after
+      File.rm(tmp_index)
+    end
+  end
+
+  defp git_cmd(workspace_path, args, env) do
+    System.cmd("git", ["-C", workspace_path | args], env: env, stderr_to_stdout: true)
   end
 
   defp extra_gate_context(run_spec, run_attempt, slice_result, opts) do

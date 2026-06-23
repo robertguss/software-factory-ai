@@ -101,12 +101,14 @@ defmodule Conveyor.FirstLightSerialDriverTest do
     assert length(gate_results) == 7
     assert Enum.all?(gate_results, & &1.passed)
 
-    # M4-E: policy_compliance and acceptance_mapping are wired live as required stages. The
-    # reference touches no policy-controlled paths (policy_compliance passes), and every
-    # acceptance criterion's required tests are run and green (acceptance_mapping passes); a
-    # forbidden policy edit or a missing required-test evidence would block.
+    # M4-E: workspace_integrity, policy_compliance and acceptance_mapping are wired live as
+    # required stages. The reference applies cleanly to a matching base, touches no
+    # policy-controlled paths, and runs every acceptance criterion's required tests green —
+    # so all pass; a base/workspace tamper, a forbidden policy edit, or a missing required-test
+    # evidence would block.
     assert Enum.all?(gate_results, fn gate_result ->
              Enum.map(gate_result.stages, & &1["key"]) == [
+               "workspace_integrity",
                "contract_lock",
                "diff_scope",
                "secret_safety",
@@ -115,6 +117,16 @@ defmodule Conveyor.FirstLightSerialDriverTest do
                "acceptance_mapping"
              ]
            end)
+
+    # The head-tree producer ran on the live path: workspace_integrity recorded a non-nil
+    # head_tree_sha256 digest for every accepted slice (proving it was not the dormant
+    # run_attempt.head_tree_sha256, which is never populated in production).
+    for gate_result <- gate_results do
+      workspace_stage = Enum.find(gate_result.stages, &(&1["key"] == "workspace_integrity"))
+      assert workspace_stage["status"] == "passed"
+      head_tree = get_in(workspace_stage, ["input_digests", "head_tree_sha256"])
+      assert is_binary(head_tree) and String.starts_with?(head_tree, "sha256:")
+    end
 
     assert actual_test_refs_by_slice(fixture.slices_by_stable_key) == fixture.expected_test_refs
 
