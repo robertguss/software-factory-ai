@@ -1,13 +1,20 @@
 # M4 — Activate the trust gate: progress & blockers
 
-> Branch `m4-gate-honesty` / PR #19. Status as of the overnight 2026-06-23
-> session. This is the deterministic "A-first" slice of M4 (no live-agent runs).
-> It is **partial by design**: the keystone de-laundering landed, but the
-> producer fail-closed _flips_ (baseline, calibration) are **blocked on
-> corpus-readiness work** the recovered M4 plan itself says must be done first
-> ("STOP AND FIX THE CORPUS"). See §3.
+> Branch `m4-gate-honesty` **merged to `main`** (PR #19, merge `3bca611`, 23
+> commits), 2026-06-23. M4 is **substantially in progress — partial by design.**
+> Landed: the keystone de-laundering (so **abstain now fires on the live
+> path**), **real** acceptance calibration (isolated base git-worktree),
+> un-laundered `:local` integrity, un-laundered replay + OD19 cold-start
+> renormalization, an empty acceptance suite fails the gate, and **3 static gate
+> stages wired live as required** (the production gate now runs **7**, was 4).
+> What remains: the real **replay-divergence** + **`corpus_pass_rate`**
+> producers, the **6 unwired static stages** (each needs a producer —
+> `br jmnt`), and the docker hermetic / network-isolated gate. See §3–4 for the
+> per-stream detail. _(The earlier "blocked on corpus-readiness" framing is
+> superseded: calibration landed real, and the baseline flip was resolved as
+> redundant — §3 Decision 1.)_
 
-## 1. What landed (green: deterministic 888 + eval 71)
+## 1. What landed (merged to `main`; green: deterministic 911 + eval 71)
 
 ### A1 — de-launder the evidence layer (the keystone) — `6c8a273`
 
@@ -48,8 +55,10 @@ unaffected. **Closes dr1m.7.**
 - Before: `TrustScore` always `:auto_accept`; abstain unreachable on the live
   path.
 - After: a passed gate with an absent/`:invalid` calibration or absent/`:red`
-  baseline **abstains → slice `:parked`**; a fully-green reference still
-  auto-accepts at 0.925.
+  baseline **abstains → slice `:parked`**; the fully-green cold-start reference
+  (no committed replay baseline → `:baseline_absent`) auto-accepts at the OD19
+  renormalized **0.9118** (a matched committed baseline would score 0.925; see
+  §3 Stream B).
 - The committed reference (`samples/beads_insight`) still auto-accepts through
   the live m1/m2/m3 production-loop pipeline (real pytest). No weight/threshold
   change.
