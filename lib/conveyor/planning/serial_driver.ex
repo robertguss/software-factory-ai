@@ -28,16 +28,21 @@ defmodule Conveyor.Planning.SerialDriver do
   alias Conveyor.Planning.RunSpecAssembler
   alias Conveyor.RunSlice
 
-  # M4-E: the static gate stages wired live on the production path. policy_compliance is
-  # required (the reference touches no policy-controlled paths, so it passes; a forbidden
-  # policy edit blocks). Other static stages (workspace_integrity, code_quality_delta, …)
-  # stay unwired until their producers exist (head_tree digest, analyzer results, …).
+  # M4-E: the static gate stages wired live on the production path. policy_compliance and
+  # acceptance_mapping are required — both pass for the reference (it touches no
+  # policy-controlled paths, and every acceptance criterion's required tests are run and
+  # green), and both enforce in production: a forbidden policy edit blocks, and a slice whose
+  # acceptance criterion lacks passing evidence for a required test blocks. acceptance_mapping
+  # reads agent_brief + verification_result, both already in default_gate_context, so it needs
+  # no new producer. Other static stages (workspace_integrity, code_quality_delta, …) stay
+  # unwired until their producers exist (head_tree digest, analyzer results, …).
   @default_gate_stages [
     Conveyor.Gate.Stages.ContractLock,
     Conveyor.Gate.Stages.DiffScope,
     Conveyor.Gate.Stages.SecretSafety,
     Conveyor.Gate.Stages.PolicyCompliance,
-    Conveyor.Gate.Stages.TestExecution
+    Conveyor.Gate.Stages.TestExecution,
+    Conveyor.Gate.Stages.AcceptanceMapping
   ]
 
   defmodule Result do
