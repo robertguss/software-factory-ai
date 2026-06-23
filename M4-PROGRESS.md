@@ -97,9 +97,19 @@ fail-closed). The reference stays green (its integrity is now *earned* `"trustwo
 scoring 0.925 as before). This is the `:local` variant of the spec's D4 (the docker
 hermetic-gate path remains a later option for asserting hermeticity).
 
+### Stream B core — **LANDED** (replay un-laundered + OD19 renormalization, commit `873461b`)
+Replay-divergence was the last laundered signal (absent → `:none`/"matched"). Now absent →
+`:baseline_absent` (honest "no committed baseline yet"). **OD19**: `:baseline_absent` is
+non-blocking — `TrustScore.effective_weights` drops replay's weight and renormalizes the
+rest over 0.85, so the cold-start reference auto-accepts at `0.775/0.85 = 0.9118` (the
+`policy_digest` hashes the *static* weights — the renormalization is a runtime rebalance). A
+real `:diverged` still parks. This completes **"all four core trust signals are honest"**
+(calibration, integrity, baseline-via-stage, replay). Follow-ups (both greenfield):
+- the real **replay-baseline producer** (emit `:none`/`:diverged` by comparing against
+  committed-seed baselines) — gives replay actual *divergence discrimination*;
+- the **`corpus_pass_rate` producer** (boost-only signal from cassette pass-rate history).
+
 ## 4. Still out of scope this branch (later streams)
-- **Stream B** (real `replay_divergence` + `corpus_pass_rate` producers, OD19 hybrid
-  committed-seed baseline) — the boost/replay signals; higher-risk (renormalization).
 - **Streams C/D/E/F** (the *rest* of the integrity probes, the docker hermetic gate, all-14
   gate stages live, static-stage MutantGauntlet) — later milestones.
 
