@@ -147,44 +147,54 @@ stages stay deferred (honest): `contract_lock` (matching contract digests),
 `code_quality_delta` (an analyzer), `run_check`/injection-content (run
 artifacts).
 
-### Stream E — partial: policy_compliance + acceptance_mapping wired live as required stages (`2e95458`, `529f48b`)
+### Stream E — partial: workspace_integrity + policy_compliance + acceptance_mapping wired live as required stages (`2e95458`, `529f48b`, `b04190f`)
 
-The production gate ran 4 stages (contract_lock, diff_scope, secret_safety,
-test_execution). Now **6**: two static stages are wired **required** because
-both pass for the reference _and_ enforce in production —
+The production gate ran 4 stages (contract*lock, diff_scope, secret_safety,
+test_execution). Now **7**: three static stages are wired **required** because
+all pass for the reference \_and* enforce in production —
 
+- **workspace_integrity** (`b04190f`): base_commit match + clean apply + no
+  locked-path touch + a recorded head-tree digest. The base/apply/locked checks
+  are clean for the reference (PatchSet.base_commit = run_attempt.base_commit by
+  construction; applies_cleanly/touches_locked_paths default clean), leaving the
+  head-tree digest as the only gap. The intended producer (`PatchSetApplicator`,
+  which persists `run_attempt.head_tree_sha256`) is **never called in the live
+  loop** — dormant — so the digest is produced in `default_gate_context` from
+  the implement-station workspace via a **non-mutating** `git write-tree` (a
+  throwaway `GIT_INDEX_FILE`, so the real index stays clean for the later
+  `commit_workspace_changes!`/`reset`; `git add -A` respects `.gitignore`, so
+  the digest excludes volatile caches and is replay-deterministic). A real
+  base/workspace tamper now blocks **in production**.
 - **policy_compliance** (`2e95458`): the reference touches no policy-controlled
-  paths, so it passes; a forbidden policy edit blocks **in production**, not
-  just in the gauntlet.
+  paths, so it passes; a forbidden policy edit blocks.
 - **acceptance_mapping** (`529f48b`): reads `agent_brief` +
   `verification_result`, **both already in `default_gate_context`** (no new
-  producer), so it needed only to be added to the list. Every reference slice's
-  acceptance criteria's `required_test_refs` are exactly the tests the verify
-  station runs (first_light asserts this) and are green, so it passes; a slice
-  whose criterion lacks **passing evidence for a required test** now blocks.
-  SLICE-007 still parks at the _trust_ layer (its tests pass, so
-  acceptance_mapping passes too).
+  producer). Every reference slice's acceptance criteria's `required_test_refs`
+  are exactly the tests the verify station runs (first*light asserts this) and
+  are green, so it passes; a slice whose criterion lacks **passing evidence for
+  a required test** now blocks. SLICE-007 still parks at the \_trust* layer (its
+  tests pass, so acceptance_mapping passes too).
 
 The gate respects a per-stage `required?` flag
 (`stage_passes_gate?(%{required?: false}) → true`), so future stages _could_
 wire advisory — but the wiring map found **no clean-advisory candidates**: of
-the 7 still-unwired static stages, every one _fails_ the reference under the
+the still-unwired static stages, every one _fails_ the reference under the
 production context because its input is absent and no producer threads it (so
 advisory wiring would only spam blocking-missing-input findings);
 `code_quality_delta` is the lone exception but emits a perpetual
 `missing_code_quality_run` _warning_ with no real signal. So each remaining
 stage needs a **producer** before it can be required (the honest path). Cheapest
-next: **`head_tree_sha256` → workspace_integrity** — its patch_set-derived
-checks are already clean for the reference and the producer already exists in
-`PatchSetApplicator`; it just isn't threaded into the gate context. (Then:
-observed_risk ← review_policy resolver; build_install ← build_install_result;
-provenance_attestation ← prompt_sha256 + evidence_sha256; reviewer_aggregation ←
-Reviews + reviewer_health; canary_freshness ← GateHealth seeder + project_id;
-code_quality_delta ← CodeQualityRun + adapter contract.) Tracked: `br jmnt`.
+next (per the wiring map): **observed_risk ← a review_policy resolver** (its
+patch_set guard already passes; an empty/default ReviewPolicy yields
+observed_risk=low ≤ planned=low → clean pass). Then: build_install ←
+build_install_result; provenance_attestation ← prompt_sha256 + evidence_sha256;
+reviewer_aggregation ← Reviews + reviewer_health; canary_freshness ← GateHealth
+seeder + project_id; code_quality_delta ← CodeQualityRun + adapter contract.
+Tracked: `br jmnt`.
 
 ## 4. Still out of scope this branch (later streams)
 
-- The _rest_ of **E** (7 more static stages, each needing a producer — see §3) +
+- The _rest_ of **E** (6 more static stages, each needing a producer — see §3) +
   the remaining **F** static stages + **C/D** (more integrity probes, docker
   hermetic gate) + the two **B** producers — later milestones.
 
