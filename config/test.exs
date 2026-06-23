@@ -23,6 +23,13 @@ config :conveyor, ConveyorWeb.Endpoint,
 
 config :conveyor, Oban, testing: :manual, queues: false, plugins: false
 
+# Disable the SerialDriver wall-clock reaper in tests: existing driver tests inject
+# self()-sending closures and assert_received, which only works when the slice runs inline
+# (no Task boundary). Reaper-specific tests opt in explicitly via per-call opts.
+config :conveyor,
+  serial_driver_slice_wall_clock_ms: nil,
+  serial_driver_run_wall_clock_ms: nil
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

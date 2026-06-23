@@ -51,6 +51,16 @@ defmodule Conveyor.Planning.SerialDriver do
     Conveyor.Gate.Stages.AcceptanceMapping
   ]
 
+  # M6 stuck-slice/stuck-run reaper. Per-agent-call wall-clock is already bounded in the
+  # adapter (Codex `run_with_timeout`, 15 min). What was missing is a clock-based bound on
+  # the WHOLE slice (a slice that loops across rework attempts, or a non-agent station that
+  # hangs) and on the WHOLE unattended run. These defaults are generous so they only catch
+  # a genuinely stuck slice/run, never a slow-but-progressing one. Resolution precedence:
+  # per-call opts > `:conveyor` app config > these code defaults. Disable with an explicit
+  # `nil`/`false` (config/test.exs nils both so existing tests run inline — no Task boundary).
+  @default_slice_wall_clock_ms 3_600_000
+  @default_run_wall_clock_ms 28_800_000
+
   defmodule Result do
     @moduledoc """
     Serial driver execution result.
@@ -90,6 +100,8 @@ defmodule Conveyor.Planning.SerialDriver do
     # slice's agent has actually run (and may have left an uncommitted parked tree).
     # The FIRST agent run is never preceded by a reset, so a user's pre-run working
     # tree is never destroyed — the reset is the loop's own between-slice cleanup.
+    reaper = build_reaper(opts)
+
     {events, _blocked, _agent_ran?} =
       order
       |> Enum.with_index(1)
@@ -97,7 +109,7 @@ defmodule Conveyor.Planning.SerialDriver do
                                                    {events, blocked, agent_ran?} ->
         {event, ran_now?} =
           case blocking_predecessors(slice_key, edges, blocked) do
-            [] -> run_one!(slice_key, work_graph, sequence, agent_ran?, opts)
+            [] -> run_one_guarded!(slice_key, work_graph, sequence, agent_ran?, opts, reaper)
             blockers -> {skipped_event(slice_key, sequence, blockers), false}
           end
 
@@ -175,6 +187,139 @@ defmodule Conveyor.Planning.SerialDriver do
       "gate_result" => value(event, :gate_result),
       "run_attempt_outcome" => value(event, :run_attempt_outcome),
       "findings" => event |> list(:findings) |> Enum.map(&to_string/1)
+    }
+  end
+
+  # --- M6 wall-clock reaper ----------------------------------------------------
+
+  # Resolve the slice/run wall-clock budgets once per run. A monotonic run-start anchors
+  # the run deadline; both budgets are `nil` when disabled (then `run_one_guarded!` runs the
+  # slice inline with no Task boundary, exactly as before this milestone).
+  defp build_reaper(opts) do
+    run_started_ms = System.monotonic_time(:millisecond)
+
+    slice_budget_ms =
+      resolve_budget(
+        opts,
+        :slice_wall_clock_ms,
+        :serial_driver_slice_wall_clock_ms,
+        @default_slice_wall_clock_ms
+      )
+
+    run_budget_ms =
+      resolve_budget(
+        opts,
+        :run_wall_clock_ms,
+        :serial_driver_run_wall_clock_ms,
+        @default_run_wall_clock_ms
+      )
+
+    %{
+      slice_budget_ms: slice_budget_ms,
+      run_budget_ms: run_budget_ms,
+      run_started_ms: run_started_ms,
+      run_deadline_ms: run_budget_ms && run_started_ms + run_budget_ms
+    }
+  end
+
+  defp resolve_budget(opts, opt_key, config_key, code_default) do
+    case Keyword.fetch(opts, opt_key) do
+      {:ok, value} -> normalize_budget(value)
+      :error -> normalize_budget(Application.get_env(:conveyor, config_key, code_default))
+    end
+  end
+
+  defp normalize_budget(ms) when is_integer(ms) and ms > 0, do: ms
+  defp normalize_budget(_), do: nil
+
+  # Guarded slice execution. Three cases:
+  #   1. the run budget is already spent  -> reap before starting (nothing runs)
+  #   2. no budget applies                -> run inline (no Task, behaviour unchanged)
+  #   3. a budget applies                 -> run in a Task, reaped at the effective deadline
+  # A reaped slice parks (status != "passed"), so the existing skip-and-continue logic
+  # blocks its dependents and the run advances instead of hanging.
+  defp run_one_guarded!(slice_key, work_graph, sequence, reset?, opts, reaper) do
+    now = System.monotonic_time(:millisecond)
+
+    if reaper.run_deadline_ms != nil and now >= reaper.run_deadline_ms do
+      {reaped_event(
+         slice_key,
+         sequence,
+         "run_deadline",
+         now - reaper.run_started_ms,
+         reaper.run_budget_ms
+       ), false}
+    else
+      case effective_timeout(reaper, now) do
+        :none ->
+          run_one!(slice_key, work_graph, sequence, reset?, opts)
+
+        {reason, timeout_ms} ->
+          reap_slice!(slice_key, work_graph, sequence, reset?, opts, reason, timeout_ms)
+      end
+    end
+  end
+
+  # The binding deadline for this slice is whichever is nearer: its own per-slice budget or
+  # the time left on the whole-run budget. `:none` means neither is configured.
+  defp effective_timeout(reaper, now) do
+    remaining_run = reaper.run_deadline_ms && reaper.run_deadline_ms - now
+    slice = reaper.slice_budget_ms
+
+    cond do
+      is_nil(slice) and is_nil(remaining_run) -> :none
+      is_nil(remaining_run) -> {"slice_deadline", slice}
+      is_nil(slice) -> {"run_deadline", remaining_run}
+      slice <= remaining_run -> {"slice_deadline", slice}
+      true -> {"run_deadline", remaining_run}
+    end
+  end
+
+  # Run the slice in a linked Task and bound it by wall-clock. `Task.yield ||
+  # Task.shutdown(:brutal_kill)` mirrors the adapter-level watchdog (Codex.run_with_timeout):
+  # on timeout the in-flight slice is killed and reported as reaped. A slice that *raises* is
+  # re-raised in the caller so the existing crash semantics are preserved exactly — only the
+  # timeout path is new.
+  defp reap_slice!(slice_key, work_graph, sequence, reset?, opts, reason, timeout_ms) do
+    started_at = System.monotonic_time(:millisecond)
+
+    task =
+      Task.async(fn ->
+        try do
+          {:ok, run_one!(slice_key, work_graph, sequence, reset?, opts)}
+        rescue
+          error -> {:raise, error, __STACKTRACE__}
+        end
+      end)
+
+    case Task.yield(task, timeout_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {:ok, {event, ran?}}} ->
+        {event, ran?}
+
+      {:ok, {:raise, error, stacktrace}} ->
+        reraise(error, stacktrace)
+
+      _timed_out_or_killed ->
+        elapsed = System.monotonic_time(:millisecond) - started_at
+        # A brutal-killed slice may have left an uncommitted tree, so the next independent
+        # slice must reset to base — report `agent_ran? = true`.
+        {reaped_event(slice_key, sequence, reason, elapsed, timeout_ms), true}
+    end
+  end
+
+  defp reaped_event(slice_key, sequence, reason, elapsed_ms, budget_ms) do
+    %{
+      "slice_id" => slice_key,
+      "sequence" => sequence,
+      "status" => "parked",
+      "gate_result" => "reaped_wall_clock",
+      "run_attempt_outcome" => :parked,
+      "findings" => ["wall_clock_exceeded", reason],
+      "reaped" => %{
+        "reason" => reason,
+        "elapsed_ms" => elapsed_ms,
+        "budget_ms" => budget_ms
+      }
     }
   end
 
