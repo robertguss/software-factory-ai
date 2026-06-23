@@ -108,7 +108,13 @@ defmodule Conveyor.Gate.Stages.TestExecution do
     ]
   end
 
-  defp findings(result, calibration, context) do
+  # M4-A5: calibration is NOT a stage pass/fail. An acceptance suite that passes on base
+  # (calibration :invalid) or that couldn't be calibrated (:not_assessed / missing) is not
+  # "broken code" — reworking the code can't fix a weak LOCKED test — so it is routed to the
+  # trust score, which ABSTAINS (parks the slice for human + AI investigation). The stage
+  # itself only fails on genuinely-broken verification (missing/failed suites, an empty
+  # acceptance suite, unapproved flake). `:valid` proceeds; anything else parks.
+  defp findings(result, _calibration, context) do
     suites = value(result, :suites) || []
 
     []
@@ -116,7 +122,6 @@ defmodule Conveyor.Gate.Stages.TestExecution do
     |> require_suite(suites, "acceptance_locked")
     |> Kernel.++(empty_acceptance_findings(suites))
     |> Kernel.++(failed_suite_findings(suites))
-    |> Kernel.++(calibration_findings(suites, calibration))
     |> Kernel.++(flake_findings(suites, context))
     |> Kernel.++(result_status_findings(result))
   end
@@ -175,41 +180,6 @@ defmodule Conveyor.Gate.Stages.TestExecution do
 
       finding(category, "Required verification suite failed.", suite)
     end)
-  end
-
-  defp calibration_findings(suites, calibration) do
-    if Enum.any?(suites, &(value(&1, :suite_kind) == "acceptance_locked")) do
-      cond do
-        is_nil(calibration) ->
-          [
-            finding(
-              "missing_acceptance_calibration",
-              "Locked acceptance suite requires a valid base red calibration."
-            )
-          ]
-
-        value(calibration, :status) not in [:valid, "valid"] ->
-          [
-            finding(
-              "invalid_acceptance_calibration",
-              "Locked acceptance calibration is invalid."
-            )
-          ]
-
-        List.wrap(value(calibration, :expected_failures)) == [] ->
-          [
-            finding(
-              "missing_expected_acceptance_red",
-              "Locked acceptance calibration did not record expected red failures on base."
-            )
-          ]
-
-        true ->
-          []
-      end
-    else
-      []
-    end
   end
 
   defp flake_findings(suites, context) do

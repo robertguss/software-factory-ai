@@ -233,6 +233,29 @@ defmodule Conveyor.GateFinalizerTest do
     assert Ash.read!(CodeProvenanceEdge, domain: Factory) == []
   end
 
+  test "M4-A5: a passed gate whose acceptance tests pass on base (calibration :invalid) abstains and parks",
+       context do
+    # The honest calibration disposition: tests green on base don't prove new behavior, so
+    # the gate does NOT auto-accept — it parks for human + AI investigation. Calibration is
+    # a TRUST signal, not a gate-stage pass/fail (see test_execution.ex M4-A5).
+    evidence =
+      TrustEvidence.from_run_output(%{
+        "baseline_health_status" => "passed",
+        "test_pack_calibration" => %{"status" => "invalid"}
+      })
+
+    assert evidence.calibration_status == :invalid
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :abstain
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
+    assert get_by_id!(Slice, context.slice.id).state == :parked
+  end
+
   test "ADR-23: a passed gate with high trust evidence still auto-accepts", context do
     evidence = %{
       integrity_verdict: "trustworthy",

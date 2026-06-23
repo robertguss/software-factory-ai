@@ -110,7 +110,15 @@ defmodule Conveyor.Planning.RunSpecAssembler do
               %{"blob_root" => blob_root}
 
             "acceptance_calibration" ->
-              %{"blob_root" => blob_root}
+              # M4-A4: the base workspace + base_commit let the station run the locked
+              # acceptance commands FOR REAL at base — in an ISOLATED git worktree, never
+              # the live tree — so calibration is `:valid` only when those tests genuinely
+              # fail at base. Falls back to the default runner when absent.
+              %{
+                "workspace_path" => workspace_path,
+                "base_commit" => base_commit,
+                "blob_root" => blob_root
+              }
 
             "implement" ->
               %{
