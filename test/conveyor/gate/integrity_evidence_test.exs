@@ -9,11 +9,14 @@ defmodule Conveyor.Gate.IntegrityEvidenceTest do
     assert IntegrityEvidence.verdict(%{}) == "not_assessed"
   end
 
-  test "not_assessed is non-blocking once it reaches TrustEvidence" do
+  test "an unassessed integrity verdict fails closed at TrustEvidence (M4 un-laundered)" do
     verdict = IntegrityEvidence.verdict(%{})
+    assert verdict == "not_assessed"
+
     evidence = TrustEvidence.assemble(%{integrity: verdict})
-    # not_assessed maps to a non-blocking "trustworthy" integrity signal.
-    assert evidence.integrity_verdict == "trustworthy"
+    # M4: not_assessed is no longer laundered to "trustworthy" — it passes through, and the
+    # trust score then abstains (parks the slice for human + AI investigation).
+    assert evidence.integrity_verdict == "not_assessed"
   end
 
   test "a real probe failure -> untrustworthy (would abstain)" do

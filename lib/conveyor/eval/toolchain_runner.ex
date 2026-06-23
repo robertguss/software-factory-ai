@@ -330,7 +330,9 @@ defmodule Conveyor.Eval.ToolchainRunner do
   # --- suites ---------------------------------------------------------------
 
   defp suite(kind, argv, tests) do
-    failed? = Enum.any?(tests, &(&1.status == :failed))
+    # dr1m.7: an acceptance_locked suite that ran ZERO tests cannot pass — a slice with
+    # no locked acceptance tests must fail the gate, not vacuously pass on an empty run.
+    failed? = Enum.any?(tests, &(&1.status == :failed)) or empty_acceptance?(kind, tests)
     status = if failed?, do: "failed", else: "passed"
     exit_code = if failed?, do: 1, else: 0
 
@@ -359,6 +361,9 @@ defmodule Conveyor.Eval.ToolchainRunner do
       ]
     }
   end
+
+  defp empty_acceptance?("acceptance_locked", tests), do: tests == []
+  defp empty_acceptance?(_kind, _tests), do: false
 
   defp test_map(t) do
     %{

@@ -12,6 +12,7 @@ defmodule Conveyor.GateFinalizerTest do
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
+  alias Conveyor.Gate.TrustEvidence
 
   defmodule PassStage do
     @behaviour Conveyor.Gate.Stage
@@ -208,6 +209,75 @@ defmodule Conveyor.GateFinalizerTest do
     assert Artifact
            |> Ash.read!(domain: Factory)
            |> Enum.filter(&(&1.kind == "trust-bundle")) == []
+  end
+
+  test "M4-A1: a passed gate whose run output is MISSING the calibration signal abstains and parks (real assembly path)",
+       context do
+    # The exact laundering A1 closed: a slice run whose output never produced a
+    # calibration signal must abstain (park for review), not silently auto-accept.
+    # Driven through the REAL assembly path (`from_run_output`), not a hand-built
+    # evidence map — the anti-vacuity linchpin that proves the laundering is gone
+    # end-to-end, through `Finalizer.finalize!`.
+    evidence = TrustEvidence.from_run_output(%{"baseline_health_status" => "passed"})
+
+    assert evidence.calibration_status == :not_assessed
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :abstain
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
+    assert get_by_id!(Slice, context.slice.id).state == :parked
+    assert Ash.read!(CodeProvenanceEdge, domain: Factory) == []
+  end
+
+  test "M4-A5: a passed gate whose acceptance tests pass on base (calibration :invalid) abstains and parks",
+       context do
+    # The honest calibration disposition: tests green on base don't prove new behavior, so
+    # the gate does NOT auto-accept — it parks for human + AI investigation. Calibration is
+    # a TRUST signal, not a gate-stage pass/fail (see test_execution.ex M4-A5).
+    evidence =
+      TrustEvidence.from_run_output(%{
+        "baseline_health_status" => "passed",
+        "test_pack_calibration" => %{"status" => "invalid"}
+      })
+
+    assert evidence.calibration_status == :invalid
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :abstain
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
+    assert get_by_id!(Slice, context.slice.id).state == :parked
+  end
+
+  test "M4: an untrustworthy integrity verdict (production source mutated) abstains and parks",
+       context do
+    # Integrity is no longer laundered: a real production-source mutation makes the verify
+    # station emit "untrustworthy", which the trust score abstains on -> the slice parks for
+    # human + AI investigation. Driven through the real assembly path.
+    evidence =
+      TrustEvidence.from_run_output(%{
+        "test_pack_calibration" => %{"status" => "valid"},
+        "baseline_health_status" => "passed",
+        "integrity_verdict" => "untrustworthy"
+      })
+
+    assert evidence.integrity_verdict == "untrustworthy"
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :abstain
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
+    assert get_by_id!(Slice, context.slice.id).state == :parked
   end
 
   test "ADR-23: a passed gate with high trust evidence still auto-accepts", context do

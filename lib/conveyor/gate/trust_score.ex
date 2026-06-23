@@ -35,7 +35,7 @@ defmodule Conveyor.Gate.TrustScore do
           optional(:integrity_verdict) => String.t() | nil,
           optional(:calibration_status) => :valid | :invalid | :not_assessed,
           optional(:baseline_status) => :green | :red | :unknown,
-          optional(:replay_divergence) => :none | :diverged | :unknown,
+          optional(:replay_divergence) => :none | :diverged | :baseline_absent | :unknown,
           optional(:corpus_pass_rate) => float() | nil
         }
 
@@ -77,15 +77,20 @@ defmodule Conveyor.Gate.TrustScore do
     thresholds = Keyword.get(opts, :thresholds, @default_thresholds)
     auto_accept = Map.get(thresholds, :auto_accept, 0.9)
 
+    replay = fetch(evidence, :replay_divergence)
+
     components = %{
       integrity: integrity_score(fetch(evidence, :integrity_verdict)),
       calibration: calibration_score(fetch(evidence, :calibration_status)),
       baseline: baseline_score(fetch(evidence, :baseline_status)),
-      replay: replay_score(fetch(evidence, :replay_divergence)),
+      replay: replay_score(replay),
       corpus: corpus_score(fetch(evidence, :corpus_pass_rate))
     }
 
-    score = weighted_sum(components, weights)
+    # OD19: a replay verdict with no committed baseline (:baseline_absent) is non-blocking;
+    # its weight is redistributed across the remaining (assessable) signals, so a cold-start
+    # slice is not penalized for the system lacking a replay baseline yet.
+    score = weighted_sum(components, effective_weights(weights, replay))
     band = if trustworthy?(evidence) and score >= auto_accept, do: :auto_accept, else: :abstain
 
     %{
@@ -93,9 +98,24 @@ defmodule Conveyor.Gate.TrustScore do
       band: band,
       components: components,
       thresholds: %{auto_accept: auto_accept},
+      # The policy_digest hashes the STATIC weights — the renormalization is a runtime,
+      # per-evaluation rebalance, not a policy change, so the static path stays digest-stable.
       policy_digest: policy_digest(weights, auto_accept)
     }
   end
+
+  # OD19: drop replay's weight when there is no baseline to compare against and renormalize
+  # the remaining signals to sum to 1.0. Any other replay verdict keeps the static weights.
+  defp effective_weights(weights, :baseline_absent) do
+    dropped = Map.get(weights, :replay, 0.0)
+    total = (weights |> Map.values() |> Enum.sum()) - dropped
+
+    weights
+    |> Map.new(fn {component, weight} -> {component, weight / total} end)
+    |> Map.put(:replay, 0.0)
+  end
+
+  defp effective_weights(weights, _replay), do: weights
 
   # --- trust gate (hard requirements for auto-accept) ------------------------
 
@@ -106,8 +126,14 @@ defmodule Conveyor.Gate.TrustScore do
     fetch(evidence, :integrity_verdict) == "trustworthy" and
       fetch(evidence, :calibration_status) == :valid and
       fetch(evidence, :baseline_status) == :green and
-      fetch(evidence, :replay_divergence) == :none
+      replay_ok?(fetch(evidence, :replay_divergence))
   end
+
+  # :none = the run matched its replay baseline; :baseline_absent = no baseline to compare
+  # (OD19 — non-blocking, weight-renormalized). A real :diverged (or anything else) blocks.
+  defp replay_ok?(:none), do: true
+  defp replay_ok?(:baseline_absent), do: true
+  defp replay_ok?(_other), do: false
 
   # --- component scoring ([0.0, 1.0]) ---------------------------------------
 
@@ -125,6 +151,7 @@ defmodule Conveyor.Gate.TrustScore do
   defp baseline_score(_other), do: 0.0
 
   defp replay_score(:none), do: 1.0
+  defp replay_score(:baseline_absent), do: 0.5
   defp replay_score(:unknown), do: 0.5
   defp replay_score(_other), do: 0.0
 

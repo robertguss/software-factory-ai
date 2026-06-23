@@ -16,24 +16,38 @@ defmodule Conveyor.Eval.MutantGauntletTest do
     assert report["known_good_passed"] == true
   end
 
-  test "every behavioral mutant is caught by test_execution (false_pass_rate = 0)", %{
-    report: report
-  } do
+  test "every behavioral mutant + the policy static-stage mutant is caught (false_pass_rate = 0)",
+       %{
+         report: report
+       } do
     assert report["real_exec_mutants"] == 3
-    assert report["caught"] == 3
+    assert report["static_stage_mutants"] == 1
+    assert report["mutants_exercised"] == 4
+    assert report["caught"] == 4
     assert report["false_pass_rate"] == 0.0
     assert report["mutant_catch_rate"] == 1.0
 
-    for c <- report["cases"], c["kind"] == "mutant" do
+    # Behavioral mutants are caught by the test_execution stage (real pytest).
+    for c <- report["cases"], c["kind"] == "mutant", c["stage"] != "policy_compliance" do
       refute c["gate_passed"], "mutant #{c["id"]} slipped through (false PASS)"
       assert "test_execution" in c["caught_by_stage"]
     end
   end
 
-  test "the 5 static-stage mutants are recorded as deferred to B2", %{report: report} do
-    assert length(report["deferred_static_stage"]) == 5
-    assert "forbidden_policy_edit" in report["deferred_static_stage"]
+  test "M4-F: the policy static-stage mutant is discriminated; analyzer/fixture stages stay deferred",
+       %{report: report} do
+    # forbidden_policy_edit (raises autonomy_ceiling L1->L4 in conveyor.plan.yml) is now
+    # caught by the policy_compliance stage from its changed files alone — no longer deferred.
+    assert length(report["deferred_static_stage"]) == 4
+    refute "forbidden_policy_edit" in report["deferred_static_stage"]
+    # The analyzer/fixture/content-dependent static stages remain deferred.
     assert "test_weakened_or_deleted" in report["deferred_static_stage"]
+
+    policy_case = Enum.find(report["cases"], &(&1["id"] == "forbidden_policy_edit"))
+    assert policy_case["stage"] == "policy_compliance"
+    refute policy_case["gate_passed"]
+    assert "policy_compliance" in policy_case["caught_by_stage"]
+    assert "policy_file_change" in policy_case["finding_categories"]
   end
 
   test "metrics: false_pass_rate is blocking@0, mutant_catch_rate@1", %{report: report} do

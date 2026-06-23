@@ -39,7 +39,7 @@ defmodule Conveyor.FirstLightSerialDriverTest do
       "samples/beads_insight/.conveyor/canary/reference_slice_007_envelope_assertion.patch"
   }
 
-  test "SerialDriver runs all Beads Insight slices to accepted through the production loop" do
+  test "SerialDriver runs Beads Insight through the loop: slices 1-6 accepted, weak-test SLICE-007 parked" do
     fixture = all_slices_fixture!("first-light-serial-driver")
 
     result =
@@ -58,13 +58,25 @@ defmodule Conveyor.FirstLightSerialDriverTest do
         actor: "first-light-serial-driver"
       )
 
-    assert result.status == :passed, inspect(result.events, pretty: true)
+    # M4-A5: SLICE-007's acceptance tests pass on the base (calibration :invalid), so the
+    # gate does NOT auto-accept it — the trust score abstains and the slice is PARKED for
+    # human + AI investigation. Slices 1-6 (whose locked tests genuinely fail on base ->
+    # calibration :valid) are accepted. So the run is :partial, not :passed.
+    accepted_slices = @slice_order -- ["SLICE-007"]
+    events_by_slice = Map.new(result.events, &{&1["slice_id"], &1})
+
+    assert result.status == :partial, inspect(result.events, pretty: true)
     assert result.order == @slice_order
     assert Enum.map(result.events, & &1["slice_id"]) == @slice_order
-    assert Enum.all?(result.events, &(&1["status"] == "passed"))
-    assert Enum.all?(result.events, &(&1["run_attempt_outcome"] == :accepted))
     assert result.report["serial_order"] == @slice_order
-    assert result.report["first_pass_gate_success_rate"] == 1.0
+
+    for slice_id <- accepted_slices do
+      assert events_by_slice[slice_id]["status"] == "passed"
+      assert events_by_slice[slice_id]["run_attempt_outcome"] == :accepted
+    end
+
+    assert events_by_slice["SLICE-007"]["status"] == "parked"
+    assert events_by_slice["SLICE-007"]["run_attempt_outcome"] == :abstained
 
     slice_ids = fixture.slices_by_stable_key |> Map.values() |> Enum.map(& &1.id)
 
@@ -74,7 +86,8 @@ defmodule Conveyor.FirstLightSerialDriverTest do
       |> Enum.filter(&(&1.slice_id in slice_ids))
 
     assert length(attempts) == 7
-    assert Enum.all?(attempts, &(&1.outcome == :accepted))
+    assert Enum.count(attempts, &(&1.outcome == :accepted)) == 6
+    assert Enum.count(attempts, &(&1.outcome == :abstained)) == 1
 
     run_attempt_ids = Enum.map(attempts, & &1.id)
 
@@ -83,17 +96,37 @@ defmodule Conveyor.FirstLightSerialDriverTest do
       |> Ash.read!(domain: Factory)
       |> Enum.filter(&(&1.run_attempt_id in run_attempt_ids))
 
+    # All 7 cleared the GATE STAGES (contract/diff/secret/tests) — SLICE-007 parked at the
+    # TRUST layer (calibration), not the stage layer — so every gate_result still passed.
     assert length(gate_results) == 7
     assert Enum.all?(gate_results, & &1.passed)
 
+    # M4-E: workspace_integrity, policy_compliance and acceptance_mapping are wired live as
+    # required stages. The reference applies cleanly to a matching base, touches no
+    # policy-controlled paths, and runs every acceptance criterion's required tests green —
+    # so all pass; a base/workspace tamper, a forbidden policy edit, or a missing required-test
+    # evidence would block.
     assert Enum.all?(gate_results, fn gate_result ->
              Enum.map(gate_result.stages, & &1["key"]) == [
+               "workspace_integrity",
                "contract_lock",
                "diff_scope",
                "secret_safety",
-               "test_execution"
+               "policy_compliance",
+               "test_execution",
+               "acceptance_mapping"
              ]
            end)
+
+    # The head-tree producer ran on the live path: workspace_integrity recorded a non-nil
+    # head_tree_sha256 digest for every accepted slice (proving it was not the dormant
+    # run_attempt.head_tree_sha256, which is never populated in production).
+    for gate_result <- gate_results do
+      workspace_stage = Enum.find(gate_result.stages, &(&1["key"] == "workspace_integrity"))
+      assert workspace_stage["status"] == "passed"
+      head_tree = get_in(workspace_stage, ["input_digests", "head_tree_sha256"])
+      assert is_binary(head_tree) and String.starts_with?(head_tree, "sha256:")
+    end
 
     assert actual_test_refs_by_slice(fixture.slices_by_stable_key) == fixture.expected_test_refs
 
@@ -115,7 +148,8 @@ defmodule Conveyor.FirstLightSerialDriverTest do
         actor: "first-light-serial-driver"
       )
 
-    assert replay.status == :passed
+    # The parked outcome is deterministic — the replay parks SLICE-007 the same way.
+    assert replay.status == :partial
     assert result.report["replay_fidelity"]["status"] == "matched"
     assert replay.report["replay_fidelity"]["status"] == "matched"
     assert result.report["replay_digest"] == replay.report["replay_digest"]

@@ -70,16 +70,19 @@ defmodule Conveyor.GateStagesBuildTestTest do
     assert Enum.any?(result.findings, &(&1["category"] == "baseline_regression_failed"))
   end
 
-  test "test execution fails without valid locked acceptance calibration" do
+  test "an invalid calibration does NOT fail the stage — calibration parks via the trust score (M4-A5)" do
     result =
       TestExecution.run(%{
         verification_result: verification_result(),
         test_pack_calibration: %{status: :invalid, expected_failures: []}
       })
 
-    assert result.status == :failed
+    # Calibration is a trust signal (valid -> proceed, anything else -> park for human +
+    # AI investigation), not a stage pass/fail. The stage passes; the :invalid calibration
+    # routes to the trust score, which abstains/parks (see gate_finalizer_test).
+    assert result.status == :passed
     categories = Enum.map(result.findings, & &1["category"])
-    assert "invalid_acceptance_calibration" in categories
+    refute "invalid_acceptance_calibration" in categories
   end
 
   test "test execution fails closed on unapproved flaky quarantine" do

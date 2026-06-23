@@ -6,25 +6,25 @@ defmodule Conveyor.Gate.IntegrityEvidence do
   the (anti-vacuity) probes over a slice run's observations and return the verdict
   string that `Conveyor.Gate.TrustEvidence` already reads from the run output.
 
-  ## The safety property (why this is safe to wire incrementally)
+  ## The verdict (M4: un-laundered)
 
   A probe with no observation evaluates to `not_assessed` (never `failed`), and the
   overall verdict is `not_assessed` unless some probe actually failed/was suspect.
-  `TrustEvidence` maps `not_assessed` to a non-blocking integrity signal, so wiring
-  the sentinel with *partial* observations can never force a spurious abstain — it
-  only abstains on a genuine probe failure (e.g. production source mutated during
-  the test run, a hidden network/secret dependency). As real observation producers
-  come online per probe, the gate tightens automatically.
+  `TrustEvidence` now passes the real verdict through (M4 un-laundering): a genuine
+  probe failure (production source mutated, a hidden network/secret dependency) is
+  `"untrustworthy"`, and `not_assessed` (no assessable probe) **fails closed** — both
+  abstain/park for investigation. The verify station requires only the backend-agnostic
+  `source_mutation` probe on `:local` (hermeticity is docker-only), so a clean local
+  run is genuinely `"trustworthy"` rather than vacuously non-blocking.
 
   ## Remaining work (the producers — a dedicated pass)
 
-  `Conveyor.Stations.Verify` now wires this helper in the production loop
-  (`verify.ex`), supplying the `hermeticity` + `source_mutation` observations. What
+  `Conveyor.Stations.Verify` wires this helper in the production loop (`verify.ex`),
+  supplying the `source_mutation` (always) + `hermeticity` (docker) observations. What
   is NOT yet wired is the *collection* of the remaining probe observations
-  (mount-boundary from the diff, falsifier survival from the contract's seeds, etc.)
-  and, since hermeticity is only asserted under a hermetic backend (docker),
-  local-backend runs keep most probes `not_assessed`/non-blocking. Completing the
-  full producer set is M4. Calling this helper with `%{}` is a safe no-op verdict.
+  (mount-boundary from the diff, falsifier survival from the contract's seeds, etc.),
+  which a later C-stream pass adds (each as an additional required probe). Calling this
+  helper with `%{}` yields a `not_assessed` verdict (now fail-closed).
   """
 
   alias Conveyor.Verification.IntegritySentinel

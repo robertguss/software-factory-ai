@@ -108,17 +108,56 @@ defmodule Conveyor.Gate.Stages.TestExecution do
     ]
   end
 
-  defp findings(result, calibration, context) do
+  # M4-A5: calibration is NOT a stage pass/fail. An acceptance suite that passes on base
+  # (calibration :invalid) or that couldn't be calibrated (:not_assessed / missing) is not
+  # "broken code" — reworking the code can't fix a weak LOCKED test — so it is routed to the
+  # trust score, which ABSTAINS (parks the slice for human + AI investigation). The stage
+  # itself only fails on genuinely-broken verification (missing/failed suites, an empty
+  # acceptance suite, unapproved flake). `:valid` proceeds; anything else parks.
+  defp findings(result, _calibration, context) do
     suites = value(result, :suites) || []
 
     []
     |> require_suite(suites, "baseline_regression")
     |> require_suite(suites, "acceptance_locked")
+    |> Kernel.++(empty_acceptance_findings(suites))
     |> Kernel.++(failed_suite_findings(suites))
-    |> Kernel.++(calibration_findings(suites, calibration))
     |> Kernel.++(flake_findings(suites, context))
     |> Kernel.++(result_status_findings(result))
   end
+
+  # dr1m.7 backstop: a present acceptance_locked suite that ran ZERO tests fails the gate
+  # even if it falsely reported "passed". "Zero tests" = no commands, or the commands DID
+  # enumerate per-test results and the total is zero. A non-enumerating representation
+  # (status-only commands, no "tests" key) is NOT treated as empty (stdout/exit-code
+  # suites and abstractions keep their status).
+  defp empty_acceptance_findings(suites) do
+    suites
+    |> Enum.filter(&(value(&1, :suite_kind) == "acceptance_locked"))
+    |> Enum.filter(&acceptance_ran_zero_tests?/1)
+    |> Enum.map(fn suite ->
+      finding(
+        "empty_acceptance_suite",
+        "Locked acceptance suite ran zero tests; the slice cannot be verified.",
+        suite
+      )
+    end)
+  end
+
+  defp acceptance_ran_zero_tests?(suite) do
+    commands = List.wrap(value(suite, :commands))
+    attempts = Enum.flat_map(commands, &(value(&1, :attempts) || []))
+    enumerated = Enum.filter(attempts, &enumerates_tests?/1)
+
+    commands == [] or (enumerated != [] and Enum.all?(enumerated, &(test_list(&1) == [])))
+  end
+
+  defp enumerates_tests?(attempt) when is_map(attempt),
+    do: Map.has_key?(attempt, "tests") or Map.has_key?(attempt, :tests)
+
+  defp enumerates_tests?(_attempt), do: false
+
+  defp test_list(attempt), do: value(attempt, :tests) || []
 
   defp require_suite(findings, suites, suite_kind) do
     if Enum.any?(suites, &(value(&1, :suite_kind) == suite_kind)) do
@@ -141,41 +180,6 @@ defmodule Conveyor.Gate.Stages.TestExecution do
 
       finding(category, "Required verification suite failed.", suite)
     end)
-  end
-
-  defp calibration_findings(suites, calibration) do
-    if Enum.any?(suites, &(value(&1, :suite_kind) == "acceptance_locked")) do
-      cond do
-        is_nil(calibration) ->
-          [
-            finding(
-              "missing_acceptance_calibration",
-              "Locked acceptance suite requires a valid base red calibration."
-            )
-          ]
-
-        value(calibration, :status) not in [:valid, "valid"] ->
-          [
-            finding(
-              "invalid_acceptance_calibration",
-              "Locked acceptance calibration is invalid."
-            )
-          ]
-
-        List.wrap(value(calibration, :expected_failures)) == [] ->
-          [
-            finding(
-              "missing_expected_acceptance_red",
-              "Locked acceptance calibration did not record expected red failures on base."
-            )
-          ]
-
-        true ->
-          []
-      end
-    else
-      []
-    end
   end
 
   defp flake_findings(suites, context) do
