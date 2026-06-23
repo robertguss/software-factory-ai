@@ -15,7 +15,7 @@ defmodule Conveyor.Recovery.AmendmentRouterTest do
 
   # A contract carrying three distinct-kind structural defects:
   #   * REQ-001 "must …" vs REQ-002 "must not …" -> contradictory_requirement (REQUIREMENT subject)
-  #   * REQ-002 referenced by no acceptance criterion -> missing_requirement_acceptance (REQUIREMENT)
+  #   * REQ-002 with no acceptance criterion -> missing_requirement_acceptance (REQUIREMENT)
   #   * AC-001 "fast and nice" -> unmeasurable_acceptance (ACCEPTANCE_CRITERION subject)
   defp defective_contract do
     %{

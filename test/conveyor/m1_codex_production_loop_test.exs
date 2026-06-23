@@ -36,7 +36,8 @@ defmodule Conveyor.M1CodexProductionLoopTest do
     assert Enum.all?(result.events, &(&1["run_attempt_outcome"] == :accepted))
     assert result.report["first_pass_gate_success_rate"] == 1.0
 
-    slice_ids = fixture.slices_by_stable_key |> Map.take(@slice_order) |> Map.values() |> Enum.map(& &1.id)
+    slice_ids =
+      fixture.slices_by_stable_key |> Map.take(@slice_order) |> Map.values() |> Enum.map(& &1.id)
 
     attempts =
       RunAttempt |> Ash.read!(domain: Factory) |> Enum.filter(&(&1.slice_id in slice_ids))
@@ -88,7 +89,12 @@ defmodule Conveyor.M1CodexProductionLoopTest do
     project =
       Ash.create!(
         Project,
-        %{name: "Beads Insight", local_path: workspace_path, default_branch: "main", default_autonomy_level: 2},
+        %{
+          name: "Beads Insight",
+          local_path: workspace_path,
+          default_branch: "main",
+          default_autonomy_level: 2
+        },
         domain: Factory
       )
 
@@ -108,7 +114,9 @@ defmodule Conveyor.M1CodexProductionLoopTest do
       )
 
     epic =
-      Ash.create!(Epic, %{plan_id: plan.id, title: "Beads Insight epic", description: "M1."}, domain: Factory)
+      Ash.create!(Epic, %{plan_id: plan.id, title: "Beads Insight epic", description: "M1."},
+        domain: Factory
+      )
 
     slices_by_stable_key =
       contract_result.contract
@@ -158,7 +166,9 @@ defmodule Conveyor.M1CodexProductionLoopTest do
       "work_dependencies" =>
         @slice_order
         |> Enum.chunk_every(2, 1, :discard)
-        |> Enum.map(fn [from, to] -> %{"from" => from, "to" => to, "kind" => "execution_hard"} end)
+        |> Enum.map(fn [from, to] ->
+          %{"from" => from, "to" => to, "kind" => "execution_hard"}
+        end)
     }
   end
 
@@ -167,8 +177,17 @@ defmodule Conveyor.M1CodexProductionLoopTest do
 
     {_, 0} =
       System.cmd("rsync", [
-        "-a", "--exclude", ".venv", "--exclude", ".pytest_cache",
-        "--exclude", "__pycache__", "--exclude", ".git", @sample <> "/", path <> "/"
+        "-a",
+        "--exclude",
+        ".venv",
+        "--exclude",
+        ".pytest_cache",
+        "--exclude",
+        "__pycache__",
+        "--exclude",
+        ".git",
+        @sample <> "/",
+        path <> "/"
       ])
 
     git!(path, ["init", "-b", "main"])
