@@ -29,6 +29,7 @@ defmodule Conveyor.Planning.SerialDriver do
   alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Planning.PilotExecution
+  alias Conveyor.Planning.RunReconciliation
   alias Conveyor.Planning.RunReconstruction
   alias Conveyor.Planning.RunSpecAssembler
   alias Conveyor.RunSlice
@@ -139,11 +140,14 @@ defmodule Conveyor.Planning.SerialDriver do
 
     state = RunReconstruction.reconstruct(run_id, order, Keyword.take(opts, [:outcomes]))
 
+    # U5: before re-running the in-flight slice, reconcile whether its accept-commit already
+    # landed in the workspace (the crash gap between git commit and the outcome ledger write).
+    # If so, record it passed and reuse it — never produce a second accept-commit.
+    resumed = reconcile_in_flight(state, ledger, opts)
+
     # Resume seeds agent_ran? = true: a prior slice ran in the now-dead process, so the
-    # first re-executed slice resets to the committed base, discarding the crash's leftover
-    # tree (U5 reconciles whether that slice's accept-commit already landed before re-running).
-    events =
-      execute_order(order, edges, work_graph, opts, reaper, ledger, state.outcomes_by_slice, true)
+    # first re-executed slice resets to the committed base, discarding the crash's leftover tree.
+    events = execute_order(order, edges, work_graph, opts, reaper, ledger, resumed, true)
 
     emit_run_terminal!(ledger, events)
     build_result(order, events)
@@ -1012,6 +1016,29 @@ defmodule Conveyor.Planning.SerialDriver do
 
   defp slice_by_stable_key(slice_key, opts) do
     opts |> Keyword.get(:slices_by_stable_key, %{}) |> Map.get(slice_key)
+  end
+
+  # U5: reconcile the in-flight slice against the live workspace before re-running it.
+  # `workspace_path` is supplied by the resume caller (the reconciler / a test); without
+  # it there is nothing to reconcile (map-fake resume) and the slice is simply re-run.
+  defp reconcile_in_flight(state, ledger, opts) do
+    workspace_path = Keyword.get(opts, :workspace_path)
+    in_flight = state.in_flight_slice
+
+    if workspace_path && in_flight do
+      sequence = state.start_index + 1
+
+      case RunReconciliation.reconcile_in_flight(state.run_id, in_flight, sequence, workspace_path) do
+        {:already_committed, outcome} ->
+          commit_slice_outcome!(ledger, outcome)
+          Map.put(state.outcomes_by_slice, in_flight, outcome)
+
+        :rerun ->
+          state.outcomes_by_slice
+      end
+    else
+      state.outcomes_by_slice
+    end
   end
 
   defp emit_run_started!(nil, _order, _work_graph), do: :ok
