@@ -236,9 +236,14 @@ defmodule Conveyor.Planning.SerialDriver do
 
     %{
       "replay_digest" => digest,
+      # No replay-divergence producer exists yet, so no comparison is performed.
+      # Emit the honest "baseline_absent" (the gate's own vocabulary for "no
+      # baseline to compare against") rather than an unearned "matched". The full
+      # cross-run producer is deferred — see
+      # docs/plans/2026-06-23-002-feat-replay-divergence-producer-plan.md.
       "replay_fidelity" => %{
         "schema_version" => "conveyor.replay_fidelity@1",
-        "status" => "matched",
+        "status" => "baseline_absent",
         "digest" => digest,
         "event_count" => length(events)
       }
@@ -1028,7 +1033,12 @@ defmodule Conveyor.Planning.SerialDriver do
     if workspace_path && in_flight do
       sequence = state.start_index + 1
 
-      case RunReconciliation.reconcile_in_flight(state.run_id, in_flight, sequence, workspace_path) do
+      case RunReconciliation.reconcile_in_flight(
+             state.run_id,
+             in_flight,
+             sequence,
+             workspace_path
+           ) do
         {:already_committed, outcome} ->
           commit_slice_outcome!(ledger, outcome)
           Map.put(state.outcomes_by_slice, in_flight, outcome)
