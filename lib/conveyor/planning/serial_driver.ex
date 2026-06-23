@@ -29,6 +29,7 @@ defmodule Conveyor.Planning.SerialDriver do
   alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Planning.PilotExecution
+  alias Conveyor.Planning.RunReconstruction
   alias Conveyor.Planning.RunSpecAssembler
   alias Conveyor.RunSlice
 
@@ -110,29 +111,76 @@ defmodule Conveyor.Planning.SerialDriver do
     # crashed run can be detected and resumed. `ledger` is nil in map-fake unit tests where
     # no project resolves — then the loop behaves exactly as before (in-memory events only).
     ledger = run_ledger_context(input, opts)
-    emit_run_started!(ledger, order)
+    emit_run_started!(ledger, order, work_graph)
 
-    {events, _blocked, _agent_ran?} =
-      order
-      |> Enum.with_index(1)
-      |> Enum.reduce({[], MapSet.new(), false}, fn {slice_key, sequence},
-                                                   {events, blocked, agent_ran?} ->
-        {event, ran_now?} =
-          case blocking_predecessors(slice_key, edges, blocked) do
-            [] -> run_one_guarded!(slice_key, work_graph, sequence, agent_ran?, opts, reaper)
-            blockers -> {skipped_event(slice_key, sequence, blockers), false}
-          end
-
-        commit_slice_outcome!(ledger, event)
-
-        next_blocked =
-          if event["status"] == "passed", do: blocked, else: MapSet.put(blocked, slice_key)
-
-        {events ++ [event], next_blocked, agent_ran? or ran_now?}
-      end)
+    events = execute_order(order, edges, work_graph, opts, reaper, ledger, %{}, false)
 
     emit_run_terminal!(ledger, events)
+    build_result(order, events)
+  end
 
+  @doc """
+  Resume an interrupted run (U4). Re-enters the loop from the committed ledger stream:
+  a slice with a committed outcome is reused verbatim (never re-executed — passed slices
+  are the durable boundary, U3); the first slice with no committed outcome is the in-flight
+  slice, re-run from a clean base. `input` is the same work-graph map `run!/2` takes; the
+  prior `run_id` is reused so re-emitted slice outcomes dedup. `opts[:outcomes]` injects the
+  folded stream (tests); otherwise it is reconstructed from the ledger.
+  """
+  @spec resume!(String.t(), map(), keyword()) :: Result.t()
+  def resume!(run_id, input, opts \\ []) when is_binary(run_id) and is_map(input) do
+    opts = Keyword.put(opts, :run_id, run_id)
+    work_graph = value(input, :work_graph) || input
+    selected_slice_ids = input |> list(:selected_slice_ids) |> Enum.uniq()
+    edges = work_edges(work_graph, selected_slice_ids)
+    order = do_topo(selected_slice_ids, edges, [])
+    reaper = build_reaper(opts)
+    ledger = run_ledger_context(input, opts)
+
+    state = RunReconstruction.reconstruct(run_id, order, Keyword.take(opts, [:outcomes]))
+
+    # Resume seeds agent_ran? = true: a prior slice ran in the now-dead process, so the
+    # first re-executed slice resets to the committed base, discarding the crash's leftover
+    # tree (U5 reconciles whether that slice's accept-commit already landed before re-running).
+    events =
+      execute_order(order, edges, work_graph, opts, reaper, ledger, state.outcomes_by_slice, true)
+
+    emit_run_terminal!(ledger, events)
+    build_result(order, events)
+  end
+
+  # Shared reduce for run!/resume!. `resumed` maps slice_key => committed outcome payload;
+  # those slices are reused verbatim (not re-executed, not re-committed — dedup would no-op
+  # them anyway). `initial_agent_ran` seeds the between-slice reset gate (false for a fresh
+  # run so a user's pre-run tree is never reset; true for a resume).
+  defp execute_order(order, edges, work_graph, opts, reaper, ledger, resumed, initial_agent_ran) do
+    order
+    |> Enum.with_index(1)
+    |> Enum.reduce({[], MapSet.new(), initial_agent_ran}, fn {slice_key, sequence},
+                                                             {events, blocked, agent_ran?} ->
+      {event, ran_now?} =
+        cond do
+          Map.has_key?(resumed, slice_key) ->
+            {Map.fetch!(resumed, slice_key), false}
+
+          true ->
+            case blocking_predecessors(slice_key, edges, blocked) do
+              [] -> run_one_guarded!(slice_key, work_graph, sequence, agent_ran?, opts, reaper)
+              blockers -> {skipped_event(slice_key, sequence, blockers), false}
+            end
+        end
+
+      unless Map.has_key?(resumed, slice_key), do: commit_slice_outcome!(ledger, event)
+
+      next_blocked =
+        if event["status"] == "passed", do: blocked, else: MapSet.put(blocked, slice_key)
+
+      {events ++ [event], next_blocked, agent_ran? or ran_now?}
+    end)
+    |> elem(0)
+  end
+
+  defp build_result(order, events) do
     report =
       PilotExecution.summarize(%{
         implementation_width: 1,
@@ -966,10 +1014,13 @@ defmodule Conveyor.Planning.SerialDriver do
     opts |> Keyword.get(:slices_by_stable_key, %{}) |> Map.get(slice_key)
   end
 
-  defp emit_run_started!(nil, _order), do: :ok
+  defp emit_run_started!(nil, _order, _work_graph), do: :ok
 
-  defp emit_run_started!(ledger, order) do
-    write_run_event!(ledger, "run.started", "started", %{"slice_ids" => order})
+  defp emit_run_started!(ledger, order, work_graph) do
+    write_run_event!(ledger, "run.started", "started", %{
+      "slice_ids" => order,
+      "work_graph" => jsonable(work_graph)
+    })
   end
 
   defp emit_run_terminal!(nil, _events), do: :ok
