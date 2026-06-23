@@ -6,13 +6,11 @@ defmodule Conveyor.Stations.Verify do
   alias Conveyor.Eval.{ToolchainRunner, Workspace}
   alias Conveyor.Gate.IntegrityEvidence
 
-  # ADR-23: the probes the verify station can supply truthful observations for.
-  @integrity_probes ["hermeticity", "source_mutation"]
-
   @impl Conveyor.Station
   def run(input, _context) do
     workspace_path = get(input, "workspace_path")
     plan = YamlElixir.read_from_file!(get(input, "plan_path"))
+    backend = backend(get(input, "backend"))
 
     verification_result =
       ToolchainRunner.verification_result(workspace_path, plan, runner_opts(input))
@@ -27,7 +25,7 @@ defmodule Conveyor.Stations.Verify do
     integrity_verdict =
       verification_result
       |> integrity_observations()
-      |> IntegrityEvidence.verdict(required_probes: @integrity_probes)
+      |> IntegrityEvidence.verdict(required_probes: integrity_probes(backend))
 
     {:ok,
      %{
@@ -50,16 +48,25 @@ defmodule Conveyor.Stations.Verify do
     |> maybe_put(:source_root, get(input, "source_root"))
   end
 
-  # ADR-23: the IntegritySentinel observations ToolchainRunner produced
-  # (source-mutation always; hermeticity only under docker). Probes with no
-  # observation evaluate to not_assessed -> non-blocking, so a local-backend run
-  # stays not_assessed and only a genuine probe failure abstains.
+  # ADR-23 / M4: the IntegritySentinel observations ToolchainRunner produced
+  # (source-mutation always; hermeticity only under docker). On :local only
+  # source_mutation is REQUIRED (see integrity_probes/1), so a clean run is genuinely
+  # "trustworthy" and a real production-source mutation -> "untrustworthy" -> abstain.
   defp integrity_observations(verification_result),
     do: Map.get(verification_result, "integrity_observations", %{})
 
   defp backend("docker"), do: :docker
   defp backend(:docker), do: :docker
   defp backend(_other), do: nil
+
+  # M4 (integrity un-laundering): the integrity probes REQUIRED for a "trustworthy" verdict,
+  # per backend. source_mutation is backend-agnostic (always supplied); hermeticity is only
+  # genuinely assessable under docker, so on :local it is NOT required (declared
+  # not-assessable). A clean source_mutation alone -> "trustworthy"; a real production-source
+  # mutation -> "untrustworthy". This is what lets integrity be un-laundered (TrustEvidence)
+  # without parking the local-backend reference.
+  defp integrity_probes(:docker), do: ["hermeticity", "source_mutation"]
+  defp integrity_probes(_local), do: ["source_mutation"]
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)

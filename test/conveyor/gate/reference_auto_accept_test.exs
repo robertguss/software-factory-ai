@@ -9,10 +9,10 @@ defmodule Conveyor.Gate.ReferenceAutoAcceptTest do
   weight/threshold change that moves these numbers fails here and must be justified
   (PR body + anchor update + a re-run gauntlet asserting `false_pass_rate == 0`).
 
-  F13 honesty flag: through M4.1->M4.7 the reference's integrity 1.0 is *laundered*
-  (fabricated), not earned. An auto-accept in this window proves calibration +
-  baseline (+ replay, corpus) are real — NOT integrity. Integrity is earned only at
-  M4.8 `{D4 + C1}`.
+  Integrity note (M4: un-laundered): the reference's integrity `"trustworthy"` is now
+  *earned* — the verify station's real `source_mutation` probe (the only one required on
+  `:local`) is clean. A genuine production-source mutation makes it `"untrustworthy"`
+  (0.0) -> abstain; a `"suspect"` verdict (0.5) drops the reference to 0.775 -> abstain.
   """
   use ExUnit.Case, async: true
 
@@ -21,9 +21,9 @@ defmodule Conveyor.Gate.ReferenceAutoAcceptTest do
   # The §4 anchor: auto-accept threshold the reference must clear.
   @anchor_score_floor 0.9
 
-  # The reference at the current (A-first) M4 stage: integrity laundered to
-  # "trustworthy", calibration + baseline real-and-green, replay none, corpus
-  # cold-start (nil -> 0.5). Scores 0.925.
+  # The reference: integrity real-and-"trustworthy" (clean source_mutation probe),
+  # calibration + baseline real-and-green, replay none, corpus cold-start (nil -> 0.5).
+  # Scores 0.925.
   defp current_reference_evidence do
     %{
       integrity_verdict: "trustworthy",
@@ -72,8 +72,8 @@ defmodule Conveyor.Gate.ReferenceAutoAcceptTest do
     end
   end
 
-  describe "the forbidden 0.775 transient (why integrity stays laundered until M4.8)" do
-    test "un-laundering integrity (1.0 -> 0.5) without a clean probe parks the reference" do
+  describe "a suspect integrity verdict parks the reference (the 0.775 guard)" do
+    test "a 'suspect' integrity (0.5) with everything else green abstains" do
       # Integrity "suspect" scores 0.5; everything else green. 0.775 < 0.9 -> abstain.
       r =
         TrustScore.evaluate(%{

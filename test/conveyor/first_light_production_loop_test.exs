@@ -81,10 +81,12 @@ defmodule Conveyor.FirstLightProductionLoopTest do
     assert verification_result["status"] == "passed"
     assert gate.passed?, inspect(gate.findings)
 
-    # ADR-23: the verify station emits the IntegritySentinel verdict into the run
-    # output (the live TrustEvidence path). On the local backend with no probe
-    # observations it is the honest, non-blocking "not_assessed".
-    assert result.output["integrity_verdict"] == "not_assessed"
+    # M4 (integrity un-laundered): the verify station emits the real IntegritySentinel
+    # verdict into the run output (the live TrustEvidence path). On the local backend it
+    # requires only the backend-agnostic source_mutation probe (hermeticity is docker-only),
+    # so a clean run is genuinely "trustworthy" — and a real production-source mutation would
+    # be "untrustworthy" -> the trust score abstains -> the slice parks for investigation.
+    assert result.output["integrity_verdict"] == "trustworthy"
 
     assert verification_result
            |> suite("acceptance_locked")

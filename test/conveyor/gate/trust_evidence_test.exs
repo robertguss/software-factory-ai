@@ -14,10 +14,11 @@ defmodule Conveyor.Gate.TrustEvidenceTest do
     do: output |> TrustEvidence.from_run_output() |> TrustScore.evaluate() |> Map.fetch!(:band)
 
   describe "from_run_output/1 -> TrustScore band" do
-    test "valid calibration + passed baseline auto-accepts" do
+    test "valid calibration + passed baseline + trustworthy integrity auto-accepts" do
       assert band(%{
                "test_pack_calibration" => %{"status" => "valid"},
-               "baseline_health_status" => "passed"
+               "baseline_health_status" => "passed",
+               "integrity_verdict" => "trustworthy"
              }) == :auto_accept
     end
 
@@ -63,13 +64,14 @@ defmodule Conveyor.Gate.TrustEvidenceTest do
 
       assert evidence.calibration_status == :not_assessed
       assert evidence.baseline_status == :unknown
+      assert evidence.integrity_verdict == "not_assessed"
     end
   end
 
   describe "assemble/1 defaults" do
-    test "unmeasured calibration + baseline fail closed; integrity/replay/corpus unchanged (owned downstream)" do
+    test "unmeasured calibration + baseline + integrity all fail closed; replay/corpus owned downstream" do
       assert TrustEvidence.assemble(%{}) == %{
-               integrity_verdict: "trustworthy",
+               integrity_verdict: "not_assessed",
                calibration_status: :not_assessed,
                baseline_status: :unknown,
                replay_divergence: :none,

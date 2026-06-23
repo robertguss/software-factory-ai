@@ -26,11 +26,11 @@ defmodule Conveyor.Gate.TrustEvidence do
   ## Staged ownership (M4)
 
   - **calibration + baseline** — fail-closed here (M4-A1).
-  - **integrity** — *still laundered to `"trustworthy"`*. Un-laundering it is owned
-    by D4 (M4.8), atomic with the first real integrity probe (C1). Until then the
-    reference's integrity 1.0 is fabricated, **not earned** (the F13 honesty flag).
-    Do NOT un-launder integrity here: dropping integrity 1.0 -> 0.5 without a real
-    probe drops the reference score to 0.775 and parks the known-good reference.
+  - **integrity** — *un-laundered (M4)*: the real IntegritySentinel verdict passes
+    through. The verify station requires only the backend-agnostic `source_mutation`
+    probe on `:local` (hermeticity is docker-only), so a clean run is genuinely
+    `"trustworthy"` and a real production-source mutation is `"untrustworthy"` ->
+    abstain/park. An absent verdict fails closed to `"not_assessed"`.
   - **replay + corpus** — owned by stream B (real replay-divergence producer +
     corpus boost). A1 leaves their laundering in place; it only adds the
     declared-not-assessable override path.
@@ -101,12 +101,18 @@ defmodule Conveyor.Gate.TrustEvidence do
 
   # --- still laundered (owned downstream); see moduledoc F13 flag ------------
 
-  # NOTE (M4 F13): integrity stays laundered to "trustworthy" until D4/M4.8. The
-  # reference's integrity 1.0 is fabricated, not earned, in the M4.1->M4.7 window.
-  # Un-laundering it here (without a real probe) would drop the reference to 0.775.
+  # M4 (integrity un-laundered): pass the real IntegritySentinel verdict through instead of
+  # laundering every value to "trustworthy". The verify station now requires only the
+  # backend-agnostic source_mutation probe on :local (hermeticity is docker-only), so a clean
+  # run is genuinely "trustworthy" and a real production-source mutation is "untrustworthy" ->
+  # the trust score abstains -> the slice parks for human + AI investigation. An absent verdict
+  # fails closed to "not_assessed" (investigate); the verify station always supplies one on the
+  # live path, so the reference stays "trustworthy" (now earned, not fabricated).
+  defp integrity(verdict) when verdict in [:trustworthy, "trustworthy"], do: "trustworthy"
   defp integrity(verdict) when verdict in [:suspect, "suspect"], do: "suspect"
   defp integrity(verdict) when verdict in [:untrustworthy, "untrustworthy"], do: "untrustworthy"
-  defp integrity(_verdict), do: "trustworthy"
+  defp integrity(verdict) when verdict in [:not_assessed, "not_assessed"], do: "not_assessed"
+  defp integrity(_absent), do: "not_assessed"
 
   defp replay(divergence) when divergence in [:diverged, "diverged"], do: :diverged
   defp replay(_divergence), do: :none

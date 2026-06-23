@@ -256,6 +256,30 @@ defmodule Conveyor.GateFinalizerTest do
     assert get_by_id!(Slice, context.slice.id).state == :parked
   end
 
+  test "M4: an untrustworthy integrity verdict (production source mutated) abstains and parks",
+       context do
+    # Integrity is no longer laundered: a real production-source mutation makes the verify
+    # station emit "untrustworthy", which the trust score abstains on -> the slice parks for
+    # human + AI investigation. Driven through the real assembly path.
+    evidence =
+      TrustEvidence.from_run_output(%{
+        "test_pack_calibration" => %{"status" => "valid"},
+        "baseline_health_status" => "passed",
+        "integrity_verdict" => "untrustworthy"
+      })
+
+    assert evidence.integrity_verdict == "untrustworthy"
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :abstain
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
+    assert get_by_id!(Slice, context.slice.id).state == :parked
+  end
+
   test "ADR-23: a passed gate with high trust evidence still auto-accepts", context do
     evidence = %{
       integrity_verdict: "trustworthy",
