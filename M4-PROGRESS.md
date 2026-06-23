@@ -85,14 +85,23 @@ if it ever is, `:invalid` is the correct signal for it too (its acceptance tests
 new behavior). Optional future polish: split `:invalid` into typed park *reasons*
 (`weak_acceptance_tests` vs `no_behavior_change`) for the investigators — additive, not needed.
 
-## 4. Out of scope this branch (correctly deferred)
-- **Integrity un-laundering** stays in `TrustEvidence.integrity/1` until D4/M4.8, atomic
-  with the first real integrity probe (C1). Un-laundering it without a probe drops the
-  reference to 0.775 → park.
+### Integrity un-laundering (the strongest signal) — **LANDED** (commit `5b1c047`)
+A1 left integrity laundered (`TrustEvidence.integrity` always emitted `"trustworthy"`).
+Integrity is the highest-weighted signal (0.30), so this was the largest remaining honesty
+gap. Now real, without needing the docker hermetic gate first: on `:local` the verify
+station requires only the **backend-agnostic `source_mutation` probe** (`integrity_probes/1`)
+— hermeticity is docker-only, declared not-assessable on `:local` — so a clean run is
+genuinely `"trustworthy"` and a real production-source mutation is `"untrustworthy"` →
+abstain → park. `TrustEvidence` passes the real verdict through (absent → `"not_assessed"`,
+fail-closed). The reference stays green (its integrity is now *earned* `"trustworthy"`,
+scoring 0.925 as before). This is the `:local` variant of the spec's D4 (the docker
+hermetic-gate path remains a later option for asserting hermeticity).
+
+## 4. Still out of scope this branch (later streams)
 - **Stream B** (real `replay_divergence` + `corpus_pass_rate` producers, OD19 hybrid
-  committed-seed baseline) — needs the baseline machinery above.
-- **Streams C/D/E/F** (integrity probes, hermetic gate, all-14-stages, static-stage
-  MutantGauntlet) — later milestones.
+  committed-seed baseline) — the boost/replay signals; higher-risk (renormalization).
+- **Streams C/D/E/F** (the *rest* of the integrity probes, the docker hermetic gate, all-14
+  gate stages live, static-stage MutantGauntlet) — later milestones.
 
 ## 5. Safe next steps (no corpus surgery, no live agent)
 - Resolve the §3 Decisions, then land A2/A3 and A4/A5 with the base-checkout seam.
