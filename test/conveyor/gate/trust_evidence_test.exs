@@ -1,8 +1,9 @@
 defmodule Conveyor.Gate.TrustEvidenceTest do
   @moduledoc """
-  ADR-23 — the evidence-threading layer that turns a slice run's signals into
-  `TrustScore` evidence. Asserts the safe-rollout contract: a passed gate abstains
-  only on a recognized negative signal; unmeasured signals are non-blocking.
+  ADR-23 / M4-A1 — the evidence-threading layer that turns a slice run's signals
+  into `TrustScore` evidence. Asserts the **fail-closed** contract: an
+  always-assessable signal (calibration, baseline) that is expected but absent
+  abstains; a producer may declare a signal not-assessable to keep it non-blocking.
   """
   use ExUnit.Case, async: true
 
@@ -42,17 +43,35 @@ defmodule Conveyor.Gate.TrustEvidenceTest do
              }) == :abstain
     end
 
-    test "empty / unmeasured output is non-blocking (auto-accept)" do
-      assert band(%{}) == :auto_accept
+    # M4-A1: the keystone inversion. These used to auto-accept (the laundering leak).
+    test "absent calibration fails closed (abstains)" do
+      assert band(%{"baseline_health_status" => "passed"}) == :abstain
+    end
+
+    test "absent baseline fails closed (abstains)" do
+      assert band(%{"test_pack_calibration" => %{"status" => "valid"}}) == :abstain
+    end
+
+    test "empty / unmeasured output fails closed (abstains)" do
+      assert band(%{}) == :abstain
+    end
+  end
+
+  describe "from_run_output/1 anti-vacuity guard" do
+    test "absent always-assessable signals route to their abstaining token, not a passing one" do
+      evidence = TrustEvidence.from_run_output(%{})
+
+      assert evidence.calibration_status == :not_assessed
+      assert evidence.baseline_status == :unknown
     end
   end
 
   describe "assemble/1 defaults" do
-    test "unmeasured signals default to non-blocking" do
+    test "unmeasured calibration + baseline fail closed; integrity/replay/corpus unchanged (owned downstream)" do
       assert TrustEvidence.assemble(%{}) == %{
                integrity_verdict: "trustworthy",
-               calibration_status: :valid,
-               baseline_status: :green,
+               calibration_status: :not_assessed,
+               baseline_status: :unknown,
                replay_divergence: :none,
                corpus_pass_rate: nil
              }
@@ -67,8 +86,34 @@ defmodule Conveyor.Gate.TrustEvidenceTest do
       assert evidence.replay_divergence == :diverged
     end
 
+    test "a measured-good calibration + baseline pass through" do
+      evidence = TrustEvidence.assemble(%{calibration: "valid", baseline: "passed"})
+
+      assert evidence.calibration_status == :valid
+      assert evidence.baseline_status == :green
+    end
+
     test "a float corpus pass rate is carried through" do
       assert TrustEvidence.assemble(%{corpus_pass_rate: 0.8}).corpus_pass_rate == 0.8
+    end
+  end
+
+  describe "declared-not-assessable (producer says N/A on this backend)" do
+    test "a declared signal routes to its neutral middle token, not a bad one" do
+      evidence = TrustEvidence.assemble(%{declared_not_assessable: [:replay]})
+
+      assert evidence.replay_divergence == :unknown
+    end
+
+    test "from_run_output threads the trust_not_assessable output key" do
+      evidence =
+        TrustEvidence.from_run_output(%{
+          "test_pack_calibration" => %{"status" => "valid"},
+          "baseline_health_status" => "passed",
+          "trust_not_assessable" => ["replay"]
+        })
+
+      assert evidence.replay_divergence == :unknown
     end
   end
 end
