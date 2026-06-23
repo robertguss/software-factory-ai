@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideation: Conveyor — What to Build Next</title>
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link rel="stylesheet" href="https://fonts.bunny.net/css?family=inter:400,500,600,700|jetbrains-mono:400,500">
+<style>
+  :root{
+    --bg:#fbfaf8; --canvas:#ffffff; --ink:#1c1f23; --muted:#5d646d;
+    --line:#e6e2db; --accent:#b4530b; --accent-soft:#fbeede; --accent-text:#8a3f08;
+    --good:#1f7a4d; --good-soft:#e6f3ec; --warn:#9a6a00; --warn-soft:#f7eed6;
+    --info:#2b5d9e; --info-soft:#e7eef8; --chip:#f1ede6;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#16181b; --canvas:#1d2024; --ink:#e8e6e2; --muted:#9aa1a9;
+      --line:#2f343a; --accent:#e8893f; --accent-soft:#332417; --accent-text:#f0a062;
+      --good:#5fce93; --good-soft:#13291e; --warn:#d6a64a; --warn-soft:#2c2412;
+      --info:#7fb0e8; --info-soft:#15212f; --chip:#262a2f; }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;font-feature-settings:"cv05","ss01"}
+  .wrap{max-width:920px;margin-inline:auto;padding:48px 24px 80px}
+  header.doc{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:32px}
+  .eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text);font-weight:600}
+  h1{font-size:30px;line-height:1.2;margin:.3em 0 .2em;font-weight:700;letter-spacing:-.01em}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .pill{font-size:12.5px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);
+    background:var(--chip);color:var(--muted);font-weight:500}
+  .pill.k{color:var(--accent-text);background:var(--accent-soft);border-color:transparent}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:28px 0 8px}
+  .stat{background:var(--canvas);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .stat .n{font-size:24px;font-weight:700;letter-spacing:-.02em}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+  section{margin-top:44px}
+  h2{font-size:21px;font-weight:700;letter-spacing:-.01em;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:15px;font-weight:600;margin:22px 0 8px}
+  p{margin:.6em 0;max-width:72ch}
+  a{color:var(--accent-text);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent-text) 30%,transparent)}
+  a:hover{border-bottom-color:var(--accent-text)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--chip);padding:1px 5px;border-radius:5px}
+  .orient{background:var(--canvas);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:18px 20px}
+  .axes{display:grid;gap:10px}
+  .axis{display:grid;grid-template-columns:54px 1fr;gap:14px;align-items:baseline;
+    background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:12px 16px}
+  .axis .tag{font-family:var(--mono);font-weight:600;color:var(--accent-text);font-size:13px}
+  .axis .d{font-size:14.5px;color:var(--muted)}
+  .axis .d b{color:var(--ink);font-weight:600}
+  .jump{background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin-bottom:22px}
+  .jump ol{margin:6px 0 0;padding-left:20px;columns:1}
+  .jump li{margin:4px 0;font-size:14.5px}
+  article.idea{background:var(--canvas);border:1px solid var(--line);border-radius:12px;
+    padding:22px 24px;margin-bottom:20px}
+  article.idea .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .rank{font-family:var(--mono);font-weight:600;font-size:13px;color:var(--accent-text);
+    background:var(--accent-soft);padding:2px 9px;border-radius:6px}
+  article.idea h3{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;flex:1 1 auto;border:0;padding:0}
+  .cardpills{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 4px}
+  .cp{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:500;border:1px solid transparent}
+  .cp.axis{background:var(--info-soft);color:var(--info)}
+  .cp.conf{background:var(--good-soft);color:var(--good)}
+  .cp.cx{background:var(--warn-soft);color:var(--warn)}
+  .field{margin:12px 0}
+  .field .lab{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:2px}
+  .basis{font-family:var(--mono);font-size:12.5px;background:var(--chip);border-radius:7px;
+    padding:9px 12px;line-height:1.5;white-space:pre-wrap}
+  .basis .bt{color:var(--good);font-weight:600}
+  .basis .bt.ext{color:var(--info)}
+  .basis .bt.rea{color:var(--warn)}
+  figure{margin:18px 0;text-align:center}
+  figure svg{max-width:100%;height:auto}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td.n{font-family:var(--mono);color:var(--muted);width:34px}
+  footer.composition-signal{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--muted)}
+  @media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}.axis{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <div class="eyebrow">Ideation · ce-ideate</div>
+  <h1>Conveyor — Where We Are & What to Build Next</h1>
+  <div class="meta">
+    <span class="pill">Date: <time datetime="2026-06-23">2026-06-23</time></span>
+    <span class="pill">Topic: roadmap-direction</span>
+    <span class="pill">Focus: getting bearings + next features</span>
+    <span class="pill k">Mode: repo-grounded</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n">7</div><div class="l">ranked ideas</div></div>
+    <div class="stat"><div class="n">~40</div><div class="l">raw candidates (5 frames)</div></div>
+    <div class="stat"><div class="n">6</div><div class="l">cut, with reasons</div></div>
+    <div class="stat"><div class="n">5 / 5</div><div class="l">axes covered</div></div>
+  </div>
+</header>
+
+<section id="orient">
+  <h2>Orientation — your bearings</h2>
+  <div class="orient">
+    <p style="margin-top:0"><b>The honest state:</b> the serial loop is real and joined — M0–M3 are done (a real agent runs end-to-end through the production <code>SerialDriver</code>, rework-on-fail is ON, and a parked slice no longer halts the run). The trust gate (M4) is roughly half-activated: 7 of 14 stages wired, <code>:abstain</code> fires on real signals, calibration is real. The two big unbuilt fronts are <b>M5 (autonomous decomposition)</b> and <b>M6 (long-horizon survivability)</b>.</p>
+    <p><b>Why you feel lost despite a strong roadmap:</b> the ROADMAP already sequences the milestones, but it doesn't tell you which <em>concrete moves</em> are highest-leverage right now, or which "M6" items are actually <em>preconditions</em> sitting in the wrong milestone. That's what this document ranks.</p>
+    <p style="margin-bottom:0"><b>Two debts loom over everything:</b> the M3 exit evidence (a 3–8 slice live run, N consecutive, surviving an induced failure) is <em>not yet banked</em>, and value-over-bare-agent is <em>unmeasured</em>. Until both exist, every provisional exit-bar number is a hypothesis.</p>
+  </div>
+  <figure>
+    <svg viewBox="0 0 880 140" role="img" aria-label="Milestone status track from M0 done through M7 gated">
+      <style>
+        .ms{font:600 13px var(--sans,sans-serif)} .sub{font:400 10.5px var(--sans,sans-serif)}
+      </style>
+      <line x1="40" y1="52" x2="840" y2="52" stroke="#cfc9c0" stroke-width="2"/>
+      <!-- done -->
+      <g>
+        <circle cx="70" cy="52" r="10" fill="#1f7a4d"/><text x="70" y="30" text-anchor="middle" class="ms" fill="#1f7a4d">M0–M3</text>
+        <text x="70" y="80" text-anchor="middle" class="sub" fill="#5d646d">loop joined ✓</text>
+      </g>
+      <g>
+        <circle cx="250" cy="52" r="10" fill="#9a6a00"/><text x="250" y="30" text-anchor="middle" class="ms" fill="#9a6a00">M4</text>
+        <text x="250" y="80" text-anchor="middle" class="sub" fill="#5d646d">gate 7/14 🟡</text>
+      </g>
+      <g>
+        <circle cx="430" cy="52" r="10" fill="#fbfaf8" stroke="#b4530b" stroke-width="2.5"/><text x="430" y="30" text-anchor="middle" class="ms" fill="#b4530b">M5</text>
+        <text x="430" y="80" text-anchor="middle" class="sub" fill="#5d646d">decomposition</text>
+      </g>
+      <g>
+        <circle cx="600" cy="52" r="10" fill="#fbfaf8" stroke="#b4530b" stroke-width="2.5"/><text x="600" y="30" text-anchor="middle" class="ms" fill="#b4530b">M6</text>
+        <text x="600" y="80" text-anchor="middle" class="sub" fill="#5d646d">survivability</text>
+      </g>
+      <g>
+        <rect x="690" y="40" width="56" height="24" rx="4" fill="none" stroke="#cfc9c0" stroke-dasharray="4 3"/>
+        <text x="718" y="56" text-anchor="middle" class="sub" fill="#5d646d">exit bar</text>
+      </g>
+      <g>
+        <circle cx="810" cy="52" r="10" fill="#fbfaf8" stroke="#9aa1a9" stroke-width="2"/><text x="810" y="30" text-anchor="middle" class="ms" fill="#5d646d">M7</text>
+        <text x="810" y="80" text-anchor="middle" class="sub" fill="#5d646d">parallel (gated)</text>
+      </g>
+    </svg>
+    <figcaption>Width-1 serial, fully autonomous, to the exit bar — <em>then</em> cross-slice parallelism. The ideas below cluster on closing M4, building M5, and pulling M6's true preconditions forward.</figcaption>
+  </figure>
+</section>
+
+<section id="grounding">
+  <h2>Grounding Context</h2>
+  <h3>Codebase Context</h3>
+  <p>Conveyor is an AI-first "software factory" on the BEAM (Elixir/OTP) — 383 lib modules, 307 test files, 27 ADRs. Per the just-authored <code>STRATEGY.md</code>: the bet is that the BEAM's primitives (OTP supervision, the actor model, GenServers) <em>inherit</em> resilience and isolation rather than inventing them, with each task a headless CLI call carrying its own fresh context. The north star: hand Conveyor a large plan → it decomposes into a dependency-ordered work-graph of contract-bearing slices → agents build it unattended → the human reviews a morning digest and a small needs-judgment queue.</p>
+  <p>The candidates below were qualified against the ROADMAP's verified state (PR <a href="https://github.com/robertguss/software-factory-ai/pull/19">#19</a> merged) and re-checked in source by a fresh-context verifier. Load-bearing gaps confirmed in code: <code>serial_driver.ex:163</code> hardcodes <code>"status" =&gt; "matched"</code>; zero <code>Oban.insert</code> in <code>lib/</code>; the run loop is in-memory <code>Enum.reduce_while</code>; <code>decomposer.ex</code> reads only <code>List.first(requirements)</code> and emits one slice with <code>work_deps: []</code>; <code>corpus_pass_rate</code> is a receive-only slot with no producer; <code>ParkedQueueLive</code> is display-only with no triage.</p>
+</section>
+
+<section id="axes">
+  <h2>Topic Axes</h2>
+  <div class="axes">
+    <div class="axis"><span class="tag">A1</span><span class="d"><b>Trust-gate completion (M4 remainder)</b> — the unwired producers/stages, replay-divergence, corpus_pass_rate, hermeticity, static-stage mutants.</span></div>
+    <div class="axis"><span class="tag">A2</span><span class="d"><b>Autonomous decomposition (M5)</b> — prose intent into a real computed dep-graph of contract-bearing slices. The open front.</span></div>
+    <div class="axis"><span class="tag">A3</span><span class="d"><b>Long-horizon survivability (M6)</b> — watchdog/timeout, drift &amp; anti-thrash detection, durable resumability / crash-recovery.</span></div>
+    <div class="axis"><span class="tag">A4</span><span class="d"><b>Evidence &amp; measurement</b> — banking the M3 exit run, lift over bare-agent, corpus diversity, gate-honesty extension.</span></div>
+    <div class="axis"><span class="tag">A5</span><span class="d"><b>Operator experience for unattended runs</b> — morning digest, parked-queue/needs-judgment triage, run observability.</span></div>
+  </div>
+</section>
+
+<section id="ideas">
+  <h2>Ranked Ideas</h2>
+  <div class="jump">
+    <div class="lab" style="font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600">Jump to</div>
+    <ol>
+      <li><a href="#i1">Event-sourced run ledger — the compound keystone</a> · A3</li>
+      <li><a href="#i2">Real replay-divergence producer (kill the hardcoded "matched")</a> · A1</li>
+      <li><a href="#i3">Output-independent watchdog for the silent-hang case</a> · A3</li>
+      <li><a href="#i4">Real decomposer: a computed dep-graph from interface bindings</a> · A2</li>
+      <li><a href="#i5">Multi-target corpus + per-stage defect-density map</a> · A4</li>
+      <li><a href="#i6">Bank the M3 exit run + a lift-over-bare-agent harness</a> · A4</li>
+      <li><a href="#i7">Decision-forcing morning digest &amp; parked-queue triage</a> · A5</li>
+    </ol>
+  </div>
+
+  <article class="idea" id="i1">
+    <div class="top"><span class="rank">1</span><h3>Event-sourced run ledger — the compound keystone</h3></div>
+    <div class="cardpills"><span class="cp axis">Axis A3</span><span class="cp conf">Confidence 88%</span><span class="cp cx">Complexity High</span></div>
+    <div class="field"><div class="lab">Description</div>
+      <p style="margin-top:2px">Replace the in-memory <code>reduce_while</code> run loop with an append-only event-sourced ledger (Postgres, the first real <code>Oban.insert</code>): every slice attempt, gate verdict, and trust-score vector is committed <em>before</em> the next step. One structural change pays off four times — a crashed run replays from the last committed event (M6 durability), the recorded trace becomes the substrate the real replay-divergence producer diffs against (M4), the dormant Conductor/Oban substrate gets its first activation (the M7 seam), and the committed event stream <em>is</em> the eval dataset every metric needs.</p></div>
+    <figure>
+      <svg viewBox="0 0 620 230" role="img" aria-label="Run ledger fanning out to four downstream wins">
+        <style>.lb{font:600 12.5px var(--sans,sans-serif)} .ls{font:400 11px var(--sans,sans-serif)}</style>
+        <rect x="222" y="14" width="176" height="48" rx="9" fill="#fbeede" stroke="#b4530b"/>
+        <text x="310" y="34" text-anchor="middle" class="lb" fill="#8a3f08">Event-sourced</text>
+        <text x="310" y="50" text-anchor="middle" class="lb" fill="#8a3f08">run ledger</text>
+        <!-- four targets -->
+        <g>
+          <rect x="20" y="150" width="130" height="58" rx="8" fill="#ffffff" stroke="#cfc9c0"/>
+          <text x="85" y="173" text-anchor="middle" class="lb" fill="#1c1f23">M6</text>
+          <text x="85" y="190" text-anchor="middle" class="ls" fill="#5d646d">crash resumes</text>
+        </g>
+        <g>
+          <rect x="172" y="150" width="130" height="58" rx="8" fill="#ffffff" stroke="#cfc9c0"/>
+          <text x="237" y="173" text-anchor="middle" class="lb" fill="#1c1f23">M4</text>
+          <text x="237" y="190" text-anchor="middle" class="ls" fill="#5d646d">replay diff base</text>
+        </g>
+        <g>
+          <rect x="324" y="150" width="130" height="58" rx="8" fill="#ffffff" stroke="#cfc9c0"/>
+          <text x="389" y="173" text-anchor="middle" class="lb" fill="#1c1f23">M7</text>
+          <text x="389" y="190" text-anchor="middle" class="ls" fill="#5d646d">Oban seam</text>
+        </g>
+        <g>
+          <rect x="476" y="150" width="130" height="58" rx="8" fill="#ffffff" stroke="#cfc9c0"/>
+          <text x="541" y="173" text-anchor="middle" class="lb" fill="#1c1f23">Eval</text>
+          <text x="541" y="190" text-anchor="middle" class="ls" fill="#5d646d">dataset flywheel</text>
+        </g>
+        <g stroke="#b4530b" stroke-width="1.6" fill="none">
+          <path d="M270 62 C 210 100, 130 110, 85 150"/>
+          <path d="M295 62 C 280 100, 250 115, 237 150"/>
+          <path d="M325 62 C 340 100, 372 115, 389 150"/>
+          <path d="M350 62 C 410 100, 495 110, 541 150"/>
+        </g>
+      </svg>
+      <figcaption>Why it's the keystone: one investment lands on four roadmap fronts at once.</figcaption>
+    </figure>
+    <div class="field"><div class="lab">Basis</div>
+      <div class="basis"><span class="bt">direct:</span> run loop is in-memory <code>Enum.reduce_while</code> (verified in <code>agent_runner/pi.ex</code>); zero <code>Oban.insert</code>/<code>insert_all</code> in <code>lib/</code> (grep empty); Conductor children are no-op skeletons (<code>conductor/child.ex</code> init returns <code>{:ok, Map.new(opts)}</code>). All three confirmed by the fresh-context verifier.</div></div>
+    <div class="field"><div class="lab">Rationale</div><p style="margin-top:2px">Every milestone from M4 to M7 depends on observing what actually happened in a run. The eval corpus isn't a separate project — it falls out of a durable ledger for free. No other single investment touches four milestones, and it's the move that turns "long run" into "survivable run."</p></div>
+    <div class="field"><div class="lab">Downsides</div><p style="margin-top:2px">The heaviest item here — a real schema-design and state-machine effort, not a wiring task. Risk of over-building the ledger before the loop's event vocabulary has stabilized; mitigate by modeling only the events M4/M6 actually consume first.</p></div>
+  </article>
+
+  <article class="idea" id="i2">
+    <div class="top"><span class="rank">2</span><h3>Real replay-divergence producer — kill the hardcoded "matched"</h3></div>
+    <div class="cardpills"><span class="cp axis">Axis A1</span><span class="cp conf">Confidence 95%</span><span class="cp cx">Complexity Medium</span></div>
+    <div class="field"><div class="lab">Description</div>
+      <p style="margin-top:2px"><code>serial_driver.ex:163</code> emits <code>"status" =&gt; "matched"</code> unconditionally — every run report certifies perfect replay fidelity whether or not replay was exercised. Build the real producer: re-execute the recorded input trace through the eval <code>ReplayEngine</code>, diff the normalized event stream, and emit a <em>divergence vector</em> (which steps diverged, by how much) rather than a boolean — so <code>replay_fidelity</code> can actually go red and the gate can abstain on a non-deterministic agent. The divergence vector doubles as the substrate for time-travel debugging (A5).</p></div>
+    <div class="field"><div class="lab">Basis</div>
+      <div class="basis"><span class="bt">direct:</span> verifier confirmed <code>lib/conveyor/planning/serial_driver.ex:163</code> hardcodes <code>"status" =&gt; "matched"</code> with no conditional branch (lines 155–168). The real divergence logic exists only in the eval path (<code>cassette_bridge.ex</code>), unwired to run reports.  <span class="bt ext">external:</span> aviation flight-data-recorder pattern — store the full parameter trace, then compute divergence, never a bare pass/fail.</div></div>
+    <div class="field"><div class="lab">Rationale</div><p style="margin-top:2px">This is the single most load-bearing fake signal in the codebase. While it's a string literal, M4's "gate honesty / zero false-pass" claim cannot honestly include replay as a tested dimension — the gate passes partly on a known lie. Smallest, highest-conviction honesty fix remaining.</p></div>
+    <div class="field"><div class="lab">Downsides</div><p style="margin-top:2px">Needs a stable recorded trace to diff against — so it lands cleanly <em>after</em> (or alongside) idea&nbsp;1's ledger. Defining "acceptable divergence" for a stochastic agent is a genuine design question, not a mechanical one.</p></div>
+  </article>
+
+  <article class="idea" id="i3">
+    <div class="top"><span class="rank">3</span><h3>Output-independent watchdog — close the silent-hang case</h3></div>
+    <div class="cardpills"><span class="cp axis">Axis A3</span><span class="cp conf">Confidence 90%</span><span class="cp cx">Complexity Low</span></div>
+    <div class="field"><div class="lab">Description</div>
+      <p style="margin-top:2px">Verification sharpened this one: <code>session_limits.ex</code> <em>does</em> track <code>max_wall_clock_ms</code> and returns <code>{:halt, …}</code> on exceedance — but the check is <em>event-driven</em>, polled only when the agent emits an output line (<code>pi.ex</code> calls <code>observe/2</code> per event). An agent that goes completely silent (network stall, infinite tool loop, hung subprocess) emits zero events and is therefore <strong>never reaped</strong>. Add a true OTP timer sentinel — <code>Process.send_after(self(), :watchdog_fire, max_wall_clock_ms)</code> per agent call — that fires independently of output and routes to rework/park via the existing <code>AmendmentRouter</code> path.</p></div>
+    <div class="field"><div class="lab">Basis</div>
+      <div class="basis"><span class="bt">direct:</span> verifier: <code>session_limits.ex:55-56</code> halts on <code>max_wall_clock_ms</code> but only inside the per-event poll in <code>pi.ex:224</code> — "a completely silent/hung agent that emits zero events would never trigger the halt." So the gap is specifically the silent-hang case, not a total absence of limits.  <span class="bt ext">external:</span> a watchdog timer is the canonical embedded/OTP liveness primitive — bound by the clock, not by progress signals.</div></div>
+    <div class="field"><div class="lab">Rationale</div><p style="margin-top:2px">The strategic call is "fully autonomous serial loop <em>first</em>." A loop that can hang forever on one silent 2&nbsp;a.m. call is not autonomous — this is a precondition of the claim, currently misfiled as an M6 item. It's also the cheapest survivability primitive (one GenServer, ~80 lines, no new deps) and the foundation the M6 anti-thrash sentinel later plugs into.</p></div>
+    <div class="field"><div class="lab">Downsides</div><p style="margin-top:2px">Picking the timeout value is a calibration problem — too tight reaps legitimately slow tool calls, too loose defeats the purpose. Needs a per-tier budget, not one global constant.</p></div>
+  </article>
+
+  <article class="idea" id="i4">
+    <div class="top"><span class="rank">4</span><h3>Real decomposer — a computed dep-graph from interface bindings (M5)</h3></div>
+    <div class="cardpills"><span class="cp axis">Axis A2</span><span class="cp conf">Confidence 92%</span><span class="cp cx">Complexity High</span></div>
+    <div class="field"><div class="lab">Description</div>
+      <p style="margin-top:2px">Today <code>Decomposer.propose</code> reads <code>List.first(requirements)</code> and emits exactly one hardcoded slice with <code>work_deps: []</code> — the "dependency-ordered work-graph" north star does not exist. Build the real decomposer: drive <code>PlanFoundry</code>/<code>CodexDrafter</code> from <code>mix conveyor.author "intent"</code> to produce N contract-bearing slices, compute real <code>work_dependencies</code> from interface bindings (<code>SliceDependency</code>/<code>InterfaceGraph</code> provider→consumer edges), validate the DAG is acyclic, and fire the ADR-27 Interrogator on genuine ambiguity. Treat it as <em>mise en place</em>: the line refuses to start until every slice has its contracts stationed.</p></div>
+    <div class="field"><div class="lab">Basis</div>
+      <div class="basis"><span class="bt">direct:</span> verifier confirmed <code>decomposer.ex</code> calls <code>List.first(requirements)</code> (line 30), builds one slice with <code>work_deps: []</code> (lines 38–46), never iterates requirements, never computes dependencies. <code>SliceDependency</code> and <code>work_graph_lowering.ex:38</code> already define the canonical target format.  <span class="bt rea">reasoned:</span> the computed dep-graph IS the parallel execution plan — building it for M5 is the same artifact M7 needs, so it compounds forward.</div></div>
+    <div class="field"><div class="lab">Rationale</div><p style="margin-top:2px">M5 is explicitly a precondition of the §4 exit bar — without autonomous decomposition, <code>mix conveyor.run</code> requires a hand-authored plan, meaning the operator still does the most expensive cognitive work the system exists to eliminate. This is the line between "a factory" and "a fancy task-runner."</p></div>
+    <div class="field"><div class="lab">Downsides</div><p style="margin-top:2px">Highest-uncertainty quality bet in the roadmap (ROADMAP R4) — decomposition quality is the load-bearing artifact for the whole dream and will need iteration. Large; best attempted once ideas 1–3 make runs durable and honest enough to trust the feedback.</p></div>
+  </article>
+
+  <article class="idea" id="i5">
+    <div class="top"><span class="rank">5</span><h3>Multi-target corpus + per-stage defect-density map</h3></div>
+    <div class="cardpills"><span class="cp axis">Axis A4</span><span class="cp conf">Confidence 85%</span><span class="cp cx">Complexity Medium</span></div>
+    <div class="field"><div class="lab">Description</div>
+      <p style="margin-top:2px">Every exit-bar metric today is measured on one target: Beads-Insight, a pure-logic greenfield Python repo — the easiest possible autonomous-coding task. Build a corpus harness of ≥3 distinct archetypes (pure-logic, a stateful CLI/service, a schema-driven library), run the MutantGauntlet canary corpus across the grid, and produce a <strong>per-stage × per-archetype escape-density map</strong>. A single hot cell tells you a gate stage is <em>structurally</em> blind to a defect class, not merely unlucky — and the run produces the real <code>corpus_pass_rate</code> signal the trust path is already wired to receive.</p></div>
+    <div class="field"><div class="lab">Basis</div>
+      <div class="basis"><span class="bt">direct:</span> verifier confirmed <code>corpus_pass_rate</code> exists in <code>gate/trust_evidence.ex</code> (lines 58, 80) and is consumed in <code>trust_score.ex</code>, but is read-only via <code>Map.get(output, "corpus_pass_rate")</code> with no producer anywhere in <code>lib/</code>. ROADMAP §4: every bar metric is measured on the single Beads-Insight target; ≥3 targets would "materially de-risk over-fitting."  <span class="bt ext">external:</span> semiconductor yield engineering — qualify a process on a defect-density map across many wafers, never a single one.</div></div>
+    <div class="field"><div class="lab">Rationale</div><p style="margin-top:2px">A single data point is not a measurement. The "≥70% first-pass gate success" target measured on one trivial target could be a fluke of its structure; thresholds calibrated there may be systematically too loose for anything with I/O or state. Discovering that <em>now</em> is cheap; discovering it mid-medium-plan is a crisis. Also the first proof Conveyor works on something other than easy Python — load-bearing for the open-source story.</p></div>
+    <div class="field"><div class="lab">Downsides</div><p style="margin-top:2px">Sourcing/authoring good greenfield targets is real curation work, and every added target multiplies agent-token cost per calibration run — a scheduling input the ROADMAP §6 already flags.</p></div>
+  </article>
+
+  <article class="idea" id="i6">
+    <div class="top"><span class="rank">6</span><h3>Bank the M3 exit run + a lift-over-bare-agent harness</h3></div>
+    <div class="cardpills"><span class="cp axis">Axis A4</span><span class="cp conf">Confidence 88%</span><span class="cp cx">Complexity Medium</span></div>
+    <div class="field"><div class="lab">Description</div>
+      <p style="margin-top:2px">The M3 exit evidence (a real 3–8 slice live run, N consecutive, surviving an <em>induced</em> slice failure) is not yet banked, and value-over-bare-agent is unmeasured. Build a <code>mix conveyor.exit_bar_run</code> harness that executes the prescribed sequence, runs a <strong>bare-agent control arm</strong> on the same plan, and emits a signed evidence-ledger artifact measuring the only metric that justifies the product: defects-caught and honest-abstention (verifier outputs), not pass@1. Exit-bar clearance becomes a green/red assertion you can re-run, not a manual ceremony.</p></div>
+    <div class="field"><div class="lab">Basis</div>
+      <div class="basis"><span class="bt">direct:</span> verifier confirmed zero matches for <code>exit_bar</code>, <code>bare_agent</code>, <code>control_arm</code>, or <code>consecutive_run</code> anywhere in <code>lib/</code> or <code>test/</code> — no such harness exists. ROADMAP: M3 exit pending; pass@1 was the wrong metric (n=3 trivial, both arms passed 3/3 → no signal).  <span class="bt rea">reasoned:</span> the whole strategy rests on "trustworthy completion + defects-caught beats a bare agent" — until that's measured once, it's a hypothesis, and it only becomes measurable once M4's gate is active.</div></div>
+    <div class="field"><div class="lab">Rationale</div><p style="margin-top:2px">This is the evidence debt that makes everything else honest. Automating it forces the exit criteria to be machine-checkable (surfacing ambiguity before it becomes a dispute) and converts "have we cleared M3?" from an open question into an assertion. It's also the first time you'd prove Conveyor catches a defect a bare agent would have merged.</p></div>
+    <div class="field"><div class="lab">Downsides</div><p style="margin-top:2px">Partly gated on M4 being active enough to emit real defect-caught/abstain signals, and on idea 5's corpus to avoid measuring lift on one trivial task. Running a control arm doubles token cost per evaluation.</p></div>
+  </article>
+
+  <article class="idea" id="i7">
+    <div class="top"><span class="rank">7</span><h3>Decision-forcing morning digest &amp; parked-queue triage</h3></div>
+    <div class="cardpills"><span class="cp axis">Axis A5</span><span class="cp conf">Confidence 78%</span><span class="cp cx">Complexity Medium</span></div>
+    <div class="field"><div class="lab">Description</div>
+      <p style="margin-top:2px"><code>ParkedQueueLive</code> exists but is display-only — it lists abstained runs least-trusted-first with no triage. Turn the morning digest into a <em>decision-forcing dossier</em>: each parked slice gets an auto-assigned triage tag (red = real defect signal, needs you now; yellow = retry-eligible; green = cosmetic/auto-resolvable; black = unrecoverable), with the specific gate finding and attempt trace pre-staged so a judgment takes &lt;60 seconds. Capture the human's verdict on each item as a structured label — which becomes the ground-truth signal for the next round of gate calibration (the A4 flywheel).</p></div>
+    <div class="field"><div class="lab">Basis</div>
+      <div class="basis"><span class="bt">direct:</span> verifier confirmed <code>ConveyorWeb.ParkedQueueLive</code> is a real LiveView (sorts by trust, refreshes via PubSub) but has "no auto-triage tagging, no digest generation, no filtering UI, no triage action callbacks"; no <code>triage_tag</code> symbol exists in <code>lib/</code>.  <span class="bt ext">external:</span> emergency-department START triage — a fixed protocol lets a small staff sort a flood by attention-given-survivability, not arrival order.</div></div>
+    <div class="field"><div class="lab">Rationale</div><p style="margin-top:2px">Operator throughput on the parked queue is a hard ceiling on unattended scale — the exit bar's "≤N judgment-items/day for one reviewer" cap is a wish without triage and an enforced budget with it. If each item takes 5 minutes of log archaeology, N is small; a pre-staged dossier compresses that 5–10×. This is the primary interface between the factory and the human.</p></div>
+    <div class="field"><div class="lab">Downsides</div><p style="margin-top:2px">Lower confidence: its value depends on real overnight runs existing to triage, so it trails ideas 1, 4, and 6. Auto-triage tag accuracy is itself a quality problem — a wrong "green" tag is exactly the silent failure the gate exists to prevent.</p></div>
+  </article>
+</section>
+
+<section id="rejections">
+  <h2>Rejection Summary</h2>
+  <table>
+    <thead><tr><th class="n">#</th><th>Idea</th><th>Reason cut</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><td>Generic producer scaffold for the 6 unwired gate stages</td><td>Premature gold-plating — the sharper move is letting MutantGauntlet measure which unwired stage actually catches an escaping mutant and building only that producer (folded into ideas 2 &amp; 5). A six-stage scaffold optimizes for stages that may never earn a producer.</td></tr>
+      <tr><td class="n">2</td><td>Plan-admission linter / contract-first slice template</td><td>Better handled inside M5 (idea 4) — a formal decomposition schema makes the linter fall out for free. Standalone now, it validates a hand-authored format M5 is about to replace.</td></tr>
+      <tr><td class="n">3</td><td>Unified "andon cord" stop-the-line escalation routing</td><td>Elegant, but it unifies primitives that mostly don't exist yet (EmergencyStop is unbuilt, the watchdog is idea 3). Worth doing once the stop-primitives exist; premature as a first move.</td></tr>
+      <tr><td class="n">4</td><td>Convergence Sentinel / anti-thrash circuit-breaker</td><td>Real M6 need, but downstream of the watchdog (idea 3) — it's the next increment on the same survivability seam, not the first. Reconsider immediately after idea 3 lands.</td></tr>
+      <tr><td class="n">5</td><td>Provenance-attestation chain-of-custody stage</td><td>Subject-aligned and valuable for the M8 self-hosting capstone's audit trail, but below the "what next" horizon — it serves a milestone gated behind the entire exit bar.</td></tr>
+      <tr><td class="n">6</td><td>Contract-synthesis assistant (help the human author contracts)</td><td>Genuinely interesting and challenges the "human writes the contracts" assumption — but better developed as a <code>ce-brainstorm</code> variant of M5 than built standalone; it overlaps idea 4's decomposition surface.</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:14px;color:var(--muted)">All five axes ended with at least one survivor — no coverage gaps. The convergence is itself a signal: all five independent ideation frames (pain, inversion, leverage, cross-domain analogy, assumption-breaking) landed on ideas 1–4 unprompted.</p>
+</section>
+
+<footer class="composition-signal">
+  Composed 2026-06-23 by ce-ideate · repo-grounded · source: ROADMAP.md + ROADMAP-REVIEW.md + STRATEGY.md, verified against source at PR #19. Survivors' <code>direct:</code> bases were re-checked in a fresh context.
+</footer>
+
+</div>
+</body>
+</html>

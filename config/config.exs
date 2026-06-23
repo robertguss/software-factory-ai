@@ -11,6 +11,12 @@ config :conveyor,
   ash_domains: [Conveyor.Factory],
   ecto_repos: [Conveyor.Repo],
   generators: [timestamp_type: :utc_datetime],
+  # M6 SerialDriver wall-clock reaper. A stuck slice (loops across rework, or a hung
+  # non-agent station) is reaped at the per-slice budget; the whole unattended run is bounded
+  # by the run budget. A reaped slice parks and the run advances (skip-and-continue). Set to
+  # nil/false to disable. Per-call opts (:slice_wall_clock_ms / :run_wall_clock_ms) override.
+  serial_driver_slice_wall_clock_ms: 3_600_000,
+  serial_driver_run_wall_clock_ms: 28_800_000,
   station_modules: %{
     "context_scout" => Conveyor.Stations.ContextScout,
     "baseline_health" => Conveyor.Stations.BaselineHealth,

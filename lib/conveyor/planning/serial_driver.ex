@@ -13,18 +13,24 @@ defmodule Conveyor.Planning.SerialDriver do
     Artifact,
     ContractLock,
     DiffPolicy,
+    Epic,
     Evidence,
     PatchSet,
+    Plan,
+    Project,
     RunAttempt,
     Slice,
     TestPack
   }
 
+  alias Conveyor.Ledger
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
   alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Planning.PilotExecution
+  alias Conveyor.Planning.RunReconciliation
+  alias Conveyor.Planning.RunReconstruction
   alias Conveyor.Planning.RunSpecAssembler
   alias Conveyor.RunSlice
 
@@ -50,6 +56,16 @@ defmodule Conveyor.Planning.SerialDriver do
     Conveyor.Gate.Stages.TestExecution,
     Conveyor.Gate.Stages.AcceptanceMapping
   ]
+
+  # M6 stuck-slice/stuck-run reaper. Per-agent-call wall-clock is already bounded in the
+  # adapter (Codex `run_with_timeout`, 15 min). What was missing is a clock-based bound on
+  # the WHOLE slice (a slice that loops across rework attempts, or a non-agent station that
+  # hangs) and on the WHOLE unattended run. These defaults are generous so they only catch
+  # a genuinely stuck slice/run, never a slow-but-progressing one. Resolution precedence:
+  # per-call opts > `:conveyor` app config > these code defaults. Disable with an explicit
+  # `nil`/`false` (config/test.exs nils both so existing tests run inline — no Task boundary).
+  @default_slice_wall_clock_ms 3_600_000
+  @default_run_wall_clock_ms 28_800_000
 
   defmodule Result do
     @moduledoc """
@@ -90,23 +106,85 @@ defmodule Conveyor.Planning.SerialDriver do
     # slice's agent has actually run (and may have left an uncommitted parked tree).
     # The FIRST agent run is never preceded by a reset, so a user's pre-run working
     # tree is never destroyed — the reset is the loop's own between-slice cleanup.
-    {events, _blocked, _agent_ran?} =
-      order
-      |> Enum.with_index(1)
-      |> Enum.reduce({[], MapSet.new(), false}, fn {slice_key, sequence},
-                                                   {events, blocked, agent_ran?} ->
-        {event, ran_now?} =
-          case blocking_predecessors(slice_key, edges, blocked) do
-            [] -> run_one!(slice_key, work_graph, sequence, agent_ran?, opts)
-            blockers -> {skipped_event(slice_key, sequence, blockers), false}
-          end
+    reaper = build_reaper(opts)
 
-        next_blocked =
-          if event["status"] == "passed", do: blocked, else: MapSet.put(blocked, slice_key)
+    # M6 durability: a run-scoped event stream committed to the append-only ledger so a
+    # crashed run can be detected and resumed. `ledger` is nil in map-fake unit tests where
+    # no project resolves — then the loop behaves exactly as before (in-memory events only).
+    ledger = run_ledger_context(input, opts)
+    emit_run_started!(ledger, order, work_graph)
 
-        {events ++ [event], next_blocked, agent_ran? or ran_now?}
-      end)
+    events = execute_order(order, edges, work_graph, opts, reaper, ledger, %{}, false)
 
+    emit_run_terminal!(ledger, events)
+    build_result(order, events)
+  end
+
+  @doc """
+  Resume an interrupted run (U4). Re-enters the loop from the committed ledger stream:
+  a slice with a committed outcome is reused verbatim (never re-executed — passed slices
+  are the durable boundary, U3); the first slice with no committed outcome is the in-flight
+  slice, re-run from a clean base. `input` is the same work-graph map `run!/2` takes; the
+  prior `run_id` is reused so re-emitted slice outcomes dedup. `opts[:outcomes]` injects the
+  folded stream (tests); otherwise it is reconstructed from the ledger.
+  """
+  @spec resume!(String.t(), map(), keyword()) :: Result.t()
+  def resume!(run_id, input, opts \\ []) when is_binary(run_id) and is_map(input) do
+    opts = Keyword.put(opts, :run_id, run_id)
+    work_graph = value(input, :work_graph) || input
+    selected_slice_ids = input |> list(:selected_slice_ids) |> Enum.uniq()
+    edges = work_edges(work_graph, selected_slice_ids)
+    order = do_topo(selected_slice_ids, edges, [])
+    reaper = build_reaper(opts)
+    ledger = run_ledger_context(input, opts)
+
+    state = RunReconstruction.reconstruct(run_id, order, Keyword.take(opts, [:outcomes]))
+
+    # U5: before re-running the in-flight slice, reconcile whether its accept-commit already
+    # landed in the workspace (the crash gap between git commit and the outcome ledger write).
+    # If so, record it passed and reuse it — never produce a second accept-commit.
+    resumed = reconcile_in_flight(state, ledger, opts)
+
+    # Resume seeds agent_ran? = true: a prior slice ran in the now-dead process, so the
+    # first re-executed slice resets to the committed base, discarding the crash's leftover tree.
+    events = execute_order(order, edges, work_graph, opts, reaper, ledger, resumed, true)
+
+    emit_run_terminal!(ledger, events)
+    build_result(order, events)
+  end
+
+  # Shared reduce for run!/resume!. `resumed` maps slice_key => committed outcome payload;
+  # those slices are reused verbatim (not re-executed, not re-committed — dedup would no-op
+  # them anyway). `initial_agent_ran` seeds the between-slice reset gate (false for a fresh
+  # run so a user's pre-run tree is never reset; true for a resume).
+  defp execute_order(order, edges, work_graph, opts, reaper, ledger, resumed, initial_agent_ran) do
+    order
+    |> Enum.with_index(1)
+    |> Enum.reduce({[], MapSet.new(), initial_agent_ran}, fn {slice_key, sequence},
+                                                             {events, blocked, agent_ran?} ->
+      {event, ran_now?} =
+        cond do
+          Map.has_key?(resumed, slice_key) ->
+            {Map.fetch!(resumed, slice_key), false}
+
+          true ->
+            case blocking_predecessors(slice_key, edges, blocked) do
+              [] -> run_one_guarded!(slice_key, work_graph, sequence, agent_ran?, opts, reaper)
+              blockers -> {skipped_event(slice_key, sequence, blockers), false}
+            end
+        end
+
+      unless Map.has_key?(resumed, slice_key), do: commit_slice_outcome!(ledger, event)
+
+      next_blocked =
+        if event["status"] == "passed", do: blocked, else: MapSet.put(blocked, slice_key)
+
+      {events ++ [event], next_blocked, agent_ran? or ran_now?}
+    end)
+    |> elem(0)
+  end
+
+  defp build_result(order, events) do
     report =
       PilotExecution.summarize(%{
         implementation_width: 1,
@@ -178,6 +256,139 @@ defmodule Conveyor.Planning.SerialDriver do
     }
   end
 
+  # --- M6 wall-clock reaper ----------------------------------------------------
+
+  # Resolve the slice/run wall-clock budgets once per run. A monotonic run-start anchors
+  # the run deadline; both budgets are `nil` when disabled (then `run_one_guarded!` runs the
+  # slice inline with no Task boundary, exactly as before this milestone).
+  defp build_reaper(opts) do
+    run_started_ms = System.monotonic_time(:millisecond)
+
+    slice_budget_ms =
+      resolve_budget(
+        opts,
+        :slice_wall_clock_ms,
+        :serial_driver_slice_wall_clock_ms,
+        @default_slice_wall_clock_ms
+      )
+
+    run_budget_ms =
+      resolve_budget(
+        opts,
+        :run_wall_clock_ms,
+        :serial_driver_run_wall_clock_ms,
+        @default_run_wall_clock_ms
+      )
+
+    %{
+      slice_budget_ms: slice_budget_ms,
+      run_budget_ms: run_budget_ms,
+      run_started_ms: run_started_ms,
+      run_deadline_ms: run_budget_ms && run_started_ms + run_budget_ms
+    }
+  end
+
+  defp resolve_budget(opts, opt_key, config_key, code_default) do
+    case Keyword.fetch(opts, opt_key) do
+      {:ok, value} -> normalize_budget(value)
+      :error -> normalize_budget(Application.get_env(:conveyor, config_key, code_default))
+    end
+  end
+
+  defp normalize_budget(ms) when is_integer(ms) and ms > 0, do: ms
+  defp normalize_budget(_), do: nil
+
+  # Guarded slice execution. Three cases:
+  #   1. the run budget is already spent  -> reap before starting (nothing runs)
+  #   2. no budget applies                -> run inline (no Task, behaviour unchanged)
+  #   3. a budget applies                 -> run in a Task, reaped at the effective deadline
+  # A reaped slice parks (status != "passed"), so the existing skip-and-continue logic
+  # blocks its dependents and the run advances instead of hanging.
+  defp run_one_guarded!(slice_key, work_graph, sequence, reset?, opts, reaper) do
+    now = System.monotonic_time(:millisecond)
+
+    if reaper.run_deadline_ms != nil and now >= reaper.run_deadline_ms do
+      {reaped_event(
+         slice_key,
+         sequence,
+         "run_deadline",
+         now - reaper.run_started_ms,
+         reaper.run_budget_ms
+       ), false}
+    else
+      case effective_timeout(reaper, now) do
+        :none ->
+          run_one!(slice_key, work_graph, sequence, reset?, opts)
+
+        {reason, timeout_ms} ->
+          reap_slice!(slice_key, work_graph, sequence, reset?, opts, reason, timeout_ms)
+      end
+    end
+  end
+
+  # The binding deadline for this slice is whichever is nearer: its own per-slice budget or
+  # the time left on the whole-run budget. `:none` means neither is configured.
+  defp effective_timeout(reaper, now) do
+    remaining_run = reaper.run_deadline_ms && reaper.run_deadline_ms - now
+    slice = reaper.slice_budget_ms
+
+    cond do
+      is_nil(slice) and is_nil(remaining_run) -> :none
+      is_nil(remaining_run) -> {"slice_deadline", slice}
+      is_nil(slice) -> {"run_deadline", remaining_run}
+      slice <= remaining_run -> {"slice_deadline", slice}
+      true -> {"run_deadline", remaining_run}
+    end
+  end
+
+  # Run the slice in a linked Task and bound it by wall-clock. `Task.yield ||
+  # Task.shutdown(:brutal_kill)` mirrors the adapter-level watchdog (Codex.run_with_timeout):
+  # on timeout the in-flight slice is killed and reported as reaped. A slice that *raises* is
+  # re-raised in the caller so the existing crash semantics are preserved exactly — only the
+  # timeout path is new.
+  defp reap_slice!(slice_key, work_graph, sequence, reset?, opts, reason, timeout_ms) do
+    started_at = System.monotonic_time(:millisecond)
+
+    task =
+      Task.async(fn ->
+        try do
+          {:ok, run_one!(slice_key, work_graph, sequence, reset?, opts)}
+        rescue
+          error -> {:raise, error, __STACKTRACE__}
+        end
+      end)
+
+    case Task.yield(task, timeout_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {:ok, {event, ran?}}} ->
+        {event, ran?}
+
+      {:ok, {:raise, error, stacktrace}} ->
+        reraise(error, stacktrace)
+
+      _timed_out_or_killed ->
+        elapsed = System.monotonic_time(:millisecond) - started_at
+        # A brutal-killed slice may have left an uncommitted tree, so the next independent
+        # slice must reset to base — report `agent_ran? = true`.
+        {reaped_event(slice_key, sequence, reason, elapsed, timeout_ms), true}
+    end
+  end
+
+  defp reaped_event(slice_key, sequence, reason, elapsed_ms, budget_ms) do
+    %{
+      "slice_id" => slice_key,
+      "sequence" => sequence,
+      "status" => "parked",
+      "gate_result" => "reaped_wall_clock",
+      "run_attempt_outcome" => :parked,
+      "findings" => ["wall_clock_exceeded", reason],
+      "reaped" => %{
+        "reason" => reason,
+        "elapsed_ms" => elapsed_ms,
+        "budget_ms" => budget_ms
+      }
+    }
+  end
+
   # Returns {event, agent_ran?}. `agent_ran?` is true only when the slice's agent
   # actually executed (so it may have left an uncommitted tree); an interrogation
   # preflight park returns false (it touches nothing). `reset?` says whether a PRIOR
@@ -219,9 +430,10 @@ defmodule Conveyor.Planning.SerialDriver do
     passed? =
       slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
 
-    if passed? do
-      advance_workspace_base!(run_spec, slice_key, finalization, opts)
-    end
+    head =
+      if passed? do
+        advance_workspace_base!(run_spec, slice_key, finalization, opts)
+      end
 
     %{
       "slice_id" => slice_key,
@@ -231,6 +443,7 @@ defmodule Conveyor.Planning.SerialDriver do
       "run_attempt_outcome" => final_outcome(finalization),
       "findings" => finding_categories(gate)
     }
+    |> put_head_provenance(head)
   end
 
   # M2(b): opt-in rework-on-fail via `AttemptLoop` — a non-accepted slice reworks
@@ -251,19 +464,22 @@ defmodule Conveyor.Planning.SerialDriver do
     passed? = loop_result.status == :accepted
     last_attempt = List.last(loop_result.attempts)
 
-    if passed? do
-      advance_workspace_base!(run_spec, slice_key, loop_result, opts)
-    end
+    head =
+      if passed? do
+        advance_workspace_base!(run_spec, slice_key, loop_result, opts)
+      end
 
-    event = %{
-      "slice_id" => slice_key,
-      "sequence" => sequence,
-      "status" => if(passed?, do: "passed", else: "parked"),
-      "gate_result" => rework_gate_label(passed?, loop_result),
-      "run_attempt_outcome" => last_attempt && last_attempt.outcome,
-      "findings" => loop_findings(loop_result),
-      "attempt_count" => loop_result.report["attempt_count"]
-    }
+    event =
+      %{
+        "slice_id" => slice_key,
+        "sequence" => sequence,
+        "status" => if(passed?, do: "passed", else: "parked"),
+        "gate_result" => rework_gate_label(passed?, loop_result),
+        "run_attempt_outcome" => last_attempt && last_attempt.outcome,
+        "findings" => loop_findings(loop_result),
+        "attempt_count" => loop_result.report["attempt_count"]
+      }
+      |> put_head_provenance(head)
 
     # ADR-26: a rework-exhausted slice whose contract is structurally broken parks
     # with the human-review amendment proposal attached, not as a blind failure.
@@ -593,13 +809,17 @@ defmodule Conveyor.Planning.SerialDriver do
     end
   end
 
+  # Returns post-commit head provenance `%{"head_commit" => sha, "head_tree" => digest}`
+  # for the accepted slice (or nil when there is no workspace / an injected fake), so the
+  # caller can record it on the slice-outcome event for U5 exactly-once reconciliation.
   defp advance_workspace_base!(run_spec, slice_key, finalization, opts) do
     case Keyword.get(opts, :advance_workspace_base) do
       fun when is_function(fun, 3) ->
         fun.(run_spec, slice_key, finalization)
+        nil
 
       false ->
-        :ok
+        nil
 
       nil ->
         default_advance_workspace_base!(run_spec, slice_key)
@@ -609,11 +829,24 @@ defmodule Conveyor.Planning.SerialDriver do
   defp default_advance_workspace_base!(run_spec, slice_key) do
     case workspace_path(run_spec) do
       nil ->
-        :ok
+        nil
 
       workspace_path ->
         commit_workspace_changes!(workspace_path, slice_key)
+        head_provenance(workspace_path)
     end
+  end
+
+  # The committed HEAD commit sha and its tree digest, read AFTER the accept-commit
+  # (commit-first ordering): the recorded sha reflects a landed commit, which is what U5
+  # compares the live workspace against to decide whether a slice's side effect already
+  # applied. `git clean -fdq` keeps .gitignore'd paths, so HEAD^{tree} excludes them
+  # deterministically — the same property the gate head-tree digest relies on.
+  defp head_provenance(workspace_path) do
+    %{
+      "head_commit" => git!(workspace_path, ["rev-parse", "HEAD"]),
+      "head_tree" => digest(git!(workspace_path, ["rev-parse", "HEAD^{tree}"]))
+    }
   end
 
   defp workspace_path(run_spec) do
@@ -745,6 +978,157 @@ defmodule Conveyor.Planning.SerialDriver do
     |> Map.get(:findings, Map.get(gate, "findings", []))
     |> Enum.map(&(value(&1, :category) || value(&1, :rule_key) || inspect(&1)))
   end
+
+  # --- M6 run ledger (durable run-scoped event stream) -------------------------
+
+  # Resolve the durable-run context once at run start: a minted run_id plus the
+  # project_id every ledger event requires. Returns nil when no project resolves —
+  # map-fake unit tests with no real Slice/DB then run exactly as before (no ledger
+  # writes). `run_ledger: false` also disables it; `run_id:` seeds a fixed id (resume).
+  defp run_ledger_context(input, opts) do
+    if Keyword.get(opts, :run_ledger, true) do
+      case resolve_project_id(input, opts) do
+        nil -> nil
+        project_id -> %{run_id: resolve_run_id(opts), project_id: project_id}
+      end
+    end
+  end
+
+  defp resolve_run_id(opts), do: Keyword.get(opts, :run_id) || Ecto.UUID.generate()
+
+  # Walk the first selected slice to its project (slice -> epic -> plan -> project),
+  # mirroring SliceLifecycle.context_for!. Any miss (fake slice, absent record, no DB)
+  # degrades to nil so durability is skipped rather than crashing the run.
+  defp resolve_project_id(input, opts) do
+    with [slice_key | _] <- input |> list(:selected_slice_ids) |> Enum.uniq(),
+         slice when is_map(slice) <- slice_by_stable_key(slice_key, opts),
+         epic_id when is_binary(epic_id) <- value(slice, :epic_id),
+         %Epic{} = epic <- find_by_id(Epic, epic_id),
+         %Plan{} = plan <- find_by_id(Plan, epic.plan_id),
+         %Project{} = project <- find_by_id(Project, plan.project_id) do
+      project.id
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp slice_by_stable_key(slice_key, opts) do
+    opts |> Keyword.get(:slices_by_stable_key, %{}) |> Map.get(slice_key)
+  end
+
+  # U5: reconcile the in-flight slice against the live workspace before re-running it.
+  # `workspace_path` is supplied by the resume caller (the reconciler / a test); without
+  # it there is nothing to reconcile (map-fake resume) and the slice is simply re-run.
+  defp reconcile_in_flight(state, ledger, opts) do
+    workspace_path = Keyword.get(opts, :workspace_path)
+    in_flight = state.in_flight_slice
+
+    if workspace_path && in_flight do
+      sequence = state.start_index + 1
+
+      case RunReconciliation.reconcile_in_flight(state.run_id, in_flight, sequence, workspace_path) do
+        {:already_committed, outcome} ->
+          commit_slice_outcome!(ledger, outcome)
+          Map.put(state.outcomes_by_slice, in_flight, outcome)
+
+        :rerun ->
+          state.outcomes_by_slice
+      end
+    else
+      state.outcomes_by_slice
+    end
+  end
+
+  defp emit_run_started!(nil, _order, _work_graph), do: :ok
+
+  defp emit_run_started!(ledger, order, work_graph) do
+    write_run_event!(ledger, "run.started", "started", %{
+      "slice_ids" => order,
+      "work_graph" => jsonable(work_graph)
+    })
+  end
+
+  defp emit_run_terminal!(nil, _events), do: :ok
+
+  defp emit_run_terminal!(ledger, events) do
+    {type, suffix} =
+      if run_budget_reaped?(events),
+        do: {"run.reaped", "reaped"},
+        else: {"run.finished", "finished"}
+
+    write_run_event!(ledger, type, suffix, %{
+      "status" => to_string(run_status(events)),
+      "slice_count" => length(events)
+    })
+  end
+
+  # A run-level reap: the run-budget deadline was exhausted (reason "run_deadline"),
+  # which the reaper applies to every remaining slice. Per-slice "slice_deadline" reaps
+  # are normal parked slices the run continued past and do NOT make the run reaped.
+  defp run_budget_reaped?(events) do
+    Enum.any?(events, &(get_in(&1, ["reaped", "reason"]) == "run_deadline"))
+  end
+
+  defp write_run_event!(ledger, type, suffix, payload) do
+    write_ledger_event!(ledger, "run:#{ledger.run_id}:#{suffix}", type, payload)
+  end
+
+  defp commit_slice_outcome!(nil, _event), do: :ok
+
+  defp commit_slice_outcome!(ledger, event) do
+    key = "run:#{ledger.run_id}:slice:#{event["slice_id"]}:#{event["sequence"]}"
+    write_ledger_event!(ledger, key, "run.slice_outcome", slice_outcome_payload(event))
+  end
+
+  # Minimal resume-only vocabulary: exactly what reconstruction (U3) and exactly-once
+  # reconciliation (U5) consume — not the richer per-attempt detail the deferred M4/eval
+  # payoffs will want. head_commit/head_tree are present only on passed slices.
+  defp slice_outcome_payload(event) do
+    event
+    |> Map.take([
+      "slice_id",
+      "sequence",
+      "status",
+      "gate_result",
+      "run_attempt_outcome",
+      "findings",
+      "blocked_by",
+      "head_commit",
+      "head_tree",
+      "reaped"
+    ])
+    |> jsonable()
+  end
+
+  # No `return_notifications?` — let Ledger.write! fan out the outbox notification
+  # internally (we are not inside a notification-collecting transaction here).
+  defp write_ledger_event!(ledger, idempotency_key, type, payload) do
+    Ledger.write!(%{
+      project_id: ledger.project_id,
+      idempotency_key: idempotency_key,
+      type: type,
+      payload: Map.put(payload, "run_id", ledger.run_id)
+    })
+
+    :ok
+  end
+
+  defp put_head_provenance(event, %{"head_commit" => _} = head), do: Map.merge(event, head)
+  defp put_head_provenance(event, _head), do: event
+
+  # The ledger payload is an Ash `:map` (JSON); atom values (`run_attempt_outcome`,
+  # finding categories) must be stringified so Jason can encode them.
+  defp jsonable(value) when is_atom(value) and value not in [nil, true, false],
+    do: Atom.to_string(value)
+
+  defp jsonable(value) when is_list(value), do: Enum.map(value, &jsonable/1)
+
+  defp jsonable(value) when is_map(value),
+    do: Map.new(value, fn {key, val} -> {to_string(key), jsonable(val)} end)
+
+  defp jsonable(value), do: value
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)

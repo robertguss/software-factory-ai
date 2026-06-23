@@ -20,7 +20,19 @@ defmodule Conveyor.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Conveyor.Supervisor]
-    Supervisor.start_link(children, opts)
+
+    with {:ok, _pid} = ok <- Supervisor.start_link(children, opts) do
+      maybe_enqueue_boot_reconcile()
+      ok
+    end
+  end
+
+  # M6: on boot, resume runs interrupted by a crash (deploy, OOM, host reboot). Disabled in
+  # test (`enqueue_boot_reconcile: false`) so the suite isn't perturbed by a boot job.
+  defp maybe_enqueue_boot_reconcile do
+    if Application.get_env(:conveyor, :enqueue_boot_reconcile, true) do
+      Conveyor.Jobs.ReconcileInterruptedRuns.new(%{}) |> Oban.insert()
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration
