@@ -101,11 +101,14 @@ defmodule Conveyor.FirstLightSerialDriverTest do
     assert length(gate_results) == 7
     assert Enum.all?(gate_results, & &1.passed)
 
+    # M4-E: policy_compliance is wired live as a required stage (the reference touches no
+    # policy-controlled paths, so it passes; a forbidden policy edit would block).
     assert Enum.all?(gate_results, fn gate_result ->
              Enum.map(gate_result.stages, & &1["key"]) == [
                "contract_lock",
                "diff_scope",
                "secret_safety",
+               "policy_compliance",
                "test_execution"
              ]
            end)
