@@ -13,13 +13,17 @@ defmodule Conveyor.Planning.SerialDriver do
     Artifact,
     ContractLock,
     DiffPolicy,
+    Epic,
     Evidence,
     PatchSet,
+    Plan,
+    Project,
     RunAttempt,
     Slice,
     TestPack
   }
 
+  alias Conveyor.Ledger
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
   alias Conveyor.Gate.TrustEvidence
@@ -102,6 +106,12 @@ defmodule Conveyor.Planning.SerialDriver do
     # tree is never destroyed — the reset is the loop's own between-slice cleanup.
     reaper = build_reaper(opts)
 
+    # M6 durability: a run-scoped event stream committed to the append-only ledger so a
+    # crashed run can be detected and resumed. `ledger` is nil in map-fake unit tests where
+    # no project resolves — then the loop behaves exactly as before (in-memory events only).
+    ledger = run_ledger_context(input, opts)
+    emit_run_started!(ledger, order)
+
     {events, _blocked, _agent_ran?} =
       order
       |> Enum.with_index(1)
@@ -113,11 +123,15 @@ defmodule Conveyor.Planning.SerialDriver do
             blockers -> {skipped_event(slice_key, sequence, blockers), false}
           end
 
+        commit_slice_outcome!(ledger, event)
+
         next_blocked =
           if event["status"] == "passed", do: blocked, else: MapSet.put(blocked, slice_key)
 
         {events ++ [event], next_blocked, agent_ran? or ran_now?}
       end)
+
+    emit_run_terminal!(ledger, events)
 
     report =
       PilotExecution.summarize(%{
@@ -364,9 +378,10 @@ defmodule Conveyor.Planning.SerialDriver do
     passed? =
       slice_result.status == :succeeded and gate_passed?(gate) and accepted?(finalization)
 
-    if passed? do
-      advance_workspace_base!(run_spec, slice_key, finalization, opts)
-    end
+    head =
+      if passed? do
+        advance_workspace_base!(run_spec, slice_key, finalization, opts)
+      end
 
     %{
       "slice_id" => slice_key,
@@ -376,6 +391,7 @@ defmodule Conveyor.Planning.SerialDriver do
       "run_attempt_outcome" => final_outcome(finalization),
       "findings" => finding_categories(gate)
     }
+    |> put_head_provenance(head)
   end
 
   # M2(b): opt-in rework-on-fail via `AttemptLoop` — a non-accepted slice reworks
@@ -396,19 +412,22 @@ defmodule Conveyor.Planning.SerialDriver do
     passed? = loop_result.status == :accepted
     last_attempt = List.last(loop_result.attempts)
 
-    if passed? do
-      advance_workspace_base!(run_spec, slice_key, loop_result, opts)
-    end
+    head =
+      if passed? do
+        advance_workspace_base!(run_spec, slice_key, loop_result, opts)
+      end
 
-    event = %{
-      "slice_id" => slice_key,
-      "sequence" => sequence,
-      "status" => if(passed?, do: "passed", else: "parked"),
-      "gate_result" => rework_gate_label(passed?, loop_result),
-      "run_attempt_outcome" => last_attempt && last_attempt.outcome,
-      "findings" => loop_findings(loop_result),
-      "attempt_count" => loop_result.report["attempt_count"]
-    }
+    event =
+      %{
+        "slice_id" => slice_key,
+        "sequence" => sequence,
+        "status" => if(passed?, do: "passed", else: "parked"),
+        "gate_result" => rework_gate_label(passed?, loop_result),
+        "run_attempt_outcome" => last_attempt && last_attempt.outcome,
+        "findings" => loop_findings(loop_result),
+        "attempt_count" => loop_result.report["attempt_count"]
+      }
+      |> put_head_provenance(head)
 
     # ADR-26: a rework-exhausted slice whose contract is structurally broken parks
     # with the human-review amendment proposal attached, not as a blind failure.
@@ -738,13 +757,17 @@ defmodule Conveyor.Planning.SerialDriver do
     end
   end
 
+  # Returns post-commit head provenance `%{"head_commit" => sha, "head_tree" => digest}`
+  # for the accepted slice (or nil when there is no workspace / an injected fake), so the
+  # caller can record it on the slice-outcome event for U5 exactly-once reconciliation.
   defp advance_workspace_base!(run_spec, slice_key, finalization, opts) do
     case Keyword.get(opts, :advance_workspace_base) do
       fun when is_function(fun, 3) ->
         fun.(run_spec, slice_key, finalization)
+        nil
 
       false ->
-        :ok
+        nil
 
       nil ->
         default_advance_workspace_base!(run_spec, slice_key)
@@ -754,11 +777,24 @@ defmodule Conveyor.Planning.SerialDriver do
   defp default_advance_workspace_base!(run_spec, slice_key) do
     case workspace_path(run_spec) do
       nil ->
-        :ok
+        nil
 
       workspace_path ->
         commit_workspace_changes!(workspace_path, slice_key)
+        head_provenance(workspace_path)
     end
+  end
+
+  # The committed HEAD commit sha and its tree digest, read AFTER the accept-commit
+  # (commit-first ordering): the recorded sha reflects a landed commit, which is what U5
+  # compares the live workspace against to decide whether a slice's side effect already
+  # applied. `git clean -fdq` keeps .gitignore'd paths, so HEAD^{tree} excludes them
+  # deterministically — the same property the gate head-tree digest relies on.
+  defp head_provenance(workspace_path) do
+    %{
+      "head_commit" => git!(workspace_path, ["rev-parse", "HEAD"]),
+      "head_tree" => digest(git!(workspace_path, ["rev-parse", "HEAD^{tree}"]))
+    }
   end
 
   defp workspace_path(run_spec) do
@@ -890,6 +926,131 @@ defmodule Conveyor.Planning.SerialDriver do
     |> Map.get(:findings, Map.get(gate, "findings", []))
     |> Enum.map(&(value(&1, :category) || value(&1, :rule_key) || inspect(&1)))
   end
+
+  # --- M6 run ledger (durable run-scoped event stream) -------------------------
+
+  # Resolve the durable-run context once at run start: a minted run_id plus the
+  # project_id every ledger event requires. Returns nil when no project resolves —
+  # map-fake unit tests with no real Slice/DB then run exactly as before (no ledger
+  # writes). `run_ledger: false` also disables it; `run_id:` seeds a fixed id (resume).
+  defp run_ledger_context(input, opts) do
+    if Keyword.get(opts, :run_ledger, true) do
+      case resolve_project_id(input, opts) do
+        nil -> nil
+        project_id -> %{run_id: resolve_run_id(opts), project_id: project_id}
+      end
+    end
+  end
+
+  defp resolve_run_id(opts), do: Keyword.get(opts, :run_id) || Ecto.UUID.generate()
+
+  # Walk the first selected slice to its project (slice -> epic -> plan -> project),
+  # mirroring SliceLifecycle.context_for!. Any miss (fake slice, absent record, no DB)
+  # degrades to nil so durability is skipped rather than crashing the run.
+  defp resolve_project_id(input, opts) do
+    with [slice_key | _] <- input |> list(:selected_slice_ids) |> Enum.uniq(),
+         slice when is_map(slice) <- slice_by_stable_key(slice_key, opts),
+         epic_id when is_binary(epic_id) <- value(slice, :epic_id),
+         %Epic{} = epic <- find_by_id(Epic, epic_id),
+         %Plan{} = plan <- find_by_id(Plan, epic.plan_id),
+         %Project{} = project <- find_by_id(Project, plan.project_id) do
+      project.id
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  defp slice_by_stable_key(slice_key, opts) do
+    opts |> Keyword.get(:slices_by_stable_key, %{}) |> Map.get(slice_key)
+  end
+
+  defp emit_run_started!(nil, _order), do: :ok
+
+  defp emit_run_started!(ledger, order) do
+    write_run_event!(ledger, "run.started", "started", %{"slice_ids" => order})
+  end
+
+  defp emit_run_terminal!(nil, _events), do: :ok
+
+  defp emit_run_terminal!(ledger, events) do
+    {type, suffix} =
+      if run_budget_reaped?(events),
+        do: {"run.reaped", "reaped"},
+        else: {"run.finished", "finished"}
+
+    write_run_event!(ledger, type, suffix, %{
+      "status" => to_string(run_status(events)),
+      "slice_count" => length(events)
+    })
+  end
+
+  # A run-level reap: the run-budget deadline was exhausted (reason "run_deadline"),
+  # which the reaper applies to every remaining slice. Per-slice "slice_deadline" reaps
+  # are normal parked slices the run continued past and do NOT make the run reaped.
+  defp run_budget_reaped?(events) do
+    Enum.any?(events, &(get_in(&1, ["reaped", "reason"]) == "run_deadline"))
+  end
+
+  defp write_run_event!(ledger, type, suffix, payload) do
+    write_ledger_event!(ledger, "run:#{ledger.run_id}:#{suffix}", type, payload)
+  end
+
+  defp commit_slice_outcome!(nil, _event), do: :ok
+
+  defp commit_slice_outcome!(ledger, event) do
+    key = "run:#{ledger.run_id}:slice:#{event["slice_id"]}:#{event["sequence"]}"
+    write_ledger_event!(ledger, key, "run.slice_outcome", slice_outcome_payload(event))
+  end
+
+  # Minimal resume-only vocabulary: exactly what reconstruction (U3) and exactly-once
+  # reconciliation (U5) consume — not the richer per-attempt detail the deferred M4/eval
+  # payoffs will want. head_commit/head_tree are present only on passed slices.
+  defp slice_outcome_payload(event) do
+    event
+    |> Map.take([
+      "slice_id",
+      "sequence",
+      "status",
+      "gate_result",
+      "run_attempt_outcome",
+      "findings",
+      "blocked_by",
+      "head_commit",
+      "head_tree",
+      "reaped"
+    ])
+    |> jsonable()
+  end
+
+  # No `return_notifications?` — let Ledger.write! fan out the outbox notification
+  # internally (we are not inside a notification-collecting transaction here).
+  defp write_ledger_event!(ledger, idempotency_key, type, payload) do
+    Ledger.write!(%{
+      project_id: ledger.project_id,
+      idempotency_key: idempotency_key,
+      type: type,
+      payload: Map.put(payload, "run_id", ledger.run_id)
+    })
+
+    :ok
+  end
+
+  defp put_head_provenance(event, %{"head_commit" => _} = head), do: Map.merge(event, head)
+  defp put_head_provenance(event, _head), do: event
+
+  # The ledger payload is an Ash `:map` (JSON); atom values (`run_attempt_outcome`,
+  # finding categories) must be stringified so Jason can encode them.
+  defp jsonable(value) when is_atom(value) and value not in [nil, true, false],
+    do: Atom.to_string(value)
+
+  defp jsonable(value) when is_list(value), do: Enum.map(value, &jsonable/1)
+
+  defp jsonable(value) when is_map(value),
+    do: Map.new(value, fn {key, val} -> {to_string(key), jsonable(val)} end)
+
+  defp jsonable(value), do: value
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
