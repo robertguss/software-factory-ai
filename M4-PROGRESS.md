@@ -56,31 +56,34 @@ added safety**. Resolution: keep A1's behavior (a real `:failed` still abstains;
 stays non-blocking). The heavy A2/A3 work (materialize DB suites + the OD19-style weight
 renormalization) is **unnecessary** and is dropped. _No code change; no reference risk._
 
-### Decision 2 (calibration A4/A5): real-base calibration is the right signal, but needs an **isolated base checkout**
-`AcceptanceCalibration` *fabricates* `:valid` (its default runner never executes). Real
-calibration — run the locked acceptance commands at base, `:valid` iff genuinely red-on-base
-— is the one signal **no gate stage checks**, so it is the high-value flip. The corpus is
-ready for it: `beads_insight`/`gx` are red-on-base → real `:valid`; `tasks_service` is
-green-on-base but is **not on the reference trust path**, and for green-on-base corpora
-`:invalid` is the *correct* signal (their acceptance tests don't prove new behavior) — a
-corpus-quality finding, not a reason to fabricate.
+### Decision 2 (calibration A4/A5): **LANDED** — real calibration; not-valid parks for investigation
+`AcceptanceCalibration` *fabricated* `:valid` (its runner never executed). Now made real and
+honest, in two coupled parts (commit `0c21a26`):
 
-**Attempted and reverted (this session), with a precise finding:** wiring the real runner
-into the live `acceptance_calibration` station (`ToolchainRunner.runner` over `workspace_path`,
-threaded via the assembler) was implemented and **broke the reference** — `m1` (slices 1–6)
-passed, but `first_light_serial_driver_test` failed on **SLICE-007**: `reference_slice_007`'s
-patch failed to apply (`report.py` Hunk #1 mismatch). Running `pytest` at base **in the live
-workspace** pollutes it (caches/artifacts and/or source side-effects), and the cumulative
-effect breaks the subsequent reference-patch application. Per the back-out discipline the
-change was reverted (preserved in `git stash@{0}`).
+- **A4 — real calibration in an isolated base checkout.** The station runs the locked
+  acceptance commands against the base in a **detached `git worktree` at `base_commit`**
+  (`stations/acceptance_calibration.ex`), never the live workspace. (A first attempt ran
+  pytest in the *live* tree and broke the reference — the cumulative cache/artifact pollution
+  made `reference_slice_007`'s patch fail to apply; the worktree isolates the run.)
+  Calibration is `:valid` only when the tests genuinely fail on base.
+- **A5 — disposition: `:valid` proceeds, anything else parks.** Calibration is a **trust
+  signal, not a gate-stage pass/fail** (`gate/stages/test_execution.ex` no longer fails on
+  it). An acceptance suite that passes on base (`:invalid`) or that couldn't be calibrated
+  (`:not_assessed`/missing) is **not broken code** — reworking the code can't fix a weak
+  *locked* test — so it routes to the trust score, which **abstains → parks** the slice for
+  human + AI investigation, instead of hard-failing → reworking (which crashed on patch
+  re-apply).
 
-**The fix (the real remaining work):** run base calibration in an **isolated base checkout**
-(temp worktree / `git worktree add` or a clean copy at `base_commit`), never the live
-workspace — exactly the "base-checkout seam" the recovered plan flagged. This is a
-contained but real lift that wants a supervised iteration (it touches the workspace
-lifecycle), so it is **not** forced unattended. The assembler already threads
-`workspace_path`/`base_commit` to `implement`/`verify`; the calibration station needs the
-isolated-checkout variant, not the live path.
+**Net (the gate now catches a real weak slice):** beads_insight **SLICE-007**'s acceptance
+tests pass on base (they don't pin down its `report.py` change), so it now correctly
+**parks** instead of auto-accepting. The reference's honest end-to-end story is now **6
+accepted + 1 parked** (`first_light` updated to prove it); m1/m2/m3 (slices 1–6) unchanged.
+Deterministic **909** + eval **71** green.
+
+`tasks_service` (green-on-base) is **not on the reference trust path**, so it's unaffected;
+if it ever is, `:invalid` is the correct signal for it too (its acceptance tests don't prove
+new behavior). Optional future polish: split `:invalid` into typed park *reasons*
+(`weak_acceptance_tests` vs `no_behavior_change`) for the investigators — additive, not needed.
 
 ## 4. Out of scope this branch (correctly deferred)
 - **Integrity un-laundering** stays in `TrustEvidence.integrity/1` until D4/M4.8, atomic
