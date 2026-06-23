@@ -69,12 +69,12 @@ defmodule Conveyor.Gate.TrustEvidenceTest do
   end
 
   describe "assemble/1 defaults" do
-    test "unmeasured calibration + baseline + integrity all fail closed; replay/corpus owned downstream" do
+    test "unmeasured calibration + baseline + integrity fail closed; absent replay is :baseline_absent" do
       assert TrustEvidence.assemble(%{}) == %{
                integrity_verdict: "not_assessed",
                calibration_status: :not_assessed,
                baseline_status: :unknown,
-               replay_divergence: :none,
+               replay_divergence: :baseline_absent,
                corpus_pass_rate: nil
              }
     end
@@ -104,7 +104,7 @@ defmodule Conveyor.Gate.TrustEvidenceTest do
     test "a declared signal routes to its neutral middle token, not a bad one" do
       evidence = TrustEvidence.assemble(%{declared_not_assessable: [:replay]})
 
-      assert evidence.replay_divergence == :unknown
+      assert evidence.replay_divergence == :baseline_absent
     end
 
     test "from_run_output threads the trust_not_assessable output key" do
@@ -115,7 +115,7 @@ defmodule Conveyor.Gate.TrustEvidenceTest do
           "trust_not_assessable" => ["replay"]
         })
 
-      assert evidence.replay_divergence == :unknown
+      assert evidence.replay_divergence == :baseline_absent
     end
   end
 end

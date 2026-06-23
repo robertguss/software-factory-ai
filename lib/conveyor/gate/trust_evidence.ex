@@ -31,9 +31,13 @@ defmodule Conveyor.Gate.TrustEvidence do
     probe on `:local` (hermeticity is docker-only), so a clean run is genuinely
     `"trustworthy"` and a real production-source mutation is `"untrustworthy"` ->
     abstain/park. An absent verdict fails closed to `"not_assessed"`.
-  - **replay + corpus** — owned by stream B (real replay-divergence producer +
-    corpus boost). A1 leaves their laundering in place; it only adds the
-    declared-not-assessable override path.
+  - **replay** — un-laundered (M4 Stream B / OD19): absent -> `:baseline_absent` (the
+    honest "no committed baseline yet"), which `TrustScore` treats as non-blocking by
+    renormalizing replay's weight away (a cold-start slice is not penalized for the
+    system lacking a baseline). A real divergence producer later emits `:none` /
+    `:diverged` (the latter -> abstain/park).
+  - **corpus** — still owned by B: a boost-only signal (excluded from `trustworthy?`);
+    cold-start `nil` -> 0.5.
   """
 
   alias Conveyor.Gate.TrustScore
@@ -72,7 +76,7 @@ defmodule Conveyor.Gate.TrustEvidence do
       calibration_status:
         assess(:calibration, na, calibration(Map.get(signals, :calibration)), :not_assessed),
       baseline_status: assess(:baseline, na, baseline(Map.get(signals, :baseline)), :unknown),
-      replay_divergence: assess(:replay, na, replay(Map.get(signals, :replay)), :unknown),
+      replay_divergence: assess(:replay, na, replay(Map.get(signals, :replay)), :baseline_absent),
       corpus_pass_rate: corpus(Map.get(signals, :corpus_pass_rate))
     }
   end
@@ -99,7 +103,7 @@ defmodule Conveyor.Gate.TrustEvidence do
   # Expected-but-absent: fail closed (was the silent `:green` leak).
   defp baseline(_absent), do: :unknown
 
-  # --- still laundered (owned downstream); see moduledoc F13 flag ------------
+  # --- integrity + replay (un-laundered, M4) ---------------------------------
 
   # M4 (integrity un-laundered): pass the real IntegritySentinel verdict through instead of
   # laundering every value to "trustworthy". The verify station now requires only the
@@ -114,8 +118,16 @@ defmodule Conveyor.Gate.TrustEvidence do
   defp integrity(verdict) when verdict in [:not_assessed, "not_assessed"], do: "not_assessed"
   defp integrity(_absent), do: "not_assessed"
 
+  defp replay(divergence) when divergence in [:none, "none"], do: :none
   defp replay(divergence) when divergence in [:diverged, "diverged"], do: :diverged
-  defp replay(_divergence), do: :none
+
+  defp replay(divergence) when divergence in [:baseline_absent, "baseline_absent"],
+    do: :baseline_absent
+
+  # No replay-divergence producer yet (no committed baseline to compare against): the honest
+  # value is "no baseline", NOT the laundered ":none" ("matched"). Non-blocking via the OD19
+  # weight renormalization in TrustScore; a real producer later emits :none / :diverged.
+  defp replay(_absent), do: :baseline_absent
 
   defp corpus(rate) when is_float(rate), do: rate
   defp corpus(_rate), do: nil

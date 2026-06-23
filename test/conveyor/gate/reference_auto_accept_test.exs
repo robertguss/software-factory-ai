@@ -22,14 +22,15 @@ defmodule Conveyor.Gate.ReferenceAutoAcceptTest do
   @anchor_score_floor 0.9
 
   # The reference: integrity real-and-"trustworthy" (clean source_mutation probe),
-  # calibration + baseline real-and-green, replay none, corpus cold-start (nil -> 0.5).
-  # Scores 0.925.
+  # calibration + baseline real-and-green, corpus cold-start (nil -> 0.5), and replay
+  # :baseline_absent — there is no committed replay baseline yet, so OD19 drops replay's
+  # weight and renormalizes the rest. Scores 0.775/0.85 = 0.9118 (>= 0.9 -> auto_accept).
   defp current_reference_evidence do
     %{
       integrity_verdict: "trustworthy",
       calibration_status: :valid,
       baseline_status: :green,
-      replay_divergence: :none,
+      replay_divergence: :baseline_absent,
       corpus_pass_rate: nil
     }
   end
@@ -41,18 +42,23 @@ defmodule Conveyor.Gate.ReferenceAutoAcceptTest do
       assert r.band == :auto_accept
       assert r.score >= r.thresholds.auto_accept
       assert r.thresholds.auto_accept == @anchor_score_floor
-      assert_in_delta r.score, 0.925, 1.0e-9
+      assert_in_delta r.score, 0.775 / 0.85, 1.0e-9
     end
   end
 
   describe "the anchor table (weights 0.30/0.20/0.20/0.15/0.15, threshold 0.9)" do
     # {label, integrity, calibration, baseline, replay, corpus, want_score, want_band}
     @anchor_rows [
-      {"all-green, cold-start corpus (nil->0.5)", "trustworthy", :valid, :green, :none, nil,
-       0.925, :auto_accept},
-      {"all-green, corpus 0.95", "trustworthy", :valid, :green, :none, 0.95, 0.9925,
+      # replay :none == the run matched a committed baseline (full weight, score 0.925).
+      {"matched baseline, cold-start corpus (nil->0.5)", "trustworthy", :valid, :green, :none,
+       nil, 0.925, :auto_accept},
+      {"matched baseline, corpus 0.95", "trustworthy", :valid, :green, :none, 0.95, 0.9925,
        :auto_accept},
-      {"all-green, corpus 1.0", "trustworthy", :valid, :green, :none, 1.0, 1.0, :auto_accept}
+      {"matched baseline, corpus 1.0", "trustworthy", :valid, :green, :none, 1.0, 1.0,
+       :auto_accept},
+      # OD19: replay :baseline_absent == no committed baseline yet -> weight renormalized.
+      {":baseline_absent (renormalized), cold-start corpus", "trustworthy", :valid, :green,
+       :baseline_absent, nil, 0.775 / 0.85, :auto_accept}
     ]
 
     for {label, integ, calib, base, replay, corpus, want_score, want_band} <- @anchor_rows do
