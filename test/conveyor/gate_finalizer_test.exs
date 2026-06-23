@@ -12,6 +12,7 @@ defmodule Conveyor.GateFinalizerTest do
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
+  alias Conveyor.Gate.TrustEvidence
 
   defmodule PassStage do
     @behaviour Conveyor.Gate.Stage
@@ -208,6 +209,28 @@ defmodule Conveyor.GateFinalizerTest do
     assert Artifact
            |> Ash.read!(domain: Factory)
            |> Enum.filter(&(&1.kind == "trust-bundle")) == []
+  end
+
+  test "M4-A1: a passed gate whose run output is MISSING the calibration signal abstains and parks (real assembly path)",
+       context do
+    # The exact laundering A1 closed: a slice run whose output never produced a
+    # calibration signal must abstain (park for review), not silently auto-accept.
+    # Driven through the REAL assembly path (`from_run_output`), not a hand-built
+    # evidence map — the anti-vacuity linchpin that proves the laundering is gone
+    # end-to-end, through `Finalizer.finalize!`.
+    evidence = TrustEvidence.from_run_output(%{"baseline_health_status" => "passed"})
+
+    assert evidence.calibration_status == :not_assessed
+
+    ctx = Map.put(gate_context(context), :trust_evidence, evidence)
+    result = Gate.run!(ctx, [%{key: "pass", module: PassStage}])
+
+    finalized = Finalizer.finalize!(result, ctx)
+
+    assert finalized.trust_score.band == :abstain
+    assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
+    assert get_by_id!(Slice, context.slice.id).state == :parked
+    assert Ash.read!(CodeProvenanceEdge, domain: Factory) == []
   end
 
   test "ADR-23: a passed gate with high trust evidence still auto-accepts", context do
