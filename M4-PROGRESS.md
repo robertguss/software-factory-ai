@@ -119,10 +119,20 @@ blocking CI metric) covers behavioral + policy-static (4 mutants, 0 false-pass).
 3 static stages stay deferred (honest): `contract_lock` (matching contract digests),
 `code_quality_delta` (an analyzer), `run_check`/injection-content (run artifacts).
 
+### Stream E — partial: policy_compliance wired live as a required production stage (commit `2e95458`)
+The production gate ran 4 stages (contract_lock, diff_scope, secret_safety, test_execution).
+**policy_compliance** is now a 5th **required** stage: the reference passes it (no
+policy-controlled-path changes), and a forbidden policy edit blocks **in production**, not
+just in the gauntlet. The gate already respects a per-stage `required?` flag
+(`stage_passes_gate?(%{required?: false}) → true`), so future stages can be wired advisory.
+The other 8 static stages stay unwired — as required they'd fail the reference on missing
+producers (head_tree digest, code-quality analyzer, run artifacts, reviews, …); wiring those
+(with producers, or advisory) is the rest of E.
+
 ## 4. Still out of scope this branch (later streams)
-- **Streams C/D/E** (the *rest* of the integrity probes, the docker hermetic gate, all-14
-  gate stages wired live) + the remaining **F** static stages + the two **B** producers —
-  later milestones.
+- The *rest* of **E** (8 more static stages, each needing a producer) + the remaining **F**
+  static stages + **C/D** (more integrity probes, docker hermetic gate) + the two **B**
+  producers — later milestones.
 
 ## 5. Safe next steps (no corpus surgery, no live agent)
 - Resolve the §3 Decisions, then land A2/A3 and A4/A5 with the base-checkout seam.
