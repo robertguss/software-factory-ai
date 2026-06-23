@@ -109,9 +109,20 @@ real `:diverged` still parks. This completes **"all four core trust signals are 
   committed-seed baselines) — gives replay actual *divergence discrimination*;
 - the **`corpus_pass_rate` producer** (boost-only signal from cassette pass-rate history).
 
+### Stream F — partial: MutantGauntlet now covers a static stage (commit `8ba0ff7`)
+The gauntlet (the CI harness that proves the gate catches mutants with **zero false-pass**)
+ran the corpus only through `test_execution` (behavioral mutants via real pytest); the 5
+static-stage mutants were all deferred. Now it also discriminates the **path-based policy
+static stage**: `forbidden_policy_edit` (raises `autonomy_ceiling` L1→L4 in the plan) is
+caught by `policy_compliance` from its changed files alone, so `false_pass_rate` (the
+blocking CI metric) covers behavioral + policy-static (4 mutants, 0 false-pass). The other
+3 static stages stay deferred (honest): `contract_lock` (matching contract digests),
+`code_quality_delta` (an analyzer), `run_check`/injection-content (run artifacts).
+
 ## 4. Still out of scope this branch (later streams)
-- **Streams C/D/E/F** (the *rest* of the integrity probes, the docker hermetic gate, all-14
-  gate stages live, static-stage MutantGauntlet) — later milestones.
+- **Streams C/D/E** (the *rest* of the integrity probes, the docker hermetic gate, all-14
+  gate stages wired live) + the remaining **F** static stages + the two **B** producers —
+  later milestones.
 
 ## 5. Safe next steps (no corpus surgery, no live agent)
 - Resolve the §3 Decisions, then land A2/A3 and A4/A5 with the base-checkout seam.
