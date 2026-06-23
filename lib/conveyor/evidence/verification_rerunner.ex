@@ -103,7 +103,7 @@ defmodule Conveyor.Evidence.VerificationRerunner do
 
   defp run_suite(suite, opts) do
     commands = Enum.map(suite.command_specs, &run_command(&1, suite, opts))
-    status = suite_status(commands)
+    status = suite_status(suite.suite_kind, commands)
 
     %{
       "suite_id" => suite.id,
@@ -209,12 +209,28 @@ defmodule Conveyor.Evidence.VerificationRerunner do
     end
   end
 
-  defp suite_status(commands) do
+  # dr1m.7: an acceptance_locked suite that ran ZERO tests cannot pass — even if every
+  # (empty) command reported "passed". "Zero tests" means either no commands at all, or
+  # the commands DID enumerate test results and the total is zero (a test-enumerating
+  # format that selected nothing). A non-enumerating command (no "tests" key) is left to
+  # its own status so stdout/exit-code suites are unaffected.
+  defp suite_status(:acceptance_locked, commands) do
+    if acceptance_ran_zero_tests?(commands), do: "failed", else: suite_status(nil, commands)
+  end
+
+  defp suite_status(_kind, commands) do
     if Enum.all?(commands, &(&1["status"] in ["passed", "passed_with_warning"])) do
       "passed"
     else
       "failed"
     end
+  end
+
+  defp acceptance_ran_zero_tests?(commands) do
+    attempts = Enum.flat_map(commands, &(value(&1, "attempts") || []))
+    enumerated = Enum.filter(attempts, &Map.has_key?(&1, "tests"))
+
+    commands == [] or (enumerated != [] and Enum.all?(enumerated, &((&1["tests"] || []) == [])))
   end
 
   defp classification(attempts) do
