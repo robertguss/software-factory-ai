@@ -59,3 +59,5 @@ conveyor-*.tar
 .claude/worktrees/
 .codescent/
 .conveyor/
+# Compound Engineering local config
+.compound-engineering/*.local.yaml
