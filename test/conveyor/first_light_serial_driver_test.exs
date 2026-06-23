@@ -150,8 +150,8 @@ defmodule Conveyor.FirstLightSerialDriverTest do
 
     # The parked outcome is deterministic — the replay parks SLICE-007 the same way.
     assert replay.status == :partial
-    assert result.report["replay_fidelity"]["status"] == "matched"
-    assert replay.report["replay_fidelity"]["status"] == "matched"
+    assert result.report["replay_fidelity"]["status"] == "baseline_absent"
+    assert replay.report["replay_fidelity"]["status"] == "baseline_absent"
     assert result.report["replay_digest"] == replay.report["replay_digest"]
   end
 

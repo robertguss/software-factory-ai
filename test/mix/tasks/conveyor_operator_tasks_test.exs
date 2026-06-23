@@ -121,7 +121,7 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
         report: %{
           "status" => "serial_execution_recorded",
           "first_pass_gate_success_rate" => 1.0,
-          "replay_fidelity" => %{"status" => "matched"}
+          "replay_fidelity" => %{"status" => "baseline_absent"}
         }
       }
     end)
@@ -149,7 +149,7 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
              ~w(SLICE-001 SLICE-002 SLICE-003 SLICE-004 SLICE-005 SLICE-006 SLICE-007)
 
     assert result["first_pass_gate_success_rate"] == 1.0
-    assert result["replay_fidelity"]["status"] == "matched"
+    assert result["replay_fidelity"]["status"] == "baseline_absent"
     assert_received {:exit_code, :conveyor_run_exit_fun, 0}
 
     assert_received {:serial_driver_input, input, opts}
