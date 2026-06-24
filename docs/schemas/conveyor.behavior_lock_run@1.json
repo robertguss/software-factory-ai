@@ -50,7 +50,9 @@
         }
       }
     },
-    "status": { "enum": ["no_divergence_observed", "diverged", "inconclusive"] },
+    "status": {
+      "enum": ["no_divergence_observed", "diverged", "inconclusive"]
+    },
     "equivalence_claim": { "const": "bounded_observation_only" },
     "created_at": { "type": "string", "format": "date-time" }
   }

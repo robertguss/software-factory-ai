@@ -20,7 +20,10 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.test_pack_patch@1" },
-    "id": { "type": "string", "pattern": "^test_pack_patch:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^test_pack_patch:sha256:[0-9a-f]{64}$"
+    },
     "slice_id": { "type": "string", "minLength": 1 },
     "test_pack_id": { "type": "string", "minLength": 1 },
     "agent_brief_contract_id": { "type": "string", "minLength": 1 },
@@ -57,7 +60,15 @@
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
-        "type": ["string", "number", "integer", "boolean", "array", "object", "null"]
+        "type": [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "array",
+          "object",
+          "null"
+        ]
       }
     }
   }

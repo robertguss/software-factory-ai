@@ -23,9 +23,9 @@ Evidence:
 
 Evidence:
 
-- `InterfacePolicyTest` proves `Conveyor.ContractForge.InterfacePolicy`
-  requires public and cross-Slice interfaces to state owner, lock level,
-  compatibility policy, rollout intent/environment, and migration safety.
+- `InterfacePolicyTest` proves `Conveyor.ContractForge.InterfacePolicy` requires
+  public and cross-Slice interfaces to state owner, lock level, compatibility
+  policy, rollout intent/environment, and migration safety.
 - `AgentBriefContractSchemaTest` and `ContractAuthorTest` keep constraints and
   claims in the normalized contract source references so interface authority is
   traceable to the contract input.
@@ -51,8 +51,8 @@ Evidence:
 - `FalsifierSeedDeriverTest` proves
   `Conveyor.ContractForge.FalsifierSeedDeriver` emits compiler-owned falsifier
   seeds for table negative rows, boundary transforms, forbidden predicates,
-  property counterexamples, metamorphic relations, and interface
-  incompatibility cases.
+  property counterexamples, metamorphic relations, and interface incompatibility
+  cases.
 - `ContractAuthorTest` proves the contract-author RoleView feeds
   VerificationObligation and falsifier-seed derivation while keeping the
   serialized AgentBrief contract schema-valid.
@@ -80,14 +80,14 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `AgentBriefContractSchemaTest` | missing required AgentBrief fields, invalid digests, non-schema contract output | none |
-| `ContractArchetypeTemplatesTest` | incomplete archetype templates, missing review lenses, template/schema drift | none |
-| `InterfacePolicyTest` | public/cross-Slice interfaces without ownership, compatibility, rollout, migration safety, or scope-addition approval | none |
-| `VerificationObligationDeriverTest` | machine-checkable ACs without falsifying conditions, missing evidence requirements | none |
-| `FalsifierSeedDeriverTest` | dropped compiler-derived falsifier seeds, missing seed families | none |
-| `ContractAuthorTest` | RoleView normalization drift, accidental authority emission, invalid AgentBrief output, dropped derivation input | none |
+| Evidence source                     | Failed cases represented                                                                                              | Excluded cases |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `AgentBriefContractSchemaTest`      | missing required AgentBrief fields, invalid digests, non-schema contract output                                       | none           |
+| `ContractArchetypeTemplatesTest`    | incomplete archetype templates, missing review lenses, template/schema drift                                          | none           |
+| `InterfacePolicyTest`               | public/cross-Slice interfaces without ownership, compatibility, rollout, migration safety, or scope-addition approval | none           |
+| `VerificationObligationDeriverTest` | machine-checkable ACs without falsifying conditions, missing evidence requirements                                    | none           |
+| `FalsifierSeedDeriverTest`          | dropped compiler-derived falsifier seeds, missing seed families                                                       | none           |
+| `ContractAuthorTest`                | RoleView normalization drift, accidental authority emission, invalid AgentBrief output, dropped derivation input      | none           |
 
 ## Verification Commands
 

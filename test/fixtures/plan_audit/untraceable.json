@@ -27,13 +27,17 @@
       "key": "AC-001",
       "text": "New tasks include completed:false.",
       "requirement_refs": ["REQ-001"],
-      "required_test_refs": ["tests/test_tasks.py::test_create_defaults_completed_false"]
+      "required_test_refs": [
+        "tests/test_tasks.py::test_create_defaults_completed_false"
+      ]
     },
     {
       "key": "AC-002",
       "text": "List responses include completed state.",
       "requirement_refs": ["REQ-002"],
-      "required_test_refs": ["tests/test_tasks.py::test_completed_state_visible_in_list"]
+      "required_test_refs": [
+        "tests/test_tasks.py::test_completed_state_visible_in_list"
+      ]
     }
   ],
   "verification_commands": [

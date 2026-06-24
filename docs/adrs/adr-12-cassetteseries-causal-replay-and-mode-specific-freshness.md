@@ -55,8 +55,8 @@ Freshness is mode-specific:
   generation. This includes spec digest, role view, tool contract, adapter,
   profile, provider parameters, capability snapshot, and generation environment
   inputs.
-- Gate, test, policy, schema, or evaluation-only changes are exactly what
-  hybrid replay reruns.
+- Gate, test, policy, schema, or evaluation-only changes are exactly what hybrid
+  replay reruns.
 - Compatible replay can diagnose drift only within policy-declared compatible
   boundaries and remains supporting evidence.
 
@@ -100,6 +100,6 @@ deterministic inputs before any authority-bearing verdict is issued.
 - Phase 1.5/2 plan, section 3, laws 4 and 30.
 - Phase 1.5/2 plan, section 4.6, `CassetteSeries` and `AgentCassette`.
 - Phase 1.5/2 plan, section 18.2, milestone P15-B3.
-- Phase 1.5/2 plan, section 27, strategy bullets on multiple causal samples
-  and mode-specific replay.
+- Phase 1.5/2 plan, section 27, strategy bullets on multiple causal samples and
+  mode-specific replay.
 - Phase 1.5/2 plan, section 28.2, required ADR item 12.

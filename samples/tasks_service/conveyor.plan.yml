@@ -37,7 +37,8 @@ acceptance_criteria:
     required_test_refs:
       - tests/test_tasks_api.py::test_create_defaults_completed_false
   - key: AC-002
-    text: PATCH /tasks/{id} with completed:true returns 200 and the updated task.
+    text:
+      PATCH /tasks/{id} with completed:true returns 200 and the updated task.
     requirement_refs: [REQ-002]
     required_test_refs:
       - tests/test_tasks_api.py::test_complete_task
@@ -65,10 +66,14 @@ verification_commands:
 decisions:
   - key: DEC-001
     decision: Keep Phase 1 focused on completion state only.
-    rationale: Authentication, pagination, un-complete flows, bulk updates, and deployment are outside the tracer-bullet evidence boundary.
+    rationale:
+      Authentication, pagination, un-complete flows, bulk updates, and
+      deployment are outside the tracer-bullet evidence boundary.
   - key: DEC-002
     decision: Use one L1 implementation slice for the sample app change.
-    rationale: The behavior is small, local to the task model/API, and covered by locked pytest acceptance cases.
+    rationale:
+      The behavior is small, local to the task model/API, and covered by locked
+      pytest acceptance cases.
 slices:
   - key: SLICE-001
     title: Add complete-a-task behavior

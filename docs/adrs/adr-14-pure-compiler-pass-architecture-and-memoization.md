@@ -57,8 +57,8 @@ Every deterministic pass must declare:
 - authority effect.
 
 Pass code runs as an ordinary pure module. A generic station worker may persist
-inputs, outputs, diagnostics, cache results, and trace context, but role-specific
-workers do not invent separate semantic or retry frameworks.
+inputs, outputs, diagnostics, cache results, and trace context, but
+role-specific workers do not invent separate semantic or retry frameworks.
 
 Passes receive only a restricted `PassContext`. Direct Repo, filesystem,
 environment, network, wall-clock, RNG, and process access is prohibited. Reads
@@ -85,8 +85,8 @@ changes always miss the cache.
 - Bespoke job workers cannot silently own semantic transformations.
 - Proposal comparison and selection remain explicit; competing candidates are
   visible and never silently blended.
-- The implementation must invest early in pass registry, PassContext,
-  derivation capture, and hermeticity tests.
+- The implementation must invest early in pass registry, PassContext, derivation
+  capture, and hermeticity tests.
 
 ## Implementation Notes
 
@@ -105,8 +105,7 @@ changes always miss the cache.
 
 - Bead `software-factory-ai-aamg.1.14`.
 - Phase 1.5/2 plan, section 3, laws 44 and 9.
-- Phase 1.5/2 plan, section 4.4, compiler passes, PassContext, and
-  memoization.
+- Phase 1.5/2 plan, section 4.4, compiler passes, PassContext, and memoization.
 - Phase 1.5/2 plan, section 4.5, derivation graph.
 - Phase 1.5/2 plan, section 18.3, milestone P2-A2.
 - Phase 1.5/2 plan, section 27, strategy bullet on building a real compiler.

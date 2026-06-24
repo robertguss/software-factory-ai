@@ -4,7 +4,8 @@ sample_tasks is a Conveyor-managed project at `.`.
 
 # Architecture Map
 
-Keep this section updated with the main directories, services, entrypoints, and test surfaces.
+Keep this section updated with the main directories, services, entrypoints, and
+test surfaces.
 
 # Commands
 
@@ -42,7 +43,8 @@ Make it good.
 
 # Forbidden Actions
 
-Do not merge, deploy, edit locked contracts, change policy, access production secrets, or run denied commands without explicit human approval.
+Do not merge, deploy, edit locked contracts, change policy, access production
+secrets, or run denied commands without explicit human approval.
 
 # How to Use Conveyor Evidence
 
@@ -54,4 +56,5 @@ Treat code-quality context as advisory unless policy makes it gate-blocking.
 
 # How to Report Blockers
 
-Report the blocked acceptance criterion, evidence gathered, commands attempted, artifact refs, and exact input needed to continue.
+Report the blocked acceptance criterion, evidence gathered, commands attempted,
+artifact refs, and exact input needed to continue.

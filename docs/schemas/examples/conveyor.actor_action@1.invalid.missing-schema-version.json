@@ -7,7 +7,9 @@
     "id_or_key": "approval-001"
   },
   "policy_decision_id": "policy-decision-001",
-  "authority_root_digests": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  "authority_root_digests": [
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
   "trace_id": "trace-actor-action-001",
   "performed_at": "2026-06-19T00:00:00Z"
 }

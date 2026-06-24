@@ -4,14 +4,42 @@
   "title": "Conveyor TestQuarantine",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "test_pack_id", "test_id", "reason", "required_for_obligation_ids", "status", "excluded_from", "evidence_ref", "created_at"],
+  "required": [
+    "schema_version",
+    "id",
+    "test_pack_id",
+    "test_id",
+    "reason",
+    "required_for_obligation_ids",
+    "status",
+    "excluded_from",
+    "evidence_ref",
+    "created_at"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.test_quarantine@1" },
-    "id": { "type": "string", "pattern": "^test_quarantine:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^test_quarantine:sha256:[0-9a-f]{64}$"
+    },
     "test_pack_id": { "type": "string", "minLength": 1 },
     "test_id": { "type": "string", "minLength": 1 },
-    "reason": { "enum": ["flaky", "non_hermetic", "vacuous", "order_dependent", "infrastructure_sensitive"] },
-    "required_for_obligation_ids": { "type": "array", "items": { "type": "string", "pattern": "^verification_obligation:sha256:[0-9a-f]{64}$" } },
+    "reason": {
+      "enum": [
+        "flaky",
+        "non_hermetic",
+        "vacuous",
+        "order_dependent",
+        "infrastructure_sensitive"
+      ]
+    },
+    "required_for_obligation_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^verification_obligation:sha256:[0-9a-f]{64}$"
+      }
+    },
     "status": { "enum": ["quarantined", "rehabilitated", "retired"] },
     "excluded_from": { "enum": ["advisory", "ordinary_execution", "both"] },
     "human_decision_id": { "type": ["string", "null"] },

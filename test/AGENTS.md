@@ -19,14 +19,14 @@ test/
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| DB-backed tests | `support/data_case.ex` | SQL sandbox helpers and Ecto assertions. |
-| Web tests | `support/conn_case.ex` | Phoenix connection setup. |
-| Global config | `test_helper.exs`, `../config/test.exs` | ExUnit excludes `live_agent: true`; Oban testing is manual. |
-| Core behavior | `conveyor/*_test.exs` | Most domain coverage lives here. |
-| CLI behavior | `mix/tasks/*_test.exs` | Mix task output and file effects. |
-| Fixture rules | `fixtures/AGENTS.md` | Deeper guidance for corpus edits. |
+| Task            | Location                                | Notes                                                       |
+| --------------- | --------------------------------------- | ----------------------------------------------------------- |
+| DB-backed tests | `support/data_case.ex`                  | SQL sandbox helpers and Ecto assertions.                    |
+| Web tests       | `support/conn_case.ex`                  | Phoenix connection setup.                                   |
+| Global config   | `test_helper.exs`, `../config/test.exs` | ExUnit excludes `live_agent: true`; Oban testing is manual. |
+| Core behavior   | `conveyor/*_test.exs`                   | Most domain coverage lives here.                            |
+| CLI behavior    | `mix/tasks/*_test.exs`                  | Mix task output and file effects.                           |
+| Fixture rules   | `fixtures/AGENTS.md`                    | Deeper guidance for corpus edits.                           |
 
 ## CONVENTIONS
 
@@ -37,7 +37,8 @@ test/
 - `mix test` creates and migrates the test database through the project alias.
 - Keep acceptance-gate tests tied to evidence and contract semantics, not just
   implementation details.
-- Use focused test commands while iterating, then run the relevant wider surface.
+- Use focused test commands while iterating, then run the relevant wider
+  surface.
 
 ## ANTI-PATTERNS
 

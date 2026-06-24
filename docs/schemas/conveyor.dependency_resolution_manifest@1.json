@@ -4,19 +4,51 @@
   "title": "Conveyor DependencyResolutionManifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "manifest_digest", "repository_base_commit", "package_manager", "lockfile_digests", "registry_mirror_policy", "resolved_package_refs", "script_policy", "network_policy", "cache_policy", "native_policy"],
+  "required": [
+    "schema_version",
+    "manifest_digest",
+    "repository_base_commit",
+    "package_manager",
+    "lockfile_digests",
+    "registry_mirror_policy",
+    "resolved_package_refs",
+    "script_policy",
+    "network_policy",
+    "cache_policy",
+    "native_policy"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.dependency_resolution_manifest@1" },
     "manifest_digest": { "$ref": "#/$defs/digest" },
-    "repository_base_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "repository_base_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
     "package_manager": { "type": "string", "minLength": 1 },
-    "lockfile_digests": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/digest" } },
-    "registry_mirror_policy": { "enum": ["pinned_mirror", "direct_locked", "offline_only"] },
-    "resolved_package_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "script_policy": { "enum": ["deny", "allow_pinned", "allow_with_attestation"] },
-    "network_policy": { "enum": ["deny", "allow_registry_only", "allow_declared"] },
-    "cache_policy": { "enum": ["cold", "trusted_readonly", "writable_isolated"] },
-    "native_policy": { "enum": ["deny", "allow_pinned_toolchain", "allow_with_attestation"] },
+    "lockfile_digests": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/digest" }
+    },
+    "registry_mirror_policy": {
+      "enum": ["pinned_mirror", "direct_locked", "offline_only"]
+    },
+    "resolved_package_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "script_policy": {
+      "enum": ["deny", "allow_pinned", "allow_with_attestation"]
+    },
+    "network_policy": {
+      "enum": ["deny", "allow_registry_only", "allow_declared"]
+    },
+    "cache_policy": {
+      "enum": ["cold", "trusted_readonly", "writable_isolated"]
+    },
+    "native_policy": {
+      "enum": ["deny", "allow_pinned_toolchain", "allow_with_attestation"]
+    },
     "vulnerability_snapshot_ref": { "$ref": "#/$defs/resource_ref" }
   },
   "$defs": {

@@ -28,7 +28,10 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.test_specification@1" },
-    "id": { "type": "string", "pattern": "^test_specification:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^test_specification:sha256:[0-9a-f]{64}$"
+    },
     "slice_id": { "type": "string", "minLength": 1 },
     "test_id": { "type": "string", "minLength": 1 },
     "role": {
@@ -43,7 +46,9 @@
         "human_verification"
       ]
     },
-    "verification_obligation_refs": { "$ref": "#/$defs/non_empty_string_array" },
+    "verification_obligation_refs": {
+      "$ref": "#/$defs/non_empty_string_array"
+    },
     "acceptance_refs": { "$ref": "#/$defs/non_empty_string_array" },
     "interface_refs": { "$ref": "#/$defs/string_array" },
     "expected_on_base": { "$ref": "#/$defs/outcome" },

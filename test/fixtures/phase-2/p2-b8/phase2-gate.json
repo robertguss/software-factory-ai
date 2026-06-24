@@ -17,10 +17,7 @@
     "authority": "phase2_local",
     "environment": "local_dev"
   },
-  "failed_hypotheses": [
-    "first_pass_gate_success",
-    "material_dispute_rate"
-  ],
+  "failed_hypotheses": ["first_pass_gate_success", "material_dispute_rate"],
   "blocking_evidence": [
     "db_backed_mix_test_unavailable",
     "first_pass_gate_success_missed",

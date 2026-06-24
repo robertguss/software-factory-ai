@@ -6,7 +6,8 @@ Date: 2026-06-19
 
 Bead: `software-factory-ai-aamg.1.9`
 
-Gated milestone: P15-A3 - Station leases, fencing, effect receipts, trace events, and ArtifactStore
+Gated milestone: P15-A3 - Station leases, fencing, effect receipts, trace
+events, and ArtifactStore
 
 ## Context
 
@@ -70,9 +71,9 @@ on measured throughput, isolation, or multi-region need.
 
 ## Implementation Notes
 
-- Implement AuthorityEvent, ObservationSegment, EventRouter,
-  EventSegmentWriter, ArtifactAddress, ArtifactStore.LocalCAS, and backend
-  conformance tests in P15-A3.
+- Implement AuthorityEvent, ObservationSegment, EventRouter, EventSegmentWriter,
+  ArtifactAddress, ArtifactStore.LocalCAS, and backend conformance tests in
+  P15-A3.
 - Use ArtifactAddress to separate trust-domain identity, content digest,
   optional ciphertext digest, opaque storage key, encryption key reference, and
   storage backend.
@@ -86,7 +87,8 @@ on measured throughput, isolation, or multi-region need.
 ## References
 
 - docs/2_implementation_plans/PHASE-1.5-2-TRUST-QUALIFICATION-PLAN-COMPILER-CONTRACT-FOUNDRY-ULTIMATE-HYBRID.md
-- Correction P, immutable evidence does not imply infinite retention or Postgres payload bloat
+- Correction P, immutable evidence does not imply infinite retention or Postgres
+  payload bloat
 - Section 3, laws 42-43 and 48
 - Section 4.6, state, exhaust, and artifact architecture
 - Section 4.7, trace and event model

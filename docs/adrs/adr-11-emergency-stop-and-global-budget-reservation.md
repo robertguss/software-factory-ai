@@ -92,15 +92,15 @@ best-effort observability.
 - Treat cancellation or revocation misses as qualification evidence, not hidden
   operational noise.
 - Keep adapter health integration separate: adapter circuits can narrow or
-  expire authority, while ordinary coding quality misses alone must not open
-  the adapter health circuit.
+  expire authority, while ordinary coding quality misses alone must not open the
+  adapter health circuit.
 
 ## References
 
 - Bead `software-factory-ai-aamg.1.11`.
 - Phase 1.5/2 plan, section 2.18, Phase 1.5 cutline.
 - Phase 1.5/2 plan, section 3, laws 40 and 41.
-- Phase 1.5/2 plan, section 4.6, `EmergencyStopState`,
-  `BudgetEnvelope`, and `BudgetReservation`.
+- Phase 1.5/2 plan, section 4.6, `EmergencyStopState`, `BudgetEnvelope`, and
+  `BudgetReservation`.
 - Phase 1.5/2 plan, section 18.2, milestone P15-A4.
 - Phase 1.5/2 plan, section 28.2, required ADR item 11.

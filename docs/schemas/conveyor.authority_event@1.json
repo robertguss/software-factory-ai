@@ -4,7 +4,18 @@
   "title": "Conveyor AuthorityEvent",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "event_id", "stream_id", "stream_version", "event_type", "subject_ref", "correlation_id", "trace_context", "payload_ref", "committed_at"],
+  "required": [
+    "schema_version",
+    "event_id",
+    "stream_id",
+    "stream_version",
+    "event_type",
+    "subject_ref",
+    "correlation_id",
+    "trace_context",
+    "payload_ref",
+    "committed_at"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.authority_event@1" },
     "event_id": { "type": "string", "minLength": 1 },

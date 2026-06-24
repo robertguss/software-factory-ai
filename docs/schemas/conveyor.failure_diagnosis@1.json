@@ -4,19 +4,48 @@
   "title": "Conveyor FailureDiagnosis",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "subject", "primary_classification", "contributing_factors", "observations", "competing_hypotheses", "confidence", "confidence_basis", "abstained", "evidence_refs", "rule_bundle_digest", "diagnostic_version", "diagnosis_digest"],
+  "required": [
+    "schema_version",
+    "subject",
+    "primary_classification",
+    "contributing_factors",
+    "observations",
+    "competing_hypotheses",
+    "confidence",
+    "confidence_basis",
+    "abstained",
+    "evidence_refs",
+    "rule_bundle_digest",
+    "diagnostic_version",
+    "diagnosis_digest"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.failure_diagnosis@1" },
     "subject": { "type": "string", "minLength": 1 },
     "primary_classification": { "type": "string", "minLength": 1 },
-    "contributing_factors": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "observations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "competing_hypotheses": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "contributing_factors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "observations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "competing_hypotheses": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
     "confidence_basis": { "type": "string", "minLength": 1 },
     "abstained": { "type": "boolean" },
-    "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "rule_bundle_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "rule_bundle_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "diagnostic_version": { "type": "string", "minLength": 1 },
     "diagnosis_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
   }

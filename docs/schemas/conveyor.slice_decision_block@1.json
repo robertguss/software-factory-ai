@@ -10,6 +10,9 @@
     "slice_key": { "type": "string", "minLength": 1 },
     "human_decision_ref": { "type": "string", "minLength": 1 },
     "reason": { "type": "string", "minLength": 1 },
-    "claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "claim_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   }
 }

@@ -7,12 +7,12 @@ non-core codebases.
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| Python task service | `tasks_service/` | FastAPI-style sample with its own plan and tests. |
-| Sample contract | `tasks_service/conveyor.plan.yml`, `tasks_service/plan.md` | Conveyor-facing work definition. |
-| Python tests | `tasks_service/tests/` | `pytest` surface for the sample. |
-| Python config | `tasks_service/pyproject.toml`, `requirements*.txt` | Sample-local tooling. |
+| Task                | Location                                                   | Notes                                             |
+| ------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
+| Python task service | `tasks_service/`                                           | FastAPI-style sample with its own plan and tests. |
+| Sample contract     | `tasks_service/conveyor.plan.yml`, `tasks_service/plan.md` | Conveyor-facing work definition.                  |
+| Python tests        | `tasks_service/tests/`                                     | `pytest` surface for the sample.                  |
+| Python config       | `tasks_service/pyproject.toml`, `requirements*.txt`        | Sample-local tooling.                             |
 
 ## CONVENTIONS
 

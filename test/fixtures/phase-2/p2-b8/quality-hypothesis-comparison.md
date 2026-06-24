@@ -2,8 +2,8 @@
 
 Status: compared against available P2-B pilot evidence.
 
-Misses remain misses until a recorded PhaseNextDecision changes a hypothesis.
-No PhaseNextDecision has changed these hypotheses yet.
+Misses remain misses until a recorded PhaseNextDecision changes a hypothesis. No
+PhaseNextDecision has changed these hypotheses yet.
 
 ## Observed Pilot Evidence
 
@@ -21,15 +21,15 @@ Observed metrics:
 
 ## Comparison
 
-| Hypothesis | Target | Observed | Status |
-| --- | --- | --- | --- |
-| approved_without_rewrite | >= 80% | 100% | met |
-| median_repair_rounds | <= 1 | 1 | met |
-| first_pass_gate_success | >= 70% | 33.33% | missed |
-| material_dispute_rate | < 20% | 33.33% | missed |
-| critic_planted_loophole_catch | 100% | 100% | met |
-| lost_falsifier_or_obligation | 0 | 0 | met |
-| impact_preview_matches_actual | 100% | 100% | met |
+| Hypothesis                    | Target | Observed | Status |
+| ----------------------------- | ------ | -------- | ------ |
+| approved_without_rewrite      | >= 80% | 100%     | met    |
+| median_repair_rounds          | <= 1   | 1        | met    |
+| first_pass_gate_success       | >= 70% | 33.33%   | missed |
+| material_dispute_rate         | < 20%  | 33.33%   | missed |
+| critic_planted_loophole_catch | 100%   | 100%     | met    |
+| lost_falsifier_or_obligation  | 0      | 0        | met    |
+| impact_preview_matches_actual | 100%   | 100%     | met    |
 
 Summary: 5 met, 2 missed, 0 superseded_by_phase_next_decision.
 

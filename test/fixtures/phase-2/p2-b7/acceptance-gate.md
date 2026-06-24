@@ -20,9 +20,8 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.Planning.PilotSelection` freezes `conveyor.pilot_selection@1`
-  before implementation starts, with deterministic policy and selection
-  digests.
+- `Conveyor.Planning.PilotSelection` freezes `conveyor.pilot_selection@1` before
+  implementation starts, with deterministic policy and selection digests.
 - `PlanningPilotSelectionTest` proves selection is blocked once implementation
   has started.
 - `Conveyor.Planning.PilotRetrospective` compares the frozen selected set with
@@ -52,9 +51,9 @@ Evidence:
 
 Evidence:
 
-- `test/fixtures/phase-2/p2-b7/pilot-plan.json` includes a parked/disputed path and a
-  terminal Chronicle Slice that depends on both the parked path and unrelated
-  amendment path.
+- `test/fixtures/phase-2/p2-b7/pilot-plan.json` includes a parked/disputed path
+  and a terminal Chronicle Slice that depends on both the parked path and
+  unrelated amendment path.
 - `PlanningPilotPlanTest` proves the parked path is present in the 10-Slice
   multi-Epic pilot.
 - `Conveyor.Planning.PilotExecution` summarizes parked Slice execution without
@@ -76,12 +75,12 @@ Evidence:
 
 Evidence:
 
-- `test/fixtures/phase-2/p2-b7/pilot-plan.json` defines a 10-Slice multi-Epic plan with
-  fork/join, public interface provider/consumer, migration compatibility,
-  ambiguity, alternative candidate, amendment path, parked path, and a
-  human-verification-only obligation.
-- `PlanningPilotPlanTest` proves the plan has 8-12 Slices, multiple Epics,
-  valid dependencies, and all required coverage classes.
+- `test/fixtures/phase-2/p2-b7/pilot-plan.json` defines a 10-Slice multi-Epic
+  plan with fork/join, public interface provider/consumer, migration
+  compatibility, ambiguity, alternative candidate, amendment path, parked path,
+  and a human-verification-only obligation.
+- `PlanningPilotPlanTest` proves the plan has 8-12 Slices, multiple Epics, valid
+  dependencies, and all required coverage classes.
 - `Conveyor.Planning.PilotSelection` selects every machine-executable Slice for
   this <=12-Slice pilot and records the required coverage classes.
 - `PlanningPilotSelectionTest` proves the frozen selection is schema-valid.
@@ -90,13 +89,13 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanningPilotPlanTest` | missing coverage class, invalid dependency, wrong slice count | none |
-| `PilotSelectionSchemaTest` | missing selection digest, missing registry row | none |
-| `PlanningPilotSelectionTest` | selection after implementation start, missing machine-executable slices | none |
-| `PlanningPilotExecutionTest` | implementation width > 1, missing pilot metrics | none |
-| `PlanningPilotRetrospectiveTest` | selected-set drift, failed replacement, from-scratch manual rewrite counted as success, missing failure-class separation | none |
+| Evidence source                  | Failed cases represented                                                                                                 | Excluded cases |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| `PlanningPilotPlanTest`          | missing coverage class, invalid dependency, wrong slice count                                                            | none           |
+| `PilotSelectionSchemaTest`       | missing selection digest, missing registry row                                                                           | none           |
+| `PlanningPilotSelectionTest`     | selection after implementation start, missing machine-executable slices                                                  | none           |
+| `PlanningPilotExecutionTest`     | implementation width > 1, missing pilot metrics                                                                          | none           |
+| `PlanningPilotRetrospectiveTest` | selected-set drift, failed replacement, from-scratch manual rewrite counted as success, missing failure-class separation | none           |
 
 ## Verification Commands
 

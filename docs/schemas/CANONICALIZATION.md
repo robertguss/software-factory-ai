@@ -12,14 +12,14 @@ ambiguous primitive encodings.
 
 ## Safe Encodings
 
-| Concept | Encoding |
-| --- | --- |
-| Money | Integer minor units plus currency code. |
-| Large integers outside safe I-JSON range | Decimal strings. |
-| Timestamps | Normalized RFC3339 strings. |
-| Durations | Integer milliseconds or nanoseconds with an explicit unit. |
-| Unordered sets | Deterministically sorted arrays. |
-| Content digests | `DigestRef{algorithm,value}` instead of bare `*_sha256`. |
+| Concept                                  | Encoding                                                   |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| Money                                    | Integer minor units plus currency code.                    |
+| Large integers outside safe I-JSON range | Decimal strings.                                           |
+| Timestamps                               | Normalized RFC3339 strings.                                |
+| Durations                                | Integer milliseconds or nanoseconds with an explicit unit. |
+| Unordered sets                           | Deterministically sorted arrays.                           |
+| Content digests                          | `DigestRef{algorithm,value}` instead of bare `*_sha256`.   |
 
 Legacy `*_sha256` fields are migration aliases only. New schemas use `*_digest`
 and reference `conveyor.digest_ref@1`.

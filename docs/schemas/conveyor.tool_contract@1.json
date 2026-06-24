@@ -4,21 +4,62 @@
   "title": "Conveyor ToolContract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "tool_key", "input_schema_ref", "output_schema_ref", "effect_class", "delivery_semantics", "fence_support", "replay_mode", "authorization_action", "limits", "sensitivity_profile", "allowed_input_labels", "output_label_rules", "enforcement_profile_ref", "ambiguity_policy", "status"],
+  "required": [
+    "schema_version",
+    "tool_key",
+    "input_schema_ref",
+    "output_schema_ref",
+    "effect_class",
+    "delivery_semantics",
+    "fence_support",
+    "replay_mode",
+    "authorization_action",
+    "limits",
+    "sensitivity_profile",
+    "allowed_input_labels",
+    "output_label_rules",
+    "enforcement_profile_ref",
+    "ambiguity_policy",
+    "status"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.tool_contract@1" },
     "tool_key": { "type": "string", "minLength": 1 },
     "input_schema_ref": { "type": "string", "minLength": 1 },
     "output_schema_ref": { "type": "string", "minLength": 1 },
-    "effect_class": { "enum": ["none", "filesystem", "network", "process", "credential", "state_write"] },
-    "delivery_semantics": { "enum": ["none", "at_most_once", "at_least_once", "exactly_once_with_fence"] },
+    "effect_class": {
+      "enum": [
+        "none",
+        "filesystem",
+        "network",
+        "process",
+        "credential",
+        "state_write"
+      ]
+    },
+    "delivery_semantics": {
+      "enum": [
+        "none",
+        "at_most_once",
+        "at_least_once",
+        "exactly_once_with_fence"
+      ]
+    },
     "fence_support": { "type": "boolean" },
-    "replay_mode": { "enum": ["disabled", "recorded", "hybrid", "proposal_only"] },
+    "replay_mode": {
+      "enum": ["disabled", "recorded", "hybrid", "proposal_only"]
+    },
     "authorization_action": { "type": "string", "minLength": 1 },
     "limits": { "type": "object" },
     "sensitivity_profile": { "type": "string", "minLength": 1 },
-    "allowed_input_labels": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "output_label_rules": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "allowed_input_labels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "output_label_rules": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "enforcement_profile_ref": { "type": "string", "minLength": 1 },
     "ambiguity_policy": { "enum": ["deny", "require_human"] },
     "status": { "enum": ["draft", "active", "retired"] }

@@ -4,7 +4,16 @@
   "title": "Conveyor CapabilityClaim",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "capability_key", "version", "mode_or_value", "limits", "source", "evidence_ref", "known_degradations"],
+  "required": [
+    "schema_version",
+    "capability_key",
+    "version",
+    "mode_or_value",
+    "limits",
+    "source",
+    "evidence_ref",
+    "known_degradations"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.capability_claim@1" },
     "capability_key": { "type": "string", "minLength": 1 },
@@ -15,6 +24,9 @@
     "evidence_ref": { "type": "string", "minLength": 1 },
     "observed_at": { "type": "string", "format": "date-time" },
     "expires_at": { "type": "string", "format": "date-time" },
-    "known_degradations": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "known_degradations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   }
 }

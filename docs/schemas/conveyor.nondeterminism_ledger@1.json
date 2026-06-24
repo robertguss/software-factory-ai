@@ -4,7 +4,15 @@
   "title": "Conveyor NondeterminismLedger",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "rng_seed", "clock_reads", "id_allocations", "env_reads", "external_reads", "tool_equivalence_policies"],
+  "required": [
+    "schema_version",
+    "rng_seed",
+    "clock_reads",
+    "id_allocations",
+    "env_reads",
+    "external_reads",
+    "tool_equivalence_policies"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.nondeterminism_ledger@1" },
     "rng_seed": { "type": "string", "minLength": 1 },
@@ -12,6 +20,9 @@
     "id_allocations": { "type": "array", "items": { "type": "object" } },
     "env_reads": { "type": "array", "items": { "type": "object" } },
     "external_reads": { "type": "array", "items": { "type": "object" } },
-    "tool_equivalence_policies": { "type": "array", "items": { "type": "object" } }
+    "tool_equivalence_policies": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
   }
 }

@@ -31,7 +31,10 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.qualification_grant@1" },
-    "id": { "type": "string", "pattern": "^qualification_grant:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^qualification_grant:sha256:[0-9a-f]{64}$"
+    },
     "project_id": { "type": "string", "minLength": 1 },
     "qualification_gate_run_id": { "type": "string", "minLength": 1 },
     "evidence_root_digest": { "$ref": "#/$defs/digest" },
@@ -78,7 +81,13 @@
     "success_rate_band": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["capability", "lower_bound", "upper_bound", "sample_count", "policy_ref"],
+      "required": [
+        "capability",
+        "lower_bound",
+        "upper_bound",
+        "sample_count",
+        "policy_ref"
+      ],
       "properties": {
         "capability": { "type": "string", "minLength": 1 },
         "lower_bound": { "type": "number", "minimum": 0, "maximum": 1 },

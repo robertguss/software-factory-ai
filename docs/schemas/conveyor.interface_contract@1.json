@@ -4,19 +4,41 @@
   "title": "Conveyor InterfaceContract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "interface_key", "kind", "stability", "lock_level", "compatibility_policy", "owner_slice_key", "version"],
+  "required": [
+    "schema_version",
+    "interface_key",
+    "kind",
+    "stability",
+    "lock_level",
+    "compatibility_policy",
+    "owner_slice_key",
+    "version"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.interface_contract@1" },
     "interface_key": { "type": "string", "minLength": 1 },
     "kind": { "type": "string", "minLength": 1 },
     "stability": { "enum": ["public", "internal_cross_slice", "internal"] },
-    "lock_level": { "enum": ["strict", "compatible_superset", "review_required", "informational"] },
+    "lock_level": {
+      "enum": [
+        "strict",
+        "compatible_superset",
+        "review_required",
+        "informational"
+      ]
+    },
     "compatibility_policy": { "type": "string", "minLength": 1 },
     "owner_slice_key": { "type": "string", "minLength": 1 },
     "version": { "type": "string", "minLength": 1 },
     "schema_ref": { "type": "string", "minLength": 1 },
     "deprecation_policy": { "type": "string", "minLength": 1 },
-    "affected_consumers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "affected_consumers": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "claim_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   }
 }

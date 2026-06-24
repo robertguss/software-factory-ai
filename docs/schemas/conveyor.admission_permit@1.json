@@ -23,11 +23,17 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.admission_permit@1" },
-    "id": { "type": "string", "pattern": "^admission_permit:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^admission_permit:sha256:[0-9a-f]{64}$"
+    },
     "subject_kind": { "type": "string", "minLength": 1 },
     "subject_id": { "type": "string", "minLength": 1 },
     "spec_digest": { "$ref": "#/$defs/digest" },
-    "qualification_grant_id": { "type": "string", "pattern": "^qualification_grant:sha256:[0-9a-f]{64}$" },
+    "qualification_grant_id": {
+      "type": "string",
+      "pattern": "^qualification_grant:sha256:[0-9a-f]{64}$"
+    },
     "effective_capability_set_digest": { "$ref": "#/$defs/digest" },
     "authority_root_digests": {
       "type": "array",
@@ -44,7 +50,10 @@
     "issued_at": { "type": "string", "format": "date-time" },
     "expires_at": { "type": "string", "format": "date-time" },
     "permit_digest": { "$ref": "#/$defs/digest" },
-    "supersedes_permit_id": { "type": "string", "pattern": "^admission_permit:sha256:[0-9a-f]{64}$" }
+    "supersedes_permit_id": {
+      "type": "string",
+      "pattern": "^admission_permit:sha256:[0-9a-f]{64}$"
+    }
   },
   "$defs": {
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }

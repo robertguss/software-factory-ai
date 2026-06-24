@@ -19,8 +19,8 @@ Evidence:
   blocks when static/headless bundle digests differ.
 - `Conveyor.Planning.WorkbenchViews` keeps claims, constraints, decision blocks,
   obligations, approvals, and related artifacts in explicit operator lanes.
-- `PlanningWorkbenchViewsTest` proves high-impact intent/risk/recovery view
-  data is present and missing view families render as empty views rather than
+- `PlanningWorkbenchViewsTest` proves high-impact intent/risk/recovery view data
+  is present and missing view families render as empty views rather than
   disappearing.
 
 ### candidate differences are visible
@@ -41,10 +41,10 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.Planning.ImpactPreview` wraps the deterministic invalidation
-  reducer into operator-facing categories for invalidated approvals/roots,
-  regenerated contracts/interfaces, revalidated TestPacks and obligations,
-  reusable locks, new RunSpecs/attempts, and grant impact.
+- `Conveyor.Planning.ImpactPreview` wraps the deterministic invalidation reducer
+  into operator-facing categories for invalidated approvals/roots, regenerated
+  contracts/interfaces, revalidated TestPacks and obligations, reusable locks,
+  new RunSpecs/attempts, and grant impact.
 - `PlanningImpactPreviewTest` proves grant impact, approval roots, contracts,
   obligations, reusable locks, and new RunSpecs are visible, and that low
   confidence fails wide with an `impact_confidence_low` warning.
@@ -89,25 +89,25 @@ Evidence:
   reclassify, constraint/interface/compatibility change, human verification,
   strengthen contract, cheapest-wrong display, rerun affected, preview
   invalidation, amendment, draft, stop, and resume actions.
-- `ChangeSetSchemaTest` proves ChangeSet requires subject, base revision
-  digest, operations, preconditions, materiality labels, impact preview ref,
-  digest, and status.
+- `ChangeSetSchemaTest` proves ChangeSet requires subject, base revision digest,
+  operations, preconditions, materiality labels, impact preview ref, digest, and
+  status.
 - `ApprovalSetSchemaTest` proves approval sets bind subject authority roots,
   review root, policy digest, approval ids, revocation events, and threshold
   satisfaction.
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanningWorkbenchShellTest` | missing Cockpit panels, static/headless bundle mismatch | none |
-| `PlanningWorkbenchViewsTest` | hidden candidate/claim/constraint/waiver view families | none |
-| `PlanningWorkbenchActionsTest` | action mutates directly instead of emitting ChangeSet, missing base preconditions | none |
-| `PlanningImpactPreviewTest` | grant/root/contract/test/attempt impacts omitted, low confidence not fail-wide | none |
-| `PlanningHumanApprovalBindingTest` | approval not bound to exact roots, missing review root accepted | none |
-| `ChangeSetSchemaTest` | ChangeSet missing preconditions or required mutation fields | none |
-| `ApprovalPolicySchemaTest` | approval policy missing threshold | none |
-| `ApprovalSetSchemaTest` | approval set missing threshold satisfaction or root binding fields | none |
+| Evidence source                    | Failed cases represented                                                          | Excluded cases |
+| ---------------------------------- | --------------------------------------------------------------------------------- | -------------- |
+| `PlanningWorkbenchShellTest`       | missing Cockpit panels, static/headless bundle mismatch                           | none           |
+| `PlanningWorkbenchViewsTest`       | hidden candidate/claim/constraint/waiver view families                            | none           |
+| `PlanningWorkbenchActionsTest`     | action mutates directly instead of emitting ChangeSet, missing base preconditions | none           |
+| `PlanningImpactPreviewTest`        | grant/root/contract/test/attempt impacts omitted, low confidence not fail-wide    | none           |
+| `PlanningHumanApprovalBindingTest` | approval not bound to exact roots, missing review root accepted                   | none           |
+| `ChangeSetSchemaTest`              | ChangeSet missing preconditions or required mutation fields                       | none           |
+| `ApprovalPolicySchemaTest`         | approval policy missing threshold                                                 | none           |
+| `ApprovalSetSchemaTest`            | approval set missing threshold satisfaction or root binding fields                | none           |
 
 ## Verification Commands
 

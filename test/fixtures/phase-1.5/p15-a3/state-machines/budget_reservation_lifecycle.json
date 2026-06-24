@@ -15,7 +15,5 @@
     "Committed spend never exceeds active reservations.",
     "Expired reservations cannot later commit."
   ],
-  "counterexample_traces": [
-    ["reserve_budget", "ttl_expires", "attempt_commit"]
-  ]
+  "counterexample_traces": [["reserve_budget", "ttl_expires", "attempt_commit"]]
 }

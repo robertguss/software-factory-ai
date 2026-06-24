@@ -4,7 +4,17 @@
   "title": "Conveyor ProviderEgressRecord",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "subject_ref", "provider_contract_digest", "role_view_digest", "prompt_manifest_digest", "input_label_summary", "policy_decision_id", "trace_id", "sent_at"],
+  "required": [
+    "schema_version",
+    "subject_ref",
+    "provider_contract_digest",
+    "role_view_digest",
+    "prompt_manifest_digest",
+    "input_label_summary",
+    "policy_decision_id",
+    "trace_id",
+    "sent_at"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.provider_egress_record@1" },
     "subject_ref": { "$ref": "#/$defs/subject_ref" },

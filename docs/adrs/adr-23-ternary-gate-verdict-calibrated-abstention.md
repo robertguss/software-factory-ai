@@ -24,13 +24,13 @@ Conveyor already computes the signal needed to detect untrustworthy passes and
 discards it. `Conveyor.Verification.IntegritySentinel`
 (`lib/conveyor/verification/integrity_sentinel.ex`) runs ten anti-vacuity probes
 (base calibration, falsifier survival, hermeticity, repeatability, mapping,
-mount boundary, required artifacts, source mutation, hidden dependency, falsifier
-preservation) and produces a verdict that records trustworthiness but drives no
-control-flow decision. Acceptance calibration, baseline health, and replay
-divergence diagnostics are likewise observational. ADR-02 already established the
-principle that a gate must report `not_assessed` rather than pass by default when
-evidence is insufficient; that principle currently lives only in the live
-statistical layer, not in the deterministic gate.
+mount boundary, required artifacts, source mutation, hidden dependency,
+falsifier preservation) and produces a verdict that records trustworthiness but
+drives no control-flow decision. Acceptance calibration, baseline health, and
+replay divergence diagnostics are likewise observational. ADR-02 already
+established the principle that a gate must report `not_assessed` rather than
+pass by default when evidence is insufficient; that principle currently lives
+only in the live statistical layer, not in the deterministic gate.
 
 ## Decision
 
@@ -71,12 +71,13 @@ Verdict, evidence, and report schemas must carry the third outcome and the
 must never collapse abstain into pass or into fail.
 
 The parked queue becomes a calibrated triage list rather than a dumping ground:
-its size is a direct, measurable function of the system's self-honesty, and it is
-the natural surface for the operator attention model (the ambient-teammate UX).
+its size is a direct, measurable function of the system's self-honesty, and it
+is the natural surface for the operator attention model (the ambient-teammate
+UX).
 
 Operator overrides of an abstain (merging anyway, or rejecting a high-confidence
-pass) are recorded as labeled calibration examples that tune the score over time.
-This is the intended learning loop and must be captured in the ledger.
+pass) are recorded as labeled calibration examples that tune the score over
+time. This is the intended learning loop and must be captured in the ledger.
 
 ## Implementation Notes
 
@@ -99,4 +100,5 @@ abstain, and abstain dominates pass.
 - docs/RADICAL-LEVERAGE-IDEAS.md, idea 1 (the Reliability Engine) and heresy H1.
 - ADR-02 (`not_assessed` over pass-by-default; statistical method recording).
 - ADR-13 (VerificationObligations: quarantine is not satisfaction).
-- `lib/conveyor/verification/integrity_sentinel.ex`, `lib/conveyor/gate/finalizer.ex`.
+- `lib/conveyor/verification/integrity_sentinel.ex`,
+  `lib/conveyor/gate/finalizer.ex`.

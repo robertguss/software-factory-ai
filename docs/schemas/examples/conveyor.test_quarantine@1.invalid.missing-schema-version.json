@@ -3,7 +3,9 @@
   "test_pack_id": "test-pack:unit",
   "test_id": "test:flaky-candidate",
   "reason": "flaky",
-  "required_for_obligation_ids": ["verification_obligation:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "required_for_obligation_ids": [
+    "verification_obligation:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
   "status": "quarantined",
   "excluded_from": "both",
   "evidence_ref": "verification_evidence:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",

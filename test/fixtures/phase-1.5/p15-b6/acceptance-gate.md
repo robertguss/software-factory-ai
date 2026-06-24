@@ -89,22 +89,22 @@ Evidence:
 
 ## Impact Preview Evidence
 
-- `Conveyor.Evidence.InvalidationPreview` computes
-  `preview_invalidation` from ArtifactInput rows, interface bindings, decision
-  blocks, verification obligations, and approval roots.
+- `Conveyor.Evidence.InvalidationPreview` computes `preview_invalidation` from
+  ArtifactInput rows, interface bindings, decision blocks, verification
+  obligations, and approval roots.
 - `InvalidationPreviewTest` proves selective invalidation covers each index and
   that low impact confidence fails wide across the known indexes.
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `EvidenceComparatorTest` | missing evidence, unauthorized evidence, erased evidence, digest mismatch, materiality precedence | none |
-| `ConveyorEvidenceTimeMachineTest` | stale subjects, material diffs, grant/plan/artifact comparison commands | none |
-| `FailureDiagnosisTest` | ambiguous diagnosis, deterministic control-plane classification, hypothesis separation | none |
-| `RecoveryTest` | unknown action keys, raw shell rejection, proposal/action separation, safe-auto criteria, semantic human gate | none |
-| `Recovery.HonestyEvalTest` | precision/recall errors, inappropriate abstention, harmful recovery action, reconciliation mismatch, invalidation mismatch | none |
-| `InvalidationPreviewTest` | missed interface/obligation/root impact, low-confidence narrow invalidation | none |
+| Evidence source                   | Failed cases represented                                                                                                   | Excluded cases |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `EvidenceComparatorTest`          | missing evidence, unauthorized evidence, erased evidence, digest mismatch, materiality precedence                          | none           |
+| `ConveyorEvidenceTimeMachineTest` | stale subjects, material diffs, grant/plan/artifact comparison commands                                                    | none           |
+| `FailureDiagnosisTest`            | ambiguous diagnosis, deterministic control-plane classification, hypothesis separation                                     | none           |
+| `RecoveryTest`                    | unknown action keys, raw shell rejection, proposal/action separation, safe-auto criteria, semantic human gate              | none           |
+| `Recovery.HonestyEvalTest`        | precision/recall errors, inappropriate abstention, harmful recovery action, reconciliation mismatch, invalidation mismatch | none           |
+| `InvalidationPreviewTest`         | missed interface/obligation/root impact, low-confidence narrow invalidation                                                | none           |
 
 ## Verification Commands
 

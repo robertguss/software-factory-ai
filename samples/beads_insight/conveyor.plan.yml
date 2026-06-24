@@ -14,7 +14,8 @@ non_goals:
   - Any network access (no GitHub, no remote fetch)
   - A TUI / interactive / curses interface (stdout text only)
   - Issue creation, editing, sync, auth, pagination, config files, or plugins
-  - Any dependence on wall-clock, locale, environment, or dict/set iteration order
+  - Any dependence on wall-clock, locale, environment, or dict/set iteration
+    order
 requirements:
   - key: REQ-001
     text: >-
@@ -81,7 +82,9 @@ requirements:
     status: covered
 acceptance_criteria:
   - key: AC-001
-    text: Loading the fixture corpus yields exactly the frozen issue and edge counts.
+    text:
+      Loading the fixture corpus yields exactly the frozen issue and edge
+      counts.
     requirement_refs: [REQ-001]
     required_test_refs:
       - tests/test_loader.py::test_corpus_counts_stable
@@ -91,22 +94,30 @@ acceptance_criteria:
     required_test_refs:
       - tests/test_loader.py::test_malformed_line_exit_2
   - key: AC-003
-    text: ready returns exactly the expected id set in the exact (priority, id) order.
+    text:
+      ready returns exactly the expected id set in the exact (priority, id)
+      order.
     requirement_refs: [REQ-002]
     required_test_refs:
       - tests/test_ready.py::test_ready_set_and_order
   - key: AC-004
-    text: Reopening a blocker removes its dependents from ready; closing it re-admits them.
+    text:
+      Reopening a blocker removes its dependents from ready; closing it
+      re-admits them.
     requirement_refs: [REQ-002]
     required_test_refs:
       - tests/test_ready.py::test_blocker_gating
   - key: AC-005
-    text: A planted cycle A->B->C->A is reported exactly once as its canonical rotation; an acyclic fixture reports zero cycles and exits 0.
+    text:
+      A planted cycle A->B->C->A is reported exactly once as its canonical
+      rotation; an acyclic fixture reports zero cycles and exits 0.
     requirement_refs: [REQ-003]
     required_test_refs:
       - tests/test_cycles.py::test_canonical_three_cycle
   - key: AC-006
-    text: Two disjoint cycles are both reported, ordered deterministically; overlapping cycles are not double-counted.
+    text:
+      Two disjoint cycles are both reported, ordered deterministically;
+      overlapping cycles are not double-counted.
     requirement_refs: [REQ-003]
     required_test_refs:
       - tests/test_cycles.py::test_multi_cycle_dedup
@@ -121,27 +132,37 @@ acceptance_criteria:
     required_test_refs:
       - tests/test_epics.py::test_empty_epic
   - key: AC-009
-    text: With --as-of 2026-06-19T00:00:00Z the fixture yields per-bucket counts [3,1,0,2].
+    text:
+      With --as-of 2026-06-19T00:00:00Z the fixture yields per-bucket counts
+      [3,1,0,2].
     requirement_refs: [REQ-005]
     required_test_refs:
       - tests/test_velocity.py::test_weekly_buckets_as_of
   - key: AC-010
-    text: An issue closed exactly at a bucket boundary lands in the newer bucket only.
+    text:
+      An issue closed exactly at a bucket boundary lands in the newer bucket
+      only.
     requirement_refs: [REQ-005]
     required_test_refs:
       - tests/test_velocity.py::test_boundary_half_open
   - key: AC-011
-    text: digest --as-of 2026-06-19T00:00:00Z --format markdown is byte-identical to the checked-in golden file.
+    text:
+      digest --as-of 2026-06-19T00:00:00Z --format markdown is byte-identical to
+      the checked-in golden file.
     requirement_refs: [REQ-006]
     required_test_refs:
       - tests/test_digest.py::test_digest_byte_stable
   - key: AC-012
-    text: digest produces identical bytes across two fresh processes (no dict/set iteration nondeterminism).
+    text:
+      digest produces identical bytes across two fresh processes (no dict/set
+      iteration nondeterminism).
     requirement_refs: [REQ-006]
     required_test_refs:
       - tests/test_digest.py::test_digest_idempotent
   - key: AC-013
-    text: ready --format json validates against br_insight.report@1 with kind == ready.
+    text:
+      ready --format json validates against br_insight.report@1 with kind ==
+      ready.
     requirement_refs: [REQ-007]
     required_test_refs:
       - tests/test_format.py::test_ready_json_schema_valid
@@ -151,12 +172,16 @@ acceptance_criteria:
     required_test_refs:
       - tests/test_format.py::test_bad_format_exit_2
   - key: AC-015
-    text: Grepping non-test package modules for datetime.now/time.time/utcnow/date.today yields zero hits.
+    text:
+      Grepping non-test package modules for
+      datetime.now/time.time/utcnow/date.today yields zero hits.
     requirement_refs: [REQ-008]
     required_test_refs:
       - tests/test_determinism.py::test_no_wallclock_calls
   - key: AC-016
-    text: Same --as-of yields identical velocity/digest bytes; a different --as-of changes the bucket counts.
+    text:
+      Same --as-of yields identical velocity/digest bytes; a different --as-of
+      changes the bucket counts.
     requirement_refs: [REQ-008]
     required_test_refs:
       - tests/test_determinism.py::test_as_of_is_sole_clock
@@ -166,17 +191,37 @@ verification_commands:
     profile: verify
 decisions:
   - key: DEC-001
-    decision: The tool is strictly read-only and hermetic — it parses the JSONL export directly, never invokes the live br binary, and never touches the network.
-    rationale: A read-only, no-network boundary makes every acceptance criterion mechanically checkable under the gate's pytest --network=none profile and removes the largest source of nondeterminism.
+    decision:
+      The tool is strictly read-only and hermetic — it parses the JSONL export
+      directly, never invokes the live br binary, and never touches the network.
+    rationale:
+      A read-only, no-network boundary makes every acceptance criterion
+      mechanically checkable under the gate's pytest --network=none profile and
+      removes the largest source of nondeterminism.
   - key: DEC-002
-    decision: Time enters only through an injected --as-of value; library code never calls now()/utcnow()/today().
-    rationale: An injected clock makes velocity and digest byte-stable, lets the gate assert determinism directly, and mirrors Conveyor's own no-wall-clock rule.
+    decision:
+      Time enters only through an injected --as-of value; library code never
+      calls now()/utcnow()/today().
+    rationale:
+      An injected clock makes velocity and digest byte-stable, lets the gate
+      assert determinism directly, and mirrors Conveyor's own no-wall-clock
+      rule.
   - key: DEC-003
-    decision: Exactly two interfaces are locked across slices — the Issue/IssueGraph model and the br_insight.report@1 JSON envelope; evolution mints a new @2, never mutates @1.
-    rationale: Freezing the only two cross-slice contracts lets the four command slices be built independently against a stable interface and gives ContractLock a small, precise surface to freeze.
+    decision:
+      Exactly two interfaces are locked across slices — the Issue/IssueGraph
+      model and the br_insight.report@1 JSON envelope; evolution mints a new @2,
+      never mutates @1.
+    rationale:
+      Freezing the only two cross-slice contracts lets the four command slices
+      be built independently against a stable interface and gives ContractLock a
+      small, precise surface to freeze.
   - key: DEC-004
-    decision: v1 is a single archetype (greenfield pure-logic Python) with one verification command (pytest -q).
-    rationale: A single archetype keeps the gate signal clean for the first real plan through the loop; archetype diversity is deferred to a later target.
+    decision:
+      v1 is a single archetype (greenfield pure-logic Python) with one
+      verification command (pytest -q).
+    rationale:
+      A single archetype keeps the gate signal clean for the first real plan
+      through the loop; archetype diversity is deferred to a later target.
 slices:
   - key: SLICE-001
     title: Loader and IssueGraph model

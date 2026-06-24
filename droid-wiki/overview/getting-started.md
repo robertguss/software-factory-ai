@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-- **Elixir 1.20.1** and **Erlang/OTP 29.0.2** — pinned in `mise.toml`. Use [mise](https://mise.jdx.dev/) to install and manage these versions automatically.
+- **Elixir 1.20.1** and **Erlang/OTP 29.0.2** — pinned in `mise.toml`. Use
+  [mise](https://mise.jdx.dev/) to install and manage these versions
+  automatically.
 - **PostgreSQL 16** — Conveyor uses AshPostgres for its domain model.
 - **Docker** — required for sandboxed agent execution (AgentRunner.Pi).
 
@@ -16,7 +18,8 @@ mise install
 mix setup
 ```
 
-`mix setup` runs `deps.get` followed by `ecto.create`, `ecto.migrate`, and `priv/repo/seeds.exs`.
+`mix setup` runs `deps.get` followed by `ecto.create`, `ecto.migrate`, and
+`priv/repo/seeds.exs`.
 
 ## Build
 
@@ -34,7 +37,9 @@ MIX_ENV=test mix test
 MIX_ENV=test mix test test/conveyor/gate_test.exs
 ```
 
-The test helper at `test/test_helper.exs` excludes `live_agent: true` tests by default. Test support code in `test/support` is compiled only in the test environment.
+The test helper at `test/test_helper.exs` excludes `live_agent: true` tests by
+default. Test support code in `test/support` is compiled only in the test
+environment.
 
 ## Lint and type check
 
@@ -88,7 +93,8 @@ mix conveyor.demo
 
 ## Project configuration
 
-Conveyor projects use a `.conveyor/config.toml` file. A template lives at `priv/conveyor/templates/config.toml`. The config defines:
+Conveyor projects use a `.conveyor/config.toml` file. A template lives at
+`priv/conveyor/templates/config.toml`. The config defines:
 
 - project name, repo path, default branch
 - default autonomy level (L0-L4)
@@ -108,8 +114,11 @@ mix phx.server
 iex -S mix phx.server
 ```
 
-The dev config (`config/dev.exs`) intentionally has no JS/CSS watcher. Check it before assuming an asset pipeline exists.
+The dev config (`config/dev.exs`) intentionally has no JS/CSS watcher. Check it
+before assuming an asset pipeline exists.
 
 ## CI
 
-CI is defined in `.github/workflows/ci.yml` and runs on `workflow_dispatch` (manual trigger). It uses PostgreSQL 16 and runs: format check, compile, tests, Credo, and Dialyzer.
+CI is defined in `.github/workflows/ci.yml` and runs on `workflow_dispatch`
+(manual trigger). It uses PostgreSQL 16 and runs: format check, compile, tests,
+Credo, and Dialyzer.

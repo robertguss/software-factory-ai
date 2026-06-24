@@ -6,16 +6,17 @@ Date: 2026-06-19
 
 Bead: `software-factory-ai-aamg.1.6`
 
-Gated milestone: P15-A2 - PolicyDecision, ToolContracts, RoleViews, and output boundaries
+Gated milestone: P15-A2 - PolicyDecision, ToolContracts, RoleViews, and output
+boundaries
 
 ## Context
 
-Phase 1.5 makes policy decisions part of the permanent Evidence Kernel. The
-plan requires every consequential authority path to cite a versioned
-PolicyDecision with stable reason codes, and it treats hidden policy branches as
-an invariant violation. Readiness, provider egress, tool invocation, autonomy,
-waivers, approval invalidation, contract locking, budget reservation, and
-emergency-stop resume all need the same auditable policy shape.
+Phase 1.5 makes policy decisions part of the permanent Evidence Kernel. The plan
+requires every consequential authority path to cite a versioned PolicyDecision
+with stable reason codes, and it treats hidden policy branches as an invariant
+violation. Readiness, provider egress, tool invocation, autonomy, waivers,
+approval invalidation, contract locking, budget reservation, and emergency-stop
+resume all need the same auditable policy shape.
 
 Without one interface, each UI, job, gate, or domain module can drift toward its
 own policy input shape and its own interpretation of deny, default behavior, or
@@ -40,8 +41,8 @@ policy-authored deny.
 
 Reason codes are stable contract surface. They may be added through normal
 schema evolution, but existing reason code meanings must not be silently
-repurposed because tests, operator explanations, gates, and downstream
-diagnosis depend on them.
+repurposed because tests, operator explanations, gates, and downstream diagnosis
+depend on them.
 
 ## Consequences
 

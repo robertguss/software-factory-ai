@@ -11,14 +11,14 @@ bounded behavior oracle for pure-refactor fixtures.
 
 Evidence:
 
-- `test/fixtures/phase-1.5/p15-b5/trust-tool-canaries.json` lists every P15-B5 trust
-  tool, its planted catch canary, clean boundary, blocking miss key, and
+- `test/fixtures/phase-1.5/p15-b5/trust-tool-canaries.json` lists every P15-B5
+  trust tool, its planted catch canary, clean boundary, blocking miss key, and
   meta-canary references.
 - `TrustToolCanariesTest` proves the manifest covers every required trust tool
   and that every tool has catch, clean-boundary, block-on-miss, and meta-canary
   metadata.
-- `test/fixtures/phase-1.5/p15-b5/clean-controls.json` maps every trust tool to at least
-  one clean-control fixture with `grant_scope: no_new_authority`.
+- `test/fixtures/phase-1.5/p15-b5/clean-controls.json` maps every trust tool to
+  at least one clean-control fixture with `grant_scope: no_new_authority`.
 - `GateCanaryFixturesTest` proves the gate mutant corpus declares archetype
   coverage and that each mutant remains patch-applicable.
 
@@ -54,8 +54,8 @@ Evidence:
 - `TrustToolCanariesTest` proves every trust tool has non-empty
   `meta_canary_refs` and a non-empty `blocks_on_miss`.
 - `clean-controls.json` keeps clean-control fixtures scoped to
-  `no_new_authority`, preventing a clean boundary from widening the grant that
-  a missed meta-canary would block.
+  `no_new_authority`, preventing a clean boundary from widening the grant that a
+  missed meta-canary would block.
 
 ### release report includes all failed/excluded cases
 
@@ -63,20 +63,19 @@ Evidence:
 
 - The release report below names every P15-B5 evidence source and whether any
   cases were excluded from the local DB-free verification pass.
-- Failed cases from red TDD cycles were retained in the focused tests:
-  missing trust-tool manifest, missing clean-control manifest, missing behavior
-  oracle adapter, missing divergence metadata, runner errors, and empty bounded
-  inputs.
+- Failed cases from red TDD cycles were retained in the focused tests: missing
+  trust-tool manifest, missing clean-control manifest, missing behavior oracle
+  adapter, missing divergence metadata, runner errors, and empty bounded inputs.
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `GateCanaryFixturesTest` | patch-inapplicable mutants and missing archetype metadata | none |
-| `TrustToolCanariesTest` | missing trust tool canary metadata, missing clean controls, invalid clean-control refs | none |
-| `BehaviorOracleAdapterTest` | silent behavior drift, runner execution error, missing bounded inputs | none |
-| `trust-tool-canaries.json` | all trust-tool catch canaries and `blocks_on_miss` keys | none |
-| `clean-controls.json` | all trust-tool false-positive clean boundaries | none |
+| Evidence source             | Failed cases represented                                                               | Excluded cases |
+| --------------------------- | -------------------------------------------------------------------------------------- | -------------- |
+| `GateCanaryFixturesTest`    | patch-inapplicable mutants and missing archetype metadata                              | none           |
+| `TrustToolCanariesTest`     | missing trust tool canary metadata, missing clean controls, invalid clean-control refs | none           |
+| `BehaviorOracleAdapterTest` | silent behavior drift, runner execution error, missing bounded inputs                  | none           |
+| `trust-tool-canaries.json`  | all trust-tool catch canaries and `blocks_on_miss` keys                                | none           |
+| `clean-controls.json`       | all trust-tool false-positive clean boundaries                                         | none           |
 
 ## Verification Commands
 

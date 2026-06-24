@@ -71,13 +71,13 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `ContractCriticLensesTest` | missing lens coverage, disagreement collapse, accidental approve/lock authority | none |
-| `ContractCriticCheapestWrongTest` | planted loophole not recorded as a stable challenge case | none |
-| `ContractCriticIndependenceTest` | role-label-only independence for high-risk changes | none |
-| `ContractCriticRepairLoopTest` | repair loops beyond bounds, oscillation/non-progress, semantic weakening without authority | none |
-| `ContractCriticRepairDiffTest` | scope-expanded repair changes, unnecessary pass invalidation, missing typed comparison digest | none |
+| Evidence source                   | Failed cases represented                                                                      | Excluded cases |
+| --------------------------------- | --------------------------------------------------------------------------------------------- | -------------- |
+| `ContractCriticLensesTest`        | missing lens coverage, disagreement collapse, accidental approve/lock authority               | none           |
+| `ContractCriticCheapestWrongTest` | planted loophole not recorded as a stable challenge case                                      | none           |
+| `ContractCriticIndependenceTest`  | role-label-only independence for high-risk changes                                            | none           |
+| `ContractCriticRepairLoopTest`    | repair loops beyond bounds, oscillation/non-progress, semantic weakening without authority    | none           |
+| `ContractCriticRepairDiffTest`    | scope-expanded repair changes, unnecessary pass invalidation, missing typed comparison digest | none           |
 
 ## Verification Commands
 

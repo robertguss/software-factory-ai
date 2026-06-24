@@ -4,18 +4,35 @@
   "title": "Conveyor AdapterHealthState",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "adapter", "capability_snapshot_digest", "state", "reason_codes", "consecutive_failures", "affected_grant_ids"],
+  "required": [
+    "schema_version",
+    "adapter",
+    "capability_snapshot_digest",
+    "state",
+    "reason_codes",
+    "consecutive_failures",
+    "affected_grant_ids"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.adapter_health_state@1" },
     "adapter": { "type": "string", "minLength": 1 },
-    "capability_snapshot_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "capability_snapshot_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "state": { "enum": ["closed", "open", "half_open"] },
-    "reason_codes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "consecutive_failures": { "type": "integer", "minimum": 0 },
     "last_probe_at": { "type": "string", "format": "date-time" },
     "last_success_at": { "type": "string", "format": "date-time" },
     "opened_at": { "type": "string", "format": "date-time" },
     "next_probe_at": { "type": "string", "format": "date-time" },
-    "affected_grant_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "affected_grant_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   }
 }

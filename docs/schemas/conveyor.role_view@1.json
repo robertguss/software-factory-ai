@@ -4,16 +4,42 @@
   "title": "Conveyor RoleView",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "role", "subject_refs", "included_field_selectors", "redacted_field_selectors", "hidden_subject_classes", "tool_contract_keys", "maximum_information_labels", "effective_policy_digest", "view_digest"],
+  "required": [
+    "schema_version",
+    "role",
+    "subject_refs",
+    "included_field_selectors",
+    "redacted_field_selectors",
+    "hidden_subject_classes",
+    "tool_contract_keys",
+    "maximum_information_labels",
+    "effective_policy_digest",
+    "view_digest"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.role_view@1" },
     "role": { "type": "string", "minLength": 1 },
     "subject_refs": { "type": "array", "items": { "type": "object" } },
-    "included_field_selectors": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "redacted_field_selectors": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "hidden_subject_classes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "tool_contract_keys": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "maximum_information_labels": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "included_field_selectors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "redacted_field_selectors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "hidden_subject_classes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "tool_contract_keys": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "maximum_information_labels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "effective_policy_digest": { "$ref": "#/$defs/digest_ref" },
     "view_digest": { "$ref": "#/$defs/digest_ref" }
   },

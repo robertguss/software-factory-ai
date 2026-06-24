@@ -4,7 +4,12 @@
   "title": "Conveyor Run Bundle",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "run_attempt_id", "entries", "bundle_root_sha256"],
+  "required": [
+    "schema_version",
+    "run_attempt_id",
+    "entries",
+    "bundle_root_sha256"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.run_bundle@1" },
     "run_attempt_id": { "type": "string", "minLength": 1 },
@@ -14,14 +19,44 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "kind", "sha256", "size_bytes", "sensitivity", "schema_version"],
+        "required": [
+          "path",
+          "kind",
+          "sha256",
+          "size_bytes",
+          "sensitivity",
+          "schema_version"
+        ],
         "properties": {
           "path": { "type": "string", "minLength": 1 },
-          "kind": { "enum": ["evidence", "review", "gate", "manifest", "pr_body", "provenance", "log", "diff", "retrospective"] },
+          "kind": {
+            "enum": [
+              "evidence",
+              "review",
+              "gate",
+              "manifest",
+              "pr_body",
+              "provenance",
+              "log",
+              "diff",
+              "retrospective"
+            ]
+          },
           "sha256": { "$ref": "#/$defs/sha256" },
           "size_bytes": { "type": "integer", "minimum": 0 },
-          "sensitivity": { "enum": ["public", "internal", "sensitive", "redacted", "quarantined"] },
-          "schema_version": { "type": "string", "pattern": "^conveyor\\.[a-z_]+@[0-9]+$" }
+          "sensitivity": {
+            "enum": [
+              "public",
+              "internal",
+              "sensitive",
+              "redacted",
+              "quarantined"
+            ]
+          },
+          "schema_version": {
+            "type": "string",
+            "pattern": "^conveyor\\.[a-z_]+@[0-9]+$"
+          }
         }
       }
     },

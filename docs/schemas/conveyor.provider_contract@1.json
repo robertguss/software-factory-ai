@@ -4,19 +4,45 @@
   "title": "Conveyor ProviderContract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "provider_key", "adapter_key", "data_processing_class", "retention_policy", "training_use_policy", "metadata_policy", "supported_redaction_modes", "max_input_sensitivity_labels", "egress_attestation_requirements", "contract_digest", "status"],
+  "required": [
+    "schema_version",
+    "provider_key",
+    "adapter_key",
+    "data_processing_class",
+    "retention_policy",
+    "training_use_policy",
+    "metadata_policy",
+    "supported_redaction_modes",
+    "max_input_sensitivity_labels",
+    "egress_attestation_requirements",
+    "contract_digest",
+    "status"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.provider_contract@1" },
     "provider_key": { "type": "string", "minLength": 1 },
     "adapter_key": { "type": "string", "minLength": 1 },
-    "data_processing_class": { "enum": ["none", "transient", "retained", "third_party_subprocessor"] },
+    "data_processing_class": {
+      "enum": ["none", "transient", "retained", "third_party_subprocessor"]
+    },
     "retention_policy": { "type": "string", "minLength": 1 },
     "training_use_policy": { "enum": ["prohibited", "opt_in_only", "allowed"] },
     "region_policy": { "type": "string", "minLength": 1 },
     "metadata_policy": { "type": "string", "minLength": 1 },
-    "supported_redaction_modes": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-    "max_input_sensitivity_labels": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-    "egress_attestation_requirements": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "supported_redaction_modes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "max_input_sensitivity_labels": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "egress_attestation_requirements": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "contract_digest": { "$ref": "#/$defs/digest" },
     "status": { "enum": ["draft", "active", "retired"] }
   },

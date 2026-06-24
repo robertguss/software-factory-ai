@@ -2,10 +2,10 @@
 
 Status: passed locally with DB-free focused tests.
 
-Scope: Deterministic planning front-end audit, read-only interrogation, one-batch
-HumanDecision workflow, content-addressed repository inventory, optional bounded
-planning scout, deterministic context assembly, advisory code impact, and
-ContextGroundTruth fixtures.
+Scope: Deterministic planning front-end audit, read-only interrogation,
+one-batch HumanDecision workflow, content-addressed repository inventory,
+optional bounded planning scout, deterministic context assembly, advisory code
+impact, and ContextGroundTruth fixtures.
 
 ## Exit Criteria
 
@@ -16,8 +16,8 @@ Evidence:
 - `Conveyor.Planning.StructuralAudit` emits blocking findings with stable rule
   keys, anchors, refs, and typed next actions.
 - `PlanningStructuralAuditTest` proves missing requirement acceptance, orphan
-  acceptance criteria, undefined refs, missing decisions/non-goals,
-  unmeasurable acceptance criteria, missing oracle paths, contradictory
+  acceptance criteria, undefined refs, missing decisions/non-goals, unmeasurable
+  acceptance criteria, missing oracle paths, contradictory
   requirements/enums/statuses/interfaces/hard constraints, source-map mismatch,
   and claim mismatch are caught.
 
@@ -25,8 +25,8 @@ Evidence:
 
 Evidence:
 
-- `PlanningStructuralAuditTest` proves a structurally complete planning
-  contract returns `status: :passed` with no findings.
+- `PlanningStructuralAuditTest` proves a structurally complete planning contract
+  returns `status: :passed` with no findings.
 - `Conveyor.Planning.Interrogator` derives questions only from deterministic
   findings, so a clean audit has no hard question batch.
 
@@ -55,8 +55,8 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.Planning.Scout` records extractor failures as `status: :partial`
-  and keeps `invented_impact?: false`.
+- `Conveyor.Planning.Scout` records extractor failures as `status: :partial` and
+  keeps `invented_impact?: false`.
 - `PlanningScoutTest` proves extractor failure produces a partial report rather
   than fabricated impact.
 - `Conveyor.Planning.CodeImpactOverlay` remains advisory-only and cannot create
@@ -66,12 +66,12 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.Planning.Scout` stops before examination when estimated context
-  cost exceeds hard scout budgets.
+- `Conveyor.Planning.Scout` stops before examination when estimated context cost
+  exceeds hard scout budgets.
 - `PlanningScoutTest` proves budget-exceeded scout runs examine no sources and
   retain `authority_effect: :none`.
-- `Conveyor.Planning.ContextAssemblyManifest` records token budget and
-  estimator version for deterministic context assembly.
+- `Conveyor.Planning.ContextAssemblyManifest` records token budget and estimator
+  version for deterministic context assembly.
 
 ### critical context is not silently omitted
 
@@ -94,18 +94,18 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanningStructuralAuditTest` | missing refs, orphan ACs, missing decisions/non-goals, missing oracle paths, contradictions, source/claim mismatch | none |
-| `PlanningInterrogatorTest` | duplicate questions, mutable role view, prompt injection suppressing required questions | none |
-| `PlanningHumanDecisionWorkflowTest` | answer batch without checkpoint, semantic answer without revision/spec, accepted default without explicit authority | none |
-| `PlanningRepositoryInventoryTest` | unstable content digest, mismatched reuse inputs, extractor failure omitted from inventory | none |
-| `PlanningScoutTest` | scout runs when synthesis resolved, budget exceeded but still examines sources, extractor failure invents impact | none |
-| `PlanningContextAssemblyTest` | silent noncritical shedding, critical context omitted before provider call | none |
-| `PlanningCodeImpactOverlayTest` | code impact treated as hard dependency | none |
-| `ContextGroundTruthFixturesTest` | labelled precision/recall missing, unlabelled cases reporting precision/recall instead of proxies | none |
-| `conveyor.planning_run@1` | missing schema version and unregistered schema resource | none |
-| `conveyor.plan_interrogation@1` | missing schema version and unregistered schema resource | none |
+| Evidence source                     | Failed cases represented                                                                                            | Excluded cases |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `PlanningStructuralAuditTest`       | missing refs, orphan ACs, missing decisions/non-goals, missing oracle paths, contradictions, source/claim mismatch  | none           |
+| `PlanningInterrogatorTest`          | duplicate questions, mutable role view, prompt injection suppressing required questions                             | none           |
+| `PlanningHumanDecisionWorkflowTest` | answer batch without checkpoint, semantic answer without revision/spec, accepted default without explicit authority | none           |
+| `PlanningRepositoryInventoryTest`   | unstable content digest, mismatched reuse inputs, extractor failure omitted from inventory                          | none           |
+| `PlanningScoutTest`                 | scout runs when synthesis resolved, budget exceeded but still examines sources, extractor failure invents impact    | none           |
+| `PlanningContextAssemblyTest`       | silent noncritical shedding, critical context omitted before provider call                                          | none           |
+| `PlanningCodeImpactOverlayTest`     | code impact treated as hard dependency                                                                              | none           |
+| `ContextGroundTruthFixturesTest`    | labelled precision/recall missing, unlabelled cases reporting precision/recall instead of proxies                   | none           |
+| `conveyor.planning_run@1`           | missing schema version and unregistered schema resource                                                             | none           |
+| `conveyor.plan_interrogation@1`     | missing schema version and unregistered schema resource                                                             | none           |
 
 ## Verification Commands
 

@@ -27,7 +27,9 @@
       "key": "AC-001",
       "text": "New tasks include completed:false.",
       "requirement_refs": ["REQ-001"],
-      "required_test_refs": ["tests/test_tasks.py::test_create_defaults_completed_false"]
+      "required_test_refs": [
+        "tests/test_tasks.py::test_create_defaults_completed_false"
+      ]
     }
   ],
   "verification_commands": [

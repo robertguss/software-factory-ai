@@ -6,7 +6,9 @@
     "qualification_grant:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   ],
   "required_requalification_case_ids": ["hard-blockers"],
-  "required_conformance_suite_refs": ["mix conveyor.qualification_gate --scope p2-static-planning"],
+  "required_conformance_suite_refs": [
+    "mix conveyor.qualification_gate --scope p2-static-planning"
+  ],
   "unaffected_evidence_refs": ["battery-run:p15-b5-meta-canaries"],
   "report_ref": "docs/phase-1.5/p15-b8/qualification-impact.json",
   "created_at": "2026-06-19T00:00:00Z"

@@ -19,8 +19,14 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.permit_checkpoint@1" },
-    "id": { "type": "string", "pattern": "^permit_checkpoint:sha256:[0-9a-f]{64}$" },
-    "admission_permit_id": { "type": "string", "pattern": "^admission_permit:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^permit_checkpoint:sha256:[0-9a-f]{64}$"
+    },
+    "admission_permit_id": {
+      "type": "string",
+      "pattern": "^admission_permit:sha256:[0-9a-f]{64}$"
+    },
     "subject_ref": { "type": "string", "minLength": 1 },
     "station_run_id": { "type": "string", "minLength": 1 },
     "checkpoint_kind": { "type": "string", "minLength": 1 },

@@ -4,19 +4,51 @@
   "title": "Conveyor BatteryCase",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "case_id", "case_kinds", "criticality", "archetype_key", "repo_base_ref", "role_safe_case_ref", "policy_bundle_digest", "trace_assertion_refs", "labels", "status"],
+  "required": [
+    "schema_version",
+    "case_id",
+    "case_kinds",
+    "criticality",
+    "archetype_key",
+    "repo_base_ref",
+    "role_safe_case_ref",
+    "policy_bundle_digest",
+    "trace_assertion_refs",
+    "labels",
+    "status"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.battery_case@1" },
     "case_id": { "type": "string", "minLength": 1 },
-    "case_kinds": { "type": "array", "minItems": 1, "items": { "enum": ["conformance", "safety_invariant", "outcome_quality", "operability"] } },
+    "case_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "conformance",
+          "safety_invariant",
+          "outcome_quality",
+          "operability"
+        ]
+      }
+    },
     "criticality": { "enum": ["release_required", "sampled", "advisory"] },
     "archetype_key": { "type": "string", "minLength": 1 },
     "repo_base_ref": { "type": "string", "minLength": 1 },
     "role_safe_case_ref": { "type": "string", "minLength": 1 },
-    "policy_bundle_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "policy_bundle_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "sample_policy_ref": { "type": "string", "minLength": 1 },
-    "trace_assertion_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "labels": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "trace_assertion_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "status": { "enum": ["draft", "active", "retired"] }
   }
 }

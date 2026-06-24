@@ -84,19 +84,19 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanningSliceDependencyTest` | likely overlap as hard edge, interface readiness as work edge, work graph cycle, unreachable active node | none |
-| `PlanningInterfaceGraphTest` | missing provider, incompatible consumer version, interface readiness converted to work edges | none |
-| `PlanningSliceDecisionBlockTest` | missing/unresolved HumanDecision, fake Slice edge for decision block | none |
-| `PlanningPreliminaryVerificationTest` | orphan AC fabricating an obligation, missing protected policy obligation | none |
-| `PlanningArtifactInputIndexTest` | missing role policy, unsafe narrow invalidation for unknown semantic/advisory role | none |
-| `PlanningGraphAnalysesTest` | broken atomicity, unapproved scope, traceability gaps, confetti slices, false parallelism, oracle infeasibility | none |
-| `PlanningStructuralDryRunTest` | fabricated economics, low-confidence narrow impact preview | none |
-| `conveyor.slice_dependency@1` | missing schema version and unregistered schema resource | none |
-| `conveyor.interface_contract@1` | missing schema version and unregistered schema resource | none |
-| `conveyor.slice_interface_binding@1` | missing schema version and unregistered schema resource | none |
-| `conveyor.slice_decision_block@1` | missing schema version and unregistered schema resource | none |
+| Evidence source                       | Failed cases represented                                                                                        | Excluded cases |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------- |
+| `PlanningSliceDependencyTest`         | likely overlap as hard edge, interface readiness as work edge, work graph cycle, unreachable active node        | none           |
+| `PlanningInterfaceGraphTest`          | missing provider, incompatible consumer version, interface readiness converted to work edges                    | none           |
+| `PlanningSliceDecisionBlockTest`      | missing/unresolved HumanDecision, fake Slice edge for decision block                                            | none           |
+| `PlanningPreliminaryVerificationTest` | orphan AC fabricating an obligation, missing protected policy obligation                                        | none           |
+| `PlanningArtifactInputIndexTest`      | missing role policy, unsafe narrow invalidation for unknown semantic/advisory role                              | none           |
+| `PlanningGraphAnalysesTest`           | broken atomicity, unapproved scope, traceability gaps, confetti slices, false parallelism, oracle infeasibility | none           |
+| `PlanningStructuralDryRunTest`        | fabricated economics, low-confidence narrow impact preview                                                      | none           |
+| `conveyor.slice_dependency@1`         | missing schema version and unregistered schema resource                                                         | none           |
+| `conveyor.interface_contract@1`       | missing schema version and unregistered schema resource                                                         | none           |
+| `conveyor.slice_interface_binding@1`  | missing schema version and unregistered schema resource                                                         | none           |
+| `conveyor.slice_decision_block@1`     | missing schema version and unregistered schema resource                                                         | none           |
 
 ## Verification Commands
 

@@ -11,6 +11,9 @@
     "interface_key": { "type": "string", "minLength": 1 },
     "direction": { "enum": ["provides", "requires", "modifies"] },
     "required_version_range": { "type": "string", "minLength": 1 },
-    "claim_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "claim_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
   }
 }

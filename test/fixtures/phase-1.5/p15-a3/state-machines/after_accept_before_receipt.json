@@ -3,12 +3,34 @@
   "slug": "after_accept_before_receipt",
   "kind": "crash-test",
   "proves": "crash after external accept before receipt is reconciled, not lost",
-  "states": ["attempt_started", "external_accept_observed", "crashed_before_receipt", "receipt_pending", "reconciled"],
+  "states": [
+    "attempt_started",
+    "external_accept_observed",
+    "crashed_before_receipt",
+    "receipt_pending",
+    "reconciled"
+  ],
   "transitions": [
-    { "from": "attempt_started", "event": "external_accept", "to": "external_accept_observed" },
-    { "from": "external_accept_observed", "event": "process_crashes_before_receipt", "to": "crashed_before_receipt" },
-    { "from": "crashed_before_receipt", "event": "recover_attempt_without_receipt", "to": "receipt_pending" },
-    { "from": "receipt_pending", "event": "query_provider_by_idempotency_key", "to": "reconciled" },
+    {
+      "from": "attempt_started",
+      "event": "external_accept",
+      "to": "external_accept_observed"
+    },
+    {
+      "from": "external_accept_observed",
+      "event": "process_crashes_before_receipt",
+      "to": "crashed_before_receipt"
+    },
+    {
+      "from": "crashed_before_receipt",
+      "event": "recover_attempt_without_receipt",
+      "to": "receipt_pending"
+    },
+    {
+      "from": "receipt_pending",
+      "event": "query_provider_by_idempotency_key",
+      "to": "reconciled"
+    },
     { "from": "reconciled", "event": "write_receipt", "to": "reconciled" }
   ],
   "invariants": [
@@ -16,6 +38,10 @@
     "Recovery reconciles by idempotency key before any retry can issue a second call."
   ],
   "counterexample_traces": [
-    ["external_accept", "process_crashes_before_receipt", "retry_without_reconciliation"]
+    [
+      "external_accept",
+      "process_crashes_before_receipt",
+      "retry_without_reconciliation"
+    ]
   ]
 }

@@ -19,7 +19,10 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.qualification_scope_lattice@1" },
-    "id": { "type": "string", "pattern": "^qualification_scope_lattice:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^qualification_scope_lattice:sha256:[0-9a-f]{64}$"
+    },
     "scope_ref": { "type": "string", "minLength": 1 },
     "scope_digest": { "$ref": "#/$defs/digest" },
     "direct_evidence_strata": {

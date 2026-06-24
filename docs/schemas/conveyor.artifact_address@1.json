@@ -4,7 +4,13 @@
   "title": "Conveyor ArtifactAddress",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "trust_domain_id", "content_digest", "opaque_storage_key", "storage_backend"],
+  "required": [
+    "schema_version",
+    "trust_domain_id",
+    "content_digest",
+    "opaque_storage_key",
+    "storage_backend"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.artifact_address@1" },
     "trust_domain_id": { "type": "string", "minLength": 1 },

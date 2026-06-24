@@ -4,7 +4,16 @@
   "title": "Conveyor BudgetReservation",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "budget_envelope_id", "subject", "reserved_at", "expires_at", "status", "policy_decision_id", "trace_id"],
+  "required": [
+    "schema_version",
+    "budget_envelope_id",
+    "subject",
+    "reserved_at",
+    "expires_at",
+    "status",
+    "policy_decision_id",
+    "trace_id"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.budget_reservation@1" },
     "budget_envelope_id": { "type": "string", "minLength": 1 },
@@ -14,7 +23,9 @@
     "reserved_at": { "type": "string", "format": "date-time" },
     "expires_at": { "type": "string", "format": "date-time" },
     "committed_actuals": { "type": "object" },
-    "status": { "enum": ["reserved", "committed", "released", "expired", "denied"] },
+    "status": {
+      "enum": ["reserved", "committed", "released", "expired", "denied"]
+    },
     "policy_decision_id": { "type": "string", "minLength": 1 },
     "trace_id": { "type": "string", "minLength": 1 }
   }

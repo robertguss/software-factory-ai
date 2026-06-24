@@ -3,7 +3,10 @@
   "rubric_key": "implementation-quality",
   "version": 1,
   "dimension": "maintainability",
-  "score_levels": [{ "score": 0, "label": "unacceptable" }, { "score": 1, "label": "acceptable" }],
+  "score_levels": [
+    { "score": 0, "label": "unacceptable" },
+    { "score": 1, "label": "acceptable" }
+  ],
   "anchor_examples_ref": "artifact://rubrics/implementation-quality/examples",
   "reviewer_role_requirements": ["reviewer"],
   "blinding_policy": "hide_sample_origin",

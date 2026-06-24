@@ -47,7 +47,9 @@
     "archive_bundle_root_digest": { "$ref": "#/$defs/digest_ref" },
     "approval_signature_excluded": { "const": true },
     "projection_path": { "type": "string", "minLength": 1 },
-    "status": { "enum": ["draft", "approval_ready", "approved", "blocked", "superseded"] }
+    "status": {
+      "enum": ["draft", "approval_ready", "approved", "blocked", "superseded"]
+    }
   },
   "$defs": {
     "digest_ref": {

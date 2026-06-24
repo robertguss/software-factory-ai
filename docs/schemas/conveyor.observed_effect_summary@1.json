@@ -4,7 +4,16 @@
   "title": "Conveyor ObservedEffectSummary",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "tool_invocation_id", "observed_read_digest", "observed_write_digest", "observed_network_digest", "observed_process_digest", "declared_vs_observed_verdict", "attestation_ref"],
+  "required": [
+    "schema_version",
+    "tool_invocation_id",
+    "observed_read_digest",
+    "observed_write_digest",
+    "observed_network_digest",
+    "observed_process_digest",
+    "declared_vs_observed_verdict",
+    "attestation_ref"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.observed_effect_summary@1" },
     "tool_invocation_id": { "type": "string", "minLength": 1 },
@@ -12,7 +21,15 @@
     "observed_write_digest": { "$ref": "#/$defs/digest" },
     "observed_network_digest": { "$ref": "#/$defs/digest" },
     "observed_process_digest": { "$ref": "#/$defs/digest" },
-    "declared_vs_observed_verdict": { "enum": ["matches", "extra_effects", "missing_effects", "diverged", "unknown"] },
+    "declared_vs_observed_verdict": {
+      "enum": [
+        "matches",
+        "extra_effects",
+        "missing_effects",
+        "diverged",
+        "unknown"
+      ]
+    },
     "attestation_ref": { "$ref": "#/$defs/resource_ref" }
   },
   "$defs": {

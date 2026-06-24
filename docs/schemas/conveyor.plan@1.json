@@ -114,7 +114,9 @@
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
         },
-        "profile": { "enum": ["explore", "implement", "verify", "release", "maintenance"] }
+        "profile": {
+          "enum": ["explore", "implement", "verify", "release", "maintenance"]
+        }
       }
     },
     "decision": {

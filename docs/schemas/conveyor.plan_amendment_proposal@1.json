@@ -20,13 +20,40 @@
     "schema_version": { "const": "conveyor.plan_amendment_proposal@1" },
     "plan_id": { "type": "string", "minLength": 1 },
     "base_plan_revision_id": { "type": "string", "minLength": 1 },
-    "dispute_kind": { "enum": ["clarification", "nonmaterial_correction", "material_change", "contract_fault", "scope_dispute"] },
-    "materiality": { "enum": ["clarification", "nonmaterial", "material", "breaking"] },
-    "affected_refs": { "type": "array", "items": { "$ref": "#/$defs/resource_ref" } },
-    "downstream_refs": { "type": "array", "items": { "$ref": "#/$defs/resource_ref" } },
-    "invalidated_artifact_refs": { "type": "array", "items": { "$ref": "#/$defs/resource_ref" } },
+    "dispute_kind": {
+      "enum": [
+        "clarification",
+        "nonmaterial_correction",
+        "material_change",
+        "contract_fault",
+        "scope_dispute"
+      ]
+    },
+    "materiality": {
+      "enum": ["clarification", "nonmaterial", "material", "breaking"]
+    },
+    "affected_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resource_ref" }
+    },
+    "downstream_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resource_ref" }
+    },
+    "invalidated_artifact_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resource_ref" }
+    },
     "impact_preview_ref": { "$ref": "#/$defs/resource_ref" },
-    "status": { "enum": ["draft", "human_review_required", "accepted", "rejected", "applied"] },
+    "status": {
+      "enum": [
+        "draft",
+        "human_review_required",
+        "accepted",
+        "rejected",
+        "applied"
+      ]
+    },
     "human_decision_id": { "type": "string", "minLength": 1 },
     "resulting_plan_revision_id": { "type": "string", "minLength": 1 }
   },

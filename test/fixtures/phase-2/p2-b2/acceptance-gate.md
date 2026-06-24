@@ -23,8 +23,8 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.TestArchitect.Artifacts` builds schema-valid
-  `TestSpecification`, `TestPackPatch`, and `ChallengeCase` artifacts.
+- `Conveyor.TestArchitect.Artifacts` builds schema-valid `TestSpecification`,
+  `TestPackPatch`, and `ChallengeCase` artifacts.
 - `TestArchitectArtifactsTest` proves each TestSpecification maps to
   VerificationObligations and ACs, carries expected base/candidate behavior,
   expected base reason, result adapter, environment policy, and nondeterminism
@@ -54,9 +54,8 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.TestArchitect.IntegrityGate` integrates the hard
-  Test-Integrity Sentinel verdict with per-obligation EvidenceRequirement
-  satisfaction.
+- `Conveyor.TestArchitect.IntegrityGate` integrates the hard Test-Integrity
+  Sentinel verdict with per-obligation EvidenceRequirement satisfaction.
 - `TestArchitectIntegrityGateTest` proves uncalibrated
   `universal_mutation_without_reference` and `dynamic_coverage` checks are
   advisory findings only and never hard-block authority.
@@ -66,9 +65,9 @@ Evidence:
 Evidence:
 
 - `Conveyor.TestArchitect.HumanVerification` creates an explicit
-  `human_verification_procedure` with `required_evidence_kind:
-  human_observation`, `machine_promotable: false`, and `max_autonomy:
-  observe_only`.
+  `human_verification_procedure` with
+  `required_evidence_kind: human_observation`, `machine_promotable: false`, and
+  `max_autonomy: observe_only`.
 - `HumanVerificationTest` proves accepted observations emit
   `VerificationEvidence` with `producer_kind: human_observer` and
   `evidence_kind: human_observation`, and that promotion to machine evidence is
@@ -80,8 +79,8 @@ Evidence:
 
 - `Conveyor.TestArchitect.HumanVerification` records the weak-evidence route on
   the procedure.
-- `HumanVerificationTest` proves suspect human evidence routes to the
-  Test Architect author and explicitly not to the implementer.
+- `HumanVerificationTest` proves suspect human evidence routes to the Test
+  Architect author and explicitly not to the implementer.
 
 ## Contract Quality Evidence
 
@@ -92,15 +91,15 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `TestArchitectWorkspaceTest` | source-write attempts, mount escapes, command write roots outside the test workspace | none |
-| `TestArchitectArtifactsTest` | tests without obligation/AC mappings, missing base reasons, schema/registry drift for TestSpecification/TestPackPatch/ChallengeCase | none |
-| `TestArchitectFalsifierPreservationTest` | dropped compiler falsifier seeds, missing explicit supersession | none |
-| `OracleFeasibilityTest` | vague boundary retry, human-only oracle mislabeled as ordinary automation | none |
-| `TestArchitectIntegrityGateTest` | untrustworthy Sentinel runs, unsatisfied obligations, advisory mutation/coverage becoming hard blockers | none |
-| `HumanVerificationTest` | human evidence promoted as machine evidence, weak evidence routed to implementer | none |
-| `ContractAuditTest` | ContractAudit schema drift, opaque aggregate scoring | none |
+| Evidence source                          | Failed cases represented                                                                                                            | Excluded cases |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `TestArchitectWorkspaceTest`             | source-write attempts, mount escapes, command write roots outside the test workspace                                                | none           |
+| `TestArchitectArtifactsTest`             | tests without obligation/AC mappings, missing base reasons, schema/registry drift for TestSpecification/TestPackPatch/ChallengeCase | none           |
+| `TestArchitectFalsifierPreservationTest` | dropped compiler falsifier seeds, missing explicit supersession                                                                     | none           |
+| `OracleFeasibilityTest`                  | vague boundary retry, human-only oracle mislabeled as ordinary automation                                                           | none           |
+| `TestArchitectIntegrityGateTest`         | untrustworthy Sentinel runs, unsatisfied obligations, advisory mutation/coverage becoming hard blockers                             | none           |
+| `HumanVerificationTest`                  | human evidence promoted as machine evidence, weak evidence routed to implementer                                                    | none           |
+| `ContractAuditTest`                      | ContractAudit schema drift, opaque aggregate scoring                                                                                | none           |
 
 ## Verification Commands
 

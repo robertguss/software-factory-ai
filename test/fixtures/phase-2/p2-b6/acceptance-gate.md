@@ -2,10 +2,10 @@
 
 Status: passed locally with DB-free focused tests.
 
-Scope: PlanAmendmentProposal and ManualInterventionArtifact schemas,
-amendment impact analysis, materiality policy and micro-negotiation modes,
-affected-pass recompilation, selective invalidation outcomes, and new
-lock/spec/attempt enforcement.
+Scope: PlanAmendmentProposal and ManualInterventionArtifact schemas, amendment
+impact analysis, materiality policy and micro-negotiation modes, affected-pass
+recompilation, selective invalidation outcomes, and new lock/spec/attempt
+enforcement.
 
 ## Exit Criteria
 
@@ -81,8 +81,8 @@ Evidence:
   revision.
 - `PlanningAmendmentEnforcementTest` proves the prior attempt is not reused and
   contract faults do not consume implementation retry budget.
-- `conveyor.manual_intervention_artifact@1` records explicit manual
-  intervention provenance so old evidence and manual edits are distinguishable.
+- `conveyor.manual_intervention_artifact@1` records explicit manual intervention
+  provenance so old evidence and manual edits are distinguishable.
 - `ManualInterventionArtifactSchemaTest` proves actor action provenance is
   required.
 
@@ -101,15 +101,15 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanAmendmentProposalSchemaTest` | missing materiality or registry entry | none |
-| `ManualInterventionArtifactSchemaTest` | missing actor action provenance or registry entry | none |
-| `PlanningPlanAmendmentsTest` | omitted downstream/interface/obligation/approval/grant impacts, review-only correction invalidating artifacts | none |
-| `PlanningMaterialityPolicyTest` | implementer self-declared nonmaterial accepted, shadow mode acting with authority, unsafe auto-accept | none |
-| `PlanningSelectiveRecompilationTest` | retaining digests without proof, low confidence not failing wide | none |
-| `PlanningSelectiveInvalidationTest` | shared-interface consumers not invalidated, review-only lock not preserved, waiver scope not requalified | none |
-| `PlanningAmendmentEnforcementTest` | material amendment reusing old attempt, contract fault consuming retry budget, hidden manual reconstruction not failing release | none |
+| Evidence source                        | Failed cases represented                                                                                                        | Excluded cases |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `PlanAmendmentProposalSchemaTest`      | missing materiality or registry entry                                                                                           | none           |
+| `ManualInterventionArtifactSchemaTest` | missing actor action provenance or registry entry                                                                               | none           |
+| `PlanningPlanAmendmentsTest`           | omitted downstream/interface/obligation/approval/grant impacts, review-only correction invalidating artifacts                   | none           |
+| `PlanningMaterialityPolicyTest`        | implementer self-declared nonmaterial accepted, shadow mode acting with authority, unsafe auto-accept                           | none           |
+| `PlanningSelectiveRecompilationTest`   | retaining digests without proof, low confidence not failing wide                                                                | none           |
+| `PlanningSelectiveInvalidationTest`    | shared-interface consumers not invalidated, review-only lock not preserved, waiver scope not requalified                        | none           |
+| `PlanningAmendmentEnforcementTest`     | material amendment reusing old attempt, contract fault consuming retry budget, hidden manual reconstruction not failing release | none           |
 
 ## Verification Commands
 

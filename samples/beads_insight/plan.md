@@ -23,9 +23,9 @@ never calls the live `br` binary.
 
 ### Requirement REQ-001
 
-Parse `.beads/issues.jsonl` line-by-line into an in-memory `IssueGraph`; tolerate
-a trailing newline; ignore unknown fields (forward-compatible); on malformed
-JSON exit `2` with a stderr message naming the offending line number.
+Parse `.beads/issues.jsonl` line-by-line into an in-memory `IssueGraph`;
+tolerate a trailing newline; ignore unknown fields (forward-compatible); on
+malformed JSON exit `2` with a stderr message naming the offending line number.
 
 ### Requirement REQ-002
 

@@ -30,7 +30,11 @@
         "properties": {
           "criterion_ref": { "type": "string", "minLength": 1 },
           "status": { "enum": ["passed", "failed", "blocked"] },
-          "evidence_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
         }
       }
     },
@@ -42,20 +46,29 @@
         "required": ["key", "argv", "status", "stdout_ref", "stderr_ref"],
         "properties": {
           "key": { "type": "string", "minLength": 1 },
-          "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
           "status": { "enum": ["passed", "failed", "skipped"] },
           "stdout_ref": { "type": "string" },
           "stderr_ref": { "type": "string" }
         }
       }
     },
-    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact_ref" } },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact_ref" }
+    },
     "policy": {
       "type": "object",
       "additionalProperties": false,
       "required": ["profile", "violations"],
       "properties": {
-        "profile": { "enum": ["explore", "implement", "verify", "release", "maintenance"] },
+        "profile": {
+          "enum": ["explore", "implement", "verify", "release", "maintenance"]
+        },
         "violations": { "type": "array", "items": { "type": "string" } }
       }
     },
@@ -97,7 +110,10 @@
       "properties": {
         "path": { "type": "string", "minLength": 1 },
         "sha256": { "$ref": "#/$defs/sha256" },
-        "schema_version": { "type": "string", "pattern": "^conveyor\\.[a-z_]+@[0-9]+$" }
+        "schema_version": {
+          "type": "string",
+          "pattern": "^conveyor\\.[a-z_]+@[0-9]+$"
+        }
       }
     }
   }

@@ -3,19 +3,49 @@
   "slug": "after_blob_staged_before_db_commit",
   "kind": "crash-test",
   "proves": "crash after blob staged before DB commit is swept (no orphan)",
-  "states": ["blob_absent", "blob_staged", "crashed_before_db_commit", "sweep_pending", "blob_tombstoned"],
+  "states": [
+    "blob_absent",
+    "blob_staged",
+    "crashed_before_db_commit",
+    "sweep_pending",
+    "blob_tombstoned"
+  ],
   "transitions": [
-    { "from": "blob_absent", "event": "stage_blob_by_digest", "to": "blob_staged" },
-    { "from": "blob_staged", "event": "process_crashes_before_db_commit", "to": "crashed_before_db_commit" },
-    { "from": "crashed_before_db_commit", "event": "sweeper_finds_unreferenced_stage", "to": "sweep_pending" },
-    { "from": "sweep_pending", "event": "secure_delete_or_tombstone", "to": "blob_tombstoned" },
-    { "from": "blob_tombstoned", "event": "repeat_sweep", "to": "blob_tombstoned" }
+    {
+      "from": "blob_absent",
+      "event": "stage_blob_by_digest",
+      "to": "blob_staged"
+    },
+    {
+      "from": "blob_staged",
+      "event": "process_crashes_before_db_commit",
+      "to": "crashed_before_db_commit"
+    },
+    {
+      "from": "crashed_before_db_commit",
+      "event": "sweeper_finds_unreferenced_stage",
+      "to": "sweep_pending"
+    },
+    {
+      "from": "sweep_pending",
+      "event": "secure_delete_or_tombstone",
+      "to": "blob_tombstoned"
+    },
+    {
+      "from": "blob_tombstoned",
+      "event": "repeat_sweep",
+      "to": "blob_tombstoned"
+    }
   ],
   "invariants": [
     "A staged blob without a committed pointer is not authority.",
     "Unreferenced staged blobs are swept or tombstoned deterministically."
   ],
   "counterexample_traces": [
-    ["stage_blob_by_digest", "process_crashes_before_db_commit", "leave_unreferenced_blob_forever"]
+    [
+      "stage_blob_by_digest",
+      "process_crashes_before_db_commit",
+      "leave_unreferenced_blob_forever"
+    ]
   ]
 }

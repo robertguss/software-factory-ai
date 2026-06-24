@@ -4,13 +4,23 @@
   "title": "Conveyor PlanInterrogation",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "planning_run_id", "plan_revision_id", "status", "questions", "question_batch_ref", "created_at"],
+  "required": [
+    "schema_version",
+    "planning_run_id",
+    "plan_revision_id",
+    "status",
+    "questions",
+    "question_batch_ref",
+    "created_at"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.plan_interrogation@1" },
     "planning_run_id": { "type": "string", "minLength": 1 },
     "plan_revision_id": { "type": "string", "minLength": 1 },
     "interrogator_profile_id": { "type": "string", "minLength": 1 },
-    "status": { "enum": ["questions_required", "answered", "superseded", "cancelled"] },
+    "status": {
+      "enum": ["questions_required", "answered", "superseded", "cancelled"]
+    },
     "questions": {
       "type": "array",
       "minItems": 1,
@@ -22,8 +32,14 @@
           "question_id": { "type": "string", "minLength": 1 },
           "action": { "const": "ask_human" },
           "prompt": { "type": "string", "minLength": 1 },
-          "finding_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-          "anchor_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          "finding_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "anchor_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
         }
       }
     },

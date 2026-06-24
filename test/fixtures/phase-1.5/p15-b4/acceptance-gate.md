@@ -14,8 +14,7 @@ Evidence:
 - `Conveyor.Verification.new_evidence_requirement!/1` records typed required
   dimensions per obligation.
 - `Conveyor.Verification.evaluate_requirement/3` emits
-  `conveyor.obligation_satisfaction@1` results per
-  `verification_obligation_id`.
+  `conveyor.obligation_satisfaction@1` results per `verification_obligation_id`.
 - `EvidenceRequirementTest` proves a wrong evidence dimension cannot satisfy a
   required dimension through a generic stage ordering.
 
@@ -23,10 +22,10 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.Verification.IntegritySentinel.run/3` emits
-  `trustworthy`, `suspect`, `untrustworthy`, or `not_assessed` verdicts from
-  calibration, hermeticity, repeatability, mount, artifact, hidden dependency,
-  and falsifier preservation probes.
+- `Conveyor.Verification.IntegritySentinel.run/3` emits `trustworthy`,
+  `suspect`, `untrustworthy`, or `not_assessed` verdicts from calibration,
+  hermeticity, repeatability, mount, artifact, hidden dependency, and falsifier
+  preservation probes.
 - `TestIntegritySentinelTest` proves non-hermetic controls and production-source
   mutation are `untrustworthy`, unstable repeatability is `suspect`, and missing
   required observations remain `not_assessed`.
@@ -59,8 +58,8 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.Verification.new_evidence!/1` constrains
-  `human_observation` as a separate `VerificationEvidence.evidence_kind`.
+- `Conveyor.Verification.new_evidence!/1` constrains `human_observation` as a
+  separate `VerificationEvidence.evidence_kind`.
 - `VerificationResourcesTest` records human-observed evidence with a
   `human_observer` producer and does not fold it into candidate or machine
   evidence.

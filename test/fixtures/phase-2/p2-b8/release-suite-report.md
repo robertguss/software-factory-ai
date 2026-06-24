@@ -8,32 +8,32 @@ for the P2-B Contract Foundry release gate.
 
 ## Hard Correctness Invariants
 
-| Invariant | Local evidence |
-| --- | --- |
-| 100% traceability | `ContractAuditTest`, `PlanningStaticCompilerAcceptanceGateTest`, and prior P2-B acceptance gates cover traceability contracts and static report parity. |
-| no orphans | `PlanningStaticCompilerAcceptanceGateTest` and the release suite exercise structural orphan detection through compiler/static checks. |
-| no cycles | `br dep cycles --json` returned `{"cycles":[],"count":0,...}` for the active bead graph. |
-| no unresolved hard constraint | `PlanningCompilerPropertiesTest` and prior planning acceptance gates cover hard-constraint failures as blocking findings. |
-| provenance for every scope addition | `ContractAuditTest` and static compiler checks cover source-anchor and traceability provenance. |
-| reproducible roots | `PlanningStaticCompilerAcceptanceGateTest` covers reproducible static roots and bundle parity. |
-| exact approval binding | prior P2-B5 evidence and focused release checks include hierarchical approval binding behavior. |
-| no in-place mutation | prior P2-B6 evidence covers amendment revisioning and selective invalidation without in-place mutation. |
-| role isolation | `ContractAuthorTest` and contract forge checks cover role-owned author/reviewer obligations. |
-| no injection escape | `GateStagesPolicySecretTest` and `Sandbox.NetworkPolicyTest` cover policy/secret and network boundaries. |
-| honest human verification | `PlanningPilotAcceptanceGateTest` and prior P2-B2 evidence cover human-only verification as explicit human evidence. |
-| no UI/static/CLI disagreement | `PlanningWorkbenchAcceptanceGateTest` and `PlanningStaticCompilerAcceptanceGateTest` cover static/workbench parity. |
+| Invariant                           | Local evidence                                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 100% traceability                   | `ContractAuditTest`, `PlanningStaticCompilerAcceptanceGateTest`, and prior P2-B acceptance gates cover traceability contracts and static report parity. |
+| no orphans                          | `PlanningStaticCompilerAcceptanceGateTest` and the release suite exercise structural orphan detection through compiler/static checks.                   |
+| no cycles                           | `br dep cycles --json` returned `{"cycles":[],"count":0,...}` for the active bead graph.                                                                |
+| no unresolved hard constraint       | `PlanningCompilerPropertiesTest` and prior planning acceptance gates cover hard-constraint failures as blocking findings.                               |
+| provenance for every scope addition | `ContractAuditTest` and static compiler checks cover source-anchor and traceability provenance.                                                         |
+| reproducible roots                  | `PlanningStaticCompilerAcceptanceGateTest` covers reproducible static roots and bundle parity.                                                          |
+| exact approval binding              | prior P2-B5 evidence and focused release checks include hierarchical approval binding behavior.                                                         |
+| no in-place mutation                | prior P2-B6 evidence covers amendment revisioning and selective invalidation without in-place mutation.                                                 |
+| role isolation                      | `ContractAuthorTest` and contract forge checks cover role-owned author/reviewer obligations.                                                            |
+| no injection escape                 | `GateStagesPolicySecretTest` and `Sandbox.NetworkPolicyTest` cover policy/secret and network boundaries.                                                |
+| honest human verification           | `PlanningPilotAcceptanceGateTest` and prior P2-B2 evidence cover human-only verification as explicit human evidence.                                    |
+| no UI/static/CLI disagreement       | `PlanningWorkbenchAcceptanceGateTest` and `PlanningStaticCompilerAcceptanceGateTest` cover static/workbench parity.                                     |
 
 ## Suite Classes
 
-| Suite class | Evidence files |
-| --- | --- |
-| contract | `ContractAuditTest`, `ContractAuthorTest`, `ContractForgeAcceptanceGateTest` |
-| security | `GateStagesPolicySecretTest`, `Sandbox.NetworkPolicyTest` |
-| property | `PlanningCompilerPropertiesTest` |
-| replay | `CassetteReplayEngineTest`, `CassetteReplayDiagnosticsTest`, `CassetteFreshnessTest` |
-| recovery | `RecoveryTest`, `Recovery.HonestyEvalTest`, `FailureDiagnosisTest` |
-| retention | `BatteryMeasurementStudyTest` retains stable measurement-study samples; schema registry coverage includes retained/audit-class artifacts. |
-| legibility | `PlanningWorkbenchAcceptanceGateTest`, `PlanningStaticCompilerAcceptanceGateTest`, and `PlanningPilotAcceptanceGateTest` cover report, workbench, and pilot-gate readability. |
+| Suite class | Evidence files                                                                                                                                                                |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| contract    | `ContractAuditTest`, `ContractAuthorTest`, `ContractForgeAcceptanceGateTest`                                                                                                  |
+| security    | `GateStagesPolicySecretTest`, `Sandbox.NetworkPolicyTest`                                                                                                                     |
+| property    | `PlanningCompilerPropertiesTest`                                                                                                                                              |
+| replay      | `CassetteReplayEngineTest`, `CassetteReplayDiagnosticsTest`, `CassetteFreshnessTest`                                                                                          |
+| recovery    | `RecoveryTest`, `Recovery.HonestyEvalTest`, `FailureDiagnosisTest`                                                                                                            |
+| retention   | `BatteryMeasurementStudyTest` retains stable measurement-study samples; schema registry coverage includes retained/audit-class artifacts.                                     |
+| legibility  | `PlanningWorkbenchAcceptanceGateTest`, `PlanningStaticCompilerAcceptanceGateTest`, and `PlanningPilotAcceptanceGateTest` cover report, workbench, and pilot-gate readability. |
 
 ## Commands
 
@@ -87,7 +87,16 @@ br dep cycles --json
 Outcome:
 
 ```json
-{"cycles":[],"count":0,"active_count":0,"archived_closed_count":0,"total_count":0,"blocking_only":false,"include_closed":false,"scope":"active"}
+{
+  "cycles": [],
+  "count": 0,
+  "active_count": 0,
+  "archived_closed_count": 0,
+  "total_count": 0,
+  "blocking_only": false,
+  "include_closed": false,
+  "scope": "active"
+}
 ```
 
 ### Full DB-backed suite

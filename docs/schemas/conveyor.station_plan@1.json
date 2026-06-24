@@ -13,15 +13,35 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["key", "worker", "depends_on", "input_refs", "allowed_effects", "sandbox_profile", "output_schema", "retry_policy"],
+        "required": [
+          "key",
+          "worker",
+          "depends_on",
+          "input_refs",
+          "allowed_effects",
+          "sandbox_profile",
+          "output_schema",
+          "retry_policy"
+        ],
         "properties": {
           "key": { "type": "string", "minLength": 1 },
           "worker": { "type": "string", "pattern": "^Conveyor\\." },
           "depends_on": { "type": "array", "items": { "type": "string" } },
-          "input_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-          "allowed_effects": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-          "sandbox_profile": { "enum": ["explore", "implement", "verify", "release", "maintenance"] },
-          "output_schema": { "type": "string", "pattern": "^conveyor\\.[a-z_]+@[0-9]+$" },
+          "input_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "allowed_effects": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "sandbox_profile": {
+            "enum": ["explore", "implement", "verify", "release", "maintenance"]
+          },
+          "output_schema": {
+            "type": "string",
+            "pattern": "^conveyor\\.[a-z_]+@[0-9]+$"
+          },
           "retry_policy": {
             "type": "object",
             "additionalProperties": false,

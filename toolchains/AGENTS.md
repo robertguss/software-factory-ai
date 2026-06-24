@@ -7,12 +7,12 @@ against controlled external environments.
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| Python runner image | `sample-python-runner/Dockerfile` | Sample execution container. |
-| Toolchain profile | `sample-python-runner/profile.toml` | Runtime command/profile contract. |
-| Locked deps | `sample-python-runner/requirements.lock` | Reproducible Python deps. |
-| SBOM | `sample-python-runner/sbom.cyclonedx.json` | Supply-chain evidence artifact. |
+| Task                | Location                                   | Notes                             |
+| ------------------- | ------------------------------------------ | --------------------------------- |
+| Python runner image | `sample-python-runner/Dockerfile`          | Sample execution container.       |
+| Toolchain profile   | `sample-python-runner/profile.toml`        | Runtime command/profile contract. |
+| Locked deps         | `sample-python-runner/requirements.lock`   | Reproducible Python deps.         |
+| SBOM                | `sample-python-runner/sbom.cyclonedx.json` | Supply-chain evidence artifact.   |
 
 ## CONVENTIONS
 

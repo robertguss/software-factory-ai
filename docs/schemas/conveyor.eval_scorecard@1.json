@@ -21,7 +21,10 @@
       "minLength": 1
     },
     "metrics": { "type": "array", "items": { "$ref": "#/$defs/metric" } },
-    "canonical_blockers": { "type": "array", "items": { "$ref": "#/$defs/metric" } },
+    "canonical_blockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/metric" }
+    },
     "healthy?": { "type": "boolean" },
     "scorecard_digest": {
       "type": "string",

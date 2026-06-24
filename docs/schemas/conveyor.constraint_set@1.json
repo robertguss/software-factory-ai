@@ -4,12 +4,24 @@
   "title": "Conveyor ConstraintSet",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "plan_revision_id", "constraint_set_ref", "constraint_set_digest", "hard_count", "soft_count", "status", "constraints"],
+  "required": [
+    "schema_version",
+    "plan_revision_id",
+    "constraint_set_ref",
+    "constraint_set_digest",
+    "hard_count",
+    "soft_count",
+    "status",
+    "constraints"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.constraint_set@1" },
     "plan_revision_id": { "type": "string", "minLength": 1 },
     "constraint_set_ref": { "type": "string", "minLength": 1 },
-    "constraint_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "constraint_set_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "hard_count": { "type": "integer", "minimum": 0 },
     "soft_count": { "type": "integer", "minimum": 0 },
     "status": { "enum": ["valid", "invalid"] },
@@ -17,7 +29,15 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["key", "kind", "statement", "strength", "violation_policy", "validation_kind", "claim_ref"],
+        "required": [
+          "key",
+          "kind",
+          "statement",
+          "strength",
+          "violation_policy",
+          "validation_kind",
+          "claim_ref"
+        ],
         "properties": {
           "key": { "type": "string", "minLength": 1 },
           "kind": { "type": "string", "minLength": 1 },

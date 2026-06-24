@@ -47,7 +47,10 @@
       }
     },
     "slices": { "type": "array", "items": { "$ref": "#/$defs/slice" } },
-    "work_dependencies": { "type": "array", "items": { "$ref": "#/$defs/work_dependency" } }
+    "work_dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/work_dependency" }
+    }
   },
   "$defs": {
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },

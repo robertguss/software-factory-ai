@@ -16,7 +16,15 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.root_manifest@1" },
-    "root_kind": { "enum": ["shared_authority", "epic_authority", "review", "archive_bundle", "evidence"] },
+    "root_kind": {
+      "enum": [
+        "shared_authority",
+        "epic_authority",
+        "review",
+        "archive_bundle",
+        "evidence"
+      ]
+    },
     "root_version": { "type": "integer", "minimum": 1 },
     "canonicalization_profile": { "enum": ["rfc8785-jcs"] },
     "hash_algorithm": { "enum": ["sha256", "sha512", "blake3"] },

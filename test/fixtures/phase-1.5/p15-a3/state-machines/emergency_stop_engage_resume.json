@@ -3,19 +3,35 @@
   "slug": "emergency_stop_engage_resume",
   "kind": "state-machine",
   "proves": "emergency stop engagement/resume",
-  "states": ["running", "stop_engaged", "effects_blocked", "resume_requested", "resumed"],
+  "states": [
+    "running",
+    "stop_engaged",
+    "effects_blocked",
+    "resume_requested",
+    "resumed"
+  ],
   "transitions": [
     { "from": "running", "event": "engage_stop", "to": "stop_engaged" },
-    { "from": "stop_engaged", "event": "attempt_new_effect", "to": "effects_blocked" },
-    { "from": "effects_blocked", "event": "actor_requests_resume", "to": "resume_requested" },
-    { "from": "resume_requested", "event": "policy_allows_resume", "to": "resumed" },
+    {
+      "from": "stop_engaged",
+      "event": "attempt_new_effect",
+      "to": "effects_blocked"
+    },
+    {
+      "from": "effects_blocked",
+      "event": "actor_requests_resume",
+      "to": "resume_requested"
+    },
+    {
+      "from": "resume_requested",
+      "event": "policy_allows_resume",
+      "to": "resumed"
+    },
     { "from": "resumed", "event": "new_checkpoint", "to": "running" }
   ],
   "invariants": [
     "No new external effect starts while stop_engaged is active.",
     "Resume requires a fresh actor action and PolicyDecision."
   ],
-  "counterexample_traces": [
-    ["engage_stop", "attempt_new_effect"]
-  ]
+  "counterexample_traces": [["engage_stop", "attempt_new_effect"]]
 }

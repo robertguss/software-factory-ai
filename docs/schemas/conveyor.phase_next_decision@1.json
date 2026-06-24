@@ -52,7 +52,12 @@
     "branch_decision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["branch", "response", "blocks_requested_grant", "justification_refs"],
+      "required": [
+        "branch",
+        "response",
+        "blocks_requested_grant",
+        "justification_refs"
+      ],
       "properties": {
         "branch": { "$ref": "#/$defs/branch_key" },
         "response": { "type": "string", "minLength": 1 },

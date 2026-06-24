@@ -55,5 +55,5 @@ gate-blocking.
 
 # How to Report Blockers
 
-Report the blocked acceptance criterion, evidence gathered, attempted paths,
-and exact input needed to continue.
+Report the blocked acceptance criterion, evidence gathered, attempted paths, and
+exact input needed to continue.

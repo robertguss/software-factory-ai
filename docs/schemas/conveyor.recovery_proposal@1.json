@@ -4,14 +4,33 @@
   "title": "Conveyor RecoveryProposal",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "failure_diagnosis_id", "action_key", "arguments_ref", "reusable_artifact_refs", "invalidated_artifact_refs", "requires_new_spec", "requires_new_attempt", "requires_human", "idempotent", "precondition_policy_key", "proposal_digest"],
+  "required": [
+    "schema_version",
+    "failure_diagnosis_id",
+    "action_key",
+    "arguments_ref",
+    "reusable_artifact_refs",
+    "invalidated_artifact_refs",
+    "requires_new_spec",
+    "requires_new_attempt",
+    "requires_human",
+    "idempotent",
+    "precondition_policy_key",
+    "proposal_digest"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.recovery_proposal@1" },
     "failure_diagnosis_id": { "type": "string", "minLength": 1 },
     "action_key": { "type": "string", "minLength": 1 },
     "arguments_ref": { "type": "string", "minLength": 1 },
-    "reusable_artifact_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "invalidated_artifact_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "reusable_artifact_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "invalidated_artifact_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "requires_new_spec": { "type": "boolean" },
     "requires_new_attempt": { "type": "boolean" },
     "requires_human": { "type": "boolean" },

@@ -47,11 +47,24 @@
     "finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["severity", "category", "message", "artifact_refs", "next_actions"],
+      "required": [
+        "severity",
+        "category",
+        "message",
+        "artifact_refs",
+        "next_actions"
+      ],
       "properties": {
         "severity": { "enum": ["blocking", "warning", "note"] },
         "category": {
-          "enum": ["brief", "context", "execution", "validation", "review", "policy"]
+          "enum": [
+            "brief",
+            "context",
+            "execution",
+            "validation",
+            "review",
+            "policy"
+          ]
         },
         "message": { "type": "string", "minLength": 1 },
         "artifact_refs": {

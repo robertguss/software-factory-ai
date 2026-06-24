@@ -2,17 +2,17 @@
 
 ## OVERVIEW
 
-`priv/repo/migrations/` is the chronological schema evolution log for
-Conveyor's Ash/Postgres-backed authority model.
+`priv/repo/migrations/` is the chronological schema evolution log for Conveyor's
+Ash/Postgres-backed authority model.
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| Factory resources | `../../../lib/conveyor/factory/` | Resource definitions migrations must support. |
-| Repo config | `../../../lib/conveyor/repo.ex`, `../../../config/*.exs` | Database runtime/test settings. |
-| Migration formatter | `.formatter.exs` | Local formatter import/config. |
-| Migration tests | `../../../test/conveyor/*schema*_test.exs` | Resource and schema behavior. |
+| Task                | Location                                                 | Notes                                         |
+| ------------------- | -------------------------------------------------------- | --------------------------------------------- |
+| Factory resources   | `../../../lib/conveyor/factory/`                         | Resource definitions migrations must support. |
+| Repo config         | `../../../lib/conveyor/repo.ex`, `../../../config/*.exs` | Database runtime/test settings.               |
+| Migration formatter | `.formatter.exs`                                         | Local formatter import/config.                |
+| Migration tests     | `../../../test/conveyor/*schema*_test.exs`               | Resource and schema behavior.                 |
 
 ## CONVENTIONS
 

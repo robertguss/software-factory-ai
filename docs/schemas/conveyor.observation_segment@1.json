@@ -4,13 +4,23 @@
   "title": "Conveyor ObservationSegment",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "manifest_ref", "sequence_start", "sequence_end", "sensitivity", "digest", "storage_pointer"],
+  "required": [
+    "schema_version",
+    "manifest_ref",
+    "sequence_start",
+    "sequence_end",
+    "sensitivity",
+    "digest",
+    "storage_pointer"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.observation_segment@1" },
     "manifest_ref": { "$ref": "#/$defs/resource_ref" },
     "sequence_start": { "type": "integer", "minimum": 0 },
     "sequence_end": { "type": "integer", "minimum": 0 },
-    "sensitivity": { "enum": ["public", "internal", "restricted", "secret_ref"] },
+    "sensitivity": {
+      "enum": ["public", "internal", "restricted", "secret_ref"]
+    },
     "digest": { "$ref": "#/$defs/digest" },
     "storage_pointer": { "type": "string", "minLength": 1 }
   },

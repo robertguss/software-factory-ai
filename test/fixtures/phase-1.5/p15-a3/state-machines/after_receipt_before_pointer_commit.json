@@ -3,19 +3,49 @@
   "slug": "after_receipt_before_pointer_commit",
   "kind": "crash-test",
   "proves": "crash after receipt before artifact-pointer commit recovers",
-  "states": ["receipt_recorded", "artifact_pointer_pending", "crashed_before_pointer", "pointer_recovered", "authority_event_committed"],
+  "states": [
+    "receipt_recorded",
+    "artifact_pointer_pending",
+    "crashed_before_pointer",
+    "pointer_recovered",
+    "authority_event_committed"
+  ],
   "transitions": [
-    { "from": "receipt_recorded", "event": "derive_artifact_pointer", "to": "artifact_pointer_pending" },
-    { "from": "artifact_pointer_pending", "event": "process_crashes_before_pointer_commit", "to": "crashed_before_pointer" },
-    { "from": "crashed_before_pointer", "event": "recover_from_receipt", "to": "pointer_recovered" },
-    { "from": "pointer_recovered", "event": "commit_pointer_transaction", "to": "authority_event_committed" },
-    { "from": "authority_event_committed", "event": "replay_recovery", "to": "authority_event_committed" }
+    {
+      "from": "receipt_recorded",
+      "event": "derive_artifact_pointer",
+      "to": "artifact_pointer_pending"
+    },
+    {
+      "from": "artifact_pointer_pending",
+      "event": "process_crashes_before_pointer_commit",
+      "to": "crashed_before_pointer"
+    },
+    {
+      "from": "crashed_before_pointer",
+      "event": "recover_from_receipt",
+      "to": "pointer_recovered"
+    },
+    {
+      "from": "pointer_recovered",
+      "event": "commit_pointer_transaction",
+      "to": "authority_event_committed"
+    },
+    {
+      "from": "authority_event_committed",
+      "event": "replay_recovery",
+      "to": "authority_event_committed"
+    }
   ],
   "invariants": [
     "A durable receipt is enough to recreate the missing artifact pointer.",
     "Pointer commit is idempotent under replay."
   ],
   "counterexample_traces": [
-    ["derive_artifact_pointer", "process_crashes_before_pointer_commit", "mark_attempt_complete_without_pointer"]
+    [
+      "derive_artifact_pointer",
+      "process_crashes_before_pointer_commit",
+      "mark_attempt_complete_without_pointer"
+    ]
   ]
 }

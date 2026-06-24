@@ -20,14 +20,22 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.contract_audit@1" },
-    "id": { "type": "string", "pattern": "^contract_audit:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^contract_audit:sha256:[0-9a-f]{64}$"
+    },
     "slice_id": { "type": "string", "minLength": 1 },
     "agent_brief_id": { "type": "string", "minLength": 1 },
     "test_pack_id": { "type": ["string", "null"], "minLength": 1 },
     "planning_run_id": { "type": ["string", "null"], "minLength": 1 },
     "compiler_version": { "type": "string", "minLength": 1 },
     "decision": {
-      "enum": ["ready", "needs_revision", "blocked", "human_verification_required"]
+      "enum": [
+        "ready",
+        "needs_revision",
+        "blocked",
+        "human_verification_required"
+      ]
     },
     "stages": {
       "type": "array",
@@ -49,7 +57,9 @@
       ],
       "properties": {
         "traceability": { "$ref": "#/$defs/dimension_status" },
-        "claim_and_source_anchor_coverage": { "$ref": "#/$defs/dimension_status" },
+        "claim_and_source_anchor_coverage": {
+          "$ref": "#/$defs/dimension_status"
+        },
         "scope_boundedness": { "$ref": "#/$defs/dimension_status" },
         "interface_clarity": { "$ref": "#/$defs/dimension_status" },
         "interface_compatibility": { "$ref": "#/$defs/dimension_status" },
@@ -64,7 +74,13 @@
   "$defs": {
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "dimension_status": {
-      "enum": ["passed", "needs_revision", "blocked", "not_assessed", "human_verification_required"]
+      "enum": [
+        "passed",
+        "needs_revision",
+        "blocked",
+        "not_assessed",
+        "human_verification_required"
+      ]
     },
     "stage": {
       "type": "object",

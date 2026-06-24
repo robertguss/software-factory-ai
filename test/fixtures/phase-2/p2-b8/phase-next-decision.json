@@ -34,7 +34,5 @@
     }
   ],
   "status": "accepted",
-  "stop_the_line": [
-    "gate_first"
-  ]
+  "stop_the_line": ["gate_first"]
 }

@@ -8,7 +8,11 @@
   "required": ["schema_version", "confidence", "tasks", "arms", "lift"],
   "properties": {
     "schema_version": { "const": "conveyor.eval_lift@1" },
-    "confidence": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "confidence": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1
+    },
     "reasoning_effort": {
       "type": ["string", "null"],
       "description": "Duel-level reasoning/thinking effort held identical across all arms (the controlled confound). Null for adapters that do not expose it."

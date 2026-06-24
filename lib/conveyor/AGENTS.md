@@ -7,16 +7,16 @@ evidence, policy, review, and gate decisions.
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| OTP startup | `application.ex` | Supervision tree and process boundaries. |
-| Ash resources | `factory.ex`, `factory/` | Database-backed domain model. |
-| Planning compiler | `planning/` | Plan/spec lowering, graph analysis, audits. |
-| Agent execution | `agent_runner/`, `jobs/run_*.ex` | Runner adapters and Oban jobs. |
-| Evidence model | `evidence/`, `artifacts/`, `cassettes/` | Artifact capture, replay, comparison. |
-| Gate behavior | `gate.ex`, `gate/` | Verification stages and finalizer. |
-| Safety policy | `policy/`, `security/`, `credential_broker.ex` | Command normalization and guardrails. |
-| AGENTS generation | `agents_md.ex`, `agents_md/linter.ex` | Project instruction generator/linter. |
+| Task              | Location                                       | Notes                                       |
+| ----------------- | ---------------------------------------------- | ------------------------------------------- |
+| OTP startup       | `application.ex`                               | Supervision tree and process boundaries.    |
+| Ash resources     | `factory.ex`, `factory/`                       | Database-backed domain model.               |
+| Planning compiler | `planning/`                                    | Plan/spec lowering, graph analysis, audits. |
+| Agent execution   | `agent_runner/`, `jobs/run_*.ex`               | Runner adapters and Oban jobs.              |
+| Evidence model    | `evidence/`, `artifacts/`, `cassettes/`        | Artifact capture, replay, comparison.       |
+| Gate behavior     | `gate.ex`, `gate/`                             | Verification stages and finalizer.          |
+| Safety policy     | `policy/`, `security/`, `credential_broker.ex` | Command normalization and guardrails.       |
+| AGENTS generation | `agents_md.ex`, `agents_md/linter.ex`          | Project instruction generator/linter.       |
 
 ## CONVENTIONS
 

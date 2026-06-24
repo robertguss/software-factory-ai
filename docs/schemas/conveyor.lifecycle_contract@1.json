@@ -4,7 +4,13 @@
   "title": "Conveyor LifecycleContract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "resource_kind", "states", "terminal_states", "transitions"],
+  "required": [
+    "schema_version",
+    "resource_kind",
+    "states",
+    "terminal_states",
+    "transitions"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.lifecycle_contract@1" },
     "resource_kind": { "type": "string", "minLength": 1 },
@@ -23,7 +29,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["transition_key", "from", "to_state", "required_event_type"],
+        "required": [
+          "transition_key",
+          "from",
+          "to_state",
+          "required_event_type"
+        ],
         "properties": {
           "transition_key": { "type": "string", "minLength": 1 },
           "from": {

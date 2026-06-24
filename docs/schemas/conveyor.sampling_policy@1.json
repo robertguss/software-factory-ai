@@ -4,7 +4,21 @@
   "title": "Conveyor SamplingPolicy",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "method", "min_samples", "max_samples", "confidence", "floor_p0", "stopping_rule", "sampling_unit", "cluster_key", "max_samples_per_cluster", "strata", "sequential_validity", "policy_digest"],
+  "required": [
+    "schema_version",
+    "method",
+    "min_samples",
+    "max_samples",
+    "confidence",
+    "floor_p0",
+    "stopping_rule",
+    "sampling_unit",
+    "cluster_key",
+    "max_samples_per_cluster",
+    "strata",
+    "sequential_validity",
+    "policy_digest"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.sampling_policy@1" },
     "method": { "enum": ["exhaustive", "random", "stratified", "sequential"] },
@@ -16,7 +30,10 @@
     "sampling_unit": { "const": "repository_case_cluster" },
     "cluster_key": { "type": "string", "minLength": 1 },
     "max_samples_per_cluster": { "type": "integer", "minimum": 1 },
-    "strata": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "strata": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "sequential_validity": { "type": "string", "minLength": 1 },
     "policy_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
   }

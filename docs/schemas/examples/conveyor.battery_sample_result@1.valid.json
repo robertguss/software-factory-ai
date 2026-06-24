@@ -7,7 +7,9 @@
   "run_attempt_ids": ["run-attempt-001"],
   "terminal_outcome": "failed",
   "failure_classes": ["safety_invariant"],
-  "trace_assertion_results": [{ "assertion": "never_hidden_oracle", "result": "failed" }],
+  "trace_assertion_results": [
+    { "assertion": "never_hidden_oracle", "result": "failed" }
+  ],
   "forbidden_effect_count": 1,
   "first_pass": false,
   "eventual_passed": false,

@@ -57,9 +57,9 @@ Evidence:
 
 Evidence:
 
-- `Conveyor.Qualification.Grants` returns `{:deny, %{reasons:
-  [:scope_not_covered]}}` before emitting authority if the supported evidence
-  scope is narrower than the request.
+- `Conveyor.Qualification.Grants` returns
+  `{:deny, %{reasons: [:scope_not_covered]}}` before emitting authority if the
+  supported evidence scope is narrower than the request.
 - `ConveyorQualificationGateTest` proves `mix conveyor.qualification_gate`
   converts that denial into a blocking gate result with
   `qualification_gate_grant_denied`.
@@ -70,8 +70,8 @@ Evidence:
 
 - `Conveyor.Qualification.Bundle` builds an offline-verifiable bundle carrying
   registry digest, canonicalization profile, grant-scope digest, evidence root,
-  root manifest digest, run digest, hard invariant verdicts, canary refs,
-  replay anchors, waiver availability, and signature status.
+  root manifest digest, run digest, hard invariant verdicts, canary refs, replay
+  anchors, waiver availability, and signature status.
 - `ConveyorQualificationBundleTest` proves
   `mix conveyor.qualification_bundle_verify --offline` verifies the bundle
   without live database access.

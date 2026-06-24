@@ -7,13 +7,13 @@ display authority, not create it.
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| Web boundary macros | `../conveyor_web.ex` | Controller, HTML, LiveView imports. |
-| Endpoint/router | `endpoint.ex`, `router.ex` | Request routing and plugs. |
-| Live run UI | `live/run_viewer_live.ex` | Largest web surface; run/evidence projection. |
-| Controllers | `controllers/` | API/page projections. |
-| Tests | `../../test/conveyor_web/` | ConnCase/LiveView coverage. |
+| Task                | Location                   | Notes                                         |
+| ------------------- | -------------------------- | --------------------------------------------- |
+| Web boundary macros | `../conveyor_web.ex`       | Controller, HTML, LiveView imports.           |
+| Endpoint/router     | `endpoint.ex`, `router.ex` | Request routing and plugs.                    |
+| Live run UI         | `live/run_viewer_live.ex`  | Largest web surface; run/evidence projection. |
+| Controllers         | `controllers/`             | API/page projections.                         |
+| Tests               | `../../test/conveyor_web/` | ConnCase/LiveView coverage.                   |
 
 ## CONVENTIONS
 

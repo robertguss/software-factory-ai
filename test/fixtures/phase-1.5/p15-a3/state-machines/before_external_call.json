@@ -3,12 +3,34 @@
   "slug": "before_external_call",
   "kind": "crash-test",
   "proves": "crash before the external call leaves a deterministic retry state",
-  "states": ["planned", "attempt_recorded", "crashed_before_call", "retry_ready", "called_once"],
+  "states": [
+    "planned",
+    "attempt_recorded",
+    "crashed_before_call",
+    "retry_ready",
+    "called_once"
+  ],
   "transitions": [
-    { "from": "planned", "event": "record_effect_attempt", "to": "attempt_recorded" },
-    { "from": "attempt_recorded", "event": "process_crashes_before_external_call", "to": "crashed_before_call" },
-    { "from": "crashed_before_call", "event": "recover_without_receipt", "to": "retry_ready" },
-    { "from": "retry_ready", "event": "retry_with_same_idempotency_key", "to": "called_once" },
+    {
+      "from": "planned",
+      "event": "record_effect_attempt",
+      "to": "attempt_recorded"
+    },
+    {
+      "from": "attempt_recorded",
+      "event": "process_crashes_before_external_call",
+      "to": "crashed_before_call"
+    },
+    {
+      "from": "crashed_before_call",
+      "event": "recover_without_receipt",
+      "to": "retry_ready"
+    },
+    {
+      "from": "retry_ready",
+      "event": "retry_with_same_idempotency_key",
+      "to": "called_once"
+    },
     { "from": "called_once", "event": "receipt_observed", "to": "called_once" }
   ],
   "invariants": [
@@ -16,6 +38,10 @@
     "Recovery retries with the same idempotency key instead of inventing a second effect."
   ],
   "counterexample_traces": [
-    ["record_effect_attempt", "process_crashes_before_external_call", "mark_success_without_receipt"]
+    [
+      "record_effect_attempt",
+      "process_crashes_before_external_call",
+      "mark_success_without_receipt"
+    ]
   ]
 }

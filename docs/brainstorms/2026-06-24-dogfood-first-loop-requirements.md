@@ -11,9 +11,9 @@ topic: dogfood-first-loop
 A first dogfooding loop that lets the author drive Conveyor on real greenfield
 plans and capture where it breaks. The author hand-writes a plan; an external AI
 drafts a human-verified `conveyor.plan@1` task-graph; Conveyor runs it serially
-(a fresh agent session per slice); and a run-level read-after view makes each run
-legible. One thing is built before the first live run — that run-level view — and
-the rest is repeatable practice the author can start now.
+(a fresh agent session per slice); and a run-level read-after view makes each
+run legible. One thing is built before the first live run — that run-level view
+— and the rest is repeatable practice the author can start now.
 
 ---
 
@@ -53,10 +53,10 @@ gaps that real use, not more building, reveals.
   must be diagnosable, or it teaches nothing. The one build that precedes
   dogfooding is a run-level read-after view; everything else is practice.
 
-- **Read-after over watch-live.** Legibility means reconstructing what a finished
-  or failed run did — where it stopped, which gate stage failed, rework attempts,
-  spend — not streaming progress. Runs are event-sourced, so a fold over the
-  ledger gives the story; a live tail is deferred.
+- **Read-after over watch-live.** Legibility means reconstructing what a
+  finished or failed run did — where it stopped, which gate stage failed, rework
+  attempts, spend — not streaming progress. Runs are event-sourced, so a fold
+  over the ledger gives the story; a live tail is deferred.
 
 - **Dogfood the loop now; treat the gate as provisional.** The trust gate runs 7
   of 14 stages, so "green" does not yet certify a slice. Early dogfooding tests
@@ -64,17 +64,17 @@ gaps that real use, not more building, reveals.
   correctness by eye for now. Finishing M4 stays a separate track that these
   findings can reprioritize.
 
-- **Decomposition quality is what medium plans test.** Each slice runs in a fresh
-  agent session, so the long-horizon failure mode is not context-rot inside a
-  session but whether a cold slice-N session builds correctly on slices 1..N-1
-  given only its contract and its dependencies' frozen interfaces. That seam is
-  set by decomposition quality, which makes the hand-written-plan → drafted-graph
-  contracts the load-bearing artifact.
+- **Decomposition quality is what medium plans test.** Each slice runs in a
+  fresh agent session, so the long-horizon failure mode is not context-rot
+  inside a session but whether a cold slice-N session builds correctly on slices
+  1..N-1 given only its contract and its dependencies' frozen interfaces. That
+  seam is set by decomposition quality, which makes the hand-written-plan →
+  drafted-graph contracts the load-bearing artifact.
 
 - **Start at the small end of medium and climb.** First plans run ~10–20 slices,
-  climbing as the cockpit matures, rather than opening on medium-to-large. Larger
-  plans break in less legible ways while the cockpit is immature; size climbs as
-  legibility catches up.
+  climbing as the cockpit matures, rather than opening on medium-to-large.
+  Larger plans break in less legible ways while the cockpit is immature; size
+  climbs as legibility catches up.
 
 ---
 
@@ -88,8 +88,8 @@ gaps that real use, not more building, reveals.
   slice-scoped inspection (`mix conveyor.show`, `RunViewerLive`), which today
   report a single slice rather than a whole run.
 - R2. A getting-started on-ramp documents clone-to-run: prerequisites (Postgres,
-  env vars, `codex` auth), the run commands, and where outputs land — building on
-  `mix conveyor.doctor` and the hermetic `mix conveyor.demo`.
+  env vars, `codex` auth), the run commands, and where outputs land — building
+  on `mix conveyor.doctor` and the hermetic `mix conveyor.demo`.
 - R3. A repeatable decomposition aid — a prompt plus a verification checklist —
   takes a prose plan to a valid `conveyor.plan@1` and the author's sign-off.
 - R4. A gap-capture format — a raw per-run log, triaged afterward into `br` as a
@@ -102,9 +102,9 @@ gaps that real use, not more building, reveals.
 - R6. Plans start at ~10–20 slices and climb as the cockpit matures.
 - R7. "Green" is treated as provisional; the author judges slice correctness by
   eye until the gate is finished on its own track.
-- R8. Every plan is dry-run on a free deterministic adapter (`reference_solution`
-  or `demo`) before any live `codex` run, to separate harness and decomposition
-  gaps from agent gaps.
+- R8. Every plan is dry-run on a free deterministic adapter
+  (`reference_solution` or `demo`) before any live `codex` run, to separate
+  harness and decomposition gaps from agent gaps.
 - R9. The task-graph is drafted by an external AI and verified by the author
   before execution; load-time semantic validation (unknown-reference, self-loop,
   cycle) backs that verification.
@@ -117,10 +117,10 @@ F1. A single dogfooding run (greenfield, serial)
 
 - **Trigger:** The author has a hand-written prose plan for a greenfield app.
 - **Steps:** External AI drafts the `conveyor.plan@1` graph → author verifies
-  (by eye, backed by load validation) → free deterministic dry-run clears harness
-  and decomposition gaps → live `mix conveyor.run --adapter codex` runs serially,
-  a fresh session per slice → author reads the run-level story → raw-logs gaps →
-  triages findings into `br`.
+  (by eye, backed by load validation) → free deterministic dry-run clears
+  harness and decomposition gaps → live `mix conveyor.run --adapter codex` runs
+  serially, a fresh session per slice → author reads the run-level story →
+  raw-logs gaps → triages findings into `br`.
 - **Outcome:** A completed or legibly-failed run, plus tracked findings; a
   failure is attributable to a category — decomposition, harness, cockpit, or
   agent.
@@ -141,8 +141,8 @@ flowchart TB
 
 ## Success Criteria
 
-- The author can go from a prose plan to a completed or legibly-failed serial run
-  on a real greenfield app unaided, and read exactly what the run did.
+- The author can go from a prose plan to a completed or legibly-failed serial
+  run on a real greenfield app unaided, and read exactly what the run did.
 - A run's failure can be classified into decomposition / harness / cockpit /
   agent without reading source.
 - Dogfooding produces a prioritized gap backlog in `br` (the `dogfood` cohort)
@@ -158,8 +158,10 @@ flowchart TB
 
 - Autonomous / in-Conveyor decomposition (M5) — external AI drafts the graph for
   now.
-- Parallelism, Oban orchestration, and the cross-slice fleet — the BEAM end-game.
-- Container / blast-radius isolation (M6) — greenfield-only avoids needing it now.
+- Parallelism, Oban orchestration, and the cross-slice fleet — the BEAM
+  end-game.
+- Container / blast-radius isolation (M6) — greenfield-only avoids needing it
+  now.
 - Brownfield / existing-repo targets — until a sandbox exists.
 - A live-watch cockpit or dashboard — read-after only for the first loop.
 
@@ -180,8 +182,8 @@ flowchart TB
   quality of that draft is the load-bearing variable and an explicit thing to
   observe per run.
 - The serial loop, the 7 live gate stages, and fresh-session-per-slice behavior
-  run as observed in the M2/M3/M4 landings. Whether each slice truly gets a clean
-  session is itself a first-run check.
+  run as observed in the M2/M3/M4 landings. Whether each slice truly gets a
+  clean session is itself a first-run check.
 
 ---
 
@@ -190,11 +192,11 @@ flowchart TB
 ### Deferred to planning
 
 - The shape and surface of the run-level view: extend slice-scoped
-  `mix conveyor.show` to a run scope, finish or repurpose `RunViewerLive` (already
-  routed at `/runs`), or fold the ledger via a new command — and whether it reads
-  the ledger or aggregates live Ash resources.
-- The on-ramp's form (README section, a `docs/` quickstart, or `mix conveyor.doctor`
-  output) and how much it automates versus documents.
+  `mix conveyor.show` to a run scope, finish or repurpose `RunViewerLive`
+  (already routed at `/runs`), or fold the ledger via a new command — and
+  whether it reads the ledger or aggregates live Ash resources.
+- The on-ramp's form (README section, a `docs/` quickstart, or
+  `mix conveyor.doctor` output) and how much it automates versus documents.
 - The gap-log location and format, and the `br` triage label/cohort convention.
 - The first concrete greenfield app and its plan size within the ~10–20 band.
 
@@ -206,24 +208,24 @@ Verified against the codebase (fresh-context pass):
 
 - **Work-graph + load validation:** `lib/conveyor/factory/plan.ex`,
   `lib/conveyor/factory/epic.ex`, `lib/conveyor/factory/slice.ex` (Ash/Postgres
-  resources); `lib/conveyor/plan_contract.ex:210-275` (`validate_work_dependencies`
-  — unknown-ref, self-loop, cycle), invoked at
+  resources); `lib/conveyor/plan_contract.ex:210-275`
+  (`validate_work_dependencies` — unknown-ref, self-loop, cycle), invoked at
   `lib/conveyor/planning/plan_runner.ex:38`.
 - **Entry point + adapters:** `lib/mix/tasks/conveyor.run.ex:18,49-54,84`
   (default `codex`; accepts `codex|reference_solution`).
 - **Existing inspection (prior art for R1):** `lib/mix/tasks/conveyor.show.ex`
-  (slice-scoped status + trust verdict); `lib/conveyor_web/live/run_viewer_live.ex`
-  and `parked_queue_live.ex` (routed `/runs`, `/parked` in
-  `lib/conveyor_web/router.ex:20-21`, undocumented); also `mix conveyor.replay`,
-  `conveyor.report`, `conveyor.diff_artifacts`.
+  (slice-scoped status + trust verdict);
+  `lib/conveyor_web/live/run_viewer_live.ex` and `parked_queue_live.ex` (routed
+  `/runs`, `/parked` in `lib/conveyor_web/router.ex:20-21`, undocumented); also
+  `mix conveyor.replay`, `conveyor.report`, `conveyor.diff_artifacts`.
 - **On-ramp leverage (R2):** `lib/mix/tasks/conveyor.demo.ex` +
   `lib/conveyor/demo.ex:1-46` (hermetic, `credentials_required: false`);
   `lib/mix/tasks/conveyor.doctor.ex`. No `.env.example`; `README.md:1-30` is
   conceptual only, with no run/setup instructions.
 - **Fresh session per slice:** `lib/conveyor/run_slice.ex:39-65` (station
-  orchestrator); `lib/conveyor/agent_runner/codex.ex:3-16,68` (`codex exec
-  --ephemeral`, fresh `session_id` per run, `--sandbox workspace-write` — a
-  per-process sandbox, not the M6 container).
+  orchestrator); `lib/conveyor/agent_runner/codex.ex:3-16,68`
+  (`codex exec --ephemeral`, fresh `session_id` per run,
+  `--sandbox workspace-write` — a per-process sandbox, not the M6 container).
 - **Gate state:** `lib/conveyor/planning/serial_driver.ex:48` (7 live
   `@default_gate_stages`), `serial_driver.ex:241` (`replay_fidelity.status`
   hardcoded `"matched"`); `corpus_pass_rate` is consumed-only at

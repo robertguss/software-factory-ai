@@ -35,8 +35,8 @@ Fixture: generated output contains active HTML, script tags, javascript URLs,
 oversized nested objects, or renderer-confusing markdown.
 
 Expected result: output boundary validation escapes or strips active content,
-enforces size/depth/reference/sensitivity limits, and requires human review
-when ambiguity remains.
+enforces size/depth/reference/sensitivity limits, and requires human review when
+ambiguity remains.
 
 ## Default Unsupported Policy Input
 

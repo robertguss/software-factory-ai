@@ -21,18 +21,18 @@ your call — these are scratch).
 ```markdown
 # Dogfood run — <plan-key> — <date>
 
-- run_id:        <from the conveyor.run output>
-- plan:          <path to conveyor.plan.yml>
-- adapter:       reference_solution | codex
-- slices:        <N>
-- result:        passed | partial | failed   (from conveyor.run_view)
+- run_id: <from the conveyor.run output>
+- plan: <path to conveyor.plan.yml>
+- adapter: reference_solution | codex
+- slices: <N>
+- result: passed | partial | failed (from conveyor.run_view)
 
 ## Observations (tag each: [decomposition] [harness] [cockpit] [agent])
 
-- [cockpit]      e.g. "couldn't tell which gate stage failed without the dev DB"
+- [cockpit] e.g. "couldn't tell which gate stage failed without the dev DB"
 - [decomposition] e.g. "slice 6 had no edge to slice 3 but needed its interface"
-- [harness]      e.g. "run exited non-zero on partial and broke my shell loop"
-- [agent]        e.g. "codex left a stub in slice 4 that passed a thin test"
+- [harness] e.g. "run exited non-zero on partial and broke my shell loop"
+- [agent] e.g. "codex left a stub in slice 4 that passed a thin test"
 
 ## Run story (paste `mix conveyor.run_view <run_id>`)
 
@@ -56,12 +56,13 @@ the gap list is actionable:
 After the run, for each observation that is a real, fixable gap (not an agent
 one-off), file a bead:
 
-- **Title prefix:** `dogfood:` — e.g. `dogfood: run_view doesn't show rework count`
-- **Tag/label:** `dogfood` (the cohort), plus the category tag
-  (`decomposition` / `harness` / `cockpit` / `agent`).
+- **Title prefix:** `dogfood:` — e.g.
+  `dogfood: run_view doesn't show rework count`
+- **Tag/label:** `dogfood` (the cohort), plus the category tag (`decomposition`
+  / `harness` / `cockpit` / `agent`).
 - **Back-link:** include the `run_id` and the plan key in the body so the bead
   traces to the run that surfaced it.
-- **Priority:** rank by how much it blocks the *next* run. A cockpit gap that
+- **Priority:** rank by how much it blocks the _next_ run. A cockpit gap that
   hid a failure outranks a cosmetic one.
 
 These `dogfood`-tagged beads are the backlog the dogfooding produces — they are

@@ -5,7 +5,13 @@
   "description": "A structured cost/latency record for a single real agent run (R2a cost instrumentation). The canonical source is the adapter's RawRunResult.metadata (tokens/cost_usd_estimated/latency_ms); this is the durable projection. cost_usd is an ESTIMATE (Codex reports tokens, not dollars; ~$0 marginal under a subscription) — tokens are the real signal. `arm`/`task` are present when the run is part of a lift duel.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "adapter", "tokens", "cost_usd_estimated", "latency_ms"],
+  "required": [
+    "schema_version",
+    "adapter",
+    "tokens",
+    "cost_usd_estimated",
+    "latency_ms"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.agent_usage@1" },
     "adapter": { "type": "string", "minLength": 1 },

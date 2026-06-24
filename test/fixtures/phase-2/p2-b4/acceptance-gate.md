@@ -15,9 +15,9 @@ Evidence:
 - `Conveyor.Planning.ContextAssemblyManifest` assembles authority context first,
   records budget and shed decisions, and blocks before any provider call when
   critical content would be dropped.
-- `PlanningContextAssemblyTest` proves critical PlanRevision, policy,
-  interface, and obligation context cannot be shed silently, while advisory
-  context is shed with reasons under budget pressure.
+- `PlanningContextAssemblyTest` proves critical PlanRevision, policy, interface,
+  and obligation context cannot be shed silently, while advisory context is shed
+  with reasons under budget pressure.
 - `Conveyor.Planning.PromptDryCompile` keeps `provider_called?: false` and
   `implementer_launched?: false` on blocked prompt inputs.
 - `PlanningPromptDryCompileTest` proves final dry-compile validates all required
@@ -72,8 +72,8 @@ Evidence:
 Evidence:
 
 - `Conveyor.Planning.RootAttestations` emits a canonical
-  `conveyor.attestation_statement@1` in-toto statement over the shared,
-  Epic, review, archive, and supporting evidence subjects.
+  `conveyor.attestation_statement@1` in-toto statement over the shared, Epic,
+  review, archive, and supporting evidence subjects.
 - `PlanningRootAttestationsTest` proves statement subjects are sorted, schema
   valid, and digest-stable across equivalent evidence ordering.
 - `conveyor.planning_bundle@1` defines the static approval bundle resource with
@@ -88,14 +88,14 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanningContextAssemblyTest` | critical context shed before provider, advisory shed without recorded reason | none |
-| `PlanningPromptDryCompileTest` | unauthorized prompt artifacts, instruction hierarchy conflicts, autonomy over-grant | none |
-| `PlanningLayeredRootsTest` | review bytes mutating authority roots, policy bytes not mutating shared authority root, approval record in signed root | none |
-| `PlanningRootAttestationsTest` | unstable attestation digest, invalid in-toto statement shape, missing root/evidence subject | none |
-| `PlanningFactoryChronicleTest` | canonical blocker hidden by summary prose, missing limitations banner | none |
-| `PlanningBundleSchemaTest` | bundle missing root digests, manifest refs, projection status, or approval-signature exclusion | none |
+| Evidence source                | Failed cases represented                                                                                               | Excluded cases |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `PlanningContextAssemblyTest`  | critical context shed before provider, advisory shed without recorded reason                                           | none           |
+| `PlanningPromptDryCompileTest` | unauthorized prompt artifacts, instruction hierarchy conflicts, autonomy over-grant                                    | none           |
+| `PlanningLayeredRootsTest`     | review bytes mutating authority roots, policy bytes not mutating shared authority root, approval record in signed root | none           |
+| `PlanningRootAttestationsTest` | unstable attestation digest, invalid in-toto statement shape, missing root/evidence subject                            | none           |
+| `PlanningFactoryChronicleTest` | canonical blocker hidden by summary prose, missing limitations banner                                                  | none           |
+| `PlanningBundleSchemaTest`     | bundle missing root digests, manifest refs, projection status, or approval-signature exclusion                         | none           |
 
 ## Verification Commands
 

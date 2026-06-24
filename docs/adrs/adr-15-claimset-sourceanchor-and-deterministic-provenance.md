@@ -62,8 +62,8 @@ The compiler assigns provenance deterministically:
   `human_explicit`.
 - Values matching immutable repository spans, symbols, or schema observations
   become `repo_observed`.
-- Values produced solely by deterministic passes become
-  `deterministic_derived` and cite pass/input anchors.
+- Values produced solely by deterministic passes become `deterministic_derived`
+  and cite pass/input anchors.
 - Only unmatched residual values may carry `agent_inferred`.
 - A model-supplied `human_explicit` or `repo_observed` label is ignored unless a
   deterministic pass resolves it.
@@ -80,8 +80,8 @@ human decision path.
 
 ## Consequences
 
-- Provenance is reviewable without duplicating large envelopes in every
-  semantic field.
+- Provenance is reviewable without duplicating large envelopes in every semantic
+  field.
 - Review can focus on high-impact inferred claims and conflicts instead of every
   copied or derived field.
 - Semantic artifact digests stay stable when confidence or explanatory prose

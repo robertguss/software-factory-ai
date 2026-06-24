@@ -18,9 +18,9 @@ compiler weakness could be hidden, and from-scratch human contract rewrites
 could mask whether generated contracts actually executed.
 
 The plan defines `PilotSelection` as an explicit resource with
-`planning_bundle_id`, `selection_policy_digest`, selected and excluded Slice IDs,
-coverage classes, a `selection_digest`, and `frozen_at`. It is immutable once the
-first selected implementation attempt starts.
+`planning_bundle_id`, `selection_policy_digest`, selected and excluded Slice
+IDs, coverage classes, a `selection_digest`, and `frozen_at`. It is immutable
+once the first selected implementation attempt starts.
 
 ## Decision
 
@@ -59,19 +59,19 @@ rate.
 ## Implementation Notes
 
 P2-B7 implements `PilotSelection`, the pre-registration command, serial
-execution through the qualified loop, and the pilot retrospective/Chronicle.
-The selection artifact should be content-addressed and referenced by
-`phase2_gate`.
+execution through the qualified loop, and the pilot retrospective/Chronicle. The
+selection artifact should be content-addressed and referenced by `phase2_gate`.
 
 Acceptance must prove the selected set never changes after outcomes, no failed
-selection is replaced, every failure receives typed comparison/diagnosis/recovery,
-unrelated ready Slices can continue when one Slice is parked, and the final
-report separates failure classes. Pilot mutation after execution begins is a
-hard `phase2_gate` failure.
+selection is replaced, every failure receives typed
+comparison/diagnosis/recovery, unrelated ready Slices can continue when one
+Slice is parked, and the final report separates failure classes. Pilot mutation
+after execution begins is a hard `phase2_gate` failure.
 
 ## References
 
 - Phase 1.5/2 plan resource `PilotSelection`.
-- Phase 1.5/2 plan section 17.4, "Phase-2 contract/compiler gate - hard correctness thresholds".
+- Phase 1.5/2 plan section 17.4, "Phase-2 contract/compiler gate - hard
+  correctness thresholds".
 - Phase 1.5/2 plan section 18.4 P2-B7, "Pre-registered generated-plan pilot".
 - Phase 1.5/2 plan section 28.2 item 22.

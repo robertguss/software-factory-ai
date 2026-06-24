@@ -12,8 +12,8 @@ Scope: release-suite evidence, quality-hypothesis comparison, release record,
 
 Evidence:
 
-- `release-suite-report.md` records the DB-free focused release suite:
-  43 passed when combined with the report test.
+- `release-suite-report.md` records the DB-free focused release suite: 43 passed
+  when combined with the report test.
 - `release-suite-report.md` covers contract, security, property, replay,
   recovery, retention, and legibility suites.
 - `release-suite-report.md` records `br dep cycles --json` returning no active
@@ -47,8 +47,8 @@ Evidence:
 
 - `test/fixtures/phase-2/p2-b7/acceptance-gate.md` is referenced by
   `phase2-gate.json` and `phase-next-decision.json`.
-- `quality-hypothesis-comparison.md` uses the P2-B7 pilot observations and
-  keeps `first_pass_gate_success` and `material_dispute_rate` as misses.
+- `quality-hypothesis-comparison.md` uses the P2-B7 pilot observations and keeps
+  `first_pass_gate_success` and `material_dispute_rate` as misses.
 
 ### the §17.8 six/eight-dimension Phase-3 matrix is used
 
@@ -59,16 +59,16 @@ Evidence:
   reliability, Operator clarity, Serial execution, Economics/latency, and
   Operational controls.
 - `phase3-hardening-plan.md` records `harden_gate_first` and lists the
-  non-selected adapter, contract pipeline, operator surface, and evidence
-  kernel hardening branches.
+  non-selected adapter, contract pipeline, operator surface, and evidence kernel
+  hardening branches.
 
 ### roadmap pressure cannot hide a failed gate without visible human risk acceptance and no automatic authority
 
 Evidence:
 
 - `phase2-gate.json` records `status: "failed"`,
-  `authorization_result: "hardening_required"`,
-  `automatic_authority: false`, and `roadmap_pressure_hidden: false`.
+  `authorization_result: "hardening_required"`, `automatic_authority: false`,
+  and `roadmap_pressure_hidden: false`.
 - `phase-next-decision.json` is schema-valid, selects `gate_first`, and records
   `blocks_requested_grant: true`.
 - `phase3-hardening-plan.md` says: No Phase-3 entry contract is issued.

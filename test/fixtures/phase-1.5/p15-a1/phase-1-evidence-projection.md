@@ -7,21 +7,21 @@ Date: 2026-06-19
 ## Source Baseline
 
 Projection starts from
-`test/fixtures/phase-1.5/p15-a0/phase-1-baseline-freeze.json`. Original Phase 1 artifact
-bytes remain immutable. Projection creates registry-aware lineage instead of
-editing existing artifacts.
+`test/fixtures/phase-1.5/p15-a0/phase-1-baseline-freeze.json`. Original Phase 1
+artifact bytes remain immutable. Projection creates registry-aware lineage
+instead of editing existing artifacts.
 
 ## Registry Mapping
 
-| Artifact family | Registered schema or seam |
-| --- | --- |
-| Plan contracts | `conveyor.plan@1` |
-| Run specs | `conveyor.run_spec@1` |
-| Station plans | `conveyor.station_plan@1` |
-| Evidence packets | `conveyor.evidence@1` |
-| Reviews | `conveyor.review@1` |
-| Gate results | `conveyor.gate@1` |
-| Run bundles | `conveyor.run_bundle@1` |
+| Artifact family        | Registered schema or seam        |
+| ---------------------- | -------------------------------- |
+| Plan contracts         | `conveyor.plan@1`                |
+| Run specs              | `conveyor.run_spec@1`            |
+| Station plans          | `conveyor.station_plan@1`        |
+| Evidence packets       | `conveyor.evidence@1`            |
+| Reviews                | `conveyor.review@1`              |
+| Gate results           | `conveyor.gate@1`                |
+| Run bundles            | `conveyor.run_bundle@1`          |
 | Phase branch decisions | `conveyor.phase_next_decision@1` |
 
 ## Projection Rules

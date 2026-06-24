@@ -23,7 +23,9 @@
     "digest": { "$ref": "#/$defs/digest_ref" },
     "dialect": { "type": "string", "minLength": 1 },
     "canonicalization_profile": { "enum": ["rfc8785-jcs"] },
-    "compatibility": { "enum": ["additive", "backward_compatible", "breaking"] },
+    "compatibility": {
+      "enum": ["additive", "backward_compatible", "breaking"]
+    },
     "reader_support": {
       "type": "array",
       "minItems": 1,

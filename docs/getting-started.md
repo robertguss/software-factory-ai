@@ -6,18 +6,18 @@ to driving one and reading what it did.
 
 ## 1. Prerequisites
 
-- **Toolchain** — [`mise`](https://mise.jdx.dev) installs the pinned Erlang/Elixir
-  from `mise.toml` (Erlang 29.0.2, Elixir 1.20.1):
+- **Toolchain** — [`mise`](https://mise.jdx.dev) installs the pinned
+  Erlang/Elixir from `mise.toml` (Erlang 29.0.2, Elixir 1.20.1):
   ```bash
   mise install
   ```
 - **Postgres** — Conveyor stores its work-graph and event-sourced ledger in
   Postgres. You need a reachable server for the `conveyor_dev` database. Config
-  reads `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE`
-  (defaults: `localhost` / `5432` / `postgres` / `postgres` / `conveyor_dev`).
-  If you run Postgres on another port (e.g. the project's Docker container on
-  `55432`), export `PGPORT` to match.
-- **Codex auth** — only for *live* runs (`--adapter codex`). The hermetic demo
+  reads `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE` (defaults:
+  `localhost` / `5432` / `postgres` / `postgres` / `conveyor_dev`). If you run
+  Postgres on another port (e.g. the project's Docker container on `55432`),
+  export `PGPORT` to match.
+- **Codex auth** — only for _live_ runs (`--adapter codex`). The hermetic demo
   and the deterministic dry-run need no credentials.
 
 ## 2. Set up
@@ -51,8 +51,9 @@ Confirms the loop, ledger, and gate are wired before you spend anything.
 
 1. **Write a prose plan** for a greenfield app (goal, requirements, constraints)
    — outside Conveyor.
-2. **Draft the work-graph.** Use [`docs/dogfood/decomposition-aid.md`](dogfood/decomposition-aid.md)
-   to turn the prose plan into a `conveyor.plan@1` graph with an external AI, and
+2. **Draft the work-graph.** Use
+   [`docs/dogfood/decomposition-aid.md`](dogfood/decomposition-aid.md) to turn
+   the prose plan into a `conveyor.plan@1` graph with an external AI, and
    **verify it** (its checklist runs `mix conveyor.plan_lint` / `plan_audit` and
    confirms the locked acceptance tests exist in the workspace).
 3. **Dry-run for free** to shake out harness/decomposition gaps with no agent
@@ -71,8 +72,9 @@ Confirms the loop, ledger, and gate are wired before you spend anything.
    ```
    The run story shows each slice's outcome, where the run stopped, the failing
    gate stage and reason, rework attempts, and token spend.
-6. **Log the gaps** with [`docs/dogfood/gap-log-template.md`](dogfood/gap-log-template.md)
-   and triage them into `br`.
+6. **Log the gaps** with
+   [`docs/dogfood/gap-log-template.md`](dogfood/gap-log-template.md) and triage
+   them into `br`.
 
 ## Operating discipline (early dogfooding)
 

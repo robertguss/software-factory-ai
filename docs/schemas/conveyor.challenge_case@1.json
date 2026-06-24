@@ -19,10 +19,15 @@
   ],
   "properties": {
     "schema_version": { "const": "conveyor.challenge_case@1" },
-    "id": { "type": "string", "pattern": "^challenge_case:sha256:[0-9a-f]{64}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^challenge_case:sha256:[0-9a-f]{64}$"
+    },
     "slice_id": { "type": "string", "minLength": 1 },
     "challenge_id": { "type": "string", "minLength": 1 },
-    "verification_obligation_refs": { "$ref": "#/$defs/non_empty_string_array" },
+    "verification_obligation_refs": {
+      "$ref": "#/$defs/non_empty_string_array"
+    },
     "acceptance_refs": { "$ref": "#/$defs/non_empty_string_array" },
     "compiler_falsifier_seed_refs": { "$ref": "#/$defs/string_array" },
     "hidden_from_implementer": { "type": "boolean" },

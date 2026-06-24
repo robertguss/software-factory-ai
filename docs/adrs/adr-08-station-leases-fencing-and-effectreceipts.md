@@ -6,7 +6,8 @@ Date: 2026-06-19
 
 Bead: `software-factory-ai-aamg.1.8`
 
-Gated milestone: P15-A3 - Station leases, fencing, effect receipts, trace events, and ArtifactStore
+Gated milestone: P15-A3 - Station leases, fencing, effect receipts, trace
+events, and ArtifactStore
 
 ## Context
 
@@ -29,8 +30,8 @@ current epoch. Writes and effect publications from older epochs are rejected.
 
 Every external effect declares delivery semantics: idempotent, externally
 deduplicated, reconcilable, or non_reconcilable. Effects carry a stable
-idempotency key, fencing token, request digest, and durable receipt. A retry must
-first reconcile any pending or ambiguous receipt before repeating or
+idempotency key, fencing token, request digest, and durable receipt. A retry
+must first reconcile any pending or ambiguous receipt before repeating or
 compensating an effect.
 
 EffectAttempt and EffectReceipt are separate resources. An EffectAttempt records

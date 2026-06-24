@@ -5,7 +5,9 @@
   "spec_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "qualification_grant_id": "qualification_grant:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "effective_capability_set_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-  "authority_root_digests": ["sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"],
+  "authority_root_digests": [
+    "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  ],
   "policy_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "environment_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "budget_reservation_ids": ["budget-reservation-001"],

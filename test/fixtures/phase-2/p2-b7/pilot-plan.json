@@ -27,7 +27,10 @@
       "public_interfaces": { "provides": [], "requires": [] },
       "risk_level": "low",
       "obligations": [
-        { "obligation_id": "obligation:source-provenance", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:source-provenance",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -40,7 +43,10 @@
       "public_interfaces": { "provides": [], "requires": [] },
       "risk_level": "low",
       "obligations": [
-        { "obligation_id": "obligation:root-reproducibility", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:root-reproducibility",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -56,7 +62,10 @@
       },
       "risk_level": "high",
       "obligations": [
-        { "obligation_id": "obligation:interface-compatibility", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:interface-compatibility",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -72,7 +81,10 @@
       },
       "risk_level": "medium",
       "obligations": [
-        { "obligation_id": "obligation:consumer-binding", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:consumer-binding",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -88,7 +100,10 @@
       },
       "risk_level": "high",
       "obligations": [
-        { "obligation_id": "obligation:migration-no-data-loss", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:migration-no-data-loss",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -102,7 +117,10 @@
       "alternative_candidate": true,
       "risk_level": "medium",
       "obligations": [
-        { "obligation_id": "obligation:decision-block-trace", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:decision-block-trace",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -110,13 +128,22 @@
       "epic_id": "epic:evidence",
       "title": "Apply a material amendment and selective invalidation preview",
       "machine_executable": true,
-      "depends_on": ["slice:public-interface-consumer", "slice:migration-compatibility"],
+      "depends_on": [
+        "slice:public-interface-consumer",
+        "slice:migration-compatibility"
+      ],
       "coverage_classes": ["amendment_path", "fork_join", "high_risk"],
-      "public_interfaces": { "provides": [], "requires": ["interface:runspec.contract.v2"] },
+      "public_interfaces": {
+        "provides": [],
+        "requires": ["interface:runspec.contract.v2"]
+      },
       "amendment": true,
       "risk_level": "high",
       "obligations": [
-        { "obligation_id": "obligation:amendment-new-attempt", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:amendment-new-attempt",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -130,7 +157,10 @@
       "parked_path": true,
       "risk_level": "medium",
       "obligations": [
-        { "obligation_id": "obligation:parked-path-diagnosis", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:parked-path-diagnosis",
+          "verification_mode": "automated"
+        }
       ]
     },
     {
@@ -144,7 +174,10 @@
       "human_verification_only": true,
       "risk_level": "high",
       "obligations": [
-        { "obligation_id": "obligation:legibility-human-review", "verification_mode": "human_only" }
+        {
+          "obligation_id": "obligation:legibility-human-review",
+          "verification_mode": "human_only"
+        }
       ]
     },
     {
@@ -152,12 +185,19 @@
       "epic_id": "epic:evidence",
       "title": "Publish pilot retrospective and Factory Chronicle",
       "machine_executable": true,
-      "depends_on": ["slice:amendment-path", "slice:parked-dispute", "slice:human-verification"],
+      "depends_on": [
+        "slice:amendment-path",
+        "slice:parked-dispute",
+        "slice:human-verification"
+      ],
       "coverage_classes": ["terminal_slice", "unchanged_contract"],
       "public_interfaces": { "provides": [], "requires": [] },
       "risk_level": "low",
       "obligations": [
-        { "obligation_id": "obligation:failure-class-report", "verification_mode": "automated" }
+        {
+          "obligation_id": "obligation:failure-class-report",
+          "verification_mode": "automated"
+        }
       ]
     }
   ]

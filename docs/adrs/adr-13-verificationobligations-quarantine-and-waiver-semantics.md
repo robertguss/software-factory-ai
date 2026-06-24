@@ -34,10 +34,9 @@ as `VerificationEvidence` with producer, validity, environment fingerprint,
 result digest, and evidence digest.
 
 `ObligationSatisfaction` is the only authority-bearing satisfaction record. It
-names the evidence requirement digest, consumed evidence ids,
-dimension-specific results, policy decision, result, satisfaction digest, and
-evaluation time. Results are limited to `satisfied`, `blocked`, `waived`, or
-`not_assessed`.
+names the evidence requirement digest, consumed evidence ids, dimension-specific
+results, policy decision, result, satisfaction digest, and evaluation time.
+Results are limited to `satisfied`, `blocked`, `waived`, or `not_assessed`.
 
 Quarantine is a test lifecycle state, not obligation satisfaction. A
 `TestQuarantine` can mark a test as flaky, non-hermetic, vacuous,
@@ -56,8 +55,8 @@ Waivers are explicit authority objects. An active `VerificationWaiver` requires:
 - a maximum autonomy level;
 - active status.
 
-A waiver does not delete the obligation and does not make the evidence valid.
-It records a policy-approved decision to proceed under reduced autonomy and
+A waiver does not delete the obligation and does not make the evidence valid. It
+records a policy-approved decision to proceed under reduced autonomy and
 compensating controls until expiry, revocation, or supersession.
 
 Human-observed evidence is distinct from machine evidence. A policy can require
@@ -100,6 +99,5 @@ aggregate.
   `VerificationEvidence`, `ObligationSatisfaction`, `VerificationWaiver`,
   `TestIntegrityRun`, and `TestQuarantine`.
 - Phase 1.5/2 plan, section 18.2, milestone P15-B4.
-- Phase 1.5/2 plan, section 27, strategy bullet on verification per
-  obligation.
+- Phase 1.5/2 plan, section 27, strategy bullet on verification per obligation.
 - Phase 1.5/2 plan, section 28.2, required ADR item 13.

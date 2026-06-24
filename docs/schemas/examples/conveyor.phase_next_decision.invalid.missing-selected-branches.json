@@ -2,9 +2,7 @@
   "schema_version": "conveyor.phase_next_decision@1",
   "phase0_1_report_ref": "docs/phase-1.5/p15-a0/phase-0-1-retrospective.md",
   "baseline_freeze_ref": "docs/phase-1.5/p15-a0/phase-1-baseline-freeze.json",
-  "evidence_refs": [
-    "docs/phase-1.5/p15-a0/phase-0-1-retrospective.md"
-  ],
+  "evidence_refs": ["docs/phase-1.5/p15-a0/phase-0-1-retrospective.md"],
   "decision_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "status": "accepted",
   "created_at": "2026-06-19T00:00:00Z"

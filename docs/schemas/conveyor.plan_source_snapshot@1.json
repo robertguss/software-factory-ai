@@ -4,12 +4,22 @@
   "title": "Conveyor PlanSourceSnapshot",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "plan_id", "source_document_ref", "source_content_digest", "imported_at", "imported_by"],
+  "required": [
+    "schema_version",
+    "plan_id",
+    "source_document_ref",
+    "source_content_digest",
+    "imported_at",
+    "imported_by"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.plan_source_snapshot@1" },
     "plan_id": { "type": "string", "minLength": 1 },
     "source_document_ref": { "type": "string", "minLength": 1 },
-    "source_content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "source_content_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "imported_at": { "type": "string", "format": "date-time" },
     "imported_by": { "type": "string", "minLength": 1 }
   }

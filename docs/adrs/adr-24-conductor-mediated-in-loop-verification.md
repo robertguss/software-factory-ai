@@ -15,20 +15,21 @@ Today an implementer agent runs blind in its sandbox for the full duration, and
 the gate judges only after the run completes. A full gate pass is expensive
 (minutes, real spend), so the agent receives ground-truth feedback only once,
 too late to use it within the attempt. The result is multi-round rework loops:
-the agent guesses, the gate corrects, a new attempt is forged. Each round costs a
-full sandbox run.
+the agent guesses, the gate corrects, a new attempt is forged. Each round costs
+a full sandbox run.
 
 The deterministic gate stages (`lib/conveyor/gate/stages/*`) are pure functions
 over a workspace and a contract. Several of them — diff scope, acceptance
 mapping, contract lock, secret safety, and scoped test execution — can be
-evaluated incrementally against an in-progress workspace. If the agent could read
-that signal mid-flight, it would self-correct against ground truth instead of
-guessing, collapsing most rework into the first attempt.
+evaluated incrementally against an in-progress workspace. If the agent could
+read that signal mid-flight, it would self-correct against ground truth instead
+of guessing, collapsing most rework into the first attempt.
 
 The concern is the determinism boundary. ADR-07 states that instruction
-authority flows only from policy-compiled RoleViews and ToolContracts, never from
-prose, and the broader law (ADR-06, ADR-15) is that the conductor owns verdicts
-and agents own drafting. A naive "let the agent run the gate" would blur that.
+authority flows only from policy-compiled RoleViews and ToolContracts, never
+from prose, and the broader law (ADR-06, ADR-15) is that the conductor owns
+verdicts and agents own drafting. A naive "let the agent run the gate" would
+blur that.
 
 ## Decision
 
@@ -59,19 +60,19 @@ contract already asks of it, never to reveal how it will be attacked.
 
 The `AgentRunner` behaviour and adapters gain a conductor callback channel for
 scoped read queries. The channel is policy-gated and logged as tool invocations
-under the existing `RunBudgetGuard` accounting, so mid-flight checks count toward
-the run budget and cannot be used to mine the verifier without cost.
+under the existing `RunBudgetGuard` accounting, so mid-flight checks count
+toward the run budget and cannot be used to mine the verifier without cost.
 
 Pass@1 is expected to rise materially; the primary measured outcome is the
 reduction in rework rounds per accepted slice.
 
-A new overfitting risk is introduced: an agent could tune its diff to the visible
-acceptance stages while remaining wrong against the hidden oracle. This is
-acceptable and intended to be caught precisely by keeping mutation,
-reference-solution survival, and red-team stages out of the mid-flight subset and
-in the final gate. The integrity sentinel (ADR-23 `TrustScore`) is the backstop:
-a diff that passes the visible stages but fails the hidden oracle abstains or
-fails.
+A new overfitting risk is introduced: an agent could tune its diff to the
+visible acceptance stages while remaining wrong against the hidden oracle. This
+is acceptable and intended to be caught precisely by keeping mutation,
+reference-solution survival, and red-team stages out of the mid-flight subset
+and in the final gate. The integrity sentinel (ADR-23 `TrustScore`) is the
+backstop: a diff that passes the visible stages but fails the hidden oracle
+abstains or fails.
 
 ## Implementation Notes
 
@@ -82,8 +83,8 @@ gate scoping (the First Light M1b work) is a prerequisite, since the mid-flight
 read must be scoped to the slice's own acceptance criteria.
 
 The ToolContract for the read query declares it read-only, no-effects, and
-budgeted, and records each invocation in the causal event log so the agent's
-use of ground truth is itself auditable.
+budgeted, and records each invocation in the causal event log so the agent's use
+of ground truth is itself auditable.
 
 ## References
 

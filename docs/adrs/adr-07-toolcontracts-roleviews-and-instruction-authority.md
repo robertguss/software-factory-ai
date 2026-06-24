@@ -6,7 +6,8 @@ Date: 2026-06-19
 
 Bead: `software-factory-ai-aamg.1.7`
 
-Gated milestone: P15-A2 - PolicyDecision, ToolContracts, RoleViews, and output boundaries
+Gated milestone: P15-A2 - PolicyDecision, ToolContracts, RoleViews, and output
+boundaries
 
 ## Context
 
@@ -30,9 +31,9 @@ model response.
 
 Every tool invocation requires a ToolContract. The contract defines input and
 output schemas, effect class, idempotency and delivery semantics, fence support,
-replay mode, authorization action, resource limits, network profile,
-sensitivity profile, enforcement profile, reconciliation strategy, ambiguity
-policy, and status.
+replay mode, authorization action, resource limits, network profile, sensitivity
+profile, enforcement profile, reconciliation strategy, ambiguity policy, and
+status.
 
 Each invocation receives a content-addressed RoleView. A RoleView lists the
 role, visible subjects and field selectors, redacted selectors, hidden subject
@@ -59,8 +60,8 @@ it is reused or displayed as trusted output.
 - Build the ToolContract registry, host authorization layer, EnforcementProfile
   compilation, RoleView compiler, and generated-output boundary validation in
   P15-A2.
-- Make provider-native or adapter-native tool loops subordinate to Conveyor
-  host authorization.
+- Make provider-native or adapter-native tool loops subordinate to Conveyor host
+  authorization.
 - Include hidden-oracle, scorer-only, benign-content, prompt-injection, and
   renderer fixtures.
 - Ensure model-generated shell text or tool prose never executes without an

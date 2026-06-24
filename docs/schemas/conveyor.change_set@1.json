@@ -28,7 +28,9 @@
         "additionalProperties": false,
         "required": ["op", "path", "reason"],
         "properties": {
-          "op": { "enum": ["add", "replace", "remove", "move", "copy", "test"] },
+          "op": {
+            "enum": ["add", "replace", "remove", "move", "copy", "test"]
+          },
           "path": { "type": "string", "minLength": 1 },
           "from": { "type": "string", "minLength": 1 },
           "value": {},
@@ -44,7 +46,14 @@
         "additionalProperties": false,
         "required": ["kind"],
         "properties": {
-          "kind": { "enum": ["base_revision_digest", "base_authority_root_digest", "policy_digest", "approval_root_digest"] },
+          "kind": {
+            "enum": [
+              "base_revision_digest",
+              "base_authority_root_digest",
+              "policy_digest",
+              "approval_root_digest"
+            ]
+          },
           "ref": { "$ref": "#/$defs/resource_ref" },
           "digest": { "$ref": "#/$defs/digest_ref" }
         }
@@ -52,12 +61,16 @@
     },
     "materiality_labels": {
       "type": "array",
-      "items": { "enum": ["nonmaterial", "review_only", "material", "breaking"] }
+      "items": {
+        "enum": ["nonmaterial", "review_only", "material", "breaking"]
+      }
     },
     "impact_preview_ref": { "$ref": "#/$defs/resource_ref" },
     "resulting_revision_digest": { "$ref": "#/$defs/digest_ref" },
     "change_set_digest": { "$ref": "#/$defs/digest_ref" },
-    "status": { "enum": ["draft", "previewed", "applied", "rejected", "blocked"] }
+    "status": {
+      "enum": ["draft", "previewed", "applied", "rejected", "blocked"]
+    }
   },
   "$defs": {
     "digest_ref": {

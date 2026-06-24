@@ -8,14 +8,21 @@
       "catch_canary": "poison-pill fixture",
       "clean_boundary": "valid fixture remains runnable",
       "blocks_on_miss": "canary_or_eval_false_negative",
-      "meta_canary_refs": ["poison_pill_fixture_failure_detected", "valid_fixture_not_rejected"]
+      "meta_canary_refs": [
+        "poison_pill_fixture_failure_detected",
+        "valid_fixture_not_rejected"
+      ]
     },
     {
       "tool_key": "integrity_sentinel",
       "catch_canary": "vacuous/flaky/non-hermetic evidence",
       "clean_boundary": "clean deterministic evidence remains trusted",
       "blocks_on_miss": "qualification_blocked",
-      "meta_canary_refs": ["vacuous_test_caught", "clean_test_not_quarantined", "required_flake_blocks_obligation"]
+      "meta_canary_refs": [
+        "vacuous_test_caught",
+        "clean_test_not_quarantined",
+        "required_flake_blocks_obligation"
+      ]
     },
     {
       "tool_key": "policy_evaluator",
@@ -36,7 +43,10 @@
       "catch_canary": "weakening/tamper/stale authority",
       "clean_boundary": "cosmetic-only change remains cosmetic",
       "blocks_on_miss": "evidence_comparator_blocked",
-      "meta_canary_refs": ["contract_weakening_material", "cosmetic_diff_not_authority_changing"]
+      "meta_canary_refs": [
+        "contract_weakening_material",
+        "cosmetic_diff_not_authority_changing"
+      ]
     },
     {
       "tool_key": "failure_diagnosis",
@@ -50,28 +60,41 @@
       "catch_canary": "planted silent drift",
       "clean_boundary": "allowed normalized variation passes",
       "blocks_on_miss": "behavior_oracle_blocked",
-      "meta_canary_refs": ["silent_refactor_drift_detected", "allowed_normalized_variance_passes"]
+      "meta_canary_refs": [
+        "silent_refactor_drift_detected",
+        "allowed_normalized_variance_passes"
+      ]
     },
     {
       "tool_key": "prompt_safety_role_view",
       "catch_canary": "injected instruction/hidden oracle",
       "clean_boundary": "benign repo prose remains data",
       "blocks_on_miss": "role_view_boundary_blocked",
-      "meta_canary_refs": ["prompt_injection_ignored", "benign_repo_text_not_blocked", "hidden_oracle_role_view_denied"]
+      "meta_canary_refs": [
+        "prompt_injection_ignored",
+        "benign_repo_text_not_blocked",
+        "hidden_oracle_role_view_denied"
+      ]
     },
     {
       "tool_key": "cassette_freshness",
       "catch_canary": "changed generation surface",
       "clean_boundary": "exact generation surface replays",
       "blocks_on_miss": "cassette_freshness_blocked",
-      "meta_canary_refs": ["stale_generation_cassette_rejected", "matching_cassette_replayed"]
+      "meta_canary_refs": [
+        "stale_generation_cassette_rejected",
+        "matching_cassette_replayed"
+      ]
     },
     {
       "tool_key": "approval_binding",
       "catch_canary": "authority-root byte change",
       "clean_boundary": "review-only erratum follows review policy",
       "blocks_on_miss": "approval_binding_blocked",
-      "meta_canary_refs": ["bundle_authority_byte_change_invalidates", "review_only_erratum_preserves_lock"]
+      "meta_canary_refs": [
+        "bundle_authority_byte_change_invalidates",
+        "review_only_erratum_preserves_lock"
+      ]
     },
     {
       "tool_key": "interrogator_completeness",

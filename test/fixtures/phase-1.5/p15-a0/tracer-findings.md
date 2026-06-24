@@ -33,8 +33,9 @@ could be treated as an executable contract:
 
 ## Context Misses
 
-- The prompt did not force inclusion of `samples/tasks_service/conveyor.plan.yml`
-  or the existing Phase 1 schema files.
+- The prompt did not force inclusion of
+  `samples/tasks_service/conveyor.plan.yml` or the existing Phase 1 schema
+  files.
 - The generated contract did not identify which template or policy files shaped
   allowed implementation behavior.
 

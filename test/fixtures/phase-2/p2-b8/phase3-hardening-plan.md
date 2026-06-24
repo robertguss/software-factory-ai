@@ -7,16 +7,16 @@ PhaseNextDecision opens `gate_first` hardening with no automatic authority.
 
 ## Readiness Matrix
 
-| Dimension | Finding | Decision |
-| --- | --- | --- |
-| Evidence/gate integrity | Focused release suites passed, but DB-backed `mix test` is unavailable locally and the gate records `db_backed_mix_test_unavailable`. | Not ready for Phase 3 production authority. |
-| Grant scope/stability | Current grant is active for offline/local-dev scope only and does not cover production Phase 3 authority. | Keep max autonomy at `local_dev`. |
-| Contract stability | `first_pass_gate_success` and `material_dispute_rate` miss the §17.6 hypotheses. | Harden contract/gate feedback before concurrency. |
-| Adapter reliability | No B8 adapter blocker is observed in the focused release suite. | Do not select adapter-first unless new adapter evidence regresses. |
-| Operator clarity | Release record exposes limitations, decision debt, and residual risks. | Preserve operator-visible gate state and hardening branch. |
-| Serial execution | P2-B7 pilot preserves serial execution and selected-set immutability, but one parked/disputed path remains part of the evidence. | Continue width-one hardening only. |
-| Economics/latency | Phase 3 concurrency/budget sizing lacks production DB-backed timing data. | Do not infer fleet budgets from local DB-free checks. |
-| Operational controls | Dependency graph has no active cycles and compile/diff checks pass; production restore/DB authority is not proven here. | Keep operational scope local until DB-backed release evidence exists. |
+| Dimension               | Finding                                                                                                                               | Decision                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Evidence/gate integrity | Focused release suites passed, but DB-backed `mix test` is unavailable locally and the gate records `db_backed_mix_test_unavailable`. | Not ready for Phase 3 production authority.                           |
+| Grant scope/stability   | Current grant is active for offline/local-dev scope only and does not cover production Phase 3 authority.                             | Keep max autonomy at `local_dev`.                                     |
+| Contract stability      | `first_pass_gate_success` and `material_dispute_rate` miss the §17.6 hypotheses.                                                      | Harden contract/gate feedback before concurrency.                     |
+| Adapter reliability     | No B8 adapter blocker is observed in the focused release suite.                                                                       | Do not select adapter-first unless new adapter evidence regresses.    |
+| Operator clarity        | Release record exposes limitations, decision debt, and residual risks.                                                                | Preserve operator-visible gate state and hardening branch.            |
+| Serial execution        | P2-B7 pilot preserves serial execution and selected-set immutability, but one parked/disputed path remains part of the evidence.      | Continue width-one hardening only.                                    |
+| Economics/latency       | Phase 3 concurrency/budget sizing lacks production DB-backed timing data.                                                             | Do not infer fleet budgets from local DB-free checks.                 |
+| Operational controls    | Dependency graph has no active cycles and compile/diff checks pass; production restore/DB authority is not proven here.               | Keep operational scope local until DB-backed release evidence exists. |
 
 ## Branch Selection
 

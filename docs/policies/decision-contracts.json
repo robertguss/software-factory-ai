@@ -1,22 +1,90 @@
 {
   "schema_version": "conveyor.decision_contract_registry@1",
   "decision_contracts": [
-    { "decision_key": "run.start", "default_result": "require_human", "subject_kinds": ["run_attempt"] },
-    { "decision_key": "planning.start", "default_result": "require_human", "subject_kinds": ["planning_bundle"] },
-    { "decision_key": "provider.egress", "default_result": "deny", "subject_kinds": ["provider_call"] },
-    { "decision_key": "qualification.grant_issue", "default_result": "require_human", "subject_kinds": ["qualification_grant"] },
-    { "decision_key": "qualification.grant_admit", "default_result": "deny", "subject_kinds": ["run_spec"] },
-    { "decision_key": "adapter.autonomy_ceiling", "default_result": "deny", "subject_kinds": ["adapter_profile"] },
-    { "decision_key": "artifact.role_visibility", "default_result": "deny", "subject_kinds": ["artifact"] },
-    { "decision_key": "tool.invoke", "default_result": "require_human", "subject_kinds": ["tool_contract"] },
-    { "decision_key": "cassette.accept", "default_result": "deny", "subject_kinds": ["cassette_series"] },
-    { "decision_key": "verification_obligation.satisfied", "default_result": "deny", "subject_kinds": ["verification_obligation"] },
-    { "decision_key": "recovery.auto_apply", "default_result": "require_human", "subject_kinds": ["recovery_action"] },
-    { "decision_key": "amendment.materiality", "default_result": "require_human", "subject_kinds": ["plan_amendment"] },
-    { "decision_key": "approval.invalidate", "default_result": "require_human", "subject_kinds": ["approval"] },
-    { "decision_key": "contract.lock", "default_result": "require_human", "subject_kinds": ["contract_lock"] },
-    { "decision_key": "slice.ready", "default_result": "deny", "subject_kinds": ["slice"] },
-    { "decision_key": "budget.reserve", "default_result": "deny", "subject_kinds": ["budget_reservation"] },
-    { "decision_key": "emergency_stop.resume", "default_result": "require_human", "subject_kinds": ["emergency_stop_state"] }
+    {
+      "decision_key": "run.start",
+      "default_result": "require_human",
+      "subject_kinds": ["run_attempt"]
+    },
+    {
+      "decision_key": "planning.start",
+      "default_result": "require_human",
+      "subject_kinds": ["planning_bundle"]
+    },
+    {
+      "decision_key": "provider.egress",
+      "default_result": "deny",
+      "subject_kinds": ["provider_call"]
+    },
+    {
+      "decision_key": "qualification.grant_issue",
+      "default_result": "require_human",
+      "subject_kinds": ["qualification_grant"]
+    },
+    {
+      "decision_key": "qualification.grant_admit",
+      "default_result": "deny",
+      "subject_kinds": ["run_spec"]
+    },
+    {
+      "decision_key": "adapter.autonomy_ceiling",
+      "default_result": "deny",
+      "subject_kinds": ["adapter_profile"]
+    },
+    {
+      "decision_key": "artifact.role_visibility",
+      "default_result": "deny",
+      "subject_kinds": ["artifact"]
+    },
+    {
+      "decision_key": "tool.invoke",
+      "default_result": "require_human",
+      "subject_kinds": ["tool_contract"]
+    },
+    {
+      "decision_key": "cassette.accept",
+      "default_result": "deny",
+      "subject_kinds": ["cassette_series"]
+    },
+    {
+      "decision_key": "verification_obligation.satisfied",
+      "default_result": "deny",
+      "subject_kinds": ["verification_obligation"]
+    },
+    {
+      "decision_key": "recovery.auto_apply",
+      "default_result": "require_human",
+      "subject_kinds": ["recovery_action"]
+    },
+    {
+      "decision_key": "amendment.materiality",
+      "default_result": "require_human",
+      "subject_kinds": ["plan_amendment"]
+    },
+    {
+      "decision_key": "approval.invalidate",
+      "default_result": "require_human",
+      "subject_kinds": ["approval"]
+    },
+    {
+      "decision_key": "contract.lock",
+      "default_result": "require_human",
+      "subject_kinds": ["contract_lock"]
+    },
+    {
+      "decision_key": "slice.ready",
+      "default_result": "deny",
+      "subject_kinds": ["slice"]
+    },
+    {
+      "decision_key": "budget.reserve",
+      "default_result": "deny",
+      "subject_kinds": ["budget_reservation"]
+    },
+    {
+      "decision_key": "emergency_stop.resume",
+      "default_result": "require_human",
+      "subject_kinds": ["emergency_stop_state"]
+    }
   ]
 }

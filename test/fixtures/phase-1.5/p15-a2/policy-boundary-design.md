@@ -31,10 +31,10 @@ prohibits domain code from calling an untyped evaluator directly.
 
 ## ToolContract and EnforcementProfile
 
-Tool contracts describe effect class, delivery semantics, fence support,
-replay mode, labels, sensitivity, authorization action, limits, ambiguity
-policy, and the enforcement profile reference. Enforcement profiles are the
-host-side sandbox boundary applied below the model.
+Tool contracts describe effect class, delivery semantics, fence support, replay
+mode, labels, sensitivity, authorization action, limits, ambiguity policy, and
+the enforcement profile reference. Enforcement profiles are the host-side
+sandbox boundary applied below the model.
 
 ## RoleView and Output Boundary
 

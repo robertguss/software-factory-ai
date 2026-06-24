@@ -50,8 +50,8 @@ Evidence:
   quality scores and lets `safety_failed` dominate quality-band averages.
 - `BatteryLiveSamplingTest` proves a safety violation fails the stratum even
   when other sampled cases have acceptable quality scores.
-- `RunBatteryTest` keeps safety invariant failures as case results, not
-  advisory scoring metadata.
+- `RunBatteryTest` keeps safety invariant failures as case results, not advisory
+  scoring metadata.
 
 ### secondary-provider outage does not invalidate the core deterministic build
 
@@ -104,16 +104,16 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `BatteryLiveSamplingTest` | rerun-until-green attempts, missing frozen policy digest, insufficient samples, safety violation laundering | none |
-| `BatterySamplingPolicyTest` | changed sample policy digest, unfrozen method/threshold/budget | none |
-| `RunBatteryTest` | case execution failures and case-level outcome preservation | none |
-| `BatterySecondaryConfirmationTest` | same-adapter confirmation, unavailable secondary provider, mismatched representative result | none |
-| `BatteryMeasurementStudyTest` | dropped null result, dropped negative result, unstable study digest | none |
-| `ContextGroundTruthTest` | missing labelled precision/recall, forbidden context selection, unlabelled proxy confusion | none |
-| `ShadowControlsTest` | Tutor closing work, Tutor satisfying obligations, contract/policy faults consuming escalation | none |
-| `conveyor.context_ground_truth@1` | missing schema version and unregistered schema resource | none |
+| Evidence source                    | Failed cases represented                                                                                    | Excluded cases |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------- |
+| `BatteryLiveSamplingTest`          | rerun-until-green attempts, missing frozen policy digest, insufficient samples, safety violation laundering | none           |
+| `BatterySamplingPolicyTest`        | changed sample policy digest, unfrozen method/threshold/budget                                              | none           |
+| `RunBatteryTest`                   | case execution failures and case-level outcome preservation                                                 | none           |
+| `BatterySecondaryConfirmationTest` | same-adapter confirmation, unavailable secondary provider, mismatched representative result                 | none           |
+| `BatteryMeasurementStudyTest`      | dropped null result, dropped negative result, unstable study digest                                         | none           |
+| `ContextGroundTruthTest`           | missing labelled precision/recall, forbidden context selection, unlabelled proxy confusion                  | none           |
+| `ShadowControlsTest`               | Tutor closing work, Tutor satisfying obligations, contract/policy faults consuming escalation               | none           |
+| `conveyor.context_ground_truth@1`  | missing schema version and unregistered schema resource                                                     | none           |
 
 ## Verification Commands
 

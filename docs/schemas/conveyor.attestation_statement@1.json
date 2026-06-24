@@ -26,7 +26,10 @@
           "name": { "type": "string", "minLength": 1 },
           "digest": {
             "type": "object",
-            "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" },
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64,128}$"
+            },
             "minProperties": 1
           }
         }
@@ -34,7 +37,9 @@
     },
     "predicateType": { "type": "string", "format": "uri" },
     "predicate": { "type": "object" },
-    "signature_status": { "enum": ["unsigned", "locally_signed", "externally_verified"] },
+    "signature_status": {
+      "enum": ["unsigned", "locally_signed", "externally_verified"]
+    },
     "verification_bundle_ref": { "type": "string", "minLength": 1 },
     "signer_identity": { "type": "string", "minLength": 1 }
   }

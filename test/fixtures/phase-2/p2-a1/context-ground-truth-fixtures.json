@@ -18,9 +18,7 @@
         "test/fixtures/phase-2/p2-a0/acceptance-gate.md#hard-constraints",
         "test/conveyor/planning_structural_audit_test.exs"
       ],
-      "patch_source_refs": [
-        "lib/conveyor/planning/structural_audit.ex"
-      ],
+      "patch_source_refs": ["lib/conveyor/planning/structural_audit.ex"],
       "opened_source_refs": [
         "test/fixtures/phase-2/p2-a0/acceptance-gate.md#hard-constraints",
         "test/conveyor/planning_structural_audit_test.exs",

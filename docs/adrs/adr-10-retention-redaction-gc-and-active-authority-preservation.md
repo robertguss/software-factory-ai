@@ -6,7 +6,8 @@ Date: 2026-06-19
 
 Bead: `software-factory-ai-aamg.1.10`
 
-Gated milestone: P15-A4 - Retention, redaction, emergency stop, global budget, and adapter health primitives
+Gated milestone: P15-A4 - Retention, redaction, emergency stop, global budget,
+and adapter health primitives
 
 ## Context
 
@@ -73,7 +74,8 @@ or sensitive internal identifiers do not enter reusable archives.
 ## References
 
 - docs/2_implementation_plans/PHASE-1.5-2-TRUST-QUALIFICATION-PLAN-COMPILER-CONTRACT-FOUNDRY-ULTIMATE-HYBRID.md
-- Correction P, immutable evidence does not imply infinite retention or Postgres payload bloat
+- Correction P, immutable evidence does not imply infinite retention or Postgres
+  payload bloat
 - Section 3, law 47
 - Section 5.9, Artifact lifecycle and retention
 - Section 15.1, Evidence Kernel threats and defenses

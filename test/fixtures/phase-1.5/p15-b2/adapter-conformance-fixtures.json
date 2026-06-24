@@ -41,7 +41,7 @@
       "key": "malformed_events",
       "branch": "malformed_events",
       "input": {
-        "event_stream": [{"sequence_no": "not-an-integer"}],
+        "event_stream": [{ "sequence_no": "not-an-integer" }],
         "adapter_response": "malformed_event"
       },
       "expected": "fail_closed",
@@ -58,7 +58,7 @@
       "key": "out_of_order_events",
       "branch": "out_of_order_events",
       "input": {
-        "event_stream": [{"sequence_no": 2}, {"sequence_no": 1}],
+        "event_stream": [{ "sequence_no": 2 }, { "sequence_no": 1 }],
         "adapter_response": "non_monotonic_sequence"
       },
       "expected": "fail_closed",
@@ -75,7 +75,7 @@
       "key": "duplicate_events",
       "branch": "duplicate_events",
       "input": {
-        "event_stream": [{"event_id": "evt-1"}, {"event_id": "evt-1"}],
+        "event_stream": [{ "event_id": "evt-1" }, { "event_id": "evt-1" }],
         "adapter_response": "duplicate_event"
       },
       "expected": "fail_closed",

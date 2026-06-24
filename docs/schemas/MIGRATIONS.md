@@ -6,11 +6,11 @@ Date: 2026-06-19
 
 ## Compatibility Classes
 
-| Class | Meaning |
-| --- | --- |
-| `additive` | Adds optional fields or enum values that old consumers can ignore safely. |
-| `backward_compatible` | Changes reader behavior without changing existing field meanings. |
-| `breaking` | Removes required fields, changes field meaning, tightens authority, or changes required evidence semantics. |
+| Class                 | Meaning                                                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `additive`            | Adds optional fields or enum values that old consumers can ignore safely.                                   |
+| `backward_compatible` | Changes reader behavior without changing existing field meanings.                                           |
+| `breaking`            | Removes required fields, changes field meaning, tightens authority, or changes required evidence semantics. |
 
 Unknown enum values fail closed for authority-bearing decisions unless the
 reader explicitly declares forward-compatible handling for that vocabulary.

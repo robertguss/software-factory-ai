@@ -27,18 +27,18 @@ failure. `Conveyor.Planning.PlanAmendments.propose/1`
 (`lib/conveyor/planning/plan_amendments.ex`) computes an amendment proposal via
 `InvalidationPreview.preview_invalidation` and `ImpactPreview.build`, returning
 the affected and downstream refs, the invalidated artifacts, and a status of
-`:accepted` or `:human_review_required`. Selective recompilation (ADR-14) and the
-derivation graph (ADR-16) already support re-deriving only the affected slices.
-ADR-20 already requires that any contract evolution create a new lock, spec, and
-attempt.
+`:accepted` or `:human_review_required`. Selective recompilation (ADR-14) and
+the derivation graph (ADR-16) already support re-deriving only the affected
+slices. ADR-20 already requires that any contract evolution create a new lock,
+spec, and attempt.
 
 ## Decision
 
-When a gate failure is classified as a contract defect rather than a code defect,
-the conductor automatically calls `PlanAmendments.propose/1`, computes the blast
-radius, and surfaces the proposal to the operator for one decision. On approval,
-only the affected slices are re-derived; on rejection, the slice returns to the
-normal rework or park path.
+When a gate failure is classified as a contract defect rather than a code
+defect, the conductor automatically calls `PlanAmendments.propose/1`, computes
+the blast radius, and surfaces the proposal to the operator for one decision. On
+approval, only the affected slices are re-derived; on rejection, the slice
+returns to the normal rework or park path.
 
 Amendments are proposed, never auto-applied to acceptance contracts. Separation
 of duties (ADR-07, ADR-13, ADR-19) is non-negotiable: the implementer that wrote
@@ -53,8 +53,8 @@ Classification of a failure as contract-defect vs code-defect is itself a
 recorded, conductor-side decision driven by the failure taxonomy
 (`Conveyor.Retrospective` already computes it; this ADR wires it to drive
 routing). A misclassification that treats a code bug as a spec bug must be cheap
-to reverse: the default bias is code-defect, and contract-defect routing requires
-either an explicit taxonomy signal or operator confirmation.
+to reverse: the default bias is code-defect, and contract-defect routing
+requires either an explicit taxonomy signal or operator confirmation.
 
 Pilot integrity (ADR-22) is preserved. During a frozen pilot, an amendment that
 rescues a selected slice does not silently swap it out of the measured set; the
@@ -66,8 +66,8 @@ release failure under ADR-22, not a success.
 
 Every contract amendment follows ADR-20: a new ContractLock, RunSpec, and
 RunAttempt, with the prior contract retained immutably. The amendment, its
-trigger finding, its blast radius, and its approval are appended to the ledger so
-the plan's evolution is fully event-sourced and never silently drifts.
+trigger finding, its blast radius, and its approval are appended to the ledger
+so the plan's evolution is fully event-sourced and never silently drifts.
 
 The operator's role shifts from debugging code to satisfy a possibly-wrong spec
 toward adjudicating spec changes — the higher-value decisions. The initial plan
@@ -96,5 +96,6 @@ pointer or a non-semantic clarification).
 - docs/RADICAL-LEVERAGE-IDEAS.md, idea 4 (the self-amending plan) and idea 7
   (failure-taxonomy routing), heresy H3.
 - `lib/conveyor/planning/plan_amendments.ex`,
-  `lib/conveyor/evidence/invalidation_preview.ex`, `lib/conveyor/retrospective.ex`.
+  `lib/conveyor/evidence/invalidation_preview.ex`,
+  `lib/conveyor/retrospective.ex`.
 - ADR-14, ADR-16, ADR-20, ADR-22, ADR-07, ADR-13, ADR-19.

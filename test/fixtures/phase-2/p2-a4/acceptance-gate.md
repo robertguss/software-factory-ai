@@ -18,8 +18,7 @@ Evidence:
   digest separation.
 - The property suite composes `Conveyor.Planning.SliceDependency`,
   `Conveyor.Planning.StableIdentity`, `Conveyor.Planning.InterfaceGraph`,
-  `Conveyor.Planning.GraphAnalyses`,
-  `Conveyor.Planning.StructuralDryRun`,
+  `Conveyor.Planning.GraphAnalyses`, `Conveyor.Planning.StructuralDryRun`,
   `Conveyor.Planning.ArtifactInputIndex`, and
   `Conveyor.Planning.StaticDecisionPackage`.
 
@@ -27,9 +26,9 @@ Evidence:
 
 Evidence:
 
-- `PlanningCompilerPropertiesTest` proves identical pass inputs/version reuse the
-  `Conveyor.Planning.PassRegistry` cache and authority/pass-version changes miss
-  the cache.
+- `PlanningCompilerPropertiesTest` proves identical pass inputs/version reuse
+  the `Conveyor.Planning.PassRegistry` cache and authority/pass-version changes
+  miss the cache.
 - `PlanningCompilerPropertiesTest` also proves derivation and impact behavior by
   exercising `Conveyor.Planning.ArtifactInputIndex` and
   `Conveyor.Planning.StructuralDryRun`.
@@ -38,9 +37,9 @@ Evidence:
 
 Evidence:
 
-- `PlanningPlanLintTest` proves `Conveyor.Planning.PlanLint` detects missing hard
-  constraints, unmeasurable ACs, ambiguous interfaces, human-decision blockers,
-  weak oracle paths, and critical context-budget impossibility.
+- `PlanningPlanLintTest` proves `Conveyor.Planning.PlanLint` detects missing
+  hard constraints, unmeasurable ACs, ambiguous interfaces, human-decision
+  blockers, weak oracle paths, and critical context-budget impossibility.
 - The same test proves a complete non-authorizing lint contract passes with no
   findings.
 
@@ -62,8 +61,8 @@ Evidence:
 - `Mix.Tasks.ConveyorCompilerStructureGateTest` proves
   `mix conveyor.compiler_structure_gate` passes complete static packages with no
   hard blockers and exits two for hard blockers.
-- `Conveyor.Planning.CompilerStructureGate` fails closed if a package attempts to
-  create ContractLock, approval, ready-Slice, or implementer authority.
+- `Conveyor.Planning.CompilerStructureGate` fails closed if a package attempts
+  to create ContractLock, approval, ready-Slice, or implementer authority.
 
 ### no-agent lint runs without a QualificationGrant and produces the same deterministic diagnostics as the full compiler
 
@@ -87,15 +86,15 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanningStaticDecisionPackageTest` | missing required artifacts, authority accidentally emitted by the static package | none |
-| `PlanningPromptDryCompileTest` | missing prompt placeholders, provider/implementer launch during dry compile | none |
-| `PlanningCompilerPropertiesTest` | cycles, unstable IDs, missing traceability, unsafe atomicity, invalidation ambiguity, cache contamination, digest conflation | none |
-| `PlanningStaticReportTest` | JSON/static human projection drift, missing canonical finding keys | none |
-| `Mix.Tasks.ConveyorCompilerStructureGateTest` | structural blockers passing, authority-creating packages passing | none |
-| `PlanningPlanLintTest` | missing hard constraints, unmeasurable ACs, ambiguous interfaces, orphan/static blockers, weak oracle paths, invalid suppressions, critical context impossibility | none |
-| `Mix.Tasks.ConveyorPlanLintTest` | CLI drift for `plan_lint`, `contract_lint`, and `plan_prepare --no-agents`; SARIF/source-anchor loss; accidental provider/agent requirements | none |
+| Evidence source                               | Failed cases represented                                                                                                                                          | Excluded cases |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `PlanningStaticDecisionPackageTest`           | missing required artifacts, authority accidentally emitted by the static package                                                                                  | none           |
+| `PlanningPromptDryCompileTest`                | missing prompt placeholders, provider/implementer launch during dry compile                                                                                       | none           |
+| `PlanningCompilerPropertiesTest`              | cycles, unstable IDs, missing traceability, unsafe atomicity, invalidation ambiguity, cache contamination, digest conflation                                      | none           |
+| `PlanningStaticReportTest`                    | JSON/static human projection drift, missing canonical finding keys                                                                                                | none           |
+| `Mix.Tasks.ConveyorCompilerStructureGateTest` | structural blockers passing, authority-creating packages passing                                                                                                  | none           |
+| `PlanningPlanLintTest`                        | missing hard constraints, unmeasurable ACs, ambiguous interfaces, orphan/static blockers, weak oracle paths, invalid suppressions, critical context impossibility | none           |
+| `Mix.Tasks.ConveyorPlanLintTest`              | CLI drift for `plan_lint`, `contract_lint`, and `plan_prepare --no-agents`; SARIF/source-anchor loss; accidental provider/agent requirements                      | none           |
 
 ## Verification Commands
 

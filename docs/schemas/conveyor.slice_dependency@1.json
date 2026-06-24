@@ -4,15 +4,29 @@
   "title": "Conveyor SliceDependency",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "from_slice_key", "to_slice_key", "kind", "rationale", "source_anchor_refs", "origin", "confidence"],
+  "required": [
+    "schema_version",
+    "from_slice_key",
+    "to_slice_key",
+    "kind",
+    "rationale",
+    "source_anchor_refs",
+    "origin",
+    "confidence"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.slice_dependency@1" },
     "from_slice_key": { "type": "string", "minLength": 1 },
     "to_slice_key": { "type": "string", "minLength": 1 },
     "kind": { "enum": ["execution_hard", "integration_order"] },
     "rationale": { "type": "string", "minLength": 1 },
-    "source_anchor_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "origin": { "enum": ["human_explicit", "deterministic_derived", "agent_inferred"] },
+    "source_anchor_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "origin": {
+      "enum": ["human_explicit", "deterministic_derived", "agent_inferred"]
+    },
     "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
   }
 }

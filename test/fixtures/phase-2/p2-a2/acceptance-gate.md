@@ -87,15 +87,15 @@ Evidence:
 
 ## Release Report
 
-| Evidence source | Failed cases represented | Excluded cases |
-| --- | --- | --- |
-| `PlanningPassRegistryTest` | undeclared pass reads, stale cache reuse after authority/pass-version changes | none |
-| `PlanningDecomposerTest` | canonical IDs minted in proposals, missing proposal artifacts, shadow run for low-risk plans | none |
-| `PlanningDecompositionSelectionTest` | ties auto-selected, unapproved scope selected, candidates auto-blended | none |
-| `PlanningWorkGraphLoweringTest` | stale PlanningSpec digest, missing stable key, partial WorkGraph materialized from malformed input | none |
-| `PlanningStableIdentityTest` | order-based Slice keys, semantic change without supersession, agent-minted final IDs | none |
-| `PlanningPassDiagnosticsTest` | one failed fragment erasing valid sibling artifacts, nondeterministic diagnostics, partial authority hidden | none |
-| `conveyor.decomposition_selection@1` | missing schema version and unregistered schema resource | none |
+| Evidence source                      | Failed cases represented                                                                                    | Excluded cases |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- | -------------- |
+| `PlanningPassRegistryTest`           | undeclared pass reads, stale cache reuse after authority/pass-version changes                               | none           |
+| `PlanningDecomposerTest`             | canonical IDs minted in proposals, missing proposal artifacts, shadow run for low-risk plans                | none           |
+| `PlanningDecompositionSelectionTest` | ties auto-selected, unapproved scope selected, candidates auto-blended                                      | none           |
+| `PlanningWorkGraphLoweringTest`      | stale PlanningSpec digest, missing stable key, partial WorkGraph materialized from malformed input          | none           |
+| `PlanningStableIdentityTest`         | order-based Slice keys, semantic change without supersession, agent-minted final IDs                        | none           |
+| `PlanningPassDiagnosticsTest`        | one failed fragment erasing valid sibling artifacts, nondeterministic diagnostics, partial authority hidden | none           |
+| `conveyor.decomposition_selection@1` | missing schema version and unregistered schema resource                                                     | none           |
 
 ## Verification Commands
 

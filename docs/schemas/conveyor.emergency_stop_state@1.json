@@ -4,7 +4,14 @@
   "title": "Conveyor EmergencyStopState",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "scope", "status", "reason", "actor", "trace_id"],
+  "required": [
+    "schema_version",
+    "scope",
+    "status",
+    "reason",
+    "actor",
+    "trace_id"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.emergency_stop_state@1" },
     "scope": { "enum": ["system", "project"] },

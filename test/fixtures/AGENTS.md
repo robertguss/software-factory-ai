@@ -7,13 +7,13 @@ expected artifacts for Conveyor tests.
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-| --- | --- | --- |
-| AGENTS linter cases | `agents_md_linter/` | Positive/negative instruction fixtures. |
-| Evaluation suites | `eval_suites/` | Inputs for quality and gate evaluations. |
-| Plan audit data | `plan_audit/` | Snapshots and audit scenarios. |
-| Policy examples | `policy_eval/` | Policy decision and enforcement samples. |
-| Prompt builder data | `prompt_builder/` | Prompt/context assembly fixtures. |
+| Task                | Location            | Notes                                    |
+| ------------------- | ------------------- | ---------------------------------------- |
+| AGENTS linter cases | `agents_md_linter/` | Positive/negative instruction fixtures.  |
+| Evaluation suites   | `eval_suites/`      | Inputs for quality and gate evaluations. |
+| Plan audit data     | `plan_audit/`       | Snapshots and audit scenarios.           |
+| Policy examples     | `policy_eval/`      | Policy decision and enforcement samples. |
+| Prompt builder data | `prompt_builder/`   | Prompt/context assembly fixtures.        |
 
 ## CONVENTIONS
 

@@ -147,7 +147,12 @@
     "verification_obligation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "acceptance_criterion_id", "obligation_kind", "evidence_requirements"],
+      "required": [
+        "id",
+        "acceptance_criterion_id",
+        "obligation_kind",
+        "evidence_requirements"
+      ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "acceptance_criterion_id": { "type": "string", "minLength": 1 },

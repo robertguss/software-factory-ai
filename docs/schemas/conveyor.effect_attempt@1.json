@@ -4,7 +4,17 @@
   "title": "Conveyor EffectAttempt",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "station_run_id", "station_effect_id", "fencing_token", "admission_permit_id", "idempotency_key", "request_digest", "started_at", "status"],
+  "required": [
+    "schema_version",
+    "station_run_id",
+    "station_effect_id",
+    "fencing_token",
+    "admission_permit_id",
+    "idempotency_key",
+    "request_digest",
+    "started_at",
+    "status"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.effect_attempt@1" },
     "station_run_id": { "type": "string", "minLength": 1 },
@@ -15,7 +25,9 @@
     "request_digest": { "$ref": "#/$defs/digest" },
     "started_at": { "type": "string", "format": "date-time" },
     "completed_at": { "type": "string", "format": "date-time" },
-    "status": { "enum": ["started", "externally_accepted", "failed", "outcome_unknown"] }
+    "status": {
+      "enum": ["started", "externally_accepted", "failed", "outcome_unknown"]
+    }
   },
   "$defs": {
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }

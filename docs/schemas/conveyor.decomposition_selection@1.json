@@ -18,7 +18,10 @@
     "schema_version": { "const": "conveyor.decomposition_selection@1" },
     "planning_run_id": { "type": "string", "minLength": 1 },
     "candidate_set_ref": { "type": "string", "minLength": 1 },
-    "candidate_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "candidate_set_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "selected_candidate_key": { "type": ["string", "null"], "minLength": 1 },
     "selection_actor": { "enum": ["deterministic", "human"] },
     "selection_rationale": { "type": "string", "minLength": 1 },

@@ -12,7 +12,9 @@ in-toto Statement shape:
 ```json
 {
   "_type": "https://in-toto.io/Statement/v1",
-  "subject": [{"name": "conveyor:subject/...", "digest": {"sha256": "..."}}],
+  "subject": [
+    { "name": "conveyor:subject/...", "digest": { "sha256": "..." } }
+  ],
   "predicateType": "https://conveyor.dev/attestations/<kind>/v1",
   "predicate": {}
 }
@@ -20,11 +22,11 @@ in-toto Statement shape:
 
 ## Signature Status
 
-| Status | Meaning |
-| --- | --- |
-| `unsigned` | Local-development statement protected only by local CAS, approval chain, and subject digest checks. |
-| `locally_signed` | Signed by a configured local/team identity. |
-| `externally_verified` | DSSE or equivalent portable verification bundle is available and policy-accepted. |
+| Status                | Meaning                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `unsigned`            | Local-development statement protected only by local CAS, approval chain, and subject digest checks. |
+| `locally_signed`      | Signed by a configured local/team identity.                                                         |
+| `externally_verified` | DSSE or equivalent portable verification bundle is available and policy-accepted.                   |
 
 An in-toto-shaped envelope does not imply supply-chain assurance beyond its
 `signature_status`.

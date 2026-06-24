@@ -3,7 +3,9 @@
   "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "repository_base_commit": "abcdef1234567890abcdef1234567890abcdef12",
   "package_manager": "mix",
-  "lockfile_digests": ["sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "lockfile_digests": [
+    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
   "registry_mirror_policy": "direct_locked",
   "resolved_package_refs": ["hex:phoenix:1.8.0", "hex:ecto_sql:3.13.2"],
   "script_policy": "deny",

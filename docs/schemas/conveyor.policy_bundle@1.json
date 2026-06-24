@@ -4,14 +4,26 @@
   "title": "Conveyor PolicyBundle",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "policy_bundle_key", "version", "policy_ref", "digest", "input_schema_refs", "validation_report_ref", "status"],
+  "required": [
+    "schema_version",
+    "policy_bundle_key",
+    "version",
+    "policy_ref",
+    "digest",
+    "input_schema_refs",
+    "validation_report_ref",
+    "status"
+  ],
   "properties": {
     "schema_version": { "const": "conveyor.policy_bundle@1" },
     "policy_bundle_key": { "type": "string", "minLength": 1 },
     "version": { "type": "integer", "minimum": 1 },
     "policy_ref": { "type": "string", "minLength": 1 },
     "digest": { "$ref": "#/$defs/digest_ref" },
-    "input_schema_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "input_schema_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "validation_report_ref": { "type": "string", "minLength": 1 },
     "status": { "enum": ["draft", "active", "superseded", "revoked"] }
   },

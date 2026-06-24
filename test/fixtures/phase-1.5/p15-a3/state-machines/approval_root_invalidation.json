@@ -3,13 +3,39 @@
   "slug": "approval_root_invalidation",
   "kind": "state-machine",
   "proves": "approval/root invalidation",
-  "states": ["root_current", "approval_valid", "root_changed", "approval_invalidated", "approval_reissued"],
+  "states": [
+    "root_current",
+    "approval_valid",
+    "root_changed",
+    "approval_invalidated",
+    "approval_reissued"
+  ],
   "transitions": [
-    { "from": "root_current", "event": "issue_approval", "to": "approval_valid" },
-    { "from": "approval_valid", "event": "authority_root_changes", "to": "root_changed" },
-    { "from": "root_changed", "event": "invalidate_old_approval", "to": "approval_invalidated" },
-    { "from": "approval_invalidated", "event": "attempt_use_old_approval", "to": "approval_invalidated" },
-    { "from": "approval_invalidated", "event": "issue_new_approval_for_new_root", "to": "approval_reissued" }
+    {
+      "from": "root_current",
+      "event": "issue_approval",
+      "to": "approval_valid"
+    },
+    {
+      "from": "approval_valid",
+      "event": "authority_root_changes",
+      "to": "root_changed"
+    },
+    {
+      "from": "root_changed",
+      "event": "invalidate_old_approval",
+      "to": "approval_invalidated"
+    },
+    {
+      "from": "approval_invalidated",
+      "event": "attempt_use_old_approval",
+      "to": "approval_invalidated"
+    },
+    {
+      "from": "approval_invalidated",
+      "event": "issue_new_approval_for_new_root",
+      "to": "approval_reissued"
+    }
   ],
   "invariants": [
     "Approval validity is scoped to the authority root digest it reviewed.",

@@ -22,7 +22,9 @@
       "boundary_examples": ["empty task list"],
       "abuse_examples": ["unknown fields are ignored"],
       "non_goal_examples": ["authentication behavior"],
-      "falsifying_conditions": ["a created completed task is listed without completed=true"]
+      "falsifying_conditions": [
+        "a created completed task is listed without completed=true"
+      ]
     }
   ],
   "verification_obligations": [
