@@ -66,6 +66,13 @@ defmodule Conveyor.Factory.Slice do
       public? true
     end
 
+    # The plan-authored stable key for this slice (e.g. "SLICE-005"). The ledger
+    # run-story keys slices by this stable key while DB rows key by UUID; persisting
+    # it lets the run-story read-back (Conveyor.RunReadModel) join the two.
+    attribute :stable_key, :string do
+      public? true
+    end
+
     attribute :position, :integer do
       allow_nil? false
       public? true

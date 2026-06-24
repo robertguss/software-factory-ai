@@ -30,6 +30,7 @@ defmodule Conveyor.RunReadModel do
   alias Conveyor.Factory.GateResult
   alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.RunAttempt
+  alias Conveyor.Factory.Slice
   alias Conveyor.Planning.RunReconstruction
 
   # Mirrors RunReconciler's @lifecycle_types: the run-lifecycle events that carry terminal state.
@@ -50,6 +51,8 @@ defmodule Conveyor.RunReadModel do
           sequence: integer() | nil,
           outcome: String.t() | nil,
           run_attempt_outcome: String.t() | nil,
+          gate_result: String.t() | nil,
+          findings: [String.t()],
           gate: gate(),
           rework_attempts: non_neg_integer(),
           spend: spend()
@@ -108,6 +111,12 @@ defmodule Conveyor.RunReadModel do
           sequence: payload["sequence"],
           outcome: payload["status"],
           run_attempt_outcome: payload["run_attempt_outcome"],
+          # The run-scoped truth straight from the slice's committed outcome event:
+          # WHY it ended as it did (gate verdict + finding categories). Unlike the
+          # DB enrichment below, these need no join — they are keyed by the same
+          # stable slice id the ledger uses, scoped to this run.
+          gate_result: payload["gate_result"],
+          findings: List.wrap(payload["findings"]),
           gate: %{failed_stage: nil, failed_status: nil, verdict: nil},
           rework_attempts: 0,
           spend: :unknown
@@ -160,33 +169,57 @@ defmodule Conveyor.RunReadModel do
     attempts = read(RunAttempt)
     gate_results = read(GateResult)
     sessions = read(AgentSession)
+    db_slices = read(Slice)
 
-    attempts_by_slice = Enum.group_by(attempts, & &1.slice_id)
+    # The ledger run story keys slices by stable key ("SLICE-005"); the DB keys
+    # them by UUID. Bridge the two through the persisted `Slice.stable_key`.
+    # A stable key can resolve to MORE THAN ONE slice row once a plan has been
+    # run repeatedly, and nothing yet links a run_id to its specific slice rows
+    # (that arrives with the DB-native task graph). So we only enrich a slice
+    # from the DB when its stable key resolves to exactly one row — otherwise the
+    # gate/rework numbers could blend separate runs, and a wrong number is worse
+    # than none. The run-scoped outcome/findings from the ledger always stand.
+    uuids_by_key = db_slices |> Enum.group_by(& &1.stable_key, & &1.id) |> Map.delete(nil)
+    key_by_uuid = Map.new(db_slices, &{&1.id, &1.stable_key})
+
+    attempts_by_key =
+      attempts
+      |> Enum.group_by(&Map.get(key_by_uuid, &1.slice_id))
+      |> Map.delete(nil)
 
     %{
       story
-      | slices: Enum.map(slices, &enrich_slice(&1, attempts_by_slice, gate_results, sessions))
+      | slices:
+          Enum.map(
+            slices,
+            &enrich_slice(&1, uuids_by_key, attempts_by_key, gate_results, sessions)
+          )
     }
   end
 
   @spec enrich_slice(
           slice_story(),
+          %{optional(String.t()) => [String.t()]},
           %{optional(String.t()) => [RunAttempt.t()]},
           [GateResult.t()],
-          [
-            AgentSession.t()
-          ]
+          [AgentSession.t()]
         ) :: slice_story()
-  defp enrich_slice(slice, attempts_by_slice, gate_results, sessions) do
-    slice_attempts = Map.get(attempts_by_slice, slice.slice_id, [])
-    latest = latest_attempt(slice_attempts)
+  defp enrich_slice(slice, uuids_by_key, attempts_by_key, gate_results, sessions) do
+    case Map.get(uuids_by_key, slice.slice_id, []) do
+      [_single_slice_row] ->
+        slice_attempts = Map.get(attempts_by_key, slice.slice_id, [])
+        latest = latest_attempt(slice_attempts)
 
-    %{
-      slice
-      | rework_attempts: length(slice_attempts),
-        gate: gate_for(latest, gate_results),
-        spend: spend_for(latest, sessions)
-    }
+        %{
+          slice
+          | rework_attempts: length(slice_attempts),
+            gate: gate_for(latest, gate_results),
+            spend: spend_for(latest, sessions)
+        }
+
+      _none_or_ambiguous ->
+        slice
+    end
   end
 
   # Latest attempt = highest attempt_no (mirrors conveyor.show's `sort_by(attempt_no, :desc)`).

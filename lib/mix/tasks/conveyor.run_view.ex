@@ -64,6 +64,8 @@ defmodule Mix.Tasks.Conveyor.RunView do
       "sequence" => slice.sequence,
       "outcome" => slice.outcome,
       "run_attempt_outcome" => slice.run_attempt_outcome,
+      "gate_result" => slice.gate_result,
+      "findings" => slice.findings,
       "gate" => %{
         "failed_stage" => slice.gate.failed_stage,
         "failed_status" => slice.gate.failed_status,
@@ -100,6 +102,7 @@ defmodule Mix.Tasks.Conveyor.RunView do
         slice.slice_id,
         slice.outcome || "(no outcome)",
         gate_field(slice.gate),
+        findings_field(slice.findings),
         verdict_field(slice.gate.verdict),
         rework_field(slice.rework_attempts),
         spend_field(slice.spend)
@@ -109,6 +112,12 @@ defmodule Mix.Tasks.Conveyor.RunView do
 
     "  " <> fields
   end
+
+  # The finding categories from the slice's committed outcome (e.g.
+  # "out_of_scope_path") — the run-scoped reason a slice parked, even when the
+  # DB gate stage cannot be resolved.
+  defp findings_field([]), do: ""
+  defp findings_field(findings), do: "findings:" <> Enum.join(findings, ",")
 
   defp seq(nil), do: "·"
   defp seq(n), do: "#{n}."

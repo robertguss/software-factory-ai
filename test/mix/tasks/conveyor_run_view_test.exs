@@ -26,7 +26,7 @@ defmodule Mix.Tasks.Conveyor.RunViewTest do
 
     assert out =~ "[complete]"
     assert out =~ "3 slice(s)"
-    for slice <- slices, do: assert(out =~ slice.id)
+    for slice <- slices, do: assert(out =~ slice.stable_key)
     assert out =~ "passed"
 
     assert_received {:exit_code, code}
@@ -46,7 +46,7 @@ defmodule Mix.Tasks.Conveyor.RunViewTest do
     assert decoded["run_id"] == run_id
     assert decoded["status"] == "complete"
     assert decoded["slice_count"] == 2
-    assert Enum.map(decoded["slices"], & &1["slice_id"]) == Enum.map(slices, & &1.id)
+    assert Enum.map(decoded["slices"], & &1["slice_id"]) == Enum.map(slices, & &1.stable_key)
 
     assert_received {:exit_code, code}
     assert code == ExitCodes.fetch!(:success)
@@ -75,7 +75,7 @@ defmodule Mix.Tasks.Conveyor.RunViewTest do
     out = run([run_id])
 
     assert out =~ "[interrupted]"
-    assert out =~ "stopped at #{s3.id}"
+    assert out =~ "stopped at #{s3.stable_key}"
     assert out =~ "gate:tests=failed"
     assert out =~ "verdict:abstain"
 

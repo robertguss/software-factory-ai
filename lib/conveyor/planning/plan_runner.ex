@@ -179,6 +179,7 @@ defmodule Conveyor.Planning.PlanRunner do
           %{
             epic_id: epic.id,
             title: Map.fetch!(slice_contract, "title"),
+            stable_key: Map.fetch!(slice_contract, "key"),
             position: position,
             risk: "medium",
             autonomy_level: Map.get(slice_contract, "autonomy_ceiling", "L1"),
