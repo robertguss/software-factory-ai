@@ -1,47 +1,18 @@
 defmodule Mix.Tasks.Conveyor.RunTest do
   @moduledoc """
-  Coverage for the `mix conveyor.run` task's workspace isolation: the loop
-  resets/cleans/commits its workspace, so the task must never mutate the user's
-  `--workspace` directory. We stub the serial driver (via the process key
-  PlanRunner already supports) to capture the workspace path it is handed, and
-  the exit fun so the task does not halt the test VM.
+  Coverage for the `mix conveyor.run PLAN_ID` task's workspace isolation: the loop
+  resets/cleans/commits its workspace, so the task must never mutate the user's `--workspace`
+  directory. We stub the serial driver (via the process key PlanRunner supports) to capture the
+  workspace path it is handed, and the exit fun so the task does not halt the test VM.
   """
   use Conveyor.DataCase, async: false
 
   import ExUnit.CaptureIO
   import Conveyor.FactoryFixtures
 
-  @contract %{
-    "schema_version" => "conveyor.plan@1",
-    "project" => %{"key" => "tp", "base_ref" => "main"},
-    "goal" => "Test plan goal",
-    "non_goals" => [],
-    "requirements" => [
-      %{"key" => "REQ-001", "text" => "r", "risk" => "low", "source_ref" => "p#r"}
-    ],
-    "acceptance_criteria" => [
-      %{
-        "key" => "AC-001",
-        "text" => "a",
-        "requirement_refs" => ["REQ-001"],
-        "required_test_refs" => []
-      }
-    ],
-    "verification_commands" => [
-      %{"key" => "pytest", "argv" => ["pytest", "-q"], "profile" => "verify"}
-    ],
-    "decisions" => [],
-    "slices" => [
-      %{
-        "key" => "SLICE-001",
-        "title" => "First",
-        "requirement_refs" => ["REQ-001"],
-        "likely_files" => [],
-        "conflict_domains" => [],
-        "autonomy_ceiling" => "L1"
-      }
-    ]
-  }
+  alias Conveyor.Factory
+  alias Conveyor.Factory.{Epic, Plan, Project}
+  alias Conveyor.TaskGraph
 
   setup do
     test_pid = self()
@@ -58,13 +29,40 @@ defmodule Mix.Tasks.Conveyor.RunTest do
       Process.delete(:conveyor_run_exit_fun)
     end)
 
-    :ok
+    %{plan_id: approved_plan!()}
   end
 
-  defp write_plan! do
-    path = Path.join(temp_dir!("conveyor-run-plan"), "conveyor.plan.json")
-    File.write!(path, Jason.encode!(@contract))
-    path
+  # An approved single-task plan so run_plan! passes the gate and reaches the (stubbed) driver.
+  defp approved_plan! do
+    project =
+      Ash.create!(
+        Project,
+        %{
+          name: "rt",
+          local_path: "/tmp/conveyor-run-test-#{System.unique_integer([:positive])}",
+          default_branch: "main"
+        },
+        domain: Factory
+      )
+
+    plan =
+      Ash.create!(
+        Plan,
+        %{
+          project_id: project.id,
+          title: "Run test plan",
+          intent: "Workspace isolation.",
+          source_document: "db",
+          normalized_contract: %{"schema_version" => "conveyor.plan@1"},
+          contract_sha256: "sha256:rt"
+        },
+        domain: Factory
+      )
+
+    epic = Ash.create!(Epic, %{plan_id: plan.id, title: "E", description: "d"}, domain: Factory)
+    task = TaskGraph.create_task(%{epic_id: epic.id, title: "First"})
+    TaskGraph.approve_task(task.id)
+    plan.id
   end
 
   defp workspace_with_sentinel! do
@@ -76,32 +74,30 @@ defmodule Mix.Tasks.Conveyor.RunTest do
   defp driver_workspace(opts),
     do: opts |> Keyword.fetch!(:run_spec_opts) |> Keyword.fetch!(:workspace_path)
 
-  test "by default runs on an isolated copy, leaving --workspace untouched" do
-    plan = write_plan!()
+  test "by default runs on an isolated copy, leaving --workspace untouched", %{plan_id: plan_id} do
     ws = workspace_with_sentinel!()
 
-    out = capture_io(fn -> Mix.Tasks.Conveyor.Run.run([plan, "--workspace", ws]) end)
+    out = capture_io(fn -> Mix.Tasks.Conveyor.Run.run([plan_id, "--workspace", ws]) end)
 
     assert_received {:driver, _input, opts}
     isolated = driver_workspace(opts)
 
-    # The driver ran somewhere OTHER than the user's dir...
     refute isolated == Path.expand(ws)
-    # ...on a faithful copy (the sentinel came along)...
     assert File.read!(Path.join(isolated, "sentinel.txt")) == "original\n"
-    # ...and the isolated path is reported in the JSON verdict (stdout stays pure JSON;
-    # the human notice goes to stderr).
     assert out =~ ~s("workspace":"#{isolated}")
     assert_received {:exit_code, _code}
   end
 
-  test "--in-place runs directly in --workspace" do
-    plan = write_plan!()
+  test "--in-place runs directly in --workspace", %{plan_id: plan_id} do
     ws = workspace_with_sentinel!()
 
-    capture_io(fn -> Mix.Tasks.Conveyor.Run.run([plan, "--workspace", ws, "--in-place"]) end)
+    capture_io(fn -> Mix.Tasks.Conveyor.Run.run([plan_id, "--workspace", ws, "--in-place"]) end)
 
     assert_received {:driver, _input, opts}
     assert driver_workspace(opts) == ws
+  end
+
+  test "a non-UUID selector is rejected (YAML retired)" do
+    assert_raise Mix.Error, fn -> Mix.Tasks.Conveyor.Run.run(["some-plan.yml"]) end
   end
 end

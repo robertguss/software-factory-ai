@@ -1,8 +1,12 @@
 defmodule Mix.Tasks.Conveyor.Run do
   @moduledoc """
-  Runs a normalized Conveyor plan through the production width-1 loop.
+  Runs a persisted, approved DB-native plan through the production width-1 loop.
 
-      mix conveyor.run PLAN.md [--adapter codex|reference_solution] [--workspace PATH] [--in-place]
+      mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]
+
+  `PLAN_ID` is the UUID of a plan authored via the `conveyor.task.*` CLI (or brought in from a
+  legacy YAML plan with `Conveyor.Planning.PlanImporter`). The run refuses unless every task is
+  approved.
 
   By default the run operates on an **isolated copy** of `--workspace`: the loop
   resets and commits as it goes, so it must never mutate a directory you care
@@ -44,21 +48,17 @@ defmodule Mix.Tasks.Conveyor.Run do
 
   def run(_args), do: Mix.raise(usage())
 
-  # A plan-id selector (UUID) runs the persisted DB graph; anything else is a YAML plan path
-  # (retired in U7). The approval gate raises before the driver runs.
+  # The selector is a plan-id (YAML is retired, U7); legacy YAML plans are brought in once via
+  # `Conveyor.Planning.PlanImporter`. The approval gate raises before the driver runs.
   defp run_plan(selector, workspace, adapter, opts) do
-    run_opts = [
-      workspace_path: workspace,
-      blob_root: Keyword.get(opts, :blob_root),
-      agent_adapter: adapter
-    ]
+    unless uuid?(selector), do: Mix.raise(usage())
 
     result =
-      if uuid?(selector) do
-        PlanRunner.run_plan!(selector, run_opts)
-      else
-        PlanRunner.run!(selector, run_opts)
-      end
+      PlanRunner.run_plan!(selector,
+        workspace_path: workspace,
+        blob_root: Keyword.get(opts, :blob_root),
+        agent_adapter: adapter
+      )
 
     {:ok, result}
   rescue
@@ -156,7 +156,7 @@ defmodule Mix.Tasks.Conveyor.Run do
   defp exit_code(:partial), do: ExitCodes.fetch!(:deterministic_gate_failed)
 
   defp usage do
-    "usage: mix conveyor.run PLAN.md [--adapter codex|reference_solution] [--workspace PATH] [--in-place]"
+    "usage: mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]"
   end
 
   defp exit_fun do
