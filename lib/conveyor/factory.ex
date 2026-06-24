@@ -16,6 +16,7 @@ defmodule Conveyor.Factory do
     resource Conveyor.Factory.PlanAudit
     resource Conveyor.Factory.Epic
     resource Conveyor.Factory.Slice
+    resource Conveyor.Factory.TaskDependency
     resource Conveyor.Factory.DiffPolicy
     resource Conveyor.Factory.ReviewPolicy
     resource Conveyor.Factory.AgentBrief

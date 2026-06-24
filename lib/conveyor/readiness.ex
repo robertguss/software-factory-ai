@@ -38,16 +38,30 @@ defmodule Conveyor.Readiness do
     context = context_for!(slice)
     findings = findings(context)
 
-    if findings == [] do
-      mark_ready(context, opts)
-    else
-      %Result{
-        status: classify(findings),
-        slice: slice,
-        agent_brief: context.agent_brief,
-        contract_lock: context.contract_lock,
-        findings: findings
-      }
+    cond do
+      findings != [] ->
+        %Result{
+          status: classify(findings),
+          slice: slice,
+          agent_brief: context.agent_brief,
+          contract_lock: context.contract_lock,
+          findings: findings
+        }
+
+      # `mark_ready?: false` verifies gate-readiness WITHOUT advancing the slice's state — used by
+      # the DB-native `lock` step so the human `:approved` gate (KTD6) stays the final transition
+      # before a run, rather than the slice auto-advancing to `:ready` at lock time.
+      Keyword.get(opts, :mark_ready?, true) ->
+        mark_ready(context, opts)
+
+      true ->
+        %Result{
+          status: :ready,
+          slice: slice,
+          agent_brief: context.agent_brief,
+          contract_lock: context.contract_lock,
+          findings: []
+        }
     end
   end
 

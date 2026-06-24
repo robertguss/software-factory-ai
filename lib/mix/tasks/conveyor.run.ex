@@ -1,8 +1,12 @@
 defmodule Mix.Tasks.Conveyor.Run do
   @moduledoc """
-  Runs a normalized Conveyor plan through the production width-1 loop.
+  Runs a persisted, approved DB-native plan through the production width-1 loop.
 
-      mix conveyor.run PLAN.md [--adapter codex|reference_solution] [--workspace PATH] [--in-place]
+      mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]
+
+  `PLAN_ID` is the UUID of a plan authored via the `conveyor.task.*` CLI (or brought in from a
+  legacy YAML plan with `Conveyor.Planning.PlanImporter`). The run refuses unless every task is
+  approved.
 
   By default the run operates on an **isolated copy** of `--workspace`: the loop
   resets and commits as it goes, so it must never mutate a directory you care
@@ -19,30 +23,54 @@ defmodule Mix.Tasks.Conveyor.Run do
   @shortdoc "Run a Conveyor plan through the serial production loop"
 
   @impl Mix.Task
-  def run([plan_path | args]) do
+  def run([selector | args]) do
     Mix.Task.run("app.start")
     opts = parse_opts!(args)
     adapter = adapter!(Keyword.get(opts, :adapter, "codex"))
     workspace = resolve_workspace!(opts)
 
+    case run_plan(selector, workspace, adapter, opts) do
+      {:ok, result} ->
+        result
+        |> summary()
+        |> Map.put("workspace", workspace)
+        |> Jason.encode!()
+        |> Mix.shell().info()
+
+        exit_fun().(exit_code(result.serial_result.status))
+
+      {:unapproved, message} ->
+        # Human diagnostic on stderr; stdout stays pure JSON. The driver was never invoked.
+        IO.puts(:stderr, message)
+        exit_fun().(ExitCodes.fetch!(:plan_or_readiness_blocked))
+    end
+  end
+
+  def run(_args), do: Mix.raise(usage())
+
+  # The selector is a plan-id (YAML is retired, U7); legacy YAML plans are brought in once via
+  # `Conveyor.Planning.PlanImporter`. The approval gate raises before the driver runs.
+  defp run_plan(selector, workspace, adapter, opts) do
+    unless uuid?(selector), do: Mix.raise(usage())
+
     result =
-      PlanRunner.run!(
-        plan_path,
+      PlanRunner.run_plan!(selector,
         workspace_path: workspace,
         blob_root: Keyword.get(opts, :blob_root),
         agent_adapter: adapter
       )
 
-    result
-    |> summary()
-    |> Map.put("workspace", workspace)
-    |> Jason.encode!()
-    |> Mix.shell().info()
-
-    exit_fun().(exit_code(result.serial_result.status))
+    {:ok, result}
+  rescue
+    error in [PlanRunner.UnapprovedError] -> {:unapproved, Exception.message(error)}
   end
 
-  def run(_args), do: Mix.raise(usage())
+  defp uuid?(string) do
+    Regex.match?(
+      ~r/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i,
+      string
+    )
+  end
 
   defp parse_opts!(args) do
     {opts, remaining, invalid} =
@@ -128,7 +156,7 @@ defmodule Mix.Tasks.Conveyor.Run do
   defp exit_code(:partial), do: ExitCodes.fetch!(:deterministic_gate_failed)
 
   defp usage do
-    "usage: mix conveyor.run PLAN.md [--adapter codex|reference_solution] [--workspace PATH] [--in-place]"
+    "usage: mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]"
   end
 
   defp exit_fun do

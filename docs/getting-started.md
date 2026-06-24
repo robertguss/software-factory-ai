@@ -68,22 +68,21 @@ Confirms the loop, ledger, and gate are wired before you spend anything.
 
 2. **Write a prose plan** for a greenfield app (goal, requirements, constraints)
    — outside Conveyor.
-3. **Draft the work-graph.** Use
-   [`docs/dogfood/decomposition-aid.md`](dogfood/decomposition-aid.md) to turn
-   the prose plan into a `conveyor.plan@1` graph with an external AI, and
-   **verify it** (its checklist runs `mix conveyor.plan_lint` / `plan_audit` and
-   confirms the locked acceptance tests exist in the workspace).
-4. **Dry-run for free** to shake out harness/decomposition gaps with no agent
-   stochasticity:
+3. **Author the task graph in the DB.** Conveyor's graph is DB-native: tasks and
+   **explicit** dependencies are authored via the `conveyor.task.*` CLI, then
+   locked and approved. Follow
+   [`docs/dogfood/task-graph-authoring.md`](dogfood/task-graph-authoring.md). To
+   start from an existing `conveyor.plan@1` YAML, draft it with
+   [`docs/dogfood/decomposition-aid.md`](dogfood/decomposition-aid.md) and migrate
+   it into rows with `Conveyor.Planning.PlanImporter.import!/1`.
+4. **Lock and approve** every task — `mix conveyor.task.lock` compiles + materializes
+   the gate-valid contract; `mix conveyor.task.approve` is the human go-signal.
+   `conveyor run` refuses an unapproved graph.
+5. **Dry-run for free**, then run live, by **plan id** (not a file):
 
    ```bash
-   mix conveyor.run <plan.yml> --adapter reference_solution --workspace <ws>
-   ```
-
-5. **Run it live** once the dry-run is clean:
-
-   ```bash
-   mix conveyor.run <plan.yml> --adapter codex --workspace <ws>
+   mix conveyor.run <plan-id> --adapter reference_solution --workspace <ws>   # dry-run
+   mix conveyor.run <plan-id> --adapter codex --workspace <ws>                # live
    ```
 
 6. **Read what happened:**

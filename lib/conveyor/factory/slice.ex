@@ -129,6 +129,16 @@ defmodule Conveyor.Factory.Slice do
       public? true
     end
 
+    # CLI-authored acceptance criteria (KTD8) — the source the `ContractBuilder` compiles into
+    # `Plan.normalized_contract.acceptance_criteria`. Each entry carries id/text + requirement_refs
+    # + required_test_refs (and optional falsifier fields), matching the conveyor.plan@1 shape the
+    # assembler reads.
+    attribute :acceptance_criteria, {:array, :map} do
+      allow_nil? false
+      default []
+      public? true
+    end
+
     attribute :diff_policy_id, :uuid do
       public? true
     end
@@ -195,6 +205,11 @@ defmodule Conveyor.Factory.Slice do
 
   identities do
     identity :unique_epic_position, [:epic_id, :position]
+    # CLI-assigned stable keys (KTD7) must be unique per epic — the driver resolves and
+    # dedups slices by `stable_key`, so a collision must fail at write time, not corrupt the
+    # run graph. NULL stable_keys remain distinct (legacy rows), so this only binds CLI-assigned
+    # keys.
+    identity :unique_epic_stable_key, [:epic_id, :stable_key]
   end
 
   state_machine do

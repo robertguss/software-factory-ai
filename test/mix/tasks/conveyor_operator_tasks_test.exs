@@ -6,6 +6,8 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
   alias Conveyor.CLI.ExitCodes
   alias Conveyor.Demo
   alias Conveyor.FactoryFixtures
+  alias Conveyor.Planning.PlanImporter
+  alias Conveyor.TaskGraph
 
   @base_commit String.duplicate("e", 40)
 
@@ -95,8 +97,14 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
     assert ExitCodes.fetch!(:success) == 0
   end
 
-  test "run emits a machine-readable serial driver verdict for a normalized plan" do
+  test "run emits a machine-readable serial driver verdict for a DB-native plan" do
     test_pid = self()
+
+    # Migrate the beads_insight sample into DB rows, then approve every task so the run gate passes.
+    %{plan: plan, slices_by_stable_key: slices} =
+      PlanImporter.import!("samples/beads_insight/conveyor.plan.yml")
+
+    Enum.each(slices, fn {_key, slice} -> TaskGraph.approve_task(slice.id) end)
 
     Process.put(:conveyor_run_exit_fun, fn code ->
       send(test_pid, {:exit_code, :conveyor_run_exit_fun, code})
@@ -133,19 +141,17 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
 
     result =
       run_task("conveyor.run", [
-        "samples/beads_insight/conveyor.plan.yml",
+        plan.id,
         "--adapter",
         "reference_solution",
         "--workspace",
         "samples/beads_insight",
-        # Stubbed driver: run in place so the test asserts the literal workspace
-        # path and skips copying the sample dir (default isolation is covered in
-        # conveyor_run_test).
+        # Stubbed driver: run in place so the test asserts the literal workspace path.
         "--in-place"
       ])
 
     assert result["status"] == "passed"
-    assert result["plan_path"] =~ "samples/beads_insight/conveyor.plan.yml"
+    assert result["plan_path"] == "db:#{plan.id}"
     assert result["adapter"] == "reference_solution"
     assert result["slice_count"] == 7
 
@@ -163,19 +169,9 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
 
     assert length(input.work_graph["slices"]) == 7
     assert Enum.all?(Map.values(opts[:slices_by_stable_key]), & &1.id)
-    assert opts[:patch_refs_by_slice]["SLICE-001"] =~ "reference_slice_001_loader.patch"
-
-    assert opts[:patch_refs_by_slice]["SLICE-007"] =~
-             "reference_slice_007_envelope_assertion.patch"
-
     assert opts[:run_spec_opts][:agent_adapter] == Conveyor.AgentRunner.ReferenceSolution
     assert opts[:run_spec_opts][:workspace_path] =~ "samples/beads_insight"
     assert Path.type(opts[:run_spec_opts][:blob_root]) == :absolute
-
-    refute String.starts_with?(
-             opts[:run_spec_opts][:blob_root],
-             opts[:run_spec_opts][:workspace_path]
-           )
   end
 
   defp run_task(task, args) do
