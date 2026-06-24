@@ -11,11 +11,15 @@ defmodule Conveyor.CLI.TaskCommand do
 
   @seam :conveyor_task_exit_fun
 
-  @doc "Run `fun`, mapping an `ArgumentError` to a clean non-zero exit with the message on stderr."
+  @doc """
+  Run `fun`, mapping a user/validation error (`ArgumentError` or `Ash.Error.Invalid` — bad refs,
+  cycles, illegal state transitions, constraint violations) to a clean non-zero exit with the
+  message on stderr rather than a crash.
+  """
   def guard(fun) do
     fun.()
   rescue
-    error in [ArgumentError] -> fail!(Exception.message(error))
+    error in [ArgumentError, Ash.Error.Invalid] -> fail!(Exception.message(error))
   end
 
   @doc "Emit `data` as JSON on stdout and exit success."
