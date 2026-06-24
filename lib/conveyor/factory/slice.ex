@@ -195,6 +195,11 @@ defmodule Conveyor.Factory.Slice do
 
   identities do
     identity :unique_epic_position, [:epic_id, :position]
+    # CLI-assigned stable keys (KTD7) must be unique per epic — the driver resolves and
+    # dedups slices by `stable_key`, so a collision must fail at write time, not corrupt the
+    # run graph. NULL stable_keys remain distinct (legacy rows), so this only binds CLI-assigned
+    # keys.
+    identity :unique_epic_stable_key, [:epic_id, :stable_key]
   end
 
   state_machine do
