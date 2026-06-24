@@ -61,6 +61,14 @@ defmodule Conveyor.TaskGraph do
   @doc "Fetch one task by id."
   def show_task(slice_id), do: get_task!(slice_id)
 
+  @doc "Resolve a task within an epic by its CLI-facing `stable_key` (KTD7)."
+  def task_by_stable_key!(epic_id, stable_key) do
+    case Enum.find(list_tasks(epic_id), &(&1.stable_key == stable_key)) do
+      nil -> raise ArgumentError, "no task #{stable_key} in epic #{epic_id}"
+      slice -> slice
+    end
+  end
+
   @doc "List an epic's tasks in position order."
   def list_tasks(epic_id) do
     Slice
