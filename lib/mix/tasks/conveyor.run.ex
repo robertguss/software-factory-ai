@@ -19,30 +19,58 @@ defmodule Mix.Tasks.Conveyor.Run do
   @shortdoc "Run a Conveyor plan through the serial production loop"
 
   @impl Mix.Task
-  def run([plan_path | args]) do
+  def run([selector | args]) do
     Mix.Task.run("app.start")
     opts = parse_opts!(args)
     adapter = adapter!(Keyword.get(opts, :adapter, "codex"))
     workspace = resolve_workspace!(opts)
 
-    result =
-      PlanRunner.run!(
-        plan_path,
-        workspace_path: workspace,
-        blob_root: Keyword.get(opts, :blob_root),
-        agent_adapter: adapter
-      )
+    case run_plan(selector, workspace, adapter, opts) do
+      {:ok, result} ->
+        result
+        |> summary()
+        |> Map.put("workspace", workspace)
+        |> Jason.encode!()
+        |> Mix.shell().info()
 
-    result
-    |> summary()
-    |> Map.put("workspace", workspace)
-    |> Jason.encode!()
-    |> Mix.shell().info()
+        exit_fun().(exit_code(result.serial_result.status))
 
-    exit_fun().(exit_code(result.serial_result.status))
+      {:unapproved, message} ->
+        # Human diagnostic on stderr; stdout stays pure JSON. The driver was never invoked.
+        IO.puts(:stderr, message)
+        exit_fun().(ExitCodes.fetch!(:plan_or_readiness_blocked))
+    end
   end
 
   def run(_args), do: Mix.raise(usage())
+
+  # A plan-id selector (UUID) runs the persisted DB graph; anything else is a YAML plan path
+  # (retired in U7). The approval gate raises before the driver runs.
+  defp run_plan(selector, workspace, adapter, opts) do
+    run_opts = [
+      workspace_path: workspace,
+      blob_root: Keyword.get(opts, :blob_root),
+      agent_adapter: adapter
+    ]
+
+    result =
+      if uuid?(selector) do
+        PlanRunner.run_plan!(selector, run_opts)
+      else
+        PlanRunner.run!(selector, run_opts)
+      end
+
+    {:ok, result}
+  rescue
+    error in [PlanRunner.UnapprovedError] -> {:unapproved, Exception.message(error)}
+  end
+
+  defp uuid?(string) do
+    Regex.match?(
+      ~r/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i,
+      string
+    )
+  end
 
   defp parse_opts!(args) do
     {opts, remaining, invalid} =
