@@ -199,7 +199,11 @@ defmodule Conveyor.FactoryFixtures do
       end)
 
     slices = Enum.map(built, & &1.slice)
-    order = Enum.map(slices, & &1.id)
+    # Production keys the ledger run story by the slice's STABLE KEY (the
+    # `run.started`/`run.slice_outcome` payloads carry "SLICE-005", not the UUID),
+    # while DB rows key by UUID. The fixture mirrors that so the read model's
+    # stable-key -> UUID join is actually exercised.
+    order = Enum.map(slices, & &1.stable_key)
 
     Ledger.write!(%{
       project_id: project.id,
@@ -211,14 +215,16 @@ defmodule Conveyor.FactoryFixtures do
     for %{slice: slice, spec: spec, sequence: sequence} <- built, Map.has_key?(spec, :status) do
       Ledger.write!(%{
         project_id: project.id,
-        idempotency_key: "run:#{run_id}:slice:#{slice.id}:#{sequence}",
+        idempotency_key: "run:#{run_id}:slice:#{slice.stable_key}:#{sequence}",
         type: "run.slice_outcome",
         payload: %{
           "run_id" => run_id,
-          "slice_id" => slice.id,
+          "slice_id" => slice.stable_key,
           "sequence" => sequence,
           "status" => Map.fetch!(spec, :status),
-          "run_attempt_outcome" => Map.get(spec, :run_attempt_outcome)
+          "run_attempt_outcome" => Map.get(spec, :run_attempt_outcome),
+          "gate_result" => Map.get(spec, :gate_result),
+          "findings" => Map.get(spec, :findings, [])
         }
       })
     end
@@ -236,10 +242,17 @@ defmodule Conveyor.FactoryFixtures do
   end
 
   defp build_run_slice!(epic_id, run_id, spec, sequence) do
+    stable_key = Map.get(spec, :stable_key, default_stable_key(run_id, sequence))
+
     slice =
       Ash.create!(
         Slice,
-        %{epic_id: epic_id, title: "Slice #{sequence}", position: sequence},
+        %{
+          epic_id: epic_id,
+          title: "Slice #{sequence}",
+          stable_key: stable_key,
+          position: sequence
+        },
         domain: Factory
       )
 
@@ -285,6 +298,15 @@ defmodule Conveyor.FactoryFixtures do
     maybe_build_session!(latest, Map.get(spec, :session))
 
     %{slice: slice, spec: spec, sequence: sequence, run_attempts: run_attempts}
+  end
+
+  # Stable keys are unique per fixture run by default so a test that builds two
+  # runs doesn't make a key ambiguous (the read model refuses to DB-enrich an
+  # ambiguous key). A test exercising the ambiguity guard passes an explicit
+  # colliding `:stable_key`.
+  defp default_stable_key(run_id, sequence) do
+    "SLICE-" <>
+      String.pad_leading(to_string(sequence), 3, "0") <> "-" <> binary_part(run_id, 0, 8)
   end
 
   defp maybe_build_gate_result!(_run_attempt, nil), do: :ok

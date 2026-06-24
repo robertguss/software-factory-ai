@@ -89,6 +89,33 @@ defmodule Conveyor.RunReadModelTest do
       assert s3.outcome == "passed"
     end
 
+    test "(3b) findings and gate_result surface straight from the slice outcome payload" do
+      order = ["SLICE-001"]
+
+      payload = %{
+        "run_id" => "r",
+        "slice_id" => "SLICE-001",
+        "sequence" => 1,
+        "status" => "parked",
+        "run_attempt_outcome" => "needs_rework",
+        "gate_result" => "eventual_pending",
+        "findings" => ["out_of_scope_path"]
+      }
+
+      [slice] = project(order, [{"SLICE-001", payload}], :parked).slices
+
+      # The run-scoped "why" needs no DB join — it rides the ledger outcome event.
+      assert slice.gate_result == "eventual_pending"
+      assert slice.findings == ["out_of_scope_path"]
+    end
+
+    test "(3c) a slice with no findings defaults to an empty list, never nil" do
+      [slice] = project(["SLICE-001"], [outcome("SLICE-001", 1, "passed")], :complete).slices
+
+      assert slice.findings == []
+      assert slice.gate_result == nil
+    end
+
     test "(8) an unknown run_id -> empty slices, nil stop point, status :unknown, no crash" do
       story = RunReadModel.project("nope", [], %{}, status: :unknown)
 
@@ -130,7 +157,7 @@ defmodule Conveyor.RunReadModelTest do
       assert story.status == :complete
       assert story.stop_point == nil
       assert story.slice_count == 3
-      assert Enum.map(story.slices, & &1.slice_id) == Enum.map(slices, & &1.id)
+      assert Enum.map(story.slices, & &1.slice_id) == Enum.map(slices, & &1.stable_key)
       assert Enum.all?(story.slices, &(&1.outcome == "passed"))
     end
 
@@ -149,7 +176,7 @@ defmodule Conveyor.RunReadModelTest do
       story = RunReadModel.summarize(run_id)
 
       assert story.status == :interrupted
-      assert story.stop_point == s3.id
+      assert story.stop_point == s3.stable_key
       assert List.last(story.slices).outcome == nil
     end
 
@@ -180,6 +207,8 @@ defmodule Conveyor.RunReadModelTest do
             %{
               status: "parked",
               outcome: :abstained,
+              gate_result: "eventual_pending",
+              findings: ["acceptance_locked_failed"],
               gate: %{
                 passed: false,
                 stages: [
@@ -196,11 +225,52 @@ defmodule Conveyor.RunReadModelTest do
       story = RunReadModel.summarize(run_id)
       [slice] = story.slices
 
-      # First non-passed stage is surfaced (the later "skipped" one is not).
+      # Run-scoped ledger truth (the "why") rides the outcome event...
+      assert slice.findings == ["acceptance_locked_failed"]
+      assert slice.gate_result == "eventual_pending"
+      # ...and the DB enrichment (joined via the persisted stable key) adds the
+      # failing gate STAGE and trust verdict. First non-passed stage is surfaced
+      # (the later "skipped" one is not).
       assert slice.gate.failed_stage == "tests"
       assert slice.gate.failed_status == "failed"
       # Only band/score are taken from the trust_score map.
       assert slice.gate.verdict == %{"band" => "abstain", "score" => 0.42}
+    end
+
+    test "(9) a stable key shared across two runs is not DB-enriched, but ledger findings still surface" do
+      # Same explicit stable key in two runs => the key resolves to two slice
+      # rows. With no run_id->slice link yet, the read model refuses to DB-enrich
+      # (a blended gate/rework number would be worse than none) — but the
+      # run-scoped ledger outcome still tells the honest story.
+      shared = [
+        %{
+          status: "parked",
+          outcome: :abstained,
+          stable_key: "SLICE-001",
+          findings: ["out_of_scope_path"],
+          gate_result: "eventual_pending",
+          gate: %{
+            passed: false,
+            stages: [%{"key" => "diff_scope", "status" => "failed"}],
+            trust_score: %{"band" => "abstain", "score" => 0.1}
+          }
+        }
+      ]
+
+      %{run_id: run_a} =
+        FactoryFixtures.create_run_with_ledger!(terminal: :finished, slices: shared)
+
+      %{run_id: _run_b} =
+        FactoryFixtures.create_run_with_ledger!(terminal: :finished, slices: shared)
+
+      [slice] = RunReadModel.summarize(run_a).slices
+
+      # Ledger truth still surfaces (run-scoped, no join):
+      assert slice.findings == ["out_of_scope_path"]
+      assert slice.gate_result == "eventual_pending"
+      # DB enrich suppressed because "SLICE-001" is ambiguous across runs:
+      assert slice.gate.failed_stage == nil
+      assert slice.rework_attempts == 0
     end
 
     test "(5) a slice with two RunAttempt rows -> rework_attempts 2" do

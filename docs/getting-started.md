@@ -102,8 +102,11 @@ Confirms the loop, ledger, and gate are wired before you spend anything.
 
 ## Operating discipline (early dogfooding)
 
-- **Greenfield only.** There is no blast-radius container yet, so do not point a
-  run at an existing repo you care about. Spin up a fresh target.
+- **Greenfield only.** There is no blast-radius container yet, so still prefer a
+  fresh target. By default `conveyor.run` works on an **isolated copy** of
+  `--workspace` (the loop resets/commits as it goes) and prints the copy's path,
+  leaving your source dir untouched; pass `--in-place` only for a throwaway dir
+  you have already staged.
 - **Start ~10–20 slices and climb.** Larger plans break in less legible ways
   while the cockpit is young; grow the size as you trust the read-back.
 - **"Green" is provisional.** The trust gate is partway wired, so a passing run

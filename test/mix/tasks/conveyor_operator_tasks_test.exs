@@ -137,7 +137,11 @@ defmodule Mix.Tasks.ConveyorOperatorTasksTest do
         "--adapter",
         "reference_solution",
         "--workspace",
-        "samples/beads_insight"
+        "samples/beads_insight",
+        # Stubbed driver: run in place so the test asserts the literal workspace
+        # path and skips copying the sample dir (default isolation is covered in
+        # conveyor_run_test).
+        "--in-place"
       ])
 
     assert result["status"] == "passed"
