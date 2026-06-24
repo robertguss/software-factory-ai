@@ -88,6 +88,38 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     |> assemble!(opts)
   end
 
+  @doc """
+  Materialize and lock the contract for a single slice from its row, without building a full
+  `RunSpec`.
+
+  This is the public seam the DB-native `lock` step (`Conveyor.TaskGraph.lock_task`) delegates to
+  (KTD3): it builds the assembler context and a one-slice `conveyor.work_graph@2` from the slice
+  row, then runs the same deterministic, offline `materialize_contract!` the run path uses — so the
+  run later finds an already-`:ready` contract and consumes it unchanged. The slice's plan must
+  already carry a compiled `normalized_contract` (acceptance is read from it).
+
+  Returns `%{agent_brief:, contract_lock:, test_pack:, falsifier_forge:}`.
+  """
+  def materialize_contract_for_slice!(%Slice{} = slice, opts \\ []) do
+    materialize_contract!(slice, context_for!(slice), single_slice_work_graph(slice), opts)
+  end
+
+  defp single_slice_work_graph(%Slice{} = slice) do
+    %{
+      "schema_version" => "conveyor.work_graph@2",
+      "slices" => [
+        %{
+          "stable_key" => slice.stable_key,
+          "title" => slice.title,
+          "requirement_refs" => slice.source_refs,
+          "likely_files" => slice.likely_files,
+          "conflict_domains" => slice.conflict_domains
+        }
+      ],
+      "work_dependencies" => []
+    }
+  end
+
   defp augment_station_plan(plan, workspace_path, base_commit, blob_root, contract, opts) do
     patch_ref = Keyword.get(opts, :patch_ref)
     # Optional reference/test-only map of attempt_no (string) => patch path, so a

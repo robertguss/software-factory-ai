@@ -11,8 +11,14 @@ defmodule Conveyor.TaskGraph do
   require Ash.Query
 
   alias Conveyor.Factory
+  alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.Plan
+  alias Conveyor.Factory.PlanAudit
   alias Conveyor.Factory.Slice
   alias Conveyor.Factory.TaskDependency
+  alias Conveyor.Planning.ContractBuilder
+  alias Conveyor.Planning.RunSpecAssembler
+  alias Conveyor.Readiness
   alias Conveyor.Repo
 
   @done_states [:done, :integrated]
@@ -129,6 +135,41 @@ defmodule Conveyor.TaskGraph do
     |> Ash.update!(%{acceptance_criteria: criteria}, domain: Factory)
   end
 
+  @doc """
+  The vetted/locked step (KTD3): produce a gate-valid, `:ready` contract for a task by delegating
+  to the existing, deterministic materializer — no hand-rolled digests, no run-path fork.
+
+  On the first locked task of a plan it compiles the plan's `normalized_contract` from rows
+  (`ContractBuilder`), records a ready `PlanAudit`, and advances the plan `:draft -> :handoff_ready`
+  (after which the contract is frozen). For every task it then materializes the
+  `AgentBrief`/`TestPack`/`ContractLock` via `RunSpecAssembler.materialize_contract_for_slice!` and
+  asserts `Readiness.check == :ready`, raising with the readiness findings otherwise. Authoring
+  must be complete before the first lock (compile snapshots all tasks' acceptance).
+  """
+  def lock_task(slice_id) do
+    slice = get_task!(slice_id)
+    plan = plan_for_slice(slice)
+
+    if plan.status == :draft do
+      ContractBuilder.compile_contract(plan.id)
+      ensure_ready_audit!(plan)
+      advance_to_handoff_ready!(plan)
+    end
+
+    RunSpecAssembler.materialize_contract_for_slice!(slice)
+
+    # Verify gate-readiness without advancing state — `:approved` (KTD6) stays the final human
+    # transition before a run; lock leaves the task `:drafted`.
+    case Readiness.check(slice, mark_ready?: false) do
+      %{status: :ready} ->
+        get_task!(slice_id)
+
+      %{findings: findings} ->
+        raise ArgumentError,
+              "lock_task: #{slice.stable_key} is not gate-ready: #{inspect(findings)}"
+    end
+  end
+
   @doc "Run a task's `:drafted -> :approved` transition."
   def approve_task(slice_id) do
     slice_id
@@ -154,6 +195,30 @@ defmodule Conveyor.TaskGraph do
     do: "SLICE-" <> String.pad_leading(Integer.to_string(position), 3, "0")
 
   defp get_task!(slice_id), do: Ash.get!(Slice, slice_id, domain: Factory)
+
+  defp plan_for_slice(%Slice{} = slice) do
+    epic = Ash.get!(Epic, slice.epic_id, domain: Factory)
+    Ash.get!(Plan, epic.plan_id, domain: Factory)
+  end
+
+  defp ensure_ready_audit!(%Plan{} = plan) do
+    PlanAudit
+    |> Ash.Query.filter(plan_id == ^plan.id and decision == :ready)
+    |> Ash.read!(domain: Factory)
+    |> case do
+      [] ->
+        Ash.create!(PlanAudit, %{plan_id: plan.id, score: 100, decision: :ready}, domain: Factory)
+
+      [audit | _] ->
+        audit
+    end
+  end
+
+  defp advance_to_handoff_ready!(%Plan{} = plan) do
+    plan
+    |> Ash.update!(%{status: :audited}, domain: Factory)
+    |> Ash.update!(%{status: :handoff_ready}, domain: Factory)
+  end
 
   defp fetch_task(slice_id) do
     case Ash.get(Slice, slice_id, domain: Factory) do

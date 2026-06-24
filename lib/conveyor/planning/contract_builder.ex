@@ -16,16 +16,30 @@ defmodule Conveyor.Planning.ContractBuilder do
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.Slice
+  alias Conveyor.PlanContract
 
   @schema_version "conveyor.plan@1"
 
   @doc """
-  Build the normalized contract map for a plan from its rows (pure; no persistence).
+  Compile a plan's rows into its `normalized_contract`, persist `normalized_contract` +
+  `contract_sha256` on the `Plan`, and return the updated plan.
 
-  Persisting it onto the `Plan` is pending a decision on the `plans.contract_sha256` immutability
-  guard (the contract is currently frozen at Plan creation); `lock_task` (U2d) will own persistence
-  once that is resolved.
+  Only valid while the plan is `:draft` — the contract is frozen once the plan leaves draft (the
+  `plans_freeze_contract_after_draft` trigger). `lock_task` calls this before transitioning the
+  plan to `:handoff_ready`.
   """
+  def compile_contract(plan_id) do
+    plan = Ash.get!(Plan, plan_id, domain: Factory)
+    contract = build(plan)
+
+    Ash.update!(
+      plan,
+      %{normalized_contract: contract, contract_sha256: PlanContract.contract_sha256(contract)},
+      domain: Factory
+    )
+  end
+
+  @doc "Build the normalized contract map for a plan from its rows (pure; no persistence)."
   def build(%Plan{} = plan) do
     project = Ash.get!(Project, plan.project_id, domain: Factory)
     slices = slices_for_plan(plan.id)

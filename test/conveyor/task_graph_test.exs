@@ -183,6 +183,72 @@ defmodule Conveyor.TaskGraphTest do
     end
   end
 
+  describe "lock_task/1" do
+    setup %{epic: epic} do
+      task =
+        TaskGraph.create_task(%{
+          epic_id: epic.id,
+          title: "Loader",
+          source_refs: ["REQ-001"],
+          likely_files: ["lib/loader.ex"]
+        })
+
+      TaskGraph.set_acceptance(task.id, [
+        %{
+          "id" => "AC-001",
+          "text" => "Loading the fixture corpus yields stable issue counts across reloads.",
+          "requirement_refs" => ["REQ-001"],
+          "required_test_refs" => ["tests/test_loader.py::test_counts"],
+          "falsifying_conditions" => [
+            %{
+              "acceptance_criterion_id" => "AC-001",
+              "condition" => "counts change when the same corpus is reloaded",
+              "required_test_refs" => ["tests/test_loader.py::test_counts"]
+            }
+          ]
+        }
+      ])
+
+      %{task: task}
+    end
+
+    test "compiles + materializes a gate-valid :ready contract, leaving the task :drafted",
+         %{task: task} do
+      locked = TaskGraph.lock_task(task.id)
+
+      # lock verifies readiness without advancing state — approval stays the final gate
+      assert locked.state == :drafted
+      assert Conveyor.Readiness.check(task.id, mark_ready?: false).status == :ready
+
+      locks =
+        Conveyor.Factory.ContractLock
+        |> Ash.read!(domain: Factory)
+        |> Enum.filter(&(&1.slice_id == task.id))
+
+      assert length(locks) == 1
+    end
+
+    test "the task's plan reaches :handoff_ready", %{task: task} do
+      TaskGraph.lock_task(task.id)
+
+      epic = Ash.get!(Epic, task.epic_id, domain: Factory)
+      assert Ash.get!(Plan, epic.plan_id, domain: Factory).status == :handoff_ready
+    end
+
+    test "approve after lock moves the task to :approved", %{task: task} do
+      TaskGraph.lock_task(task.id)
+      assert TaskGraph.approve_task(task.id).state == :approved
+    end
+
+    test "raises with readiness findings when acceptance is missing", %{epic: epic} do
+      bare = TaskGraph.create_task(%{epic_id: epic.id, title: "Bare", likely_files: ["lib/x.ex"]})
+
+      assert_raise ArgumentError, fn ->
+        TaskGraph.lock_task(bare.id)
+      end
+    end
+  end
+
   describe "approve_task/1" do
     test "moves a task :drafted -> :approved", %{epic: epic} do
       task = TaskGraph.create_task(%{epic_id: epic.id, title: "A"})
