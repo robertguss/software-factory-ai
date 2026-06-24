@@ -157,10 +157,33 @@ defmodule Conveyor.Doctor do
       |> Keyword.take([:hostname, :port, :username, :password, :database])
       |> Keyword.put_new(:timeout, 1_000)
 
+    # Postgrex needs :postgrex/:db_connection started before start_link/1 — the
+    # mix task does not boot the app, so start them here. Without this the
+    # connection pool registration crashes on a missing DBConnection.Watcher and
+    # the linked exit takes the whole doctor run down.
+    with {:ok, _apps} <- Application.ensure_all_started(:postgrex) do
+      verify_postgres_connection(opts)
+    end
+  rescue
+    error -> {:error, error}
+  catch
+    :exit, reason -> {:error, reason}
+  end
+
+  defp verify_postgres_connection(opts) do
     case Postgrex.start_link(opts) do
       {:ok, pid} ->
-        GenServer.stop(pid)
-        :ok
+        try do
+          # start_link/1 returns {:ok, pid} even when Postgres is unreachable
+          # (it connects asynchronously), so actually issue a query to confirm
+          # reachability rather than trusting the pid alone.
+          case Postgrex.query(pid, "SELECT 1", [], timeout: Keyword.fetch!(opts, :timeout)) do
+            {:ok, _result} -> :ok
+            {:error, reason} -> {:error, reason}
+          end
+        after
+          GenServer.stop(pid)
+        end
 
       {:error, reason} ->
         {:error, reason}
