@@ -27,4 +27,12 @@ be trusted to allow.
 - **Everything is recorded** — event-sourced runs give time-travel debugging,
   reproducible AI review, and an eval dataset the factory learns from.
 
+## Getting started
+
+New here? [`docs/getting-started.md`](docs/getting-started.md) walks the clone→run
+path — setup, `mix conveyor.doctor`, the hermetic `mix conveyor.demo`, and driving
+a real greenfield plan — and reading a run with `mix conveyor.run_view`. For
+dogfooding, see the [decomposition aid](docs/dogfood/decomposition-aid.md) and the
+[gap log](docs/dogfood/gap-log-template.md).
+
 _Built first to scratch an itch; open-sourced to empower others._
