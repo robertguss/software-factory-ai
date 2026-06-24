@@ -68,6 +68,16 @@ defmodule Conveyor.PlanContract do
   @spec supported_schema_version() :: String.t()
   def supported_schema_version, do: @supported_schema_version
 
+  @doc """
+  Compute the canonical `contract_sha256` for a normalized contract map.
+
+  Same canonicalization (sorted keys, deterministic JSON) + SHA-256 used when loading a YAML
+  contract, exposed so the DB-native `ContractBuilder` (KTD8) produces a digest identical to the
+  YAML path for the same contract.
+  """
+  @spec contract_sha256(map()) :: String.t()
+  def contract_sha256(contract) when is_map(contract), do: sha256(canonical_json(contract))
+
   defp read_source(path) do
     cond do
       Path.extname(path) in [".json", ".yml", ".yaml"] ->
