@@ -1,101 +1,64 @@
 # Emergency stop
 
-Conveyor has a global emergency stop that blocks work before it starts. An
-engaged stop blocks new station starts, provider calls, tool calls, claim
-publication, external effects, and budget reservations. It is not a soft
-suggestion: the station wrapper checks it before acquiring a lease, and clearing
-it requires a human decision.
+The emergency stop is the pure state machine that halts the factory when a human or policy decides work must stop. An engaged stop blocks new station starts, provider calls, tool calls, claim publication, and external effects. It is a kill switch, not a pause: while engaged, the blocked action set is consulted before every effect-bearing operation, and clearing a stop requires an explicit human decision.
 
-## EmergencyStop module
+## Key abstractions
 
-`Conveyor.EmergencyStop` (`lib/conveyor/emergency_stop.ex`) implements pure
-emergency-stop state transitions. It is deliberately a pure module: the state is
-a map, and every function returns a new map.
+| Abstraction | Location | Role |
+| ----------- | -------- | ---- |
+| `Conveyor.EmergencyStop` | `lib/conveyor/emergency_stop.ex` | Pure emergency-stop state transitions. `engage/3` creates an engaged stop, `blocks?/2` tests whether an action is blocked, `clear/2` clears an engaged stop with a `HumanDecision`, and `to_record/1` projects the in-memory state onto the `conveyor.emergency_stop_state@1` wire shape. |
+| Blocked action set | `lib/conveyor/emergency_stop.ex` (`@blocked_actions`) | The fixed `MapSet` of actions an engaged stop blocks: `:run_attempt`, `:planning_run`, `:provider_call`, `:tool_call`, `:claim_publish`, `:effect`, `:budget_reservation`. |
+| `conveyor.emergency_stop_state@1` | `lib/conveyor/emergency_stop.ex` (`to_record/1`) | The schema-conformant wire/persistence shape: string enums, `project_id` for project scope, single `actor` (the most recent operator), `engaged_at`, `cleared_at`, and `human_decision_id`. |
 
-`engage/3` produces an engaged state map with `scope`, `scope_id`,
-`status: :engaged`, `actor`, `reason`, `trace_id`, and `engaged_at`. ADR-11
-defines the blocked actions, encoded in a `MapSet`:
+## How it works
 
-- `:run_attempt`
-- `:planning_run`
-- `:provider_call`
-- `:tool_call`
-- `:claim_publish`
-- `:effect`
-- `:budget_reservation`
+The emergency stop is a pure module with no I/O. It works in three steps:
 
-`blocks?/2` returns true only when the state is engaged and the action is in the
-blocked set. This is the predicate the station wrapper and policy engine consult
-before allowing work.
+1. **Engage.** `engage/3` takes a `scope` atom (for example `:project`), a `scope_id`, and opts (`:actor`, `:reason`, `:trace_id`, optional `:now`). It returns an in-memory map with `status: :engaged` and the engagement metadata. The in-memory map keeps atoms (`status: :engaged`, `scope: :project`) for pattern matching in `blocks?/2` and `clear/2`.
 
-`clear/2` transitions an engaged state to `:clear`, but only when a
-`human_decision_id` is provided. It raises `ArgumentError` if the human decision
-is missing. The cleared state records `cleared_by`, `human_decision_id`, and
-`cleared_at`. This means an engaged stop cannot be cleared by automation alone;
-a human must have made and recorded a decision.
+2. **Block.** `blocks?/2` takes the stop state and an action atom. It returns `true` only when the status is `:engaged` and the action is in `@blocked_actions`. Any other state (including `:clear`) returns `false`. Callers consult `blocks?/2` before every effect-bearing operation: a new station start, a provider call, a tool call, a claim publication, an external effect, or a budget reservation.
 
-`to_record/1` projects the in-memory state (with atoms) onto the
-`conveyor.emergency_stop_state@1` wire/persistence shape (with string enums and
-`project_id` for project scope). This separation keeps the pure logic ergonomic
-while the persisted record is schema-conformant.
+3. **Clear.** `clear/2` takes an engaged stop and opts. It requires a `human_decision_id` and raises `ArgumentError` without one. Clearing transitions the status to `:clear`, records `cleared_by` (the actor) and `cleared_at`, and links the `HumanDecision` that authorized the clear. A cleared stop blocks nothing.
 
-## Shadow controls
+```mermaid
+stateDiagram-v2
+    [*] --> Engaged: engage/3
+    Engaged --> Engaged: blocks?/2 true for<br/>run_attempt, provider_call,<br/>tool_call, claim_publish,<br/>effect, budget_reservation
+    Engaged --> Clear: clear/2<br/>(requires HumanDecision)
+    Clear --> [*]: blocks?/2 false
+```
 
-`Conveyor.ShadowControls` (`lib/conveyor/shadow_controls.ex`) provides optional
-Tutor and retry-escalation shadow decisions. These are measurement and advisory
-surfaces. They do not close work, satisfy verification obligations, or consume
-escalation tiers for contract, policy, adapter, or infrastructure faults.
+### Scope
 
-`tutor_advice/1` produces a `conveyor.tutor_shadow@1` record that is explicitly
-`advisory_only`, `can_close_slice: false`, `can_satisfy_obligation: false`, and
-`authority_effect: "none"`. The tutor may advise but never decide.
+The stop carries a `scope` and `scope_id`. Project scope stores the `project_id` in the wire record via `to_record/1`. The scope is the boundary the stop applies to: a project-scoped stop blocks all work under that project.
 
-`retry_escalation/1` decides whether to escalate a retry to a higher agent
-profile. Only `implementation_failure` and `validation_failure` categories are
-retryable. If the current profile is at the top of the ladder (or unknown), it
-returns `route_without_escalation` with `consumes_tier: false` rather than
-claiming a tier-consuming escalation to a nonexistent profile. Otherwise it
-returns `new_attempt_with_next_profile` with `consumes_tier: true`.
+### Wire shape
 
-The shadow controls are named "shadow" because they run alongside the real
-authority path without touching it. They exist to measure whether advice or
-escalation would have helped, not to exercise authority.
+`to_record/1` projects the in-memory state onto the `conveyor.emergency_stop_state@1` record. The in-memory map uses atoms for pattern matching; the wire shape uses string enums, a `project_id` for project scope, and a single `actor` (the most recent operator, which is `cleared_by` after a clear or the original engager before). `engaged_at` and `cleared_at` are serialized to ISO 8601. Absent fields are omitted rather than emitted as null.
 
-## Budget reservations
+## Integration points
 
-`Conveyor.BudgetReservations` (`lib/conveyor/budget_reservations.ex`) is the
-budget envelope and reservation helper. `envelope/1` creates an envelope with
-`token_limit`, `cost_limit`, `concurrency_limit`, and `active_reservations`.
-`reserve/3` checks the request against the envelope and returns
-`{:ok, reservation}` or `{:deny, reason}` for token, cost, or concurrency
-limits. `commit/2` transitions a reserved reservation to committed with actuals.
-`before_spend/1` is the gate: it returns `:ok` only for a `:reserved`
-reservation, denying nil (`reservation_required`) and committed
-(`reservation_consumed`) reservations.
+- **Station pipeline** — the station wrapper consults `EmergencyStop.blocks?/2` before starting a new station and before executing effects. An engaged stop prevents new station starts. See [Station pipeline](station-pipeline.md).
+- **Agent runner** — provider calls and tool calls check `blocks?/2` before invoking the adapter or running a tool. See [Agent runner](../systems/planning-compiler.md).
+- **Claim publication** — the evidence and review systems check `blocks?/2` before publishing a claim. An engaged stop holds claims.
+- **Budget reservation** — the budget system checks `blocks?/2` before reserving budget. An engaged stop prevents new reservations.
+- **External effects** — `Conveyor.Effects` checks `blocks?/2` before attempting any external effect. See [Event sourcing](event-sourcing.md) for the ledger that records the stop state.
+- **Human decision** — clearing a stop requires a `HumanDecision`, the same human-decision record used by the gate and policy systems. See [Trust gate](../systems/gate.md).
 
-Budget is a policy-controlled stop. The station wrapper's
-`validate_claim_controls!/1` rejects execution when `budget_status` is not
-`:reserved`. Budget exhaustion is not an ordinary agent failure; the run records
-consumed counters and moves the slice to `needs_rework`, `parked`, or `failed`
-according to policy. Non-progress exhaustion (repeated identical failures, no
-patch progress, output flooding) is also budget exhaustion.
+## Entry points for modification
+
+| Change | Where to start |
+| ------ | -------------- |
+| Add a new blocked action | Add the atom to `@blocked_actions` in `lib/conveyor/emergency_stop.ex`. |
+| Add a new scope | Extend `engage/3` to accept the scope, and extend `project_id/1` (or add a sibling) in `to_record/1`. |
+| Change the clear requirements | `clear/2` in `lib/conveyor/emergency_stop.ex`. |
+| Change the wire shape | `to_record/1` in `lib/conveyor/emergency_stop.ex` and the matching schema. |
+| Change where the stop is consulted | Add a `blocks?/2` check in the effect-bearing module before the operation. |
 
 ## Key source files
 
-| File                                  | Purpose                                                           |
-| ------------------------------------- | ----------------------------------------------------------------- |
-| `lib/conveyor/emergency_stop.ex`      | Pure emergency-stop state transitions and blocked action set      |
-| `lib/conveyor/shadow_controls.ex`     | Advisory tutor and retry-escalation shadow decisions              |
-| `lib/conveyor/budget_reservations.ex` | Budget envelope, reservation, commit, and before-spend gate       |
-| `lib/conveyor/station.ex`             | Station wrapper checks emergency stop and budget before execution |
-| `SAFETY_POLICY.md`                    | Budget exhaustion as a policy-controlled stop                     |
+| File | Role |
+| ---- | ---- |
+| `lib/conveyor/emergency_stop.ex` | Pure emergency-stop state transitions and wire projection. |
 
-## Related pages
-
-- [Station pipeline](station-pipeline.md) — where claim controls gate execution
-- [Policy engine and command normalization](../systems/policy-engine.md) —
-  policy enforcement layers
-- [Architecture](../overview/architecture.md) — determinism boundary and control
-  plane
-- [Credential broker](credential-broker.md) — provider calls blocked by an
-  engaged stop
+See also: [Station pipeline](station-pipeline.md), [Event sourcing](event-sourcing.md), [Trust gate](../systems/gate.md), [CLI tools](cli-tools.md), [Slice](../primitives/slice.md), [Run attempt](../primitives/run-attempt.md).

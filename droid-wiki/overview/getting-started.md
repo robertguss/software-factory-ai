@@ -2,123 +2,80 @@
 
 ## Prerequisites
 
-- **Elixir 1.20.1** and **Erlang/OTP 29.0.2** — pinned in `mise.toml`. Use
-  [mise](https://mise.jdx.dev/) to install and manage these versions
-  automatically.
-- **PostgreSQL 16** — Conveyor uses AshPostgres for its domain model.
-- **Docker** — required for sandboxed agent execution (AgentRunner.Pi).
+- **Toolchain** - [mise](https://mise.jdx.dev) installs the pinned Erlang/Elixir from `mise.toml` (Erlang 29.0.2, Elixir 1.20.1):
+  ```bash
+  mise install
+  ```
+- **Postgres** - Conveyor stores its work graph and event-sourced ledger in Postgres. You need a reachable server for the `conveyor_dev` database. Config reads `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE` (defaults: `localhost` / `5432` / `postgres` / `postgres` / `conveyor_dev`).
+- **Docker** - Required for sandboxed agent execution. The sandbox runner creates Docker containers for each agent workspace.
+- **Codex auth** - Only for live runs (`--adapter codex`). The hermetic demo and deterministic dry-run need no credentials.
 
-## Install
+## Setup
 
 ```bash
-# Install Elixir/Erlang via mise
 mise install
-
-# Install dependencies and set up the database
-mix setup
+mix setup        # deps.get + ecto.create + ecto.migrate + seeds
 ```
 
-`mix setup` runs `deps.get` followed by `ecto.create`, `ecto.migrate`, and
-`priv/repo/seeds.exs`.
-
-## Build
+Then confirm the environment is sane:
 
 ```bash
-mix compile --warnings-as-errors
-```
-
-## Test
-
-```bash
-# Tests are database-backed and aliased to create + migrate the test DB first
-MIX_ENV=test mix test
-
-# Run a specific test file
-MIX_ENV=test mix test test/conveyor/gate_test.exs
-```
-
-The test helper at `test/test_helper.exs` excludes `live_agent: true` tests by
-default. Test support code in `test/support` is compiled only in the test
-environment.
-
-## Lint and type check
-
-```bash
-# Check formatting
-mix format --check-formatted
-
-# Run Credo (strict mode)
-mix credo --strict
-
-# Run Dialyzer
-mix dialyzer
-```
-
-## CLI tasks
-
-Conveyor exposes operator commands as Mix tasks under `lib/mix/tasks/`:
-
-```bash
-# Initialize a Conveyor project
-mix conveyor.init
-
-# Lint a plan
-mix conveyor.plan_lint
-
-# Audit a plan
-mix conveyor.plan_audit
-
-# Run a slice
-mix conveyor.run_slice
-
-# Verify evidence
-mix conveyor.verify
-
-# Show run details
-mix conveyor.show
-
-# Generate AGENTS.md
-mix conveyor.agents
-mix conveyor.agents.lint
-
-# Run the doctor (health checks)
 mix conveyor.doctor
+```
 
-# Seed sample tasks
-mix conveyor.seed_sample
+`doctor` checks the toolchain, Postgres reachability, Docker/sandbox posture, git, and project files. It prints a remediation hint for anything missing. To validate an initialized workspace, point `doctor` at it: `mix conveyor.doctor <ws>`.
 
-# Run the demo
+## See it work (no credentials)
+
+```bash
 mix conveyor.demo
 ```
 
-## Project configuration
+A fully hermetic Phase-1 run with a fake adapter. No network, no credentials. Confirms the loop, ledger, and gate are wired before you spend anything.
 
-Conveyor projects use a `.conveyor/config.toml` file. A template lives at
-`priv/conveyor/templates/config.toml`. The config defines:
+## Drive a real plan
 
-- project name, repo path, default branch
-- default autonomy level (L0-L4)
-- command specs (executable families, write roots, read roots, network modes)
-- quality adapter selection
-- policies directory, prompts directory, runs directory, blobs directory
+1. **Scaffold the workspace** in a fresh target directory:
+   ```bash
+   mix conveyor.init <ws>
+   ```
+   This creates `.conveyor/config.toml`, policy profiles, prompts, and artifact dirs.
 
-See [Configuration](../reference/configuration.md) for details.
+2. **Author the task graph** via the DB-native CLI. Follow `docs/dogfood/task-graph-authoring.md`. To start from an existing `conveyor.plan@1` YAML, use `docs/dogfood/decomposition-aid.md` and migrate it with `Conveyor.Planning.PlanImporter.import!/1`.
 
-## Development server
+3. **Lock and approve** every task:
+   ```bash
+   mix conveyor.task.lock <stable_key>
+   mix conveyor.task.approve <stable_key>
+   ```
+   `lock` compiles and materializes the gate-valid contract. `approve` is the human go-signal. `conveyor run` refuses an unapproved graph.
+
+4. **Dry-run, then run live** by plan id:
+   ```bash
+   mix conveyor.run <plan-id> --adapter reference_solution --workspace <ws>   # dry-run
+   mix conveyor.run <plan-id> --adapter codex --workspace <ws>                # live
+   ```
+
+5. **Read what happened:**
+   ```bash
+   mix conveyor.run_view <run_id>          # human run story
+   mix conveyor.run_view <run_id> --json   # conveyor.run_view@1
+   ```
+
+## Build and test
 
 ```bash
-# Start the Phoenix development server
-mix phx.server
-
-# Or with IEx
-iex -S mix phx.server
+mix format --check-formatted       # format check
+mix compile --warnings-as-errors   # compile
+MIX_ENV=test mix test              # full test suite (creates + migrates test DB)
+mix credo --strict                 # lint
+mix dialyzer                       # static analysis
 ```
 
-The dev config (`config/dev.exs`) intentionally has no JS/CSS watcher. Check it
-before assuming an asset pipeline exists.
+CI runs all of these plus eval scorecard checks. CI is manual (`workflow_dispatch`) and uses PostgreSQL 16.
 
-## CI
+## Operating discipline
 
-CI is defined in `.github/workflows/ci.yml` and runs on `workflow_dispatch`
-(manual trigger). It uses PostgreSQL 16 and runs: format check, compile, tests,
-Credo, and Dialyzer.
+- **Greenfield only** - There is no blast-radius container yet. By default `conveyor.run` works on an isolated copy of `--workspace` and prints the copy's path.
+- **Start with 10-20 slices** and climb. Larger plans break in less legible ways while the cockpit is young.
+- **"Green" is provisional** - The trust gate is partway wired. A passing run does not yet certify correctness. Judge slice output by eye and treat the run as a gap-discovery probe.

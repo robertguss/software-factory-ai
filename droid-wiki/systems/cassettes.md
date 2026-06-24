@@ -1,114 +1,173 @@
 # Cassettes
 
-The cassette system in `lib/conveyor/cassettes.ex` and `lib/conveyor/cassettes/`
-records station runs for replay and freshness checks. A cassette captures the
-causal event stream, tool transcript, and primary outputs of one agent
-execution, sealed with redaction and integrity checks. The system separates
-generation freshness (what the agent was given) from evaluation surface (what
-the gate checked), so a cassette can be reused for hybrid replay when only the
-evaluation surface changed.
+The cassettes subsystem records and replays agent interactions so that
+deterministic verification can re-run an agent's observable behavior without
+paying for live model calls. A cassette captures the causal event stream, tool
+transcript, nondeterminism ledger, and generation/evaluation freshness digests
+of one recording, then a replay engine decides whether the cassette is still
+fresh enough to replay in a given mode (full, hybrid, proposal, or compatible).
+The goal is zero-cost, hermetic, deterministic testing of agent work graphs.
 
-## Cassette builders
+## Directory layout
 
-`lib/conveyor/cassettes.ex` provides artifact-shaped `CassetteSeries` and
-`AgentCassette` builders. A `CassetteSeries` is keyed by spec kind, spec digest,
-role, adapter, agent profile snapshot digest, capability snapshot digest,
-generation environment fingerprint digest, and generation freshness digest. Its
-id is content-addressed.
+The cassette builders live in `lib/conveyor/cassettes.ex`, with the replay and
+normalization machinery in `lib/conveyor/cassettes/`:
 
-The `record/2` function builds an `AgentCassette` from a series and options. It
-requires integrity (series id and recording number), redacts primary outputs
-through `Security.Redactor`, and seals the cassette. If redaction is blocked,
-the cassette is rejected with `redaction_blocked` as the invalidation reason.
-Each cassette carries provider metadata (request id, model id, model revision,
-identity confidence), the agent event stream, tool transcript, primary output
-refs, patch set digest, retention class, and expiry.
+```text
+lib/conveyor/
+├── cassettes.ex                       # CassetteSeries + AgentCassette artifact builders
+└── cassettes/
+    ├── causal_transcript.ex           # normalizes event streams and tool records
+    ├── freshness.ex                   # separates generation vs evaluation surfaces
+    ├── nondeterminism.ex              # virtual clock, id allocator, ndet ledger
+    ├── replay_anchor_set.ex           # selects representative replay anchors
+    ├── replay_diagnostics.ex          # strict-replay divergence diagnostics
+    └── replay_engine.ex               # mode-specific replay decisions
+```
 
-## CausalTranscript
+## Key abstractions
 
-`lib/conveyor/cassettes/causal_transcript.ex` normalizes observable cassette
-event streams and tool records. Events are assigned monotonic per-stream
-sequence numbers, given stable `event_id` values (`<stream>:<sequence>`), and
-their `happens_after` references are preserved. Hidden keys (chain of thought,
-reasoning, private reasoning) are scrubbed from payloads. Tool records carry a
-tool contract key, tool call id, normalized args, policy decision, result,
-error, effect receipt ref, and caused-by reference, with an idempotency key
-derived from the record content.
+| Abstraction | Location | Role |
+| --- | --- | --- |
+| `Conveyor.Cassettes` | `lib/conveyor/cassettes.ex` | Builds `CassetteSeries` and `AgentCassette` artifact maps. `new_series!/1` mints a series; `record/2` seals a cassette with redaction. |
+| `CassetteSeries` | `lib/conveyor/cassettes.ex` | The `conveyor.cassette_series@1` artifact tying a spec kind, role, adapter, and environment/snapshot digests together. One series holds many cassettes. |
+| `AgentCassette` | `lib/conveyor/cassettes.ex` | The `conveyor.agent_cassette@1` artifact for one recording: provider identity, agent event stream, tool transcript, redacted primary outputs, patch-set digest, retention, expiry. |
+| `CausalTranscript` | `lib/conveyor/cassettes/causal_transcript.ex` | Normalizes raw event streams into `conveyor.causal_event@1` entries (per-stream sequence numbers, `happens_after` edges, scrubbed hidden reasoning) and `conveyor.tool_record@1` tool records with idempotency keys. |
+| `Freshness` | `lib/conveyor/cassettes/freshness.ex` | Splits a surface into generation freshness digest (prompt/role view/context/adapter/tool-contract digests) and evaluation surface digest (gate/verification/obligation digests), then classifies a cassette as `:fresh`, `:hybrid_replay_eligible`, or `:generation_stale`. |
+| `Nondeterminism` | `lib/conveyor/cassettes/nondeterminism.ex` | Deterministic virtual clock, id allocator, and nondeterminism ledger (`conveyor.nondeterminism_ledger@1`). Records clock reads, id allocations, env reads, external reads, and tool equivalence policies. |
+| `ReplayAnchorSet` | `lib/conveyor/cassettes/replay_anchor_set.ex` | Selects one representative recording per category (`successful`, `failed`, `disputed`, `safety_sensitive`) into a `conveyor.replay_anchor_set@1` before an evaluated change. |
+| `ReplayDiagnostics` | `lib/conveyor/cassettes/replay_diagnostics.ex` | Compares recorded vs requested causal events and tool records, emitting blocking findings (`strict_replay.causal_sequence_changed`, `strict_replay.tool_contract_changed`, `strict_replay.normalized_args_changed`). |
+| `ReplayEngine` | `lib/conveyor/cassettes/replay_engine.ex` | Mode-specific replay (`:full`, `:hybrid`, `:proposal`, `:compatible`). Checks generation freshness, runs strict replay checks for full mode, and returns trust-gate eligibility. |
 
-## Freshness
+## How it works
 
-`lib/conveyor/cassettes/freshness.ex` separates cassette generation and
-evaluation surfaces. Generation keys are prompt digest, role view digest,
-context pack digest, adapter profile digest, and tool contract digest.
-Evaluation keys are gate digest, verification digest, and obligation digest. The
-`classify/2` function compares a recorded cassette against the current surface:
+A cassette is recorded once against a live agent run and replayed many times.
+The recording path builds a `CassetteSeries` from the spec kind, role, adapter,
+and a set of snapshot/environment/freshness digests. Each `record/2` call then
+seals an `AgentCassette` against that series: it requires a non-empty agent
+event stream and a valid tool transcript, redacts the primary outputs through
+`Conveyor.Security.Redactor`, and sets the `seal_status` to `sealed` (or
+`rejected` with an `invalidation_reason` if redaction blocks or integrity
+fails).
 
-- **`:fresh`** — both generation and evaluation surfaces match.
-- **`:hybrid_replay_eligible`** — generation surface matches but evaluation
-  surface changed.
-- **`:generation_stale`** — generation surface changed; the cassette cannot be
-  replayed.
+Before replay, the freshness layer classifies whether the cassette is still
+usable. The generation surface (prompt, role view, context, adapter, tool
+contract digests) must match for any replay. The evaluation surface (gate,
+verification, obligation digests) may differ and still allow a hybrid replay.
+The replay engine then applies mode-specific checks.
 
-## Nondeterminism
+```mermaid
+flowchart TD
+    A[Live agent run] --> B[Cassettes.new_series!]
+    B --> C[Cassettes.record series, opts]
+    C --> D{Integrity + redaction}
+    D -- ok --> E[Sealed AgentCassette]
+    D -- blocked --> F[Rejected cassette + reason]
+    E --> G[Freshness.classify recorded vs current]
+    G -- generation_stale --> H[No replay: record new cassette]
+    G -- fresh --> I[ReplayEngine full/hybrid/proposal]
+    G -- hybrid_replay_eligible --> J[ReplayEngine hybrid]
+    I --> K{strict replay check}
+    K -- match --> L[Replayed + trust-gate eligible]
+    K -- divergence --> M[ReplayDiagnostics findings]
+    J --> N[Replayed, eval surface noted]
+```
 
-`lib/conveyor/cassettes/nondeterminism.ex` provides a deterministic virtual
-clock, id allocator, and nondeterminism ledger. The virtual clock advances from
-a fixed ISO-8601 start by ordinal index, so replay produces identical
-timestamps. The id allocator assigns monotonic ids per namespace. The ledger
-records clock reads, id allocations, env reads, external reads, and tool
-equivalence policies, so any nondeterministic input that affected a run is
-captured and reproducible.
+### Causal transcripts and hidden reasoning
 
-## ReplayAnchorSet
+`CausalTranscript.normalize_events/1` renumbers events per stream, assigns
+`event_id` as `stream:sequence_no`, preserves `happens_after` edges, and scrubs
+hidden reasoning keys (`chain_of_thought`, `hidden_chain_of_thought`,
+`reasoning`, `private_reasoning`) from payloads. `tool_record!/1` builds a
+`conveyor.tool_record@1` with a deterministic idempotency key derived from the
+record's canonical digest, so identical tool calls are content-addressed rather
+than positionally identified.
 
-`lib/conveyor/cassettes/replay_anchor_set.ex` selects representative replay
-anchors before an evaluated change. Anchors are chosen across four categories:
-successful, failed, disputed, and safety-sensitive. Each anchor carries its
-cassette ref, whether it is a valuable failure, and expected replay assertions.
-The anchor set is content-addressed with a selection policy digest.
+### Nondeterminism ledger
 
-## ReplayDiagnostics
+The `Nondeterminism` struct is a deterministic virtual environment. `tick/2`
+advances an ISO-8601 virtual clock by read index (rejecting malformed
+`clock_start` at the contract boundary per ADR-12). `allocate_id/2` mints
+namespaced, zero-padded ids. Env reads, external reads, and tool equivalence
+policies are recorded into the ledger. `require_complete/2` checks that all
+required ledger sections are present before replay, returning a
+`replay_incomplete` error with the missing keys otherwise.
 
-`lib/conveyor/cassettes/replay_diagnostics.ex` produces structured diagnostics
-for strict replay divergence. It compares recorded and requested cassette
-content across three dimensions: causal sequence (event ids and happens-after
-references), tool contracts (tool call ids and contract keys), and normalized
-args. Divergence produces a finding with a rule key, anchor, severity, and next
-action (`record_new_cassette_or_fix_replay_request`).
+### Replay modes
 
-## ReplayEngine
+`ReplayEngine.replay/3` supports four modes:
 
-`lib/conveyor/cassettes/replay_engine.ex` makes mode-specific cassette replay
-decisions across four modes:
+| Mode | Strict check | Trust-gate eligible | Notes |
+| --- | --- | --- | --- |
+| `:full` | Tool signatures and event signatures must match exactly | yes | Returns primary outputs. |
+| `:hybrid` | No strict check (generation must still be fresh) | yes | Notes whether the evaluation surface changed; carries gate results. |
+| `:proposal` | No strict check | yes | Carries a proposal result. |
+| `:compatible` | No strict check | no | Status is `:compatible_only`; not eligible for the trust gate. |
 
-- **`:full`** — requires exact match of generation freshness, tool signatures,
-  and event signatures. Produces `trust_gate_eligible?: true` with primary
-  outputs.
-- **`:hybrid`** — requires generation freshness match only. Reports whether the
-  evaluation surface changed and includes gate results. Trust-gate eligible.
-- **`:proposal`** — requires generation freshness match. Returns a proposal
-  result. Trust-gate eligible.
-- **`:compatible`** — compatibility-only mode. Not trust-gate eligible.
+`:full` mode compares recorded vs requested tool records (contract key +
+canonical normalized args) and causal events (event id + happens-after edges).
+Any divergence returns a `strict_replay_divergence` miss. `ReplayDiagnostics`
+provides the structured comparison that produces the blocking findings a caller
+can surface to the operator.
 
-All modes require the current generation freshness digest to match the recorded
-one; otherwise the replay misses with `cassette_generation_stale`.
+### Replay anchor selection
+
+`ReplayAnchorSet.build!/2` selects one recording per category
+(`successful`, `failed`, `disputed`, `safety_sensitive`) before an evaluated
+change. Each anchor carries the cassette ref, whether the failure was valuable,
+and the expected replay assertions. The anchor set is content-addressed so the
+selection policy is auditable.
+
+## Integration points
+
+- **Security redaction** — `Cassettes.record/2` delegates output redaction to
+  `Conveyor.Security.Redactor`. A blocked redaction rejects the cassette with
+  `invalidation_reason: "redaction_blocked"`.
+- **Trust gate** — `ReplayEngine` sets `trust_gate_eligible?` on replay results.
+  The [Trust gate](gate.md) reads replay divergence as one trust signal (the
+  replay component, weight 0.15) via `Conveyor.Gate.TrustEvidence`.
+- **Evidence model** — cassettes are part of the
+  `lib/conveyor/evidence/`, `lib/conveyor/artifacts/`, `lib/conveyor/cassettes/`
+  evidence-capture surface. Recorded diagnostics refs and patch-set digests link
+  cassettes back to the artifact store.
+- **Qualification** — replay anchors feed the
+  [Qualification system](qualification.md) gate, which requires `strict`, `full`,
+  and `hybrid` replay modes to pass before a grant candidate is produced.
+- **Battery** — cassette replay provides the deterministic primary oracle that
+  the [Battery system](battery.md) live sampling and secondary confirmation
+  build on.
+
+## Entry points for modification
+
+- **Add a cassette field** — `cassette_base/2` in
+  `lib/conveyor/cassettes.ex` is where the `conveyor.agent_cassette@1` map is
+  assembled. Keep the schema version bumped if the field is structural.
+- **Change freshness classification** — `@generation_keys` and
+  `@evaluation_keys` in `lib/conveyor/cassettes/freshness.ex` define which
+  digests gate replay. `classify/2` is the pure decision function.
+- **Add a replay mode** — add the atom to `@modes` in
+  `lib/conveyor/replay_engine.ex` and implement `strict_replay_check/3` and
+  `replay_result/3` clauses for it.
+- **Change strict replay diagnostics** — `compare/2` in
+  `lib/conveyor/cassettes/replay_diagnostics.ex` is the comparison surface. New
+  rule keys must use the `strict_replay.*` prefix.
+- **Change hidden-reasoning scrubbing** — `@hidden_keys` in
+  `lib/conveyor/cassettes/causal_transcript.ex`.
+- **Change anchor categories** — `@categories` in
+  `lib/conveyor/cassettes/replay_anchor_set.ex`.
 
 ## Key source files
 
-| File                                           | Purpose                                                                       |
-| ---------------------------------------------- | ----------------------------------------------------------------------------- |
-| `lib/conveyor/cassettes.ex`                    | CassetteSeries and AgentCassette builders with redaction and sealing.         |
-| `lib/conveyor/cassettes/causal_transcript.ex`  | Normalizes event streams and tool records with hidden-key scrubbing.          |
-| `lib/conveyor/cassettes/freshness.ex`          | Separates generation and evaluation surfaces for freshness classification.    |
-| `lib/conveyor/cassettes/nondeterminism.ex`     | Deterministic virtual clock, id allocator, and nondeterminism ledger.         |
-| `lib/conveyor/cassettes/replay_anchor_set.ex`  | Selects representative replay anchors across four categories.                 |
-| `lib/conveyor/cassettes/replay_diagnostics.ex` | Structured diagnostics for strict replay divergence.                          |
-| `lib/conveyor/cassettes/replay_engine.ex`      | Mode-specific cassette replay decisions (full, hybrid, proposal, compatible). |
+| File | Role |
+| --- | --- |
+| `lib/conveyor/cassettes.ex` | `CassetteSeries` and `AgentCassette` artifact builders, redaction integration. |
+| `lib/conveyor/cassettes/causal_transcript.ex` | Event stream normalization, tool record building, hidden-reasoning scrubbing. |
+| `lib/conveyor/cassettes/freshness.ex` | Generation vs evaluation surface digests and freshness classification. |
+| `lib/conveyor/cassettes/nondeterminism.ex` | Virtual clock, id allocator, nondeterminism ledger. |
+| `lib/conveyor/cassettes/replay_anchor_set.ex` | Representative anchor selection before an evaluated change. |
+| `lib/conveyor/cassettes/replay_diagnostics.ex` | Strict-replay divergence findings. |
+| `lib/conveyor/cassettes/replay_engine.ex` | Mode-specific replay decisions and trust-gate eligibility. |
 
-## Related pages
-
-- [Agent runner](agent-runner.md) — how agent events are recorded
-- [Evidence recording](evidence-recording.md) — verification reruns and
-  reproducibility
-- [Gate](gate.md) — `canary_freshness` stage checks cassette freshness
-- [Qualification](qualification.md) — replay anchors feed qualification bundles
+See also: [Trust gate](gate.md), [Qualification system](qualification.md),
+[Battery system](battery.md), [Planning compiler](planning-compiler.md),
+[Evaluation framework](eval-framework.md).

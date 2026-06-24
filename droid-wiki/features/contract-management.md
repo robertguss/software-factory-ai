@@ -1,174 +1,252 @@
 # Contract management
 
-Contracts are the immutable acceptance surface that makes evidence meaningful.
-Conveyor drafts contracts, challenges them through an independent critic, locks
-them into a digest set, and evolves them into new locks when requirements
-change. The same actor never both authors and approves a contract.
+Contract management covers the full lifecycle of the contract-bearing work
+graph: authoring draft agent brief contracts, lowering plan contracts from
+database rows, locking them as immutable digest sets, evolving them between
+attempts, and criticizing them with multi-lens review. Contracts are the
+authority for what a [Slice](../primitives/slice.md) must achieve; the gate
+verifies runs against the locked contract, and the implementer follows the
+locked brief.
 
-## ContractLock resource
+## Directory layout
 
-`Conveyor.Factory.ContractLock` (`lib/conveyor/factory/contract_lock.ex`) is an
-immutable Ash resource that freezes a slice contract for future evidence. It
-stores a set of SHA-256 digests rather than the contract text itself:
+```text
+lib/conveyor/
+├── plan_contract.ex                      # Loads & validates conveyor.plan@1 contracts
+├── contract_evolution.ex                 # Classifies contract changes, materializes rerun state
+├── contract_forge/                       # Contract authoring and derivation
+│   ├── contract_author.ex                # Materializes draft AgentBrief contracts from RoleViews
+│   ├── archetype_templates.ex            # Deterministic archetype obligation floors
+│   ├── interface_policy.ex               # Interface lock, compatibility, rollout, migration checks
+│   ├── verification_obligation_deriver.ex # Derives VerificationObligation projections
+│   ├── falsifier_seed_deriver.ex         # Derives compiler-owned falsifier seeds
+│   └── falsifier_forge.ex                # Builds pre-agent red-on-base falsifier report
+├── contract_critic/                      # Multi-lens contract criticism (never approves)
+│   ├── lenses.ex                         # Pure multi-lens Contract Critic projection
+│   ├── cheapest_wrong.ex                 # Projects cheapest-wrong implementation attacks
+│   ├── independence_profile.ex           # Records & enforces independence profiles for critics
+│   ├── repair_diff.ex                    # Typed repair comparison with partial pass-output reuse
+│   └── repair_loop.ex                    # Bounded automatic repair policy for critic findings
+├── planning/
+│   └── contract_builder.ex               # Compiles DB-native task-graph rows -> Plan.normalized_contract
+└── factory/
+    └── contract_lock.ex                  # Ash resource: immutable digest set that freezes a slice contract
+```
 
-- `plan_contract_sha256`, `brief_sha256`, `acceptance_criteria_sha256`,
-  `required_tests_sha256`, `test_pack_sha256`, `verification_commands_sha256`,
-  `agents_md_sha256`, `policy_sha256`
-- `protected_path_globs` — the paths the contract forbids the implementer from
-  touching
-- `locked_at` and `locked_by`
+## Key abstractions
 
-A `ContractLock` belongs to one `Slice` and one `AgentBrief`. It has no update
-action beyond the Ash defaults; the only way to change a contract is to create a
-new lock. This is what makes old evidence trustworthy: a gate can prove that the
-acceptance criteria it checked match the criteria the lock froze.
+| Abstraction | Location | Role |
+| --- | --- | --- |
+| `Conveyor.PlanContract` | `lib/conveyor/plan_contract.ex` | Loads and validates a `conveyor.plan@1` contract from a sidecar file or a fenced markdown block. Returns a `Result` with the contract map and `contract_sha256`. |
+| `Conveyor.PlanContract.Result` | `lib/conveyor/plan_contract.ex` | Validated normalized plan contract: `source_path`, `contract`, `contract_sha256`. |
+| `Conveyor.PlanContract.Error` | `lib/conveyor/plan_contract.ex` | Typed load/validation error: `code`, `message`, `source_path`, `details`. |
+| `Conveyor.Planning.ContractBuilder` | `lib/conveyor/planning/contract_builder.ex` | Compiles DB-native task-graph rows (Project, Plan, Epic, Slice) into the `conveyor.plan@1` `normalized_contract` map and persists it on the Plan. |
+| `Conveyor.ContractForge.ContractAuthor` | `lib/conveyor/contract_forge/contract_author.ex` | Materializes draft AgentBrief contracts from contract-author RoleViews, deriving verification obligations and falsifier seeds. |
+| `Conveyor.ContractForge.ArchetypeTemplates` | `lib/conveyor/contract_forge/archetype_templates.ex` | Deterministic archetype obligation floors (bugfix, CRUD, refactor, migration, dependency, interface, security, performance, configuration, custom). |
+| `Conveyor.ContractForge.InterfacePolicy` | `lib/conveyor/contract_forge/interface_policy.ex` | Validates interface lock level, compatibility policy, rollout, and migration safety. |
+| `Conveyor.ContractForge.VerificationObligationDeriver` | `lib/conveyor/contract_forge/verification_obligation_deriver.ex` | Derives `VerificationObligation` projections from acceptance criteria, blocking on machine-checkable criteria without falsifying conditions. |
+| `Conveyor.ContractForge.FalsifierSeedDeriver` | `lib/conveyor/contract_forge/falsifier_seed_deriver.ex` | Derives compiler-owned falsifier seeds from six contract fields (falsifying conditions, boundary examples, forbidden predicates, property counterexamples, metamorphic relations, interface incompatibility cases). |
+| `Conveyor.ContractForge.FalsifierForge` | `lib/conveyor/contract_forge/falsifier_forge.ex` | Builds the pre-agent red-on-base falsifier report for a locked slice contract. |
+| `Conveyor.ContractCritic.Lenses` | `lib/conveyor/contract_critic/lenses.ex` | Pure multi-lens Contract Critic projection. Ten required lenses, preserves disagreement, never approves or locks. |
+| `Conveyor.ContractCritic.CheapestWrong` | `lib/conveyor/contract_critic/cheapest_wrong.ex` | Projects cheapest-wrong implementation attacks into `ContractChallengeCase` records. |
+| `Conveyor.ContractCritic.IndependenceProfile` | `lib/conveyor/contract_critic/independence_profile.ex` | Records and enforces independence profiles for challenge roles. High-risk change classes require a model-diverse or human/deterministic lens. |
+| `Conveyor.ContractCritic.RepairDiff` | `lib/conveyor/contract_critic/repair_diff.ex` | Typed repair comparison with partial pass-output reuse. Blocks if changed artifacts exceed the rejected-artifact scope. |
+| `Conveyor.ContractCritic.RepairLoop` | `lib/conveyor/contract_critic/repair_loop.ex` | Bounded automatic repair policy. Decides repair vs. park, evaluates progress, routes material/breaking changes to amendment. |
+| `Conveyor.ContractEvolution` | `lib/conveyor/contract_evolution.ex` | Classifies contract changes (weakened, strengthened, scope, test pack, clarification) and materializes rerun state for changed contracts. |
+| `Conveyor.ContractEvolution.Diff` | `lib/conveyor/contract_evolution.ex` | Classification result: `classifications`, `changed?`, `automatic_rerun_allowed?`, `requires_human_decision?`. |
+| `ContractLock` | `lib/conveyor/factory/contract_lock.ex` | Ash resource. Immutable digest set that freezes a slice contract for future evidence: plan contract, brief, acceptance criteria, required tests, test pack, verification commands, AGENTS.md, policy, and protected path globs. |
 
-## ContractForge (drafting)
+## How it works
 
-`lib/conveyor/contract_forge/` is the drafting subsystem. It materializes draft
-contracts from contract-author RoleViews without granting implementation
-authority.
+### Plan contract loading
 
-- `contract_author.ex` — `ContractAuthor.materialize/1` builds a
-  `conveyor.agent_brief_contract@1` from a RoleView, archetype, acceptance
-  criteria, and authorized scope. It derives verification obligations and
-  falsifier seeds, partitioning the bounded context into `requirements` (REQ-_),
-  `decisions` (DEC-_), `constraints`, and `claims`.
-- `archetype_templates.ex` — `ArchetypeTemplates` holds deterministic
-  minimum-obligation floors per change archetype (`bugfix_regression`,
-  `crud_endpoint`, `pure_refactor`, `schema_migration`). These are obligation
-  floors, not prompt folklore. Authors may add stricter obligations, but
-  downstream tools rely on the stable keys.
-- `interface_policy.ex` — `InterfacePolicy.validate/1` and
-  `validate_migration/1` enforce interface lock strength, compatibility,
-  rollout, and migration safety for public or cross-slice interfaces.
-- `falsifier_seed_deriver.ex` — derives falsifier seed families from the
-  contract so the critic and test architect have concrete attack families to
-  work with.
-- `verification_obligation_deriver.ex` — derives the verification obligations
-  the implementer must satisfy, returning them or blocking findings when the
-  contract is incomplete.
+`Conveyor.PlanContract.load/1` accepts a path to a markdown plan file, a YAML
+sidecar, or a JSON contract. It resolves the source (direct file, sidecar
+`conveyor.plan.yml`/`.yaml`/`.json`, or a fenced `conveyor-plan@1` block in
+markdown), decodes it, checks the schema version, validates against the JSON
+schema at `docs/schemas/conveyor.plan@1.json`, and runs semantic validation on
+`work_dependencies` (no dangling refs, no self-loops, must form a DAG). The
+result carries the canonical `contract_sha256`.
 
-Drafting is non-authorizing. A drafted contract has `authority_effect: :none`
-until it is locked by a separate actor.
+### DB-native contract building
 
-## ContractCritic (criticism and repair)
+`Conveyor.Planning.ContractBuilder` is the sibling of the YAML path. It
+compiles the DB-native task-graph rows (Project, Plan, Epic, Slice) into the
+same `conveyor.plan@1` `normalized_contract` map. The `contract_sha256` is
+computed identically to the YAML path, so the same contract produces the same
+digest regardless of authoring route. `compile_contract/1` persists the
+contract and digest on the Plan while it is still in `:draft` status; the
+contract is frozen once the plan leaves draft.
 
-`lib/conveyor/contract_critic/` is the independent challenge layer. Critic
-lenses may challenge contracts and preserve disagreement, but they never
-approve, lock, or grant implementation authority.
+### Contract authoring (Contract Forge)
 
-- `lenses.ex` — `Lenses.review/1` runs ten required lenses (`intent_fidelity`,
-  `scope_delta`, `principal_engineering`, `interface_compatibility`,
-  `test_loopholes`, `reliability_observability`, `security`,
-  `cost_simplification`, `hidden_decision`, `approval_cognitive_load`). Each
-  lens returns a status and findings; the overall status is `:challenged` if any
-  lens fails. The result carries `can_approve?: false` and `can_lock?: false`
-  explicitly.
-- `independence_profile.ex` — `IndependenceProfile` records and enforces
-  challenge-role independence. High-risk change classes (`security`,
-  `irreversible_migration`, `public_compat`, `autonomy_increasing`) require a
-  `model_diverse` or `human_or_deterministic` profile, or the enforcement
-  blocks.
-- `cheapest_wrong.ex` — `CheapestWrong.challenge!/1` projects cheapest-wrong
-  implementation attacks into `ContractChallengeCase` records, each carrying the
-  written contract that would be satisfied, the approved intent that would be
-  violated, materiality, and a repair proposal.
-- `repair_loop.ex` — `RepairLoop` is the bounded automatic repair policy.
-  `next_action/1` returns `:repair` or `:park` based on completed rounds
-  (default max 2). `evaluate/1` parks on oscillation or non-progress.
-  `route_change/1` blocks repairs that weaken policy or acceptance without
-  authority, and routes material or breaking changes to amendment.
-- `repair_diff.ex` — `RepairDiff.compare/1` is the typed repair comparison. It
-  enforces that only rejected-artifact scope may change during repair; any
-  expansion is a blocking finding.
+`Conveyor.ContractForge.ContractAuthor.materialize/1` takes a RoleView and
+produces a draft `conveyor.agent_brief_contract@1` contract. It fetches the
+archetype template for the change class, partitions the bounded context into
+requirements (REQ-*) and decisions (DEC-*), normalizes acceptance criteria
+with example lists, derives verification obligations, and derives falsifier
+seeds. The result carries a `contract_digest` over the canonicalized contract.
+If verification obligation derivation fails (a machine-checkable criterion
+without falsifying conditions), the result is `:blocked` with findings.
 
-## ContractEvolution
+### Archetype templates
 
-`lib/conveyor/contract_evolution.ex` classifies contract changes and
-materializes rerun state when a contract changes. This is the mechanism that
-turns a contract change into a new attempt without invalidating old evidence.
+`ArchetypeTemplates` provides minimum obligation floors for ten archetypes:
+`bugfix_regression`, `crud_endpoint`, `pure_refactor`, `schema_migration`,
+`dependency_update`, `public_interface_change`, `security_hardening`,
+`performance`, `configuration`, and `custom`. Each template carries
+`minimum_obligations`, `required_review_lenses`, and
+`falsifier_seed_families`. Contract authors may add stricter obligations, but
+downstream tools rely on these stable keys.
 
-`diff/2` compares an old and new contract and produces a `Diff` with
-classifications drawn from a fixed order:
+### Interface policy
 
-- `acceptance_weakened`, `acceptance_strengthened`
-- `policy_weakened`, `policy_strengthened`
-- `scope_added`, `scope_removed`
-- `test_pack_changed`, `clarification_only`
+`InterfacePolicy` validates that public or cross-slice interfaces have a
+strong lock level (`strict`, `compatible_superset`, or `review_required`) and
+a compatibility policy that is not `none` or `informational`. It checks
+rollout environment and intent, and `validate_migration/1` enforces that
+migration profiles carry reversibility, backfill, data validation,
+compatibility window, and rollback restore.
 
-Weakening classifications (`acceptance_weakened`, `policy_weakened`) block
-automatic reruns and require a human approval reason. `automatic_rerun_allowed?`
-is false when any weakening is present; `requires_human_decision?` is true
-whenever the contract changed at all.
+### Falsifier seeds
 
-`prepare_rerun!/3` materializes the rerun: it loads the old contract lock and
-brief, merges the proposed contract, classifies the diff, creates a new
-`ContractLock`, creates a new `RunSpec` pointing at the new lock, creates a new
-`RunAttempt` with an incremented attempt number, and records a `HumanDecision`
-capturing the reason. The new attempt is `:planned` and ready for a fresh
-station run. The old evidence remains valid against the old lock.
+`FalsifierSeedDeriver` extracts falsifier seeds from six fields on each
+acceptance criterion. Each seed carries a `seed_id`, `family`, source
+criterion ID, payload, and `preservation_required: true`. `verify_preserved/2`
+checks that compiler-derived seeds are not dropped during translation.
+`FalsifierForge.run!/2` builds the pre-agent red-on-base falsifier report,
+requiring every acceptance criterion to have both seed IDs and required test
+refs.
 
-## Contract diff and lint CLI
+### Contract locking
 
-Two mix tasks expose contract operations to operators:
-
-- `mix conveyor.contract_diff --old OLD.json --new NEW.json`
-  (`lib/mix/tasks/conveyor.contract_diff.ex`) prints a classified
-  `conveyor.contract_diff@1` JSON document with classifications, changed flag,
-  automatic rerun allowance, and human decision requirement.
-- `mix conveyor.contract_lint agent_brief.json --format human|json|sarif`
-  (`lib/mix/tasks/conveyor.contract_lint.ex`) runs deterministic,
-  non-authorizing lint on a compiler contract or agent brief through
-  `Conveyor.Planning.PlanLint`. It never invokes agents or execution authority.
-
-Both tasks preserve stable exit codes for downstream automation.
-
-## Contract lifecycle
+The `ContractLock` resource freezes the contract for a slice into an
+immutable digest set. Each lock carries SHA-256 digests for the plan contract,
+brief, acceptance criteria, required tests, test pack, verification commands,
+AGENTS.md, and policy, plus the literal `protected_path_globs`. Once locked,
+these digests are the reference the gate's `contract_lock` stage checks
+against, and the [Run spec](../primitives/run-attempt.md) embeds the
+`contract_lock_sha256`.
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Drafted: ContractForge.ContractAuthor.materialize
-    Drafted --> Challenged: ContractCritic.Lenses.review
-    Challenged --> Drafted: RepairLoop next_action = :repair
-    Challenged --> Parked: RepairLoop next_action = :park
-    Challenged --> Locked: separate actor locks
-    Drafted --> Locked: separate actor locks
-    Locked --> Evidence: gate checks digests
-    Locked --> Evolved: ContractEvolution.prepare_rerun
-    Evolved --> Drafted: new contract from merged proposal
-    Parked --> [*]: human review
-    Evidence --> [*]
+flowchart TD
+    A["Plan contract<br/>(YAML or DB rows)"] --> B["ContractBuilder.compile_contract<br/>(persist normalized_contract + sha256)"]
+    B --> C["ContractAuthor.materialize<br/>(draft AgentBrief contract)"]
+    C --> D["VerificationObligationDeriver<br/>+ FalsifierSeedDeriver"]
+    D --> E["FalsifierForge<br/>(red-on-base report)"]
+    E --> F["ContractLock<br/>(freeze digest set)"]
+    F --> G["RunSpec<br/>(embed contract_lock_sha256)"]
+    G --> H["Station pipeline execution"]
+    H --> I["Contract Critic<br/>(multi-lens review)"]
+    I --> J{"findings?"}
+    J -- "repairable" --> K["RepairLoop<br/>(bounded auto-repair)"]
+    J -- "parked" --> L["Human review"]
+    J -- "material/breaking" --> M["Amendment required"]
+    K --> C
 ```
+
+### Contract evolution
+
+`Conveyor.ContractEvolution.diff/2` classifies changes between an old and new
+contract into ordered classifications: `acceptance_weakened`,
+`acceptance_strengthened`, `policy_weakened`, `policy_strengthened`,
+`scope_added`, `scope_removed`, `test_pack_changed`, and `clarification_only`.
+Weakening classifications (acceptance or policy weakened) block automatic
+reruns and require a human approval reason. `prepare_rerun!/3` materializes
+the rerun: it creates a new ContractLock, a new RunSpec with the updated
+contract lock digest, a new RunAttempt with an incremented attempt number, and
+a HumanDecision recording the approval.
+
+### Contract criticism (Contract Critic)
+
+The Contract Critic is a pure, non-authorizing review layer. It may challenge
+contracts and preserve disagreement, but it never approves, locks, or grants
+implementation authority. `Lenses.review/1` runs ten required lenses (intent
+fidelity, scope delta, principal engineering, interface compatibility, test
+loopholes, reliability/observability, security, cost/simplification, hidden
+decision, approval cognitive load) and produces an overall status of
+`:passed` or `:challenged`. `CheapestWrong.challenge!/1` projects
+cheapest-wrong implementation attacks into `ContractChallengeCase` records
+with materiality ratings. `IndependenceProfile.enforce!/1` blocks high-risk
+change classes (security, irreversible migration, public compat,
+autonomy-increasing) unless a model-diverse or human/deterministic critical
+lens is present.
+
+`RepairLoop` governs bounded automatic repair. `next_action/1` decides repair
+vs. park based on completed rounds (default max 2). `evaluate/1` parks on
+oscillation (repeated digests) or non-progress (finding counts not
+decreasing). `route_change/1` blocks policy or acceptance weakening without
+authority, routes material/breaking changes in amendment classes (plan,
+constraint, interface, acceptance) to an amendment requirement, and allows
+everything else. `RepairDiff.compare/1` ensures only rejected-artifact scope
+changes during repair, computing reused pass outputs and invalidated passes.
+
+## Integration points
+
+- **[Planning compiler](../systems/planning-compiler.md)** —
+  `ContractBuilder` is called from `lock_task` before transitioning a plan to
+  `:handoff_ready`. `PlanContract.load/1` is the entry point for YAML-authored
+  plans.
+- **[Trust gate](../systems/gate.md)** — the `contract_lock` gate stage
+  verifies that the run still matches the approved ContractLock digests.
+- **[Station pipeline](station-pipeline.md)** — the RunSpec embeds
+  `contract_lock_sha256`, and the implementer station follows the locked brief.
+  `ContractEvolution.prepare_rerun!/3` creates the new RunSpec and RunAttempt
+  for a rerun.
+- **[Prompt building](prompt-building.md)** — the PromptBuilder reads the
+  AgentBrief to render the slice contract section of the implementation prompt.
+- **Contract lock resource** — `lib/conveyor/factory/contract_lock.ex` is the
+  persisted authority. The `RunSpec` carries `contract_lock_sha256` and the
+  gate reads it back.
+
+## Entry points for modification
+
+- **Add a new archetype** — add a template entry to `@templates` in
+  `lib/conveyor/contract_forge/archetype_templates.ex` with minimum
+  obligations, required review lenses, and falsifier seed families.
+- **Change contract validation** — `lib/conveyor/plan_contract.ex` owns schema
+  version checking, JSON schema validation, and semantic dependency validation.
+- **Change contract authoring** — `lib/conveyor/contract_forge/contract_author.ex`
+  is the materialization entry point. `InterfacePolicy` and
+  `VerificationObligationDeriver` are the downstream derivation modules.
+- **Change falsifier seed derivation** — `@seed_fields` in
+  `lib/conveyor/contract_forge/falsifier_seed_deriver.ex` maps contract fields
+  to seed families. `FalsifierForge.run!/2` enforces red-on-base coverage.
+- **Add a contract critic lens** — add the lens name to `@required_lenses` in
+  `lib/conveyor/contract_critic/lenses.ex`. The critic never approves, so new
+  lenses challenge only.
+- **Change evolution classification** — `@classification_order` and `@weakening`
+  in `lib/conveyor/contract_evolution.ex` control the classification
+  precedence and which classifications block automatic reruns.
+- **Change repair policy** — `@default_max_rounds` and `@amendment_classes` in
+  `lib/conveyor/contract_critic/repair_loop.ex` control the repair bound and
+  which change classes require amendments.
+- **Change the locked digest set** — `lib/conveyor/factory/contract_lock.ex`
+  (the Ash resource) and `contract_lock_payload/1` in
+  `lib/conveyor/contract_evolution.ex` (the digest computation).
 
 ## Key source files
 
-| File                                                             | Purpose                                                      |
-| ---------------------------------------------------------------- | ------------------------------------------------------------ |
-| `lib/conveyor/factory/contract_lock.ex`                          | Immutable digest-set resource freezing a slice contract      |
-| `lib/conveyor/contract_forge/contract_author.ex`                 | Materializes draft contracts from RoleViews                  |
-| `lib/conveyor/contract_forge/archetype_templates.ex`             | Deterministic minimum-obligation floors per archetype        |
-| `lib/conveyor/contract_forge/interface_policy.ex`                | Interface lock, compatibility, rollout, and migration checks |
-| `lib/conveyor/contract_forge/falsifier_seed_deriver.ex`          | Derives falsifier seed families from a contract              |
-| `lib/conveyor/contract_forge/verification_obligation_deriver.ex` | Derives verification obligations or blocks                   |
-| `lib/conveyor/contract_critic/lenses.ex`                         | Ten required non-approving critic lenses                     |
-| `lib/conveyor/contract_critic/independence_profile.ex`           | Records and enforces challenge-role independence             |
-| `lib/conveyor/contract_critic/cheapest_wrong.ex`                 | Projects cheapest-wrong attacks into challenge cases         |
-| `lib/conveyor/contract_critic/repair_loop.ex`                    | Bounded automatic repair policy                              |
-| `lib/conveyor/contract_critic/repair_diff.ex`                    | Typed repair comparison with scope enforcement               |
-| `lib/conveyor/contract_evolution.ex`                             | Classifies changes and materializes rerun state              |
-| `lib/mix/tasks/conveyor.contract_diff.ex`                        | CLI for classified contract diffs                            |
-| `lib/mix/tasks/conveyor.contract_lint.ex`                        | CLI for non-authorizing contract lint                        |
+| File | Role |
+| --- | --- |
+| `lib/conveyor/plan_contract.ex` | Loads and validates `conveyor.plan@1` contracts from files or fenced blocks. |
+| `lib/conveyor/planning/contract_builder.ex` | Compiles DB-native rows into `Plan.normalized_contract`. |
+| `lib/conveyor/contract_forge/contract_author.ex` | Materializes draft AgentBrief contracts from RoleViews. |
+| `lib/conveyor/contract_forge/archetype_templates.ex` | Deterministic archetype obligation floors. |
+| `lib/conveyor/contract_forge/interface_policy.ex` | Interface lock, compatibility, rollout, and migration safety. |
+| `lib/conveyor/contract_forge/verification_obligation_deriver.ex` | Derives VerificationObligation projections. |
+| `lib/conveyor/contract_forge/falsifier_seed_deriver.ex` | Derives compiler-owned falsifier seeds. |
+| `lib/conveyor/contract_forge/falsifier_forge.ex` | Builds pre-agent red-on-base falsifier report. |
+| `lib/conveyor/contract_critic/lenses.ex` | Pure multi-lens Contract Critic projection. |
+| `lib/conveyor/contract_critic/cheapest_wrong.ex` | Projects cheapest-wrong implementation attacks. |
+| `lib/conveyor/contract_critic/independence_profile.ex` | Records and enforces independence profiles. |
+| `lib/conveyor/contract_critic/repair_diff.ex` | Typed repair comparison with partial pass-output reuse. |
+| `lib/conveyor/contract_critic/repair_loop.ex` | Bounded automatic repair policy. |
+| `lib/conveyor/contract_evolution.ex` | Classifies contract changes and materializes rerun state. |
+| `lib/conveyor/factory/contract_lock.ex` | Ash resource: immutable digest set for a frozen slice contract. |
 
-## Related pages
-
-- [Contract lock resource model](../primitives/contract-lock.md) — the
-  ContractLock primitive
-- [Slice domain model](../primitives/slice.md) — the slice a contract locks
-- [Planning compiler pass architecture](../systems/planning-compiler.md) — how
-  plans become contracts
-- [Gate stage composition](../systems/gate.md) — how the gate validates contract
-  digests
-- [Station pipeline](station-pipeline.md) — where locked contracts gate
-  execution
-- [CLI tools](cli-tools.md) — operator commands including contract diff and lint
+See also: [Planning compiler](../systems/planning-compiler.md),
+[Trust gate](../systems/gate.md), [Station pipeline](station-pipeline.md),
+[Prompt building](prompt-building.md),
+[Slice](../primitives/slice.md), [Contract lock](../primitives/contract-lock.md),
+[Run attempt](../primitives/run-attempt.md).

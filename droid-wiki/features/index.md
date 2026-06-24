@@ -1,37 +1,20 @@
 # Features
 
-Conveyor's capabilities are the cross-cutting behaviors that span station
-boundaries. They are not single modules but coordinated mechanisms that the
-runtime relies on for honest execution, isolation, evidence, and operator
-control.
+Cross-cutting capabilities that span multiple systems. Each feature page
+documents how a capability works end to end, its integration points, and entry
+points for modification.
 
-## Cross-cutting capabilities
+## Pages
 
-- [Station pipeline](station-pipeline.md) — the core execution flow that
-  advances a RunAttempt station by station with idempotent wrappers, leases, and
-  ledger events.
-- [Contract management](contract-management.md) — how contracts are drafted,
-  criticized, locked, and evolved into new locks when requirements change.
-- [Sandbox isolation](sandbox-isolation.md) — Docker-backed workspace
-  materialization, network policy, hardened container defaults, and reaping.
-- [Credential broker](credential-broker.md) — short-lived scoped credential
-  leases that never persist secret values.
-- [Prompt building](prompt-building.md) — versioned implementation prompts with
-  explicit instruction-source trust labels and an untrusted banner.
-- [Event sourcing](event-sourcing.md) — append-only idempotent ledger,
-  transactional outbox, segment writer, and durable catch-up replay.
-- [Emergency stop](emergency-stop.md) — global emergency stop, shadow controls,
-  and budget reservations that block work before it starts.
-- [AGENTS.md generation](agents-md-generation.md) — generation and linting of
-  repo-local project instruction files from Conveyor config.
-- [CLI tools](cli-tools.md) — the operator mix task surface for init, lint,
-  audit, run, verify, doctor, and diagnostics.
-
-## Related areas
-
-- [Systems](../systems/index.md) — internal building blocks (planning compiler,
-  gate, policy engine, evidence recording, agent runner, sandbox).
-- [Primitives](../primitives/index.md) — foundational domain objects (slice, run
-  attempt, contract lock).
-- [Architecture](../overview/architecture.md) — system topology, OTP
-  supervision, and the determinism boundary.
+| Feature | Summary |
+| ------- | ------- |
+| [Station pipeline](station-pipeline.md) | Execution abstraction that wraps each discrete step in a run attempt with idempotency, leases, and effects. |
+| [Contract management](contract-management.md) | Authoring, locking, and verification of immutable acceptance contracts for slices. |
+| [Sandbox isolation](sandbox-isolation.md) | Docker container isolation with network and filesystem policies for agent workspaces. |
+| [Credential broker](credential-broker.md) | Issues and revokes short-lived credential leases to sandboxes without persisting secret values. |
+| [Prompt building](prompt-building.md) | Assembles agent prompts from locked briefs, context packs, and run specs. |
+| [Event sourcing](event-sourcing.md) | Append-only audit ledger that makes every state change durable, replayable, and crash-survivable. |
+| [Emergency stop](emergency-stop.md) | Kill switch that halts the factory by blocking station starts, provider calls, and external effects. |
+| [AGENTS.md generation](agents-md-generation.md) | Generates and lints project AGENTS.md content from configuration. |
+| [CLI tools](cli-tools.md) | Mix task surfaces for operators: init, plan, author, run, and task graph commands. |
+| [Task graph](task-graph.md) | DB-native task graph authoring and querying with dependency edges, cycle rejection, and readiness checks. |

@@ -1,111 +1,92 @@
 # Development workflow
 
-The Conveyor development loop is a strict branch, test, code, verify, PR, merge
-cycle. Work is tracked in `br`, tests are written before implementation, and
-every change clears the full verification suite before it lands. This page walks
-through each stage and the exact commands to use.
+The cycle is: create a bead, branch, write tests first, implement, verify
+locally, push, open a PR, merge. For test specifics see [testing](testing.md).
+For lint and build tooling see [tooling](tooling.md).
 
-The repo is solo today, but the workflow is designed to stay honest as more
-actors (human or agent) join. The discipline that keeps it honest is actor
-separation, locked contracts, and a deterministic gate, and the same discipline
-applies to everyday contributions.
+## Track work in br
 
-## Branch
-
-Branch from `main` and name the branch after the bead it implements. The recent
-history uses names like `beads/phase-1.5-2-program`, which keeps the git log
-greppable by bead id.
-
-```bash
-git checkout -b beads/<bead-id>-<short-slug>
-```
-
-Do not bundle unrelated refactors into a bead-scoped branch. If you spot
-something worth fixing while working, file a new bead or add a clarifying
-comment and come back to it.
-
-## Track work with `br`
-
-`br` is the source of truth for implementation work. Never use `bd`. Resolve the
-mutating actor once and reuse it for the session:
+All implementation work is tracked in `br` (beads), never `bd`. Resolve the
+actor once and reuse it:
 
 ```bash
 ACTOR="${BR_ACTOR:-assistant}"
 ```
 
-Common commands:
+Find ready work:
 
 ```bash
-# See what is ready to pick up
 br ready --json
+```
 
-# Create a bead for new work
-br create --actor "$ACTOR" "Short summary"
+Create a bead if none exists for your work:
 
-# After any issue change, sync state without committing git changes
+```bash
+br create --actor "$ACTOR"
+```
+
+After any issue change, sync the `.beads/` state:
+
+```bash
 br sync --flush-only
+```
 
-# When touching issue dependencies, confirm no cycles
+`br` never commits git changes. You stage and commit yourself.
+
+If your work touches issue dependencies, confirm there are no cycles before
+pushing:
+
+```bash
 br dep cycles --json
 ```
 
-`br` never commits git changes, so `br sync --flush-only` is safe to run
-anytime. If a cycle appears after a dependency edit, fix it before proceeding;
-the cycle list must be empty.
+The output must be an empty list.
 
-## TDD: red, green, refactor
+## Branch
 
-Conveyor uses strict TDD (see `.agents/skills/tdd/SKILL.md`). The loop is
-narrow:
+Create a branch from `main`:
 
-1. **Red.** Write a test that fails for the right reason. The test should
-   exercise a public interface, not a private implementation detail. For
-   database-backed behavior, `use Conveyor.DataCase`; for web behavior,
-   `use ConveyorWeb.ConnCase`.
-2. **Green.** Make the smallest honest change that turns the test green. Do not
-   weaken the test to match the implementation.
-3. **Refactor.** Clean up the code without changing behavior. Re-run the test
-   after each refactor step.
+```bash
+git checkout -b my-feature
+```
 
-The agent that writes code must not author its own acceptance contract or
-red-team tests. Contract authoring (`Conveyor.ContractForge`), implementation
-(AgentRunner), review (`Conveyor.Jobs.RunReviewer`), and gate evaluation
-(`Conveyor.Gate`) are separate actors, and that separation is enforced at the
-resource level.
+Keep one branch per bead when possible. If a change spans multiple beads, split
+into multiple branches and PRs.
 
-## Code
+## Test first (TDD)
 
-Follow the conventions in
-[Patterns and conventions](patterns-and-conventions.md):
+Conveyor uses strict TDD. Write a failing test that describes the behavior you
+want, run it to confirm it fails for the right reason, then implement until it
+passes. Keep the red-green-refactor loop narrow.
 
-- Run `mix format --check-formatted` before committing. The formatter is
-  authoritative.
-- Run `mix credo --strict` to catch code smells.
-- Run `mix dialyzer` for type checking. The PLT includes `:ex_unit` and `:mix`.
-- Put business rules in `Conveyor.*` modules, not controllers or LiveViews. The
-  web layer is a projection only.
-- Keep Ash resources and migrations aligned. A resource change usually implies a
-  migration in `priv/repo/migrations/` and a focused test.
-- Model state machines explicitly with `ash_state_machine`. Keep states and
-  database constraints aligned.
-- Reference files using full paths from repo root in backticks when documenting,
-  and keep markdown wrapped according to `.prettierrc` with `proseWrap: always`.
+For database-backed tests, the test alias creates and migrates the test database
+first, so you do not need to run `ecto.create` or `ecto.migrate` separately:
 
-## Commit
+```bash
+MIX_ENV=test mix test path/to/your_test.exs
+```
 
-Keep commits tied to the current bead. The recent history uses messages like
-`add eval plans`, `fix bugs`, and `chore: close completed program containers`.
-There is no enforced commit-message format, but the message should explain why
-the change is needed, not just what it does.
+See [testing](testing.md) for fixture patterns, property-based testing, and
+hermetic adapters.
 
-Do not rewrite unrelated user work. Do not use destructive git operations
-(`git reset --hard`, `git clean -fd/-fdx`, `rm -rf`, force-push) unless an
-explicit higher-authority instruction allows the action.
+## Implement
 
-## Run the full verification suite
+Write the production code in `lib/conveyor/` for core logic or
+`lib/conveyor_web/` for web projections. Business rules live in `Conveyor.*`
+modules. Web code in `lib/conveyor_web/` is projection only: it displays
+authority but does not create it.
 
-Before opening a PR, run the full suite in order. The commands are pinned in the
-root `AGENTS.md`:
+Database-backed state goes through Ash resources in `lib/conveyor/factory/`. Use
+state machine transitions explicitly. Never bypass a transition with a raw
+`Ash.update!` that skips `transition_state`.
+
+For the full set of coding conventions, see
+[patterns and conventions](patterns-and-conventions.md).
+
+## Verify locally
+
+Run the full chain before pushing. CI runs these same checks, so catching
+failures locally saves a round trip:
 
 ```bash
 mix format --check-formatted
@@ -115,29 +96,32 @@ mix credo --strict
 mix dialyzer
 ```
 
-`mix test` is aliased to create and migrate the test database first, so it is
-safe to run as a single command. If you are iterating on one file, run it
-directly to stay fast:
+If you want to format automatically instead of just checking:
 
 ```bash
-MIX_ENV=test mix test test/conveyor/gate_test.exs
+mix format
 ```
 
-Then run the wider surface before opening the PR.
+## Push and open a PR
 
-## PR and merge
-
-Open the PR against `main`. The description should cite the bead id, the
-acceptance criteria, and the evidence that supports the change. CI is manual
-(`workflow_dispatch`) in `.github/workflows/ci.yml`, so a green check is not
-sufficient evidence that the change is verified. The local suite is the gate.
-
-After merge, update the bead status and sync:
+Push your branch and open a pull request against `main`:
 
 ```bash
-br sync --flush-only
+git push -u origin my-feature
 ```
 
-See [Testing](testing.md) for the test framework details,
-[Debugging](debugging.md) for troubleshooting, and [Tooling](tooling.md) for the
-build and lint tooling.
+Keep the PR description focused on what changed and why. Link the bead it
+implements.
+
+## Merge
+
+After review approval and green CI, merge the PR. Squash or rebase per the
+repo's existing history style.
+
+## Destructive operations
+
+Do not use destructive git or shell operations unless an explicit
+higher-authority instruction allows it. This includes `git reset --hard`,
+`git clean -fd` / `-fdx`, `rm -rf`, force-push, pipe-to-shell installers, and
+deploy or release commands. These can destroy uncommitted work or untracked
+files that belong to other contributors.

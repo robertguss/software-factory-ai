@@ -1,36 +1,23 @@
 # Systems
 
-Conveyor's runtime is composed of internal building blocks, each with a clear
-boundary and contract. These systems live under `lib/conveyor/` and implement
-the deterministic conductor side of the determinism boundary: planning, gating,
-policy, evidence, artifacts, agent execution, sandboxing, replay, qualification,
-and statistical quality. This page lists them with one-line descriptions and
-links to the individual pages.
+Internal building blocks of Conveyor. Each system page documents a subsystem's
+directory layout, key abstractions, how it works, and entry points for
+modification.
 
-## Systems
+## Pages
 
-| System                                        | Criticality | Description                                                                                                                                       |
-| --------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Planning compiler](planning-compiler.md)     | critical    | Pure-function compiler passes that lower plans into work graphs, with auditing, decomposition, selective recompilation, and pilot retrospectives. |
-| [Gate](gate.md)                               | critical    | Deterministic stage-composed verification that decides whether a run attempt passes, fails, or needs rework.                                      |
-| [Policy engine](policy-engine.md)             | normal      | Command normalization, allowlist/denylist enforcement, budget guards, and violation handling for agent tool calls.                                |
-| [Evidence recording](evidence-recording.md)   | critical    | Independent capture of machine evidence, diffs, logs, acceptance mapping, and verification reruns in clean containers.                            |
-| [Artifact projection](artifact-projection.md) | normal      | Content-addressed blob storage and Postgres-to-disk projection of run artifacts.                                                                  |
-| [Agent runner](agent-runner.md)               | critical    | Behaviour and adapters for launching, monitoring, capturing, and canceling coding agents in isolated containers.                                  |
-| [Sandbox](sandbox.md)                         | normal      | Docker-backed container lifecycle, network isolation, workspace materialization, and cleanup.                                                     |
-| [Cassettes](cassettes.md)                     | normal      | Recording and replay of station runs for freshness checks, deterministic replay, and divergence diagnostics.                                      |
-| [Qualification](qualification.md)             | normal      | Offline-verifiable bundles, gate evaluation, grant issuance, and phase-next decisions for scope authorization.                                    |
-| [Contract forge](contract-forge.md)           | normal      | Drafting of AgentBrief contracts from plan requirements, with archetype templates, interface policy, and falsifier seeds.                         |
-| [Contract critic](contract-critic.md)         | normal      | Multi-lens contract criticism, cheapest-wrong attacks, independence profiles, and bounded repair loops.                                           |
-| [Battery](battery.md)                         | normal      | Live statistical quality sampling, measurement studies, secondary confirmation, and release reporting.                                            |
-
-## Related pages
-
-- [Architecture](../overview/architecture.md) — system topology, OTP
-  supervision, station pipeline
-- [Station pipeline](../features/station-pipeline.md) — execution flow across
-  stations
-- [Contract management](../features/contract-management.md) — contract lock
-  lifecycle
-- [Primitives](../primitives/index.md) — foundational domain objects (slice, run
-  attempt, evidence, contract lock)
+| System | Summary |
+| ------ | ------- |
+| [Planning compiler](planning-compiler.md) | Lowers human-authored plans into contract-bearing work graphs and drives width-1 serial execution. |
+| [Gate](gate.md) | Staged verification boundary that decides whether a slice may merge without a human. |
+| [Eval framework](eval-framework.md) | Runs the factory's own pipeline against a canary corpus and grades results through the real gate. |
+| [Policy engine](policy-engine.md) | Command-level safety boundary that decides whether a normalized command may run inside a sandbox. |
+| [Evidence recording](evidence-recording.md) | Captures machine-readable proof of a run attempt: patches, test results, acceptance mapping, redacted artifacts. |
+| [Artifact projection](artifact-projection.md) | Regenerates read-only artifact trees from database metadata and content-addressed blobs. |
+| [Agent runner](agent-runner.md) | Behaviour every coding-agent backend implements; adapters include Codex, Claude, fake, and reference solution. |
+| [Sandbox](sandbox.md) | Docker-based isolation layer that runs agent work in containers with network and filesystem policies. |
+| [Cassettes](cassettes.md) | Records and replays agent interactions for deterministic, zero-cost verification. |
+| [Qualification](qualification.md) | Manages scoped qualification grants and impact expiry that invalidates grants when evidence or policy changes. |
+| [Contract forge](contract-forge.md) | Authors agent brief contracts, derives falsifier seeds, and locks interface policies before the agent is unlocked. |
+| [Contract critic](contract-critic.md) | Red-teams contracts for cheapest-wrong findings, independence, and repairable defects with a bounded repair loop. |
+| [Battery](battery.md) | Release report projection, live sampling, and secondary confirmation for measuring factory health over time. |

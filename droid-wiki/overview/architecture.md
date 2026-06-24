@@ -1,193 +1,163 @@
 # Architecture
 
-Conveyor is a BEAM control plane for evidence-backed agent implementation. The
-architecture is deliberately small in Phase 0/1: one plan, one slice, one
-attempt path, one evidence packet, and one deterministic gate.
+Conveyor is an Elixir/OTP application that orchestrates autonomous code generation through a pipeline of planning, execution, verification, and integration. The architecture follows the BEAM philosophy of supervision trees, message passing, and fault tolerance, layered on top of Ash resources backed by Postgres.
 
-## High-level topology
+## High-level architecture
 
 ```mermaid
 graph TD
-    HumanPlan["Human Plan + Decisions"]
-    PlanAudit["Plan Audit / Traceability"]
-    WorkGraph["Ash Work Graph + Contracts"]
-    RunSlice["RunSlice Oban job"]
-    Readiness["Readiness"]
-    Baseline["Baseline Health"]
-    Calib["Acceptance Calibration"]
-    Scout["Context Scout"]
-    Prompt["Prompt Builder"]
-    Agent["AgentSession via AgentRunner.Pi"]
-    Evidence["Evidence Recorder"]
-    RunCheck["RunCheck"]
-    Reviewer["Reviewer-on-Dossier"]
-    Gate["Deterministic Gate"]
-    Canary["Gate Canary"]
-    PostInt["Post-Integration Check"]
-    Retro["Retrospective"]
-    LiveView["LiveView + .conveyor/runs/"]
-
-    HumanPlan --> PlanAudit
-    PlanAudit --> WorkGraph
-    WorkGraph --> RunSlice
-    RunSlice --> Readiness
-    Readiness --> Baseline
-    Baseline --> Calib
-    Calib --> Scout
-    Scout --> Prompt
-    Prompt --> Agent
-    Agent --> Evidence
-    Evidence --> RunCheck
-    RunCheck --> Reviewer
-    Reviewer --> Gate
-    Gate --> Canary
-    Canary --> PostInt
-    PostInt --> Retro
-    Retro --> LiveView
+    Plan["Plan import"] --> WorkGraph["Work graph decomposition"]
+    WorkGraph --> ContractForge["Contract authoring"]
+    ContractForge --> Readiness["Readiness check"]
+    Readiness --> AgentRunner["Agent execution (sandboxed)"]
+    AgentRunner --> Evidence["Evidence recording"]
+    Evidence --> Gate["Trust gate verification"]
+    Gate -->|"pass"| Integrate["Slice integration"]
+    Gate -->|"abstain"| Parked["Parked queue (human review)"]
+    Gate -->|"needs rework"| Rework["Rework loop"]
+    Rework --> AgentRunner
+    Integrate --> NextSlice["Next slice in dependency order"]
+    NextSlice --> Readiness
 ```
 
-Phase 0/1 is not a swarm. It is the smallest real factory loop with the right
-trust boundaries. Parallelism becomes valuable only after this loop proves gate
-honesty, artifact quality, and adapter stability.
+## Component map
+
+```mermaid
+graph TD
+    subgraph Core["Core runtime (lib/conveyor/)"]
+        Planning["Planning compiler"]
+        Station["Station execution"]
+        Gate["Gate system"]
+        AgentRunner["Agent runner"]
+        Sandbox["Sandbox"]
+        Policy["Policy engine"]
+        Evidence["Evidence system"]
+    end
+
+    subgraph Data["Data layer"]
+        Factory["Factory (Ash domain)"]
+        Repo["Conveyor.Repo (Ecto/Postgres)"]
+        Ledger["Audit ledger"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        Oban["Oban jobs"]
+        Conductor["Conductor supervisor"]
+        PubSub["Phoenix PubSub"]
+    end
+
+    subgraph Web["Web layer (lib/conveyor_web/)"]
+        LiveView["RunViewerLive"]
+        Router["Phoenix router"]
+    end
+
+    subgraph CLI["CLI (lib/mix/tasks/)"]
+        MixTasks["mix conveyor.*"]
+    end
+
+    Factory --> Repo
+    Station --> Factory
+    Planning --> Factory
+    Gate --> Factory
+    AgentRunner --> Sandbox
+    AgentRunner --> Factory
+    Station --> Ledger
+    Gate --> Ledger
+    Oban --> Station
+    Conductor --> Oban
+    LiveView --> Factory
+    MixTasks --> Factory
+    MixTasks --> Planning
+```
 
 ## OTP supervision tree
 
+The application starts under `Conveyor.Application` with a `:one_for_one` strategy:
+
 ```mermaid
 graph TD
-    App["Conveyor.Application"]
-    Repo["Conveyor.Repo (AshPostgres)"]
-    Oban["Oban (durable station jobs)"]
-    Endpoint["ConveyorWeb.Endpoint (Phoenix + LiveView)"]
+    Supervisor["Conveyor.Supervisor"]
+    Telemetry["ConveyorWeb.Telemetry"]
+    Repo["Conveyor.Repo"]
+    DNSCluster["DNSCluster"]
+    PubSub["Phoenix.PubSub"]
+    Oban["Oban"]
+    Endpoint["ConveyorWeb.Endpoint"]
     Conductor["Conveyor.Conductor.Supervisor"]
 
-    Ledger["Conveyor.Ledger"]
-    Telemetry["Conveyor.Telemetry"]
-    Config["Conveyor.Config"]
-    PolicyEngine["Conveyor.Policy.Engine"]
-    Redactor["Conveyor.Security.Redactor"]
-    Projector["Conveyor.Artifacts.Projector"]
-    EventOutbox["Conveyor.EventOutbox"]
-    Reconciler["Conveyor.Effects.Reconciler"]
-    Reaper["Conveyor.Sandbox.Reaper"]
-
-    App --> Repo
-    App --> Oban
-    App --> Endpoint
-    App --> Conductor
-
-    Conductor --> Ledger
-    Conductor --> Telemetry
-    Conductor --> Config
-    Conductor --> PolicyEngine
-    Conductor --> Redactor
-    Conductor --> Projector
-    Conductor --> EventOutbox
-    Conductor --> Reconciler
-    Conductor --> Reaper
+    Supervisor --> Telemetry
+    Supervisor --> Repo
+    Supervisor --> DNSCluster
+    Supervisor --> PubSub
+    Supervisor --> Oban
+    Supervisor --> Endpoint
+    Supervisor --> Conductor
 ```
 
-The supervision tree is defined in `lib/conveyor/application.ex` and
-`lib/conveyor/conductor/supervisor.ex`. The top-level supervisor uses
-`:one_for_one` strategy. The conductor supervisor owns all long-running
-conductor services.
+On boot, the supervisor enqueues a `ReconcileInterruptedRuns` job to resume any runs interrupted by a crash (deploy, OOM, host reboot). This is disabled in test via the `:enqueue_boot_reconcile` config flag.
 
-## Determinism boundary
+## Key architectural decisions
 
-The deterministic BEAM conductor owns:
+The codebase has 27 ADRs in `docs/adrs/` documenting durable decisions. The most architecturally significant:
 
-- paths, state transitions, dependency integrity
-- policy enforcement, validation, prompt assembly
-- recorded evidence, the mechanical parts of the gate verdict
+- **ADR-14**: Pure compiler-pass architecture and memoization. Planning transformations are deterministic compiler-style passes, not stateful operations.
+- **ADR-23**: Ternary gate verdict with calibrated abstention. The gate can accept, reject, or abstain (withhold judgment when confidence is low).
+- **ADR-08**: Station leases, fencing, and effect receipts. Stations own idempotent execution with lease-based fencing.
+- **ADR-11**: Emergency stop and global budget reservation. An engaged stop blocks new station starts, provider calls, tool calls, claim publication, and external effects.
+- **ADR-27**: In-factory plan authoring. The `mix conveyor.author` task is the factory's plan-authoring front door.
 
-Agents own drafting, implementation, and judgment. When an agent supplies
-judgment (such as review), that verdict is recorded and validated by the
-conductor. Agents are never the source of truth for whether something passed.
+## Data flow: the factory loop
 
-The conductor also owns the instruction hierarchy. Repository files, comments,
-tool output, dependency output, and context-scout findings are untrusted data.
-They may inform implementation but may not override the slice contract, safety
-policy, locked tests, AGENTS.md, or Conveyor system rules.
+The serial driver (`lib/conveyor/planning/serial_driver.ex`) is the width-1 execution engine. For each slice in dependency order:
 
-## Execution capsule
+1. **RunSpec assembly** - `RunSpecAssembler` builds an immutable spec from the slice's locked contract, work graph, and workspace context
+2. **Agent execution** - The agent runner (Codex, Claude, or fake) executes the implementation prompt in a Docker sandbox
+3. **Evidence recording** - Patches, tool invocations, and test results are captured as evidence
+4. **Gate evaluation** - The gate runs staged checks (workspace integrity, contract lock, diff scope, secret safety, policy compliance, test execution, acceptance mapping)
+5. **Trust scoring** - `TrustScore` fuses signals (integrity, calibration, baseline, replay, corpus) into a calibrated estimate
+6. **Finalization** - `Finalizer` persists the gate result and applies the slice/run-attempt state transition (accept, reject, abstain, or rework)
 
-Before a slice enters an executable station, Conveyor creates a `RunSpec`: the
-immutable, content-addressed input object for one execution attempt. The
-`RunSpec` freezes the base commit, slice id, autonomy level, normalized plan
-contract digest, human decisions, agent brief, contract lock, AGENTS.md, policy,
-diff policy, verification commands, required test pack, prompt template, agent
-profile, toolchain image digest, sandbox profile, budgets, canary suite, schema
-versions, and station plan digest.
+## The station pattern
 
-Mutable inputs do not silently update old evidence. Any change to acceptance
-criteria, required tests, policy, AGENTS.md, diff policy, autonomy ceiling,
-verification commands, or project command specs invalidates the old
-`ContractLock` for future attempts and creates a new `RunSpec`.
+Stations are the execution abstraction. Each station module implements the `Conveyor.Station` behaviour with `station_key/0`, `station_spec/1`, `input_sha256/1`, `effects/1`, and `run/2`. The `Conveyor.Station` wrapper in `lib/conveyor/station.ex` owns idempotency, leases, declared effects, artifact rows, and station ledger events. Station types include implementer, evidence recorder, context scout, baseline health, acceptance calibration, and verify.
 
-## Oban workers
+## The factory domain model
 
-Oban jobs serve as orchestration edges between stations. Each long-running
-station is an Oban job with idempotent inputs and outputs:
+All persisted state goes through the `Conveyor.Factory` Ash domain (`lib/conveyor/factory.ex`), which manages 48 resources including Project, Plan, Epic, Slice, RunAttempt, RunSpec, StationRun, Evidence, GateResult, ContractLock, AgentBrief, TestPack, and more. Resources use `AshStateMachine` for explicit state transitions with database constraints.
 
-| Worker                  | File                                           | Role                                                      |
-| ----------------------- | ---------------------------------------------- | --------------------------------------------------------- |
-| `RunSlice`              | `lib/conveyor/jobs/run_slice.ex`               | Station orchestrator, advances a slice station by station |
-| `BaselineHealth`        | `lib/conveyor/jobs/baseline_health.ex`         | Clean checkout baseline suites                            |
-| `AcceptanceCalibration` | `lib/conveyor/jobs/acceptance_calibration.ex`  | Locked acceptance red/green calibration                   |
-| `ContextScout`          | `lib/conveyor/jobs/context_scout.ex`           | `rg`, CodeScent, optional read-only agent pass            |
-| `RunImplementer`        | `lib/conveyor/jobs/run_implementer.ex`         | AgentRunner.Pi in Docker                                  |
-| `RecordEvidence`        | `lib/conveyor/jobs/record_evidence.ex`         | Independent gate command execution                        |
-| `RunReviewer`           | `lib/conveyor/jobs/run_reviewer.ex`            | Reviewer-on-dossier                                       |
-| `RunGate`               | `lib/conveyor/jobs/run_gate.ex`                | Deterministic gate composition                            |
-| `RunGateCanary`         | `lib/conveyor/jobs/run_gate_canary.ex`         | Mutant gate-only checks                                   |
-| `ReconcileStaleEffects` | `lib/conveyor/jobs/reconcile_stale_effects.ex` | Periodic effect reconciliation                            |
-| `ReapSandboxes`         | `lib/conveyor/jobs/reap_sandboxes.ex`          | Periodic cleanup                                          |
-| `ProjectArtifacts`      | `lib/conveyor/jobs/project_artifacts.ex`       | Manifest and report regeneration                          |
-| `RunBattery`            | `lib/conveyor/jobs/run_battery.ex`             | Live sampling and measurement studies                     |
+## Event sourcing
 
-Station idempotency key:
-`run_attempt_id + station_key + station_spec_sha256 + attempt_no`
+Every state change is recorded as a `LedgerEvent` through the append-only `Conveyor.Ledger` module. This gives time-travel debugging, reproducible AI review, and an eval dataset the factory learns from. The `RunReadModel` folds the ledger stream into a read-only "run story" for the CLI and LiveView.
 
-## Oban queue topology
+## Design laws
 
-```text
-default: 10     # general-purpose jobs
-conductor: 5    # conductor-side services
-gate: 5         # gate and canary jobs
-maintenance: 2  # cleanup, reconciliation
-```
+Ten executable design laws (`lib/conveyor/design_laws.ex`) govern the system:
 
-Queue configuration lives in `config/config.exs`.
+1. No task without acceptance criteria
+2. No implementation without a locked contract
+3. No completion without evidence
+4. No authority without measured trust
+5. No hidden state
+6. No shared-trunk chaos
+7. No source mutation by context tools
+8. No dangerous commands by default
+9. No orphan requirements and no orphan slices
+10. No bespoke tool empire
 
-## Artifact surface
+Each law has an invariant test and is enforced by specific modules.
 
-Every run writes durable evidence under `.conveyor/runs/<run_attempt_id>/`.
-Postgres remains source of truth; disk is a projection. The projection contains
-machine-readable manifests, human-readable dossiers, diffs, command logs,
-CodeScent results, reviews, gate results, provenance, and a PR-body draft.
+## Tech stack
 
-The artifact projector (`lib/conveyor/artifacts/projector.ex`) projects Postgres
-records to disk. The blob store (`lib/conveyor/artifacts/blob_store.ex`) handles
-content-addressed storage. Generated artifacts are product output, not debug
-logs. The deterministic gate validates schema versions, digest consistency,
-required evidence, policy, and review freshness before any result can be treated
-as accepted.
-
-## Data layer
-
-Conveyor uses Ash 3.x with AshPostgres for its domain model. The
-`Conveyor.Factory` domain in `lib/conveyor/factory.ex` registers 45+ Ash
-resources covering projects, plans, slices, run attempts, evidence, reviews,
-gate results, policy, credentials, and more. State machines are modeled with
-`ash_state_machine`.
-
-Migrations live in `priv/repo/migrations/` and are append-only. The repo module
-is `lib/conveyor/repo.ex`.
-
-## Web layer
-
-The web layer is a projection only. It must display authority, not create it.
-Phoenix LiveView provides a live dashboard for run viewing at
-`lib/conveyor_web/live/run_viewer_live.ex`. The router
-(`lib/conveyor_web/router.ex`) exposes a single live route (`/runs`) and an
-empty API scope. Business rules live in `Conveyor.*` modules, not controllers or
-LiveViews.
+| Layer | Technology |
+| ----- | ---------- |
+| Language | Elixir 1.20, Erlang/OTP 29 |
+| Web framework | Phoenix 1.8 with LiveView |
+| Data layer | Ash 3.29 with AshPostgres 2.10 |
+| Database | PostgreSQL 16 |
+| Job queue | Oban 2.23 |
+| Validation | jsv 0.19 |
+| Static analysis | Credo (strict), Dialyzer |
+| Test framework | ExUnit with StreamData |
+| Sandboxing | Docker containers |
+| Server | Bandit 1.12 |
+| Config | TOML (toml_elixir) |

@@ -1,150 +1,188 @@
 # Sandbox isolation
 
-Agent execution is isolated in Docker containers so that a compromised or
-injected agent cannot reach the conductor, the database, or the host. Conveyor's
-sandbox layer materializes a workspace from a pinned base commit, runs
-policy-checked commands inside the container, and reaps the workspace when it is
-done. Docker is necessary but not sufficient: policy limits intent on top of the
-container limits.
+Sandbox isolation runs agent and verification commands inside hardened Docker
+containers with no network, dropped capabilities, a read-only filesystem, and
+resource limits. Each station gets a materialized workspace that is a clean
+git archive checkout at the run spec's base commit, mounted into a container
+that is created, used for command execution, and destroyed on cleanup. The
+policy boundary lives in `Conveyor.ToolExecutor`; the sandbox runner only
+executes commands that have already been normalized and allowed.
 
-## Docker sandbox runner
+## Directory layout
 
-`Conveyor.Sandbox.DockerRunner` (`lib/conveyor/sandbox/docker_runner.ex`) is the
-Docker-backed implementation of the `Conveyor.Sandbox.Runner` behaviour. It
-provides three operations:
+```text
+lib/conveyor/
+├── sandbox/
+│   ├── runner.ex               # Runner behaviour + minimal host command runner
+│   ├── docker_runner.ex        # Docker-backed sandbox runner
+│   ├── docker_profile.ex       # Hardened Docker create args (user, caps, limits)
+│   ├── materialized.ex         # Runtime handle for a materialized workspace
+│   ├── network_policy.ex       # Network mode helpers and egress allowlist validation
+│   ├── policy_executor.ex      # Runs policy-checked commands inside a sandbox
+│   ├── reaper.ex               # Reaps workspaces with pending cleanup status
+│   └── workspace_cleanup.ex    # Cleanup policy enforcement + tree digest
+└── factory/
+    └── workspace_materialization.ex  # Ash resource: tracked workspace lifecycle
+```
 
-- `materialize/2` — prepares a workspace from the RunSpec's `base_commit`. It
-  resolves the source repo root and project prefix via `git rev-parse`, creates
-  a temp workspace root under `System.tmp_dir()/conveyor-workspaces`, runs
-  `git archive` to extract the base commit into the workspace, creates a Docker
-  container with hardened defaults, and records a `WorkspaceMaterialization`
-  row. The `.conveyor` directory is mounted read-only so contracts and policy
-  cannot be mutated from inside the container.
-- `exec/3` — runs a `NormalizedCommand` inside the container with `docker exec`,
-  passing only allowlisted environment keys. The working directory is translated
-  to the in-container `/workspace` mount.
-- `destroy/2` — delegates to `WorkspaceCleanup` to remove the container and
-  apply the cleanup policy.
+## Key abstractions
 
-The workspace is mounted at `/workspace` read-write. The container runs
-`sleep infinity` so it stays alive across multiple exec calls within a station.
+| Abstraction | Location | Role |
+| --- | --- | --- |
+| `Conveyor.Sandbox.Runner` | `lib/conveyor/sandbox/runner.ex` | The behaviour all sandbox runners implement: `materialize/2`, `exec/3`, `destroy/2`. Also provides a minimal host command runner for non-Docker execution. |
+| `Conveyor.Sandbox.Runner.Result` | `lib/conveyor/sandbox/runner.ex` | Command execution result: `exit_code`, `stdout`, `stderr`, `duration_ms`. |
+| `Conveyor.Sandbox.DockerRunner` | `lib/conveyor/sandbox/docker_runner.ex` | Docker-backed runner. Archives a git checkout at base commit, creates a hardened container, execs commands via `docker exec`, and destroys via cleanup. |
+| `Conveyor.Sandbox.DockerProfile` | `lib/conveyor/sandbox/docker_profile.ex` | Builds the `docker create` arguments for hardened defaults: non-root user, no network, no-new-privileges, all caps dropped, read-only filesystem, tmpfs `/tmp`, PID/CPU/memory limits. |
+| `Conveyor.Sandbox.Materialized` | `lib/conveyor/sandbox/materialized.ex` | Runtime handle: `workspace` (the persisted record), `path` (project path inside the mount), `root_path` (deletable temp root), `container_id`, `image_ref`. |
+| `Conveyor.Sandbox.NetworkPolicy` | `lib/conveyor/sandbox/network_policy.ex` | Network mode helpers. Station defaults are all `:none`. Validates egress allowlists against internal/private hosts. |
+| `Conveyor.Sandbox.PolicyExecutor` | `lib/conveyor/sandbox/policy_executor.ex` | Bridges `ToolExecutor` and `DockerRunner`. Runs a normalized command through policy, then execs the allowed command inside the container. |
+| `Conveyor.Sandbox.WorkspaceCleanup` | `lib/conveyor/sandbox/workspace_cleanup.ex` | Enforces cleanup policy (`:delete`, `:preserve_on_failure`, `:preserve_always`). Removes the container, deletes the filesystem path, computes a tree SHA-256 digest. |
+| `Conveyor.Sandbox.Reaper` | `lib/conveyor/sandbox/reaper.ex` | Scans for `WorkspaceMaterialization` rows with `:pending` cleanup status and runs cleanup on each. Returns counts of deleted, preserved, and failed. |
+| `WorkspaceMaterialization` | `lib/conveyor/factory/workspace_materialization.ex` | Ash resource. Tracks each materialized workspace: purpose, base commit, paths, container ID, mount mode, head tree digest, cleanup policy and status. |
 
-## Network policy
+## How it works
 
-`Conveyor.Sandbox.NetworkPolicy` (`lib/conveyor/sandbox/network_policy.ex`)
-defines the network posture for sandbox containers. The default for every
-station is `:none`, which produces `--network none` in Docker args. Egress mode
-exists but raises unless an explicit external proxy network is provided.
+### Materialization
 
-The policy maintains a set of internal hosts that must never appear in an egress
-allowlist: `localhost`, `127.0.0.1`, `conductor`, `db`, `postgres`,
-`host.docker.internal`, and the private IP prefixes.
-`validate_egress_allowlist!/1` rejects any allowlist that includes a conductor
-or internal host. This enforces the mandatory rule from the safety policy: no
-sandbox profile may route to the conductor's Postgres database, ledger, or
-internal services.
+`DockerRunner.materialize/2` takes a RunSpec and options, then produces a
+`Materialized` handle through five steps:
 
-## Sandbox profiles
+1. **Source context** — resolves the project, its repo root, and project
+   prefix via `git rev-parse`.
+2. **Workspace paths** — creates a unique temp directory under the configured
+   workspace root (default `System.tmp_dir!/conveyor-workspaces`).
+3. **Archive checkout** — runs `git archive` at the RunSpec's `base_commit`,
+   extracts the tar into the temp directory, and resolves the project path
+   (handling subdir projects via the project prefix).
+4. **Container creation** — runs `docker create` with `DockerProfile.create_args/1`
+   (hardened defaults), a read-write workspace mount at `/workspace`, and a
+   read-only `.conveyor` mount if present. Then `docker start`.
+5. **Workspace record** — persists a `WorkspaceMaterialization` row with the
+   base commit, paths, container ID, mount mode, head tree digest, and
+   cleanup policy.
 
-`Conveyor.Sandbox.DockerProfile` (`lib/conveyor/sandbox/docker_profile.ex`)
-produces the hardened Docker `create` arguments. The defaults are:
+```mermaid
+flowchart TD
+    A["RunSpec + opts"] --> B["Resolve source context<br/>(git rev-parse)"]
+    B --> C["Create temp workspace dir"]
+    C --> D["git archive at base_commit<br/>+ tar extract"]
+    D --> E["docker create<br/>(DockerProfile hardened args)"]
+    E --> F["docker start"]
+    F --> G["Persist WorkspaceMaterialization"]
+    G --> H["Return Materialized handle"]
+```
 
-- non-root user `65532:65532`
-- `--network none` unless overridden
-- `--security-opt no-new-privileges:true`
-- `--cap-drop ALL`
-- `--read-only` root filesystem
-- `--tmpfs /tmp:rw,noexec,nosuid,size=64m`
-- `--pids-limit 256`, `--cpus 1.0`, `--memory 512m`
+### Docker profile
 
-`required_security_options/0` returns `["seccomp"]`. The doctor command fails
-hard when these constraints are unavailable for the selected policy profile.
+`DockerProfile.create_args/1` assembles the security flags for every sandbox
+container:
 
-## Workspace materialization
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `--user` | `65532:65532` | Non-root user (no user namespace). |
+| `--network` | `none` | No network access. Station defaults are all `:none`. |
+| `--security-opt` | `no-new-privileges:true` | Prevents privilege escalation. |
+| `--cap-drop` | `ALL` | Drops all Linux capabilities. |
+| `--read-only` | (flag) | Read-only root filesystem. |
+| `--tmpfs` | `/tmp:rw,noexec,nosuid,size=64m` | Writable temp with noexec. |
+| `--pids-limit` | `256` | Process count limit. |
+| `--cpus` | `1.0` | CPU limit. |
+| `--memory` | `512m` | Memory limit. |
 
-`Conveyor.Sandbox.Materialized` (`lib/conveyor/sandbox/materialized.ex`) is the
-runtime handle returned by `materialize/2`. It carries the
-`WorkspaceMaterialization` record, the project path, the deletable root path,
-the container id, and the image ref.
+### Network policy
 
-`Conveyor.Factory.WorkspaceMaterialization`
-(`lib/conveyor/factory/workspace_materialization.ex`) is the Ash resource that
-tracks the checkout lifecycle. It records the `purpose` (`:baseline`,
-`:acceptance_calibration`, `:implement`, `:gate`, `:canary`,
-`:post_integration`), `base_commit`, paths, container id, mount mode, head tree
-digest, and cleanup state. The `root_path` is persisted separately from `path`
-because subdirectory projects need the parent temp root removed too, and the
-reaper only has the DB record.
+`NetworkPolicy` defines the network mode for each station. All station
+defaults (`scout`, `implement`, `verify`, `gate`, `canary`) are `:none`, which
+maps to `--network none`. The `:egress` mode raises unless an explicit external
+proxy network is configured, and `validate_egress_allowlist!/1` blocks any
+internal or private host (localhost, conductor, db, host.docker.internal,
+private IP ranges) from appearing on an egress allowlist.
 
-## Policy-checked execution
+### Command execution
 
-`Conveyor.Sandbox.PolicyExecutor` (`lib/conveyor/sandbox/policy_executor.ex`) is
-the seam between the sandbox and the policy engine. `execute!/4` takes a
-`Materialized` workspace, a `NormalizedCommand`, a `Policy`, and options, then
-delegates to `Conveyor.ToolExecutor` with a runner closure that calls
-`DockerRunner.exec/3`. The policy boundary lives in `ToolExecutor`; the sandbox
-only runs commands that have already been normalized and allowed.
+`DockerRunner.exec/3` runs a `NormalizedCommand` inside the container via
+`docker exec -w {container_cwd} {env_args} {container_id} {executable} {argv}`.
+The working directory is translated from the host project path to the
+container's `/workspace` mount. Environment variables are passed as `--env`
+flags for each key in the command's `env_keys`. The result carries the exit
+code, combined stdout (stderr is merged via `stderr_to_stdout`), and duration.
 
-`Conveyor.Sandbox.Runner` (`lib/conveyor/sandbox/runner.ex`) defines the
-behaviour and a minimal host command runner used behind `ToolExecutor` for
-non-Docker paths. It returns a `Result` with exit code, stdout, stderr, and
-duration.
+`PolicyExecutor.execute!/4` is the integration point: it wraps `DockerRunner.exec`
+as the runner function inside `ToolExecutor.execute!/3`, so the command is
+normalized and policy-checked before it reaches the container.
 
-## Cleanup and reaper
+### Workspace cleanup
 
-`Conveyor.Sandbox.WorkspaceCleanup`
-(`lib/conveyor/sandbox/workspace_cleanup.ex`) enforces the cleanup policy.
-`cleanup/2` removes the container with `docker rm -f`, then applies the policy:
+`WorkspaceCleanup.cleanup/2` handles teardown. It removes the Docker container
+(`docker rm -f`), then applies the cleanup policy:
 
-- `:preserve_always` — keep the workspace
-- `:preserve_on_failure` — keep only when the `failed?` option is set
-- `:delete` — remove the workspace directory with `File.rm_rf/1`
+- `:delete` — removes the filesystem path and marks `:deleted`.
+- `:preserve_on_failure` — preserves the path if the `:failed?` option is set,
+  otherwise deletes.
+- `:preserve_always` — always preserves the path.
 
-It updates the `WorkspaceMaterialization` row with `cleanup_status` (`:deleted`,
-`:preserved`, or `:failed`) and `cleaned_at`. `tree_sha256/1` computes a
-content-addressed digest of the workspace tree by walking files, sorting them,
-and hashing their relative paths and contents.
+The `head_tree_sha256` is computed by walking all regular files in the
+workspace, sorting them, and hashing each file's relative path and content.
 
-`Conveyor.Sandbox.Reaper` (`lib/conveyor/sandbox/reaper.ex`) is a conductor
-child that reaps orphaned workspaces. `reap!/1` reads all
-`WorkspaceMaterialization` records with `cleanup_status: :pending`, calls
-`WorkspaceCleanup.cleanup/2` with `failed?: true`, and returns a `Result`
-counting deleted, preserved, and failed workspaces. It is driven by the periodic
-`ReapSandboxes` Oban job.
+### Reaping
 
-## Safety policy reference
+`Reaper.reap!/1` scans all `WorkspaceMaterialization` rows with `:pending`
+cleanup status and runs `WorkspaceCleanup.cleanup/2` on each. This catches
+workspaces left behind by crashed runs. The `Conveyor.Jobs.ReapSandboxes` Oban
+worker is the periodic trigger for this.
 
-The sandbox layer implements the controls defined in `SAFETY_POLICY.md`. The
-policy treats safety as a product contract: Docker limits blast radius, while
-policy limits intent. Both layers are required for every autonomous or
-semi-autonomous agent run. The threat model table in `SAFETY_POLICY.md` maps
-each threat class to primary defenses and a required Phase 1 check, including
-host escape, internal state corruption, secret exposure, and supply-chain drift.
+## Integration points
+
+- **[Station pipeline](station-pipeline.md)** — the implementer and verify
+  stations can opt into the Docker backend via station input keys (`backend`,
+  `network`, `docker_image`, `source_root`). The `Conveyor.Jobs.ReapSandboxes`
+  worker is the periodic cleanup trigger.
+- **`Conveyor.ToolExecutor`** — owns the policy boundary. `PolicyExecutor`
+  bridges it to the Docker runner; the runner only executes commands that
+  have been normalized and allowed.
+- **[Credential broker](credential-broker.md)** — credential env keys are
+  passed through the `NormalizedCommand.env_keys` and become `--env` flags on
+  `docker exec`. Leases are scoped to RunSpec or StationRun.
+- **`Conveyor.Eval.ToolchainRunner`** — the verify station uses
+  `ToolchainRunner` which can run verification commands inside a materialized
+  sandbox when the backend is `:docker`.
+- **`WorkspaceMaterialization` resource** — persisted in Postgres, tracks
+  cleanup status, and is the source of truth for the reaper.
+
+## Entry points for modification
+
+- **Change Docker hardening defaults** — `lib/conveyor/sandbox/docker_profile.ex`
+  owns the `create_args/1` flag list (user, caps, limits, tmpfs).
+- **Change network policy** — `lib/conveyor/sandbox/network_policy.ex` owns
+  `@station_defaults`, `@internal_hosts`, `@private_prefixes`, and the egress
+  allowlist validation.
+- **Change workspace materialization** —
+  `lib/conveyor/sandbox/docker_runner.ex` (`materialize/2`) owns the checkout
+  and container creation sequence.
+- **Change command execution** — `lib/conveyor/sandbox/docker_runner.ex`
+  (`exec/3`) and `lib/conveyor/sandbox/policy_executor.ex` (the policy bridge).
+- **Change cleanup or reaping** — `lib/conveyor/sandbox/workspace_cleanup.ex`
+  (cleanup policy enforcement) and `lib/conveyor/sandbox/reaper.ex` (the
+  periodic scan).
+- **Change the persisted workspace model** —
+  `lib/conveyor/factory/workspace_materialization.ex` (the Ash resource:
+  purpose enum, mount mode, cleanup policy/status).
 
 ## Key source files
 
-| File                                                | Purpose                                                   |
-| --------------------------------------------------- | --------------------------------------------------------- |
-| `lib/conveyor/sandbox/docker_runner.ex`             | Docker-backed sandbox runner (materialize, exec, destroy) |
-| `lib/conveyor/sandbox/runner.ex`                    | Runner behaviour and minimal host command runner          |
-| `lib/conveyor/sandbox/docker_profile.ex`            | Hardened Docker create arguments                          |
-| `lib/conveyor/sandbox/network_policy.ex`            | Network mode and egress allowlist validation              |
-| `lib/conveyor/sandbox/policy_executor.ex`           | Policy-checked command execution inside a sandbox         |
-| `lib/conveyor/sandbox/materialized.ex`              | Runtime handle for a materialized workspace               |
-| `lib/conveyor/factory/workspace_materialization.ex` | Tracked checkout/workspace lifecycle resource             |
-| `lib/conveyor/sandbox/workspace_cleanup.ex`         | Cleanup policy enforcement and tree digest                |
-| `lib/conveyor/sandbox/reaper.ex`                    | Orphan workspace reaping service                          |
-| `SAFETY_POLICY.md`                                  | Threat model and default Phase 1 controls                 |
+| File | Role |
+| --- | --- |
+| `lib/conveyor/sandbox/runner.ex` | Runner behaviour and minimal host command runner. |
+| `lib/conveyor/sandbox/docker_runner.ex` | Docker-backed sandbox runner. |
+| `lib/conveyor/sandbox/docker_profile.ex` | Hardened Docker create args. |
+| `lib/conveyor/sandbox/materialized.ex` | Runtime handle for a materialized workspace. |
+| `lib/conveyor/sandbox/network_policy.ex` | Network mode helpers and egress validation. |
+| `lib/conveyor/sandbox/policy_executor.ex` | Policy-checked command execution inside a sandbox. |
+| `lib/conveyor/sandbox/workspace_cleanup.ex` | Cleanup policy enforcement and tree digest. |
+| `lib/conveyor/sandbox/reaper.ex` | Reaps workspaces with pending cleanup. |
+| `lib/conveyor/factory/workspace_materialization.ex` | Ash resource for tracked workspace lifecycle. |
 
-## Related pages
-
-- [Sandbox Docker container lifecycle](../systems/sandbox.md) — sandbox system
-  internals
-- [Policy engine and command normalization](../systems/policy-engine.md) —
-  command normalization and denial
-- [Credential broker](credential-broker.md) — scoped credential leases for
-  sandboxed agents
-- [Architecture](../overview/architecture.md) — OTP supervision including the
-  reaper
-- [Station pipeline](station-pipeline.md) — where sandboxes are materialized and
-  destroyed
+See also: [Station pipeline](station-pipeline.md),
+[Credential broker](credential-broker.md),
+[Trust gate](../systems/gate.md), [Planning compiler](../systems/planning-compiler.md),
+[Run attempt](../primitives/run-attempt.md).

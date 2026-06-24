@@ -1,157 +1,286 @@
 # Data models
 
-Conveyor's domain model is built with Ash 3.x and AshPostgres. The
-`Conveyor.Factory` domain in `lib/conveyor/factory.ex` registers 45 Ash
-resources covering projects, plans, slices, run attempts, evidence, reviews,
-gate results, policy, credentials, and more. State machines are modeled with
-`ash_state_machine`. Migrations are append-only in `priv/repo/migrations/`, and
-the repo module is `lib/conveyor/repo.ex`.
+Conveyor's data model is built on Ash resources backed by Postgres through
+AshPostgres. All resources belong to the `Conveyor.Factory` domain
+(`lib/conveyor/factory.ex`) and are managed through Ash actions. State
+transitions are modeled with `ash_state_machine`.
 
-This page lists every resource registered in the domain, grouped by area, with
-its file path and a one-line description taken from the resource's `@moduledoc`.
-Keep resources and migrations aligned: an Ash resource change usually implies a
-migration and a focused test.
+## Factory domain
 
-## Resource registry
+`lib/conveyor/factory.ex` registers 51 resources in the `Conveyor.Factory`
+domain. Every resource uses `AshPostgres.DataLayer` and maps to a table in
+Postgres.
 
-The domain is declared in `lib/conveyor/factory.ex`:
+The resources fall into five clusters:
 
-```elixir
-defmodule Conveyor.Factory do
-  use Ash.Domain, otp_app: :conveyor
+1. **Project and planning:** `Project`, `ToolchainProfile`, `CacheMount`,
+   `Plan`, `Requirement`, `HumanDecision`, `PlanAudit`
+2. **Work graph:** `Epic`, `Slice`, `TaskDependency`, `DiffPolicy`,
+   `ReviewPolicy`, `AgentBrief`, `ContractLock`, `TestPack`,
+   `VerificationSuite`, `TestPackCalibration`
+3. **Execution:** `RunSpec`, `RunAttempt`, `AgentSession`, `StationRun`,
+   `StationEffect`, `EffectAttempt`, `EffectReceipt`, `AuthorityEvent`,
+   `PatchSet`, `RiskAssessment`, `WorkspaceMaterialization`
+4. **Evidence and gate:** `Evidence`, `ToolInvocation`, `Review`,
+   `GateResult`, `CodeProvenanceEdge`, `Artifact`, `RunBundle`,
+   `ReviewerHealth`, `GateHealth`, `ContextPack`, `InstructionSource`,
+   `CodeQualityRun`, `RunPrompt`, `PatchEquivalence`
+5. **Safety and control:** `Policy`, `RetentionPolicy`, `RunBudget`,
+   `Incident`, `CredentialLease`, `HumanApproval`, `ExternalChange`,
+   `LedgerEvent`, `EventOutbox`
 
-  resources do
-    resource Conveyor.Factory.Project
-    # ... 44 more
-  end
-end
+## Plan / epic / slice hierarchy
+
+The work graph is hierarchical: a `Project` owns `Plan`s, a `Plan` owns
+`Epic`s, an `Epic` owns `Slice`s. A `Slice` is the unit of work that gets a
+locked contract, a run spec, and one or more run attempts.
+
+```mermaid
+erDiagram
+    Project ||--o{ Plan : "has many"
+    Project ||--o{ ToolchainProfile : "has many"
+    Project ||--o{ ReviewPolicy : "has many"
+    Project ||--o{ RetentionPolicy : "has many"
+    Project ||--o{ Incident : "has many"
+    Project ||--o{ LedgerEvent : "has many"
+
+    Plan ||--o{ Requirement : "has many"
+    Plan ||--o{ HumanDecision : "has many"
+    Plan ||--o{ PlanAudit : "has many"
+    Plan ||--o{ Epic : "has many"
+
+    Epic ||--o{ Slice : "has many"
+
+    Slice ||--o{ AgentBrief : "has many"
+    Slice ||--o{ ContractLock : "has many"
+    Slice ||--o{ TestPack : "has many"
+    Slice ||--o{ VerificationSuite : "has many"
+    Slice ||--o{ RunSpec : "has many"
+    Slice ||--o{ RunAttempt : "has many"
+    Slice ||--o{ StationRun : "has many"
+    Slice ||--o{ ContextPack : "has many"
+    Slice ||--o{ Incident : "has many"
+    Slice ||--o{ LedgerEvent : "has many"
+
+    RunSpec ||--o{ RunAttempt : "has many"
+    RunSpec ||--o{ WorkspaceMaterialization : "has many"
+    RunSpec ||--o{ CredentialLease : "has many"
+
+    RunAttempt ||--o{ StationRun : "has many"
+    RunAttempt ||--o{ PatchSet : "has many"
+    RunAttempt ||--o{ Evidence : "has many"
+    RunAttempt ||--o{ ToolInvocation : "has many"
+    RunAttempt ||--o{ Review : "has many"
+    RunAttempt ||--o{ GateResult : "has many"
+    RunAttempt ||--o{ Artifact : "has many"
+    RunAttempt ||--o{ RunBudget : "has many"
+    RunAttempt ||--o{ LedgerEvent : "has many"
 ```
 
-### Project and toolchain
+### Key resources
 
-| Resource           | File                                        | Description                                                                   |
-| ------------------ | ------------------------------------------- | ----------------------------------------------------------------------------- |
-| `Project`          | `lib/conveyor/factory/project.ex`           | A repository registered with Conveyor.                                        |
-| `ToolchainProfile` | `lib/conveyor/factory/toolchain_profile.ex` | Pinned toolchain image and dependency identity for reproducible station runs. |
-| `CacheMount`       | `lib/conveyor/factory/cache_mount.ex`       | Content-addressed cache mount observed during a station run.                  |
+#### Project (`lib/conveyor/factory/project.ex`)
 
-### Plan and work graph
+A repository registered with Conveyor. Attributes: `name`, `repo_url`,
+`local_path`, `default_branch`, `dev_branch`, `command_specs` (embedded map
+array), `toolchain_profile_id`, `code_quality_profile`, `default_autonomy_level`
+(integer, default 1), `status` (`:active` or `:archived`).
 
-| Resource        | File                                     | Description                                                                   |
-| --------------- | ---------------------------------------- | ----------------------------------------------------------------------------- |
-| `Plan`          | `lib/conveyor/factory/plan.ex`           | A normalized implementation plan imported for deterministic readiness checks. |
-| `Requirement`   | `lib/conveyor/factory/requirement.ex`    | A stable-key requirement traced from the normalized plan contract.            |
-| `HumanDecision` | `lib/conveyor/factory/human_decision.ex` | An explicit human decision captured during plan normalization.                |
-| `PlanAudit`     | `lib/conveyor/factory/plan_audit.ex`     | Deterministic readiness verdict and findings for an imported plan.            |
-| `Epic`          | `lib/conveyor/factory/epic.ex`           | A plan-level work grouping that owns ordered slices.                          |
-| `Slice`         | `lib/conveyor/factory/slice.ex`          | An ordered implementation slice with readiness data for later scheduling.     |
+#### Plan (`lib/conveyor/factory/plan.ex`)
 
-### Contracts and tests
+A normalized implementation plan. Attributes: `title`, `intent`,
+`source_document`, `normalized_contract` (map), `schema_version`
+(`conveyor.plan@1`), `contract_sha256`, `status`, `readiness_score`. Status
+states: `:draft`, `:audited`, `:handoff_ready`, `:active`, `:completed`,
+`:needs_clarification`, `:archived`. Status transitions are validated by
+`Conveyor.Factory.Validations.PlanStatusTransition`.
 
-| Resource              | File                                            | Description                                                                       |
-| --------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------- |
-| `AgentBrief`          | `lib/conveyor/factory/agent_brief.ex`           | Locked implementation contract for a slice.                                       |
-| `ContractLock`        | `lib/conveyor/factory/contract_lock.ex`         | Immutable digest set that freezes a slice contract for future evidence.           |
-| `TestPack`            | `lib/conveyor/factory/test_pack.ex`             | Locked read-only acceptance test bundle for a slice.                              |
-| `VerificationSuite`   | `lib/conveyor/factory/verification_suite.ex`    | Classified command suite used for baseline, acceptance, quality, and gate checks. |
-| `TestPackCalibration` | `lib/conveyor/factory/test_pack_calibration.ex` | Baseline red/green calibration result for a locked test pack.                     |
+#### Slice (`lib/conveyor/factory/slice.ex`)
 
-### Run execution
+An ordered implementation slice. This is the primary unit of work. Attributes:
+`title`, `stable_key` (plan-authored key like `SLICE-005`), `position`,
+`risk`, `state`, `autonomy_level`, `source_refs`, `likely_files`,
+`conflict_domains`, `acceptance_criteria` (array of maps), `diff_policy_id`.
+Identities: unique per `(epic_id, position)` and `(epic_id, stable_key)`.
 
-| Resource                   | File                                                | Description                                                               |
-| -------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| `RunSpec`                  | `lib/conveyor/factory/run_spec.ex`                  | Immutable execution capsule describing exactly what one attempt will run. |
-| `RunAttempt`               | `lib/conveyor/factory/run_attempt.ex`               | Parent identity for one execution attempt of a slice.                     |
-| `AgentSession`             | `lib/conveyor/factory/agent_session.ex`             | Untrusted adapter session output for an implementer, reviewer, or scout.  |
-| `StationRun`               | `lib/conveyor/factory/station_run.ex`               | Per-station execution progress with lease and idempotency metadata.       |
-| `StationEffect`            | `lib/conveyor/factory/station_effect.ex`            | Declared external side effect for crash-safe station reconciliation.      |
-| `EffectAttempt`            | `lib/conveyor/factory/effect_attempt.ex`            | Recorded attempt to perform an external effect.                           |
-| `EffectReceipt`            | `lib/conveyor/factory/effect_receipt.ex`            | Durable receipt and reconciliation state for an external effect attempt.  |
-| `WorkspaceMaterialization` | `lib/conveyor/factory/workspace_materialization.ex` | Tracked checkout/workspace lifecycle for stations and gate phases.        |
-| `RunBudget`                | `lib/conveyor/factory/run_budget.ex`                | Per-run resource caps and consumed counters for runaway protection.       |
+#### RunSpec (`lib/conveyor/factory/run_spec.ex`)
 
-### Evidence and artifacts
+An immutable execution capsule describing exactly what one attempt will run.
+Carries content-addressed digests for the contract lock, policy, diff policy,
+test pack, station plan, and budget. Attributes include `base_commit`,
+`container_image_ref`, `container_image_digest`, `sandbox_profile`,
+`agent_profile_snapshot`, `canary_suite_version`. Identity: unique
+`run_spec_sha256`.
 
-| Resource            | File                                         | Description                                                                     |
-| ------------------- | -------------------------------------------- | ------------------------------------------------------------------------------- |
-| `Evidence`          | `lib/conveyor/factory/evidence.ex`           | Aggregated machine evidence for a run attempt and patch.                        |
-| `PatchSet`          | `lib/conveyor/factory/patch_set.ex`          | Captured git diff and scope metrics for an agent-produced patch.                |
-| `PatchEquivalence`  | `lib/conveyor/factory/patch_equivalence.ex`  | Detailed comparison between accepted and externally applied patches.            |
-| `ExternalChange`    | `lib/conveyor/factory/external_change.ex`    | Human-applied external commit and patch equivalence classification.             |
-| `Artifact`          | `lib/conveyor/factory/artifact.ex`           | Content-addressed artifact metadata and projection identity.                    |
-| `RunBundle`         | `lib/conveyor/factory/run_bundle.ex`         | Canonical run-directory manifest and bundle root digest.                        |
-| `ToolInvocation`    | `lib/conveyor/factory/tool_invocation.ex`    | Recorded command/tool execution with policy and output references.              |
-| `CodeQualityRun`    | `lib/conveyor/factory/code_quality_run.ex`   | Code-quality adapter result and high-risk finding delta for scout and gate use. |
-| `ContextPack`       | `lib/conveyor/factory/context_pack.ex`       | Cited scout output used to assemble bounded implementation prompts.             |
-| `InstructionSource` | `lib/conveyor/factory/instruction_source.ex` | Trust-labeled prompt input used to preserve instruction hierarchy boundaries.   |
-| `RunPrompt`         | `lib/conveyor/factory/run_prompt.ex`         | Versioned immutable prompt assembled from a brief, context pack, and policies.  |
-| `RiskAssessment`    | `lib/conveyor/factory/risk_assessment.ex`    | Planned-versus-observed risk comparison for a patch.                            |
+#### RunAttempt (`lib/conveyor/factory/run_attempt.ex`)
 
-### Review and gate
+Parent identity for one execution attempt of a slice. Attributes: `attempt_no`,
+`base_commit`, `head_tree_sha256`, `patch_set_id`, `status`, `outcome`,
+`failure_category`, `started_at`, `completed_at`, `orchestrator_version`,
+`trace_id`. Identity: unique `(slice_id, attempt_no)`.
 
-| Resource         | File                                      | Description                                                                |
-| ---------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
-| `Review`         | `lib/conveyor/factory/review.ex`          | Reviewer verdict over a dossier.                                           |
-| `ReviewPolicy`   | `lib/conveyor/factory/review_policy.ex`   | Maps observed risk rules to required review kinds and escalation behavior. |
-| `ReviewerHealth` | `lib/conveyor/factory/reviewer_health.ex` | Queryable reviewer fixture-suite health summary.                           |
-| `GateResult`     | `lib/conveyor/factory/gate_result.ex`     | Deterministic gate verdict and freshness keys for a run attempt.           |
-| `GateHealth`     | `lib/conveyor/factory/gate_health.ex`     | Queryable gate freshness and honesty summary for a freshness key.          |
-| `DiffPolicy`     | `lib/conveyor/factory/diff_policy.ex`     | Bounds the allowed diff scope for a slice.                                 |
+#### ContractLock (`lib/conveyor/factory/contract_lock.ex`)
 
-### Policy, security, and authority
+An immutable digest set that freezes a slice contract for future evidence.
+Carries SHA-256 digests for the plan contract, agent brief, acceptance
+criteria, required tests, test pack, verification commands, AGENTS.md, and
+policy. Also carries `protected_path_globs`. This is the resource that
+enforces design law 2: no implementation without a locked contract.
 
-| Resource          | File                                       | Description                                                                           |
-| ----------------- | ------------------------------------------ | ------------------------------------------------------------------------------------- |
-| `Policy`          | `lib/conveyor/factory/policy.ex`           | Named policy profile with command, environment, network, budget, and autonomy limits. |
-| `RetentionPolicy` | `lib/conveyor/factory/retention_policy.ex` | Retention and deletion policy for artifact sensitivity classes.                       |
-| `Incident`        | `lib/conveyor/factory/incident.ex`         | Policy, safety, and operational incident record.                                      |
-| `CredentialLease` | `lib/conveyor/factory/credential_lease.ex` | Short-lived scoped provider credential exposure record.                               |
-| `HumanApproval`   | `lib/conveyor/factory/human_approval.ex`   | Human approval or recorded external action tied to a project run.                     |
-| `AuthorityEvent`  | `lib/conveyor/factory/authority_event.ex`  | Canonical causal authority event for audit, recovery, and replay.                     |
+#### GateResult (`lib/conveyor/factory/gate_result.ex`)
 
-### Ledger and events
+A deterministic gate verdict. Attributes: `level` (`:slice`), `passed`
+(boolean), `stages` (array of maps), `false_negative`, `gate_version`,
+`gate_code_sha256`, `policy_sha256`, `contract_lock_sha256`,
+`canary_suite_version`, `trust_score` (map, from ADR-23). The `trust_score`
+field records the calibrated trust verdict: score, band, components,
+thresholds, and policy digest.
 
-| Resource      | File                                   | Description                                                     |
-| ------------- | -------------------------------------- | --------------------------------------------------------------- |
-| `LedgerEvent` | `lib/conveyor/factory/ledger_event.ex` | Append-only event timeline entry with a domain idempotency key. |
-| `EventOutbox` | `lib/conveyor/factory/event_outbox.ex` | Transactional publication queue for committed ledger events.    |
+#### Evidence (`lib/conveyor/factory/evidence.ex`)
 
-## Migrations
+Aggregated machine evidence for a run attempt and patch. Attributes:
+`changed_files`, `diff_ref`, `tool_invocation_refs`, `acceptance_results`,
+`code_quality_result_ref`, `risks`, `summary`, `pr_body_ref`. Belongs to
+`RunAttempt` and `PatchSet`.
 
-Migrations live in `priv/repo/migrations/` and are append-only. Each Ash
-resource maps to a Postgres table (for example, `Project` -> `projects`, `Slice`
--> `slices`, `RunAttempt` -> `run_attempts`). The repo module is
-`lib/conveyor/repo.ex`. Keep resource changes and migrations aligned; a resource
-change usually implies a migration and a focused test in
-`test/conveyor/factory/`.
+#### Policy (`lib/conveyor/factory/policy.ex`)
 
-The factory resource tests are grouped by domain area in
-`test/conveyor/factory/`:
+A named policy profile with command, environment, network, budget, and
+autonomy limits. Attributes: `name`, `profile` (atom), `allowlist`,
+`denylist`, `env_policy` (map), `network_policy` (map), `budget_policy` (map),
+`autonomy_ceiling` (integer). See [security](../security.md) for how the
+policy engine uses these fields.
 
-- `foundation_resources_test.exs`
-- `execution_run_resources_test.exs`
-- `work_graph_policy_resources_test.exs`
-- `contract_spine_resources_test.exs`
-- `evidence_verdict_resources_test.exs`
-- `prompt_context_resources_test.exs`
-- `artifact_health_resources_test.exs`
-- `plan_quality_resources_test.exs`
-- `patch_risk_workspace_resources_test.exs`
-- `safety_audit_resources_test.exs`
-- `db_invariants_test.exs`
-- `embedded_schema_validation_test.exs`
-- `run_spec_test.exs`
+#### CredentialLease (`lib/conveyor/factory/credential_lease.ex`)
+
+A short-lived scoped provider credential exposure record. Attributes:
+`provider`, `env_keys`, `scope`, `issued_at`, `expires_at`, `revoked_at`,
+`status` (`:issued`, `:active`, `:revoked`, `:expired`, `:invalidated`).
+Belongs to `RunSpec` (required) and `StationRun` (optional).
 
 ## State machines
 
-Several resources use `ash_state_machine` with explicit states and transitions.
-For example, `Slice` transitions through `approved` -> `ready` -> `in_progress`
--> `gated` -> `integrated` -> `complete` (and `policy_blocked` / `failed` on
-policy violation), and `RunAttempt` transitions through `running` ->
-`evidence_recorded` -> `reviewed` -> `gated` -> `reported` (and `failed`).
-States and database constraints are kept aligned.
+Two resources use `ash_state_machine` for explicit state transitions.
 
-See [Configuration](configuration.md) for how project config feeds into these
-resources, [Dependencies](dependencies.md) for the Ash stack that backs them,
-and [Architecture](../overview/architecture.md) for how the resources fit into
-the station pipeline.
+### Slice state machine
+
+The `Slice` state machine in `lib/conveyor/factory/slice.ex`:
+
+```mermaid
+stateDiagram-v2
+    [*] --> drafted
+    drafted --> approved: approve
+    approved --> ready: mark_ready
+    drafted --> ready: mark_ready
+    needs_rework --> ready: mark_ready
+    ready --> in_progress: start
+    in_progress --> gated: gate
+    gated --> integrated: integrate
+    integrated --> done: complete
+
+    ready --> needs_rework: request_rework
+    in_progress --> needs_rework: request_rework
+    gated --> needs_rework: request_rework
+    integrated --> needs_rework: request_rework
+
+    drafted --> parked: park
+    approved --> parked: park
+    ready --> parked: park
+    in_progress --> parked: park
+    gated --> parked: park
+    integrated --> parked: park
+    needs_rework --> parked: park
+
+    in_progress --> failed: fail
+    gated --> failed: fail
+    integrated --> failed: fail
+    needs_rework --> failed: fail
+
+    ready --> policy_blocked: policy_block
+    in_progress --> policy_blocked: policy_block
+    gated --> policy_blocked: policy_block
+```
+
+States: `drafted`, `approved`, `ready`, `in_progress`, `gated`, `integrated`,
+`done`, `needs_rework`, `parked`, `failed`, `policy_blocked`. Initial state:
+`drafted`.
+
+### RunAttempt state machine
+
+The `RunAttempt` state machine in `lib/conveyor/factory/run_attempt.ex`:
+
+```mermaid
+stateDiagram-v2
+    [*] --> planned
+    planned --> running: start
+    running --> evidence_recorded: record_evidence
+    evidence_recorded --> reviewed: review
+    reviewed --> gated: gate
+    evidence_recorded --> gated: gate
+    gated --> reported: report
+
+    running --> failed: fail
+    evidence_recorded --> failed: fail
+    reviewed --> failed: fail
+    gated --> failed: fail
+
+    evidence_recorded --> needs_rework: request_rework
+    reviewed --> needs_rework: request_rework
+    gated --> needs_rework: request_rework
+
+    reviewed --> rejected: reject
+    gated --> rejected: reject
+
+    planned --> cancelled: cancel
+    running --> cancelled: cancel
+    evidence_recorded --> cancelled: cancel
+    reviewed --> cancelled: cancel
+
+    planned --> stale: mark_stale
+    running --> stale: mark_stale
+    evidence_recorded --> stale: mark_stale
+```
+
+States: `planned`, `running`, `evidence_recorded`, `reviewed`, `gated`,
+`reported`, `failed`, `cancelled`, `stale`, `needs_rework`, `rejected`.
+Initial state: `planned`. The `outcome` field tracks: `none`, `needs_rework`,
+`accepted`, `rejected`, `policy_blocked`, `abstained` (from ADR-23).
+
+## Migrations
+
+41 migrations live in `priv/repo/migrations/`. They are append-only: each
+migration adds tables, columns, or indexes without modifying prior schema. The
+first migration creates Oban jobs
+(`20260617180000_add_oban_jobs.exs`). Factory foundation resources start at
+`20260617201000_create_factory_foundation_resources.exs`. The most recent
+migrations add task dependencies, slice stable key unique indexes, slice
+acceptance criteria, and plan contract freezing.
+
+Resources and migrations are kept aligned: Ash resource changes usually imply
+a new migration and focused tests (per `lib/conveyor/AGENTS.md`).
+
+## JSON schemas
+
+100 JSON schemas live in `docs/schemas/`. They define the wire formats for
+plans, run views, evidence, gate results, cassettes, trust bundles, and other
+authoritative records. Schemas are versioned with a `@1` or `@2` suffix
+(e.g. `conveyor.plan@1.json`, `conveyor.work_graph@2.json`).
+
+Key schemas include:
+
+| Schema | Description |
+| --- | --- |
+| `conveyor.plan@1` | Normalized implementation plan |
+| `conveyor.run_view@1` | Projected run view |
+| `conveyor.eval_scorecard@1` | Evaluation scorecard |
+| `conveyor.tool_contract@1` | Tool contract (ADR-07) |
+| `conveyor.trust_bundle@1` | DSSE trust bundle for gate verdicts |
+| `conveyor.emergency_stop_state@1` | Emergency stop state record |
+| `conveyor.effective_capability_set@1` | Derived adapter capabilities |
+| `conveyor.work_graph@2` | Work graph IR |
+| `conveyor.verification_obligation@1` | Verification obligation |
+| `conveyor.verification_evidence@1` | Verification evidence |
+
+The schema registry is in `docs/schemas/registry.json`. Supporting docs in
+`docs/schemas/` cover attestation, canonicalization, compatibility, and
+migration conventions.

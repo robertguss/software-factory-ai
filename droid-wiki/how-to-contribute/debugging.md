@@ -1,251 +1,151 @@
 # Debugging
 
-Conveyor is a deterministic core with stochastic agents at the edges, so
-debugging splits into two modes: debugging the BEAM conductor (logs, doctor,
-replay, evidence inspection) and debugging agent runs (gate failures, policy
-violations, sandbox issues). This page is a runbook for both.
+Conveyor is event-sourced, so most debugging starts with the ledger and the run
+read model. This page covers how to read a run's story, common errors, and
+prerequisite checks.
 
-The first tool to reach for is `mix conveyor.doctor`. It checks prerequisites,
-config, sandbox constraints, and project files, and it fails hard when a
-required constraint is missing. The second is the run evidence under
-`.conveyor/runs/<run_attempt_id>/`, which is the durable projection of what
-actually happened. The third is `mix conveyor.replay`, which rebuilds the human
-timeline from the append-only ledger.
+## The ledger
 
-## Logs
+The ledger (`lib/conveyor/ledger.ex`) is the append-only audit trail. Every run,
+slice, gate, and evidence event is written as a `LedgerEvent` with an
+idempotency key. The ledger never updates or deletes entries, so the full
+history of any run is reconstructable from its event stream.
 
-Logger is configured in `config/config.exs`:
+## Reading a run's story
 
-```elixir
-config :logger, :console,
-  format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+### CLI
+
+`mix conveyor.run_view` folds a run's ledger stream into a human-readable story:
+
+```bash
+mix conveyor.run_view <run_id>
 ```
 
-Dev logs are trimmed in `config/dev.exs`:
+It prints the run's terminal status, each slice's outcome, the slice the run
+stopped on, the failing gate stage and trust verdict, rework attempts, and token
+spend. It is read-only: it folds the ledger and Factory resources and never
+writes or repairs them.
 
-```elixir
-config :logger, :console, format: "[$level] $message\n"
+For structured output, use `--json`:
+
+```bash
+mix conveyor.run_view <run_id> --json
 ```
 
-Test logs are set to warning and above in `config/test.exs`:
+This emits the `conveyor.run_view@1` envelope, suitable for piping into `jq` or
+downstream automation. An unknown run id prints an empty (`unknown`) story and
+still exits success: the report ran, the run's own outcome is data in the
+output, not the exit code.
 
-```elixir
-config :logger, level: :warning
+### Read model
+
+The `RunReadModel` (`lib/conveyor/run_read_model.ex`) is the module that folds
+the ledger stream into the structured run story. It returns a plain map with the
+run's terminal status, ordered slices (each with its committed outcome, failing
+gate stage, trust verdict, rework count, and token spend), and the stop point.
+The fold splits into a pure part (`project/3`, no DB) and a DB enrichment part
+(`summarize/1`), so it is unit-testable without Postgres.
+
+### LiveView dashboard
+
+The `RunViewerLive` LiveView at `/runs` shows a dashboard of runs and their
+state. It is a projection: it displays authority but does not create it. For the
+source of truth, read the ledger or use `mix conveyor.run_view`.
+
+## The parked queue
+
+When a run's gate abstains (the calibrated trust score was not confident enough
+to accept or reject), the slice routes to human review. The parked queue lists
+these abstained runs, least-trusted first:
+
+```bash
+mix conveyor.parked
 ```
 
-Production logs are set to info in `config/prod.exs`. Runtime production
-configuration, including the database URL and secret key base, is loaded from
-env vars in `config/runtime.exs`.
+This emits JSON (`conveyor.parked_queue@1`) with the slice id, title, run
+attempt id, and trust verdict for each entry. The parked queue is the operator
+payoff of ADR-23: review only what the factory honestly flagged.
 
-When debugging a specific run, the structured evidence under `.conveyor/runs/`
-is more useful than console logs. Logs are best-effort observation; the ledger
-and the projected artifacts are the source of truth for what happened and when.
+## Prerequisite checks
 
-## The doctor command
-
-`mix conveyor.doctor` runs prerequisite and health checks for a Conveyor
-project. It is the first thing to run when something feels off.
+Run `mix conveyor.doctor` to check the toolchain, Postgres reachability, Docker
+and sandbox posture, git, and project files. It prints a remediation hint for
+anything missing:
 
 ```bash
 mix conveyor.doctor
-mix conveyor.doctor /path/to/project
 ```
 
-The doctor (`lib/conveyor/doctor.ex`) checks, in order:
-
-- Config load from `.conveyor/config.toml`.
-- Runtime versions (Elixir, OTP, Phoenix, Ash, Oban) against
-  `Conveyor.ToolMatrix.latest_tested_versions()`.
-- Oban is configured with `Conveyor.Repo`.
-- Postgres is reachable.
-- Docker is installed and reachable.
-- Docker sandbox constraints (seccomp, no-new-privileges, rootless preferred)
-  match `Conveyor.Sandbox.DockerProfile.required_security_options()`.
-- Git is installed and the project path is a git repository.
-- Sample repo path and base ref are valid and clean (when configured).
-- Project files exist: `AGENTS.md`, at least one `verify` command spec, all five
-  policy profiles, writable `runs_dir` and `blobs_dir`.
-- Optional adapters (CodeScent, Pi, provider credential) are present when
-  configured.
-- Secret posture: doctor fails if run with `MIX_ENV=prod`.
-
-The doctor returns a `Result` with findings, each a `Finding` with `check`,
-`severity` (`:failure` or `:warning`), `message`, and `next_actions`. Exit codes
-follow `Conveyor.Cli.ExitCodes`: success, malformed-artifact-or-schema failure
-(config issues), policy-or-secret safety violation, or infrastructure/doctor
-failure. The Mix task in `lib/mix/tasks/conveyor.doctor.ex` formats the result
-and halts with the exit code.
-
-## Inspecting run evidence
-
-Every run writes durable evidence under `.conveyor/runs/<run_attempt_id>/`.
-Postgres is the source of truth; disk is a projection. The projection contains:
-
-- `manifest.json` - machine-readable run manifest.
-- `dossier.md` - human-readable run report with diff, acceptance mapping,
-  commands, quality delta, reviewer verdict, and gate result.
-- `evidence.json` - aggregated machine evidence.
-- `review.json` - reviewer verdict.
-- `gate.json` - deterministic gate verdict and freshness keys.
-- diffs, command logs, CodeScent results, provenance, and a PR-body draft.
-
-Read these files together. The dossier cites machine artifact digests, so a
-claim in the dossier should be traceable to a digest in the manifest. The
-artifact projector (`lib/conveyor/artifacts/projector.ex`) projects Postgres
-records to disk; the blob store (`lib/conveyor/artifacts/blob_store.ex`) handles
-content-addressed storage.
-
-To inspect a specific run from the CLI:
+To validate an initialized workspace, point it at the workspace directory:
 
 ```bash
-mix conveyor.show <run_attempt_id>
+mix conveyor.doctor <ws>
 ```
 
-## The replay command
+## Common errors
 
-`mix conveyor.replay` rebuilds the R0 human timeline from `LedgerEvent` records.
-The ledger is append-only and idempotent, so the timeline is deterministic.
+### Postgres not running or unreachable
+
+Tests and most mix tasks need a reachable Postgres server. Check the connection
+environment:
 
 ```bash
-# Rebuild the full ledger timeline
-mix conveyor.replay
-
-# Rebuild and project a single run attempt to disk
-mix conveyor.replay <run_attempt_id> [--blob-root PATH] [--projection-root PATH]
+echo $PGHOST $PGPORT $PGUSER $PGDATABASE
 ```
 
-The replay module (`lib/conveyor/replay.ex`) sorts ledger events by
-`occurred_at` and id, prints them as JSON lines, and can project a single run
-attempt through `Conveyor.Artifacts.Projector.project_run!/2`. The Mix task is
-in `lib/mix/tasks/conveyor.replay.ex`.
+Defaults are `localhost` / `5432` / `postgres` / `conveyor_dev`. If the server
+is down, start it. If the database does not exist, `mix setup` runs
+`ecto.create` and `ecto.migrate` for you. For the test database,
+`MIX_ENV=test mix test` creates and migrates it through the test alias.
 
-Use replay when the on-disk projection is stale or missing, or when you need to
-reconstruct the exact event order for a diagnosis.
+### Docker not available
 
-## Common failure modes
+Sandboxed agent execution needs Docker. The sandbox runner creates a Docker
+container for each agent workspace. If Docker is not running, live runs will
+fail. `mix conveyor.doctor` checks Docker posture and prints a remediation hint.
+The hermetic demo (`mix conveyor.demo`) and dry-run with the reference solution
+adapter do not need Docker.
 
-### Gate failures
+### Unapproved graph
 
-A gate failure means the deterministic gate (`lib/conveyor/gate.ex`) composed
-stage results into a fail verdict. The gate validates schema versions, digest
-consistency, required evidence, policy, and review freshness before any result
-can be treated as accepted.
+`conveyor run` refuses to execute an unapproved task graph. Every task must be
+locked and approved before a run:
 
-To diagnose:
+```bash
+mix conveyor.task.lock <stable_key>
+mix conveyor.task.approve <stable_key>
+```
 
-1. Read `gate.json` for the failed stage and the findings.
-2. Read the corresponding stage evidence (for example, `evidence.json` for the
-   RecordEvidence stage, `review.json` for the Reviewer stage).
-3. Check the freshness keys in the gate result. A freshness miss means an input
-   changed (contract, policy, AGENTS.md, diff policy, autonomy ceiling,
-   verification commands, project command specs) and the old evidence is no
-   longer valid for the current `RunSpec`.
-4. If a canary passed, that is a stop-the-line event: the gate caught a
-   known-bad mutant as good. Do not retry; investigate the gate.
+`lock` compiles and materializes the gate-valid contract. `approve` is the human
+go-signal. If you see a refusal, check task state with `mix conveyor.task.list`
+or `mix conveyor.task.show <stable_key>`.
 
-### Policy violations
+### Compile warnings
 
-A policy violation creates an `Incident`, stops the run, records evidence, and
-moves the `Slice` to `policy_blocked` or `failed` depending on severity. Phase 1
-prefers false positives over silent policy bypass.
+`mix compile --warnings-as-errors` treats warnings as failures. This is enforced
+in CI. Fix the warning rather than suppressing it. If a warning is a known
+Dialyzer false positive, add it to `.dialyzer_ignore.exs`.
 
-To diagnose:
+### Credo strict failures
 
-1. Find the `Incident` record and the `PolicyDecision` it cites. Every
-   consequential action must cite a versioned `PolicyDecision` with stable
-   reason codes.
-2. Check the policy profile in `.conveyor/policies/<profile>.toml`. The five
-   profiles are `explore`, `implement`, `verify`, `release`, and `maintenance`.
-3. Check the command spec in `.conveyor/config.toml`. Policy evaluation order
-   is: reject raw shell, resolve executable, normalize cwd/symlinks/roots,
-   reject writes outside the workspace, allow only configured executable
-   families, apply the denylist, record the decision.
-4. If the violation is a denylist hit, check `SAFETY_POLICY.md` for the minimum
-   denylist. Denylist entries are defense-in-depth; the primary boundary is the
-   command grammar and sandbox.
+`mix credo --strict` runs Credo in strict mode with zero tolerance. The config
+is in `.credo.exs`. Fix the issue rather than relaxing the check. See
+[tooling](tooling.md) for Credo and Dialyzer details.
 
-Do not loosen policy to make a run pass. If a policy block is wrong, fix the
-policy through the normal ADR/schema path and re-run.
+## Troubleshooting runbook
 
-### Sandbox issues
-
-Sandbox issues usually show up as Docker errors or doctor failures. The sandbox
-(`lib/conveyor/sandbox/`) runs agents in isolated Docker containers with these
-defaults:
-
-- non-root user, rootless Docker where available
-- no privileged containers, no Docker socket mount, no host home mount
-- read-only mounts for contracts, policies, and `.conveyor`
-- read-write mount only for the materialized workspace
-- `no-new-privileges`, seccomp or AppArmor where available
-- CPU, memory, process, output-size, and wall-clock limits
-- `network=none` by default, allowlisted egress proxy only for approved calls
-
-To diagnose:
-
-1. Run `mix conveyor.doctor` and look for `sandbox_constraints` or
-   `sandbox_rootless` findings.
-2. Check that Docker is running and supports the required security options.
-3. If a sandbox failed to start, check the `StationRun` and
-   `WorkspaceMaterialization` records for the error.
-4. If the agent could not reach an allowlisted endpoint, check the egress policy
-   for the station profile. No station's allowed egress may include the
-   conductor's own network; the Postgres database, ledger, and internal services
-   must be unreachable from the sandbox.
-
-### Credential broker issues
-
-The credential broker (`lib/conveyor/credential_broker.ex`) issues short-lived,
-scoped `CredentialLease` records. Raw provider secrets are not injected into
-worker containers unless no safer adapter mode exists.
-
-To diagnose:
-
-1. Check the `CredentialLease` records for the run spec or station run.
-2. A lease is `active`, `revoked`, or `expired`. Expired or revoked leases
-   cannot be reused.
-3. `expire_stale!/1` revokes leases past their `expires_at`; the doctor warns if
-   `CONVEYOR_PROVIDER_TOKEN` is absent.
-4. If the agent saw a credential in a prompt or log, that is a secret-exposure
-   incident. Check the redactor (`lib/conveyor/security/redactor.ex`) and the
-   redaction policy for the artifact.
-
-### Stale worker or duplicate effect
-
-If a station worker crashes and a retry takes over, the lease epoch and fencing
-token prevent the stale worker from publishing. Effect attempts and receipts
-(`lib/conveyor/factory/effect_attempt.ex`,
-`lib/conveyor/factory/effect_receipt.ex`) reconcile pending or ambiguous
-external effects before repeating or compensating.
-
-To diagnose:
-
-1. Check the `StationRun` lease epoch and the `EffectAttempt`/`EffectReceipt`
-   records.
-2. An `outcome_unknown` effect attempt means the external system may have
-   accepted the effect even though the worker crashed before recording success.
-   Reconcile before retrying.
-3. `non_reconcilable` external effects are prohibited at L1 unless explicitly
-   human-authorized.
-
-## Key source files
-
-| File                                   | Purpose                                                          |
-| -------------------------------------- | ---------------------------------------------------------------- |
-| `lib/conveyor/doctor.ex`               | Prerequisite and health checks, finding aggregation, exit codes. |
-| `lib/mix/tasks/conveyor.doctor.ex`     | Doctor Mix task wrapper.                                         |
-| `lib/conveyor/replay.ex`               | Ledger timeline rebuild and run projection.                      |
-| `lib/mix/tasks/conveyor.replay.ex`     | Replay Mix task wrapper.                                         |
-| `lib/conveyor/artifacts/projector.ex`  | Projects Postgres records to `.conveyor/runs/<id>/`.             |
-| `lib/conveyor/artifacts/blob_store.ex` | Content-addressed blob storage (SHA-256).                        |
-| `lib/conveyor/credential_broker.ex`    | Issues and revokes short-lived credential leases.                |
-| `lib/conveyor/security/redactor.ex`    | Secret scanning and redaction for projected artifacts.           |
-| `lib/conveyor/gate.ex`                 | Deterministic gate composition and verdict.                      |
-| `lib/conveyor/factory/incident.ex`     | Policy, safety, and operational incident record.                 |
-| `config/config.exs`                    | Logger and Oban config.                                          |
-| `config/runtime.exs`                   | Production runtime config from env vars.                         |
-
-See [Testing](testing.md) for diagnosing test failures, [Tooling](tooling.md)
-for the lint and type-check commands, and [Security](../security.md) for the
-threat model and enforcement layers.
+1. **Check prerequisites** - Run `mix conveyor.doctor`. Fix anything it flags.
+2. **Read the run story** - Run `mix conveyor.run_view <run_id>` to see where
+   the run stopped and why.
+3. **Check the gate verdict** - The run story includes the failing gate stage
+   and trust verdict. If the gate abstained, the slice is in the parked queue
+   (`mix conveyor.parked`).
+4. **Inspect the ledger** - The ledger events for a run are the source of truth.
+   Query `LedgerEvent` records filtered by run id to see the full event
+   sequence.
+5. **Reproduce locally** - Use the hermetic adapters (`fake`, `mock_degraded`,
+   `reference_solution`) to reproduce the run without credentials or network.
+   See [testing](testing.md) for adapter details.
+6. **Replay cassettes** - If the run was recorded, replay the cassette to
+   reproduce the exact agent interaction. See [testing](testing.md) for cassette
+   usage.

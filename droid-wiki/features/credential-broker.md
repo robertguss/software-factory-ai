@@ -1,92 +1,127 @@
 # Credential broker
 
-Credentials are the most dangerous input an agent can touch. Conveyor issues
-short-lived, scoped credential leases through a broker that never persists
-secret values. Raw provider secrets are not injected into worker containers
-unless no safer adapter mode exists, and even then only as named environment
-keys allowed by policy.
+The credential broker issues and revokes short-lived credential leases without
+persisting secret values. It records the metadata of a credential exposure
+(provider, env keys, scope, issue and expiry times, status) as a
+`CredentialLease` row, but the secret values themselves are passed through as
+an env map that the caller injects at execution time. This keeps the audit
+trail complete while ensuring no secret material is stored in the database.
 
-## CredentialBroker
+## Directory layout
 
-`Conveyor.CredentialBroker` (`lib/conveyor/credential_broker.ex`) issues and
-revokes credential leases. It is deliberately small: four public functions and
-one result struct.
+```text
+lib/conveyor/
+├── credential_broker.ex              # Issues, revokes, and expires credential leases
+└── factory/
+    └── credential_lease.ex           # Ash resource: short-lived scoped credential exposure record
+```
 
-`issue!/3` creates a `CredentialLease` for a given `RunSpec` and provider. It
-takes an `env` map of string keys and values, a sorted `env_keys` list, and an
-optional `allowed_env_keys` list. It validates that every requested key is in
-the allowed set, raising on any denied key. The lease gets an `issued_at`, a
-`expires_at` (default TTL 900 seconds), a `scope` defaulting to `run_spec:<id>`,
-and `status: :active`. It returns an `IssuedLease` struct carrying the lease
-record and the env map restricted to the requested keys.
+## Key abstractions
 
-The broker never writes secret values to the database. The `CredentialLease` row
-records which env keys were exposed, to which run spec and station run, when
-they expire, and their status. The actual secret values live only in the
-in-memory `IssuedLease.env` map passed to the runner.
+| Abstraction | Location | Role |
+| --- | --- | --- |
+| `Conveyor.CredentialBroker` | `lib/conveyor/credential_broker.ex` | The broker. Issues leases scoped to a RunSpec (and optionally a StationRun), revokes them individually or in bulk, and expires stale leases. |
+| `Conveyor.CredentialBroker.IssuedLease` | `lib/conveyor/credential_broker.ex` | The issue result: the persisted `CredentialLease` record plus the `env` map containing only the allowlisted keys. |
+| `CredentialLease` | `lib/conveyor/factory/credential_lease.ex` | Ash resource. Records the provider, env keys, scope, issued/expired/revoked timestamps, and status. Never stores secret values. |
 
-## CredentialLease resource
+## How it works
 
-`Conveyor.Factory.CredentialLease` (`lib/conveyor/factory/credential_lease.ex`)
-is the Ash resource tracking each exposure. Its attributes:
+### Issuing a lease
 
-- `provider` — the credential provider name
-- `env_keys` — the environment keys exposed by this lease
-- `scope` — the scope string, typically `run_spec:<id>`
-- `issued_at`, `expires_at`, `revoked_at` — timestamps
-- `status` — `:issued`, `:active`, `:revoked`, `:expired`, or `:invalidated`
+`issue!/3` takes a RunSpec, a provider name, and options. It normalizes the env
+map (requiring string keys and values), extracts and sorts the env keys,
+validates them against an optional `allowed_env_keys` list (raising if any key
+is not allowed by policy), and creates a `CredentialLease` row. The lease
+carries a default TTL of 900 seconds (15 minutes), configurable via
+`:ttl_seconds`. The returned `IssuedLease` struct contains the lease record and
+an env map restricted to only the requested keys via `Map.take/2`.
 
-It belongs to a `RunSpec` (required) and optionally to a `StationRun`. The
-optional station run link lets the broker revoke leases for a single station
-without revoking the whole run spec's leases.
+```mermaid
+flowchart TD
+    A["issue!(run_spec, provider, opts)"] --> B["Normalize env<br/>(string keys and values only)"]
+    B --> C["Extract & sort env_keys"]
+    C --> D["Validate against allowed_env_keys"]
+    D -- "denied keys" --> E["Raise ArgumentError"]
+    D -- "all allowed" --> F["Create CredentialLease<br/>(provider, env_keys, scope,<br/>issued_at, expires_at, status: :active)"]
+    F --> G["Return IssuedLease<br/>(lease + env map with only requested keys)"]
+```
 
-## Scoped leases
+### Revoking leases
 
-Leases are scoped to a run spec by default and optionally narrowed to a station
-run. The scope string makes it easy to audit which execution context a
-credential was exposed to. The `env_keys` list makes it possible to prove that
-only the allowlisted keys were exposed, even though the secret values themselves
-are not persisted.
+Three revocation entry points cover different scopes:
 
-The broker validates env keys against a policy allowlist before creating the
-lease. `validate_env_keys!/2` raises with the denied key names if any requested
-key is not in the allowed set. This is defense in depth on top of the policy
-profile's environment variable rules.
+- `revoke!/2` — revokes a single lease, setting `revoked_at` and `status: :revoked`.
+- `revoke_for_run_spec!/2` — revokes all active or issued leases for a RunSpec.
+- `revoke_for_station_run!/2` — revokes all active or issued leases for a
+  StationRun.
 
-## Revocation
+Revocation is idempotent in effect: only leases with status `:issued` or
+`:active` are selected for revocation.
 
-The broker offers three revocation paths:
+### Expiring stale leases
 
-- `revoke!/2` — revokes a single lease, setting `revoked_at` and
-  `status: :revoked` (or a caller-specified status).
-- `revoke_for_run_spec!/2` — revokes all `:issued` or `:active` leases for a run
-  spec. Used on cancellation or run completion.
-- `revoke_for_station_run!/2` — revokes all `:issued` or `:active` leases for a
-  station run. Used when a station fails or is retried.
+`expire_stale!/1` finds all leases with status `:issued` or `:active` whose
+`expires_at` is not after the current time and revokes them with
+`status: :expired`. This is the periodic sweep that cleans up leases that were
+never explicitly revoked (for example, if a run crashed before cleanup).
 
-`expire_stale!/1` revokes any `:issued` or `:active` lease whose `expires_at`
-has passed, marking them `:expired`. This is the safety net for leases that were
-never explicitly revoked, such as when a worker crashed without running cleanup.
+### Lease lifecycle
 
-Revocation is idempotent in effect: already-revoked leases are filtered out by
-the status check before `revoke!/2` is called, so repeated revocation calls do
-not produce duplicate state changes.
+The `CredentialLease` status transitions are:
+
+| Status | Meaning |
+| --- | --- |
+| `:issued` | Initial status on creation. |
+| `:active` | Set during issue (the broker creates with `:active`). |
+| `:revoked` | Explicitly revoked by `revoke!/2` or the bulk revoke functions. |
+| `:expired` | TTL elapsed, caught by `expire_stale!/1`. |
+| `:invalidated` | Available for future invalidation flows (policy-driven). |
+
+### What is not persisted
+
+The broker never stores secret values. The `CredentialLease` resource has
+attributes for `provider`, `env_keys` (the key names only), `scope`, and
+timestamps. The secret values live in the `IssuedLease.env` map, which is
+returned to the caller and injected at execution time. The audit trail records
+which provider's credentials were exposed, which env keys were used, when they
+were issued, and when they were revoked or expired, without recording the
+secrets themselves.
+
+## Integration points
+
+- **[Sandbox isolation](sandbox-isolation.md)** — credential env keys flow
+  through `NormalizedCommand.env_keys` and become `--env` flags on
+  `docker exec`. The sandbox runner passes only the allowlisted environment
+  into the container.
+- **[Station pipeline](station-pipeline.md)** — leases can be scoped to a
+  StationRun via the `:station_run` option, and `revoke_for_station_run!/2`
+  cleans up credentials when a station completes or fails.
+- **`Conveyor.ToolExecutor`** — the policy boundary that normalizes commands
+  and checks env keys against the allowlist before the sandbox runner executes
+  them.
+- **[Run attempt](../primitives/run-attempt.md)** — every lease is scoped to a
+  RunSpec, tying credential exposure to a specific execution attempt.
+
+## Entry points for modification
+
+- **Change the default TTL** — `:ttl_seconds` default (900) in
+  `lib/conveyor/credential_broker.ex` (`issue!/3`).
+- **Change env key validation** — `validate_env_keys!/2` and the
+  `:allowed_env_keys` option in `lib/conveyor/credential_broker.ex`.
+- **Change the lease lifecycle or status set** —
+  `lib/conveyor/factory/credential_lease.ex` (the `:status` enum constraint).
+- **Change revocation scope** — `revoke_for_run_spec!/2` and
+  `revoke_for_station_run!/2` in `lib/conveyor/credential_broker.ex`.
+- **Change stale-lease expiry** — `expire_stale!/1` in
+  `lib/conveyor/credential_broker.ex`.
 
 ## Key source files
 
-| File                                       | Purpose                                                                |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| `lib/conveyor/credential_broker.ex`        | Issues and revokes scoped credential leases without persisting secrets |
-| `lib/conveyor/factory/credential_lease.ex` | Short-lived scoped provider credential exposure record                 |
-| `SAFETY_POLICY.md`                         | Credential and image policy, broker requirements                       |
+| File | Role |
+| --- | --- |
+| `lib/conveyor/credential_broker.ex` | Issues, revokes, and expires short-lived credential leases without persisting secrets. |
+| `lib/conveyor/factory/credential_lease.ex` | Ash resource for the scoped credential exposure record. |
 
-## Related pages
-
-- [Sandbox isolation](sandbox-isolation.md) — where credential env keys are
-  injected into containers
-- [Policy engine and command normalization](../systems/policy-engine.md) —
-  environment variable policy
-- [Agent runner and Pi adapter](../systems/agent-runner.md) — where provider
-  credentials are consumed
-- [Architecture](../overview/architecture.md) — credential broker in the safety
-  boundary
+See also: [Sandbox isolation](sandbox-isolation.md),
+[Station pipeline](station-pipeline.md),
+[Run attempt](../primitives/run-attempt.md).

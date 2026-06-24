@@ -1,29 +1,16 @@
 # Reference
 
-This section is the reference shelf for Conveyor's configuration, data models,
-and dependencies. It is meant to be searched, not read end to end. Each sub-page
-is a table-driven reference with pointers to the source files.
+This section contains reference material for Conveyor's configuration, data
+model, and dependencies. These pages are lookup-oriented: they describe what
+exists and where it lives, not how to use it.
 
 ## Sub-pages
 
-- [Configuration](configuration.md) - config files, Oban queues, project config,
-  policy profiles, and the `Conveyor.Config` module.
-- [Data models](data-models.md) - all Ash resources registered in
-  `lib/conveyor/factory.ex`, grouped by domain area.
-- [Dependencies](dependencies.md) - key dependencies from `mix.exs` with
-  versions and roles.
-
-## Where to look
-
-| Task                 | Location                                                                    |
-| -------------------- | --------------------------------------------------------------------------- |
-| App config           | `config/config.exs`                                                         |
-| Dev/test/prod config | `config/dev.exs`, `config/test.exs`, `config/prod.exs`                      |
-| Runtime config       | `config/runtime.exs`                                                        |
-| Project config       | `.conveyor/config.toml` (template at `priv/conveyor/templates/config.toml`) |
-| Policy profiles      | `priv/conveyor/templates/policies/*.toml`                                   |
-| Config module        | `lib/conveyor/config.ex`, `lib/conveyor/config/*.ex`                        |
-| Ash domain           | `lib/conveyor/factory.ex`                                                   |
-| Ash resources        | `lib/conveyor/factory/*.ex`                                                 |
-| Migrations           | `priv/repo/migrations/`                                                     |
-| Dependencies         | `mix.exs`, `mix.lock`                                                       |
+- [Configuration](configuration.md) - project config (`config.toml`), runtime
+  config (`config/runtime.exs`), environment config files, environment
+  variables, and tool version pinning.
+- [Data models](data-models.md) - the 51 Ash resources in the Factory domain,
+  state machines, the plan/epic/slice hierarchy, migrations, and JSON schemas,
+  with an ERD diagram.
+- [Dependencies](dependencies.md) - all dependencies from `mix.exs` grouped by
+  category, with version, purpose, and whether they are dev/test only.

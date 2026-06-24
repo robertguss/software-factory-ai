@@ -1,66 +1,61 @@
 # Configuration
 
-Conveyor is configured at two layers: the BEAM application config in `config/`
-(Mix/Phoenix/Oban/Postgres) and the per-project config in
-`.conveyor/config.toml` (project identity, command specs, policies, artifact
-dirs). This page covers both, plus the policy profile templates and the
-`Conveyor.Config` module that loads and validates project config.
+Conveyor has two configuration layers: project configuration in
+`.conveyor/config.toml` and application configuration in `config/`. The project
+config tells Conveyor what to build and how to verify it. The application config
+tells the BEAM runtime how to start.
 
-Runtime behavior lives in `config/runtime.exs`; dev/test defaults live in
-`config/dev.exs` and `config/test.exs`. Project config is loaded by
-`Conveyor.Config` from `.conveyor/config.toml` and validated into a
-`ProjectConfig` struct before any run uses it.
+## Project configuration
 
-## Config files
+### .conveyor/config.toml
 
-| File                 | Env     | Purpose                                                                                                                                                                                                                       |
-| -------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `config/config.exs`  | all     | General app config: Ash domains, Ecto repos, Oban queues, endpoint (Bandit adapter, PubSub, LiveView signing salt), logger, Phoenix JSON library. Imports `#{config_env()}.exs`.                                              |
-| `config/dev.exs`     | dev     | Dev database (`conveyor_dev`), endpoint on `127.0.0.1:4000` with code reloader and debug errors, no JS/CSS watchers, `dev_routes: true`, shorter log format, deeper stacktrace.                                               |
-| `config/test.exs`    | test    | Test database (`conveyor_test` with optional `MIX_TEST_PARTITION`), sandbox pool, endpoint on `127.0.0.1:4002` with `server: false`, Oban `testing: :manual` with `queues: false` and `plugins: false`, logger at `:warning`. |
-| `config/prod.exs`    | prod    | Logger at `:info`. Runtime prod config is in `config/runtime.exs`.                                                                                                                                                            |
-| `config/runtime.exs` | runtime | Prod runtime config from env vars: `DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`, `PORT`, `POOL_SIZE`, `ECTO_IPV6`, `DNS_CLUSTER_QUERY`, `PHX_SERVER`. Raises if required prod env vars are missing.                          |
+The project config file lives at `.conveyor/config.toml` in the project root.
+It is loaded by `lib/conveyor/config.ex` and validated into a
+`ProjectConfig` struct. The template at
+`priv/conveyor/templates/config.toml` shows the full shape.
 
-## Oban queue config
+#### Required fields
 
-Oban is configured in `config/config.exs`:
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | string | Project name |
+| `repo_path` | string | Path to the repository root (relative to cwd) |
+| `default_branch` | string | Default branch name (e.g. `main`) |
+| `default_autonomy_level` | enum | One of `L0`, `L1`, `L2`, `L3`, `L4` |
+| `policies_dir` | string | Directory for policy profile TOML files |
+| `prompts_dir` | string | Directory for prompt templates |
+| `runs_dir` | string | Directory for run outputs |
+| `blobs_dir` | string | Directory for content-addressed blobs |
+| `quality_adapter` | string | Code quality adapter module name |
+| `command_specs` | array of tables | Non-empty list of command specifications |
 
-```elixir
-config :conveyor, Oban,
-  repo: Conveyor.Repo,
-  queues: [
-    default: 10,
-    conductor: 5,
-    gate: 5,
-    maintenance: 2
-  ],
-  plugins: []
-```
+#### Optional fields
 
-| Queue         | Concurrency | Role                     |
-| ------------- | ----------- | ------------------------ |
-| `default`     | 10          | General-purpose jobs.    |
-| `conductor`   | 5           | Conductor-side services. |
-| `gate`        | 5           | Gate and canary jobs.    |
-| `maintenance` | 2           | Cleanup, reconciliation. |
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `dev_branch` | string | none | Development branch name |
+| `sample_repo_path` | string | none | Path to sample repo for evals |
+| `sample_base_ref` | string | none | Base ref for sample repo |
 
-In test, Oban is set to `testing: :manual` with `queues: false` and
-`plugins: false`, so jobs do not run automatically during tests.
+#### Command specs
 
-## Project config (`.conveyor/config.toml`)
+Each `[[project.command_specs]]` entry defines a verifiable command:
 
-Each Conveyor project has a `.conveyor/config.toml` file. A template lives at
-`priv/conveyor/templates/config.toml`. The config defines:
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `key` | string | required | Unique command key |
+| `argv` | string list | required | Command and arguments (first element is executable) |
+| `profile` | enum | required | One of `explore`, `implement`, `verify`, `release`, `maintenance` |
+| `cwd` | string | `.` | Working directory relative to repo root |
+| `required` | boolean | `true` | Whether the command must pass |
+| `timeout_ms` | positive integer | `120000` | Timeout in milliseconds |
+| `network` | enum | `none` | One of `none`, `loopback`, `egress` |
+| `env_allowlist` | string list | `[]` | Environment variables allowed in sandbox |
+| `output_limit_bytes` | positive integer | `2000000` | Max output size in bytes |
+| `result_format` | enum | `stdout` | One of `junit`, `tap`, `json`, `stdout`, `custom` |
+| `result_adapter` | string or null | null | Adapter module for custom result formats |
 
-- project name, repo path, default branch, optional dev branch
-- default autonomy level (`L0`-`L4`)
-- `command_specs[]`: executable families, write roots, read roots, network
-  modes, profiles, timeouts, env allowlists, output limits, result formats
-- quality adapter selection
-- policies directory, prompts directory, runs directory, blobs directory
-- optional sample repo path and base ref
-
-Example from the template:
+#### Example
 
 ```toml
 [project]
@@ -89,98 +84,147 @@ result_format = "junit"
 result_adapter = "Conveyor.TestResultAdapter.JUnit"
 ```
 
-The doctor checks that at least one `verify` command spec is configured and that
-all five policy profiles exist.
+### Policy profiles
 
-## Policy profiles
+Policy profile TOML files live in the `policies_dir` and are loaded by
+`lib/conveyor/policy/profiles.ex`. Five profiles are required as a complete
+set: `explore`, `implement`, `verify`, `release`, `maintenance`. Template
+profiles are in `priv/conveyor/templates/policies/`.
 
-Policy profile templates live in `priv/conveyor/templates/policies/` and are
-copied into a project's `.conveyor/policies/` by `mix conveyor.init`. The five
-profiles:
+Each profile specifies:
 
-| Profile       | File               | Autonomy ceiling | Network | Notes                                                                       |
-| ------------- | ------------------ | ---------------- | ------- | --------------------------------------------------------------------------- |
-| `explore`     | `explore.toml`     | L0               | none    | Read/search/context only; `max_tool_calls = 100`.                           |
-| `implement`   | `implement.toml`   | L1               | none    | Source edits inside write roots; dangerous git/fs/network/deploy blocked.   |
-| `verify`      | `verify.toml`      | L1               | none    | Build/test/lint/CodeScent; no source edits except tool-owned cache writes.  |
-| `release`     | `release.toml`     | L0               | none    | Future-gated; `max_tool_calls = 0`; deploy/release/publish blocked.         |
-| `maintenance` | `maintenance.toml` | L0               | none    | Future-gated; `max_tool_calls = 0`; destructive ops require human approval. |
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | string | Profile name |
+| `profile` | enum | One of the five required profiles |
+| `autonomy_ceiling` | string | `L0` through `L4` |
+| `network` | string | Default network mode (`none`, `loopback`, `egress`) |
+| `allowlist` | string list | Allowed command prefixes |
+| `denylist` | string list | Blocked command prefixes |
+| `env.allowlist` | string list | Allowed env keys |
+| `env.deny_production_secrets` | boolean | Block production secrets |
+| `budget.max_tool_calls` | integer | Max tool calls per run |
+| `future_gated` | boolean | Whether budget is future-gated (default true for release/maintenance) |
 
-Each profile records a `name`, `profile`, `autonomy_ceiling`, `network`,
-`allowlist`, `denylist`, an `[policy.env]` block (allowlist,
-`deny_production_secrets`), and optionally a `[policy.budget]` block. See
-[Security](../security.md) for the full threat model and enforcement layers.
+See [security](../security.md) for how the policy engine uses these fields.
 
-## The `Conveyor.Config` module
+## Application configuration
 
-The config module is `lib/conveyor/config.ex`. It loads and validates project
-config from TOML into a `ProjectConfig` struct.
+### config/config.exs
 
-```elixir
-Conveyor.Config.load/1           # {:ok, ProjectConfig.t()} | {:error, ValidationError.t()}
-Conveyor.Config.load!/1          # ProjectConfig.t() | raises
-Conveyor.Config.validate/1       # {:ok, ProjectConfig.t()} | {:error, ValidationError.t()}
-Conveyor.Config.default_path/1   # defaults to .conveyor/config.toml
+`config/config.exs` is the base configuration loaded before any dependency. It
+configures:
+
+- **Ash domain:** `Conveyor.Factory` as the single Ash domain.
+- **Ecto repo:** `Conveyor.Repo`.
+- **Oban:** queues `default` (10), `conductor` (5), `gate` (5), `maintenance`
+  (2), no plugins.
+- **Phoenix endpoint:** `ConveyorWeb.Endpoint` with Bandit adapter, PubSub
+  server `Conveyor.PubSub`, and LiveView signing salt.
+- **Logger:** console format with request_id metadata.
+- **JSON library:** Jason.
+- **Station modules:** a map of station keys to module names
+  (`context_scout`, `baseline_health`, `acceptance_calibration`,
+  `implement`, `verify`, `record_evidence`).
+- **SerialDriver wall-clock reaper:** `serial_driver_slice_wall_clock_ms`
+  (default 3,600,000 = 1 hour) and `serial_driver_run_wall_clock_ms`
+  (default 28,800,000 = 8 hours). Set to `nil` or `false` to disable.
+
+Environment-specific config files are imported at the bottom:
+`import_config "#{config_env()}.exs"`.
+
+### config/dev.exs
+
+`config/dev.exs` configures the development environment:
+
+- **Database:** reads `PGUSER`, `PGPASSWORD`, `PGHOST`, `PGPORT`,
+  `PGDATABASE` env vars with defaults (`postgres`, `postgres`, `localhost`,
+  `5432`, `conveyor_dev`). Pool size 10, stacktrace enabled.
+- **Endpoint:** binds to loopback `{127, 0, 0, 1}` on port 4000, code reloader
+  enabled, debug errors enabled.
+- **Dev routes:** `dev_routes: true` enables dashboard and mailbox.
+- **Logger:** simplified format `[$level] $message`.
+- **Phoenix:** stacktrace depth 20, plug init at runtime.
+
+### config/test.exs
+
+`config/test.exs` configures the test environment:
+
+- **Database:** same env vars as dev, but database defaults to
+  `conveyor_test` (with optional `MIX_TEST_PARTITION` suffix). Uses
+  `Ecto.Adapters.SQL.Sandbox` pool with size `System.schedulers_online() * 2`.
+- **Endpoint:** binds to loopback on port 4002, server disabled.
+- **Oban:** `testing: :manual`, queues disabled, plugins disabled.
+- **Boot reconciler:** `enqueue_boot_reconcile: false` (tests drive
+  `RunReconciler.reconcile!/1` directly).
+- **SerialDriver reaper:** disabled (`nil`).
+- **Logger:** level `:warning`.
+
+### config/prod.exs
+
+`config/prod.exs` is minimal: sets logger level to `:info` and delegates to
+`config/runtime.exs` for all production configuration.
+
+### config/runtime.exs
+
+`config/runtime.exs` is executed for all environments, including releases. It
+runs after compilation and before system start. Production configuration is
+loaded from environment variables.
+
+#### Production environment variables
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | yes (prod) | none | Postgres connection URL |
+| `SECRET_KEY_BASE` | yes (prod) | none | Phoenix signing key (generate with `mix phx.gen.secret`) |
+| `PHX_HOST` | no | `example.com` | Public host name |
+| `PORT` | no | `4000` | HTTP port |
+| `PHX_SERVER` | no | none | Set to `true` to enable the server in releases |
+| `POOL_SIZE` | no | `10` | Database pool size |
+| `ECTO_IPV6` | no | none | Set to `true` or `1` to enable IPv6 |
+| `DNS_CLUSTER_QUERY` | no | none | DNS query for cluster discovery |
+| `SESSION_SIGNING_SALT` | no | hardcoded default | Session signing salt |
+
+In production, the endpoint is configured with HTTPS URL scheme, port 443, and
+binds to all interfaces (`{0, 0, 0, 0, 0, 0, 0, 0}`). The database URL and
+secret key base are required and raise if missing.
+
+### Database environment variables
+
+`config/dev.exs` and `config/test.exs` both read Postgres connection parameters
+from environment variables:
+
+| Variable | Default (dev/test) | Description |
+| --- | --- | --- |
+| `PGHOST` | `localhost` | Postgres host |
+| `PGPORT` | `5432` | Postgres port |
+| `PGUSER` | `postgres` | Postgres username |
+| `PGPASSWORD` | `postgres` | Postgres password |
+| `PGDATABASE` | `conveyor_dev` / `conveyor_test` | Database name |
+
+In production, `DATABASE_URL` replaces these individual variables.
+
+## Tool version pinning
+
+### mise.toml
+
+`mise.toml` pins the Erlang and Elixir versions:
+
+```toml
+[tools]
+erlang = "29.0.2"
+elixir = "1.20.1"
 ```
 
-The load pipeline is: read file, decode TOML via `TomlElixir`, validate.
-Validation checks required keys and types, validates command specs, and enforces
-enum constraints on `default_autonomy_level` (`L0`-`L4`), `profile`
-(`explore`/`implement`/`verify`/`release`/`maintenance`), `network`
-(`none`/`loopback`/`egress`), and `result_format`
-(`junit`/`tap`/`json`/`stdout`/`custom`).
+These versions are required. The project targets Elixir `~> 1.20` and OTP 29 as
+specified in `mix.exs`. CI uses PostgreSQL 16.
 
-### `ProjectConfig`
+## Other config files
 
-`lib/conveyor/config/project_config.ex` defines the validated project config
-struct:
-
-- `name`, `repo_path`, `default_branch`, `dev_branch` (optional)
-- `default_autonomy_level` (`:L0` | `:L1` | `:L2` | `:L3` | `:L4`)
-- `policies_dir`, `prompts_dir`, `runs_dir`, `blobs_dir`
-- `quality_adapter`
-- `sample_repo_path`, `sample_base_ref` (optional)
-- `command_specs` (`[CommandSpec.t()]`)
-
-### `CommandSpec`
-
-`lib/conveyor/config/command_spec.ex` defines the validated command spec struct:
-
-- `key`, `argv`, `cwd` (default `.`)
-- `profile` (`:explore` | `:implement` | `:verify` | `:release` |
-  `:maintenance`)
-- `required` (default `true`), `timeout_ms` (default `120_000`)
-- `network` (default `:none`)
-- `env_allowlist` (default `[]`)
-- `output_limit_bytes` (default `2_000_000`)
-- `result_format` (default `:stdout`), `result_adapter` (optional)
-
-### `ValidationError`
-
-`lib/conveyor/config/validation_error.ex` defines the structured validation
-error. It is an exception with `message`, `path`, and `reason`. Constructors:
-
-- `missing(path)` - `:missing_required_key`
-- `invalid(path, expected)` - `:invalid_value`
-- `parse_error(message)` - `:parse_error`
-- `file_error(path, reason)` - `:file_error`
-
-## Key source files
-
-| File                                      | Purpose                                    |
-| ----------------------------------------- | ------------------------------------------ |
-| `config/config.exs`                       | General app config, Oban queues, endpoint. |
-| `config/dev.exs`                          | Dev database and endpoint.                 |
-| `config/test.exs`                         | Test database, sandbox, Oban testing mode. |
-| `config/prod.exs`                         | Prod logger level.                         |
-| `config/runtime.exs`                      | Prod runtime config from env vars.         |
-| `lib/conveyor/config.ex`                  | Project config loader and validator.       |
-| `lib/conveyor/config/project_config.ex`   | `ProjectConfig` struct.                    |
-| `lib/conveyor/config/command_spec.ex`     | `CommandSpec` struct.                      |
-| `lib/conveyor/config/validation_error.ex` | `ValidationError` exception.               |
-| `priv/conveyor/templates/config.toml`     | Project config template.                   |
-| `priv/conveyor/templates/policies/*.toml` | Policy profile templates.                  |
-
-See [Data models](data-models.md) for the Ash resources that store run state,
-[Dependencies](dependencies.md) for the libraries that back the config system,
-and [Getting started](../overview/getting-started.md) for the install commands.
+| File | Purpose |
+| --- | --- |
+| `.credo.exs` | Credo strict lint configuration |
+| `.dialyzer_ignore.exs` | Dialyzer warning ignores |
+| `.formatter.exs` | Elixir formatter configuration |
+| `mix.lock` | Locked dependency versions |
+| `.prettierrc` | Prettier config for Markdown (proseWrap: always) |
