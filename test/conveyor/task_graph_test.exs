@@ -161,6 +161,28 @@ defmodule Conveyor.TaskGraphTest do
     end
   end
 
+  describe "set_acceptance/2" do
+    test "stores acceptance criteria on the task and round-trips", %{epic: epic} do
+      task = TaskGraph.create_task(%{epic_id: epic.id, title: "A", source_refs: ["REQ-001"]})
+
+      criteria = [
+        %{
+          "id" => "AC-001",
+          "text" => "Loading the fixture corpus yields stable counts.",
+          "requirement_refs" => ["REQ-001"],
+          "required_test_refs" => ["tests/test_loader.py::test_counts"]
+        }
+      ]
+
+      updated = TaskGraph.set_acceptance(task.id, criteria)
+      assert [%{"id" => "AC-001"} = stored] = updated.acceptance_criteria
+      assert stored["requirement_refs"] == ["REQ-001"]
+
+      assert TaskGraph.show_task(task.id).acceptance_criteria |> hd() |> Map.get("text") ==
+               "Loading the fixture corpus yields stable counts."
+    end
+  end
+
   describe "approve_task/1" do
     test "moves a task :drafted -> :approved", %{epic: epic} do
       task = TaskGraph.create_task(%{epic_id: epic.id, title: "A"})

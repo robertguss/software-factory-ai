@@ -129,6 +129,16 @@ defmodule Conveyor.Factory.Slice do
       public? true
     end
 
+    # CLI-authored acceptance criteria (KTD8) — the source the `ContractBuilder` compiles into
+    # `Plan.normalized_contract.acceptance_criteria`. Each entry carries id/text + requirement_refs
+    # + required_test_refs (and optional falsifier fields), matching the conveyor.plan@1 shape the
+    # assembler reads.
+    attribute :acceptance_criteria, {:array, :map} do
+      allow_nil? false
+      default []
+      public? true
+    end
+
     attribute :diff_policy_id, :uuid do
       public? true
     end

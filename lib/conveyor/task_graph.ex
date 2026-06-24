@@ -117,6 +117,18 @@ defmodule Conveyor.TaskGraph do
     end)
   end
 
+  @doc """
+  Author a task's acceptance criteria (KTD8). `criteria` is a list of maps in the conveyor.plan@1
+  acceptance shape (`id`/`key`, `text`, `requirement_refs`, `required_test_refs`, + optional
+  falsifier fields). Stored on the `Slice` (the source); `compile_contract` aggregates these into
+  `Plan.normalized_contract`. Writes the source location, never `AgentBrief` (the materialized view).
+  """
+  def set_acceptance(slice_id, criteria) when is_list(criteria) do
+    slice_id
+    |> get_task!()
+    |> Ash.update!(%{acceptance_criteria: criteria}, domain: Factory)
+  end
+
   @doc "Run a task's `:drafted -> :approved` transition."
   def approve_task(slice_id) do
     slice_id
