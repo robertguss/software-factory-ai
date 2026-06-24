@@ -43,6 +43,8 @@ virtualenvs when creating project guidance.
 | Database model | `lib/conveyor/factory/`, `priv/repo/migrations/` | Keep resources and migrations aligned. |
 | Verification | `test/`, `.github/workflows/ci.yml` | CI runs format, compile, tests, Credo, Dialyzer. |
 | Generated templates | `priv/conveyor/templates/` | Has its own AGENTS.md; preserve generated-contract wording. |
+| Documented solutions | `docs/solutions/` | Past problems (bugs, best practices, patterns) by category, with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas. |
+| Shared vocabulary | `CONCEPTS.md` | Domain terms (entities, named processes, status concepts) with project-specific meaning; relevant when orienting or discussing domain concepts. |
 
 ## CODE MAP
 
