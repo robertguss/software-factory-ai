@@ -116,7 +116,11 @@ defmodule Conveyor.SampleTasksContractTest do
     assert contract_lock.plan_contract_sha256 == contract_result.contract_sha256
     assert contract_lock.brief_sha256 == agent_brief.contract_sha256
     assert contract_lock.test_pack_sha256 == test_pack.test_pack_sha256
-    assert contract_lock.agents_md_sha256 =~ ~r/^sha256:[0-9a-f]{64}$/
+
+    # The lock pins the SAMPLE WORKSPACE's committed AGENTS.md (samples/tasks_service/AGENTS.md),
+    # not the non-committed, generated repo-root AGENTS.md — matching what a real run computes for
+    # this sample (Conveyor.Planning.RunSpecAssembler hashes project.local_path/AGENTS.md).
+    assert contract_lock.agents_md_sha256 == sha256_file!("samples/tasks_service/AGENTS.md")
     assert contract_lock.policy_sha256 =~ ~r/^sha256:[0-9a-f]{64}$/
 
     assert contract_lock.protected_path_globs == [
@@ -139,5 +143,9 @@ defmodule Conveyor.SampleTasksContractTest do
            } = manifest
 
     assert SampleTasksContract.test_pack_sha256!() =~ ~r/^sha256:[0-9a-f]{64}$/
+  end
+
+  defp sha256_file!(path) do
+    "sha256:" <> Base.encode16(:crypto.hash(:sha256, File.read!(path)), case: :lower)
   end
 end

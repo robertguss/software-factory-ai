@@ -10,7 +10,11 @@ defmodule Conveyor.SampleTasksContract do
   alias Conveyor.PlanContract
 
   @sample_plan_path "samples/tasks_service/plan.md"
-  @agents_md_path "AGENTS.md"
+  # The sample workspace's own committed AGENTS.md — not the non-committed, generated repo-root
+  # AGENTS.md. This is the file a real run hashes for this sample (RunSpecAssembler hashes
+  # project.local_path/AGENTS.md, and the sample's local_path is samples/tasks_service), and it is
+  # present on a fresh checkout like the contract's other committed inputs (plan.md, the test pack).
+  @agents_md_path "samples/tasks_service/AGENTS.md"
   @source_test_ref "samples/tasks_service/tests/test_tasks_api.py"
   @locked_pack_file "samples/tasks_service/.conveyor/test-packs/tasks-complete/v1/tests/test_tasks_api.py"
   @test_pack_ref "sample_tasks/SLICE-001/test-packs/tasks-complete@v1"
