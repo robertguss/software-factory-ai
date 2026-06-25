@@ -5,8 +5,11 @@ defmodule Conveyor.Planning.ContractBuilder do
   deterministic build artifact — never hand-edited, regenerated at `lock` time.
 
   Minimal-runnable scope: `goal`, `project`, `slices`, and `acceptance_criteria` come from rows;
-  the optional `non_goals`/`requirements`/`decisions`/`verification_commands` are emitted as empty
-  arrays (the assembler defaults them at runtime). Authoring verbs for those fields layer on later.
+  `non_goals`/`requirements`/`decisions` are emitted as empty arrays (the assembler defaults them
+  at runtime). `verification_commands` are preserved from the plan's existing `normalized_contract`
+  (they have no row-backed source — `conveyor.plan.create` authors them at create time) so the
+  recompile at lock does not drop them; absent, they default to `[]` and the assembler substitutes
+  its runtime default. Other authoring verbs for those fields layer on later.
   """
 
   require Ash.Query
@@ -51,7 +54,7 @@ defmodule Conveyor.Planning.ContractBuilder do
       "non_goals" => [],
       "requirements" => [],
       "acceptance_criteria" => acceptance_criteria(slices),
-      "verification_commands" => [],
+      "verification_commands" => Map.get(plan.normalized_contract, "verification_commands", []),
       "decisions" => [],
       "slices" => Enum.map(slices, &slice_entry/1)
     }

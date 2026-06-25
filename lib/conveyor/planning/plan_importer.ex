@@ -26,6 +26,8 @@ defmodule Conveyor.Planning.PlanImporter do
     contract = result.contract
     workspace_path = Keyword.get(opts, :workspace_path) || Path.dirname(result.source_path)
 
+    validate_edge_kinds!(contract)
+
     project = create_project!(contract, workspace_path)
     plan = create_plan!(project, result)
     epic = create_epic!(plan, contract)
@@ -150,13 +152,39 @@ defmodule Conveyor.Planning.PlanImporter do
     |> Enum.each(fn edge ->
       from = Map.fetch!(slices_by_stable_key, Map.fetch!(edge, "from"))
       to = Map.fetch!(slices_by_stable_key, Map.fetch!(edge, "to"))
-      kind = edge |> Map.get("kind", "execution_hard") |> String.to_existing_atom()
 
       Ash.create!(
         TaskDependency,
-        %{from_slice_id: from.id, to_slice_id: to.id, kind: kind},
+        %{from_slice_id: from.id, to_slice_id: to.id, kind: parse_kind(Map.get(edge, "kind"))},
         domain: Factory
       )
     end)
   end
+
+  # `TaskDependency` models only `:execution_hard`; `integration_order` (allowed by the JSON schema
+  # but deferred) is rejected here — BEFORE any Project/Plan/Epic/Slice row is written — so an
+  # unsupported kind fails the import cleanly instead of half-importing the graph and only then
+  # having `create_edges!` reject the edge after the rows are already committed.
+  defp validate_edge_kinds!(contract) do
+    contract
+    |> Map.get("work_dependencies", [])
+    |> Enum.each(fn edge ->
+      case Map.get(edge, "kind", "execution_hard") do
+        "execution_hard" ->
+          :ok
+
+        other ->
+          raise ArgumentError,
+                ~s(unsupported work_dependency kind #{inspect(other)}; only "execution_hard" is supported)
+      end
+    end)
+  end
+
+  # Map the validated `kind` string to its atom via a literal (interned when this module loads)
+  # rather than `String.to_existing_atom/1`, which fails here in a fresh VM — e.g. when the
+  # `conveyor.plan.import` CLI is the first thing to run and nothing has loaded `TaskDependency`
+  # yet. `validate_edge_kinds!/1` has already rejected any kind other than `execution_hard`; absent
+  # defaults to `:execution_hard`.
+  defp parse_kind("execution_hard"), do: :execution_hard
+  defp parse_kind(_default), do: :execution_hard
 end
