@@ -2,6 +2,11 @@ defmodule Mix.Tasks.Conveyor.Task.Dep do
   @moduledoc """
   Add or remove an execution-hard dependency edge between two tasks (by stable key) in an epic.
 
+  `--from` is the **dependent** task and `--to` is its **prerequisite**: `add --from X --to Y`
+  makes X depend on Y, so Y runs before X. This matches `br`'s `dep add <issue> <depends-on>`
+  convention and the natural reading of the command.
+
+      # SLICE-002 depends on SLICE-001, so SLICE-001 runs first:
       mix conveyor.task.dep add --epic EPIC_ID --from SLICE-002 --to SLICE-001
       mix conveyor.task.dep remove --epic EPIC_ID --from SLICE-002 --to SLICE-001
   """
@@ -25,22 +30,30 @@ defmodule Mix.Tasks.Conveyor.Task.Dep do
     to = opts[:to] || Mix.raise(usage())
 
     TaskCommand.guard(fn ->
-      from_task = TaskGraph.task_by_stable_key!(epic, from)
-      to_task = TaskGraph.task_by_stable_key!(epic, to)
+      dependent = TaskGraph.task_by_stable_key!(epic, from)
+      prerequisite = TaskGraph.task_by_stable_key!(epic, to)
 
       case subcommand do
         "add" ->
-          TaskGraph.add_dependency(from_task.id, to_task.id)
-          TaskCommand.emit!(%{"from" => from, "to" => to, "kind" => "execution_hard"})
+          # `--from` depends on `--to`: invert at the CLI boundary so the internal edge is
+          # `prerequisite -> dependent` (meaning `dependent` depends on `prerequisite`).
+          TaskGraph.add_dependency(prerequisite.id, dependent.id)
+          TaskCommand.emit!(edge_payload(from, to, %{"kind" => "execution_hard"}))
 
         "remove" ->
-          TaskGraph.remove_dependency(from_task.id, to_task.id)
-          TaskCommand.emit!(%{"from" => from, "to" => to, "removed" => true})
+          TaskGraph.remove_dependency(prerequisite.id, dependent.id)
+          TaskCommand.emit!(edge_payload(from, to, %{"removed" => true}))
 
         _ ->
           Mix.raise(usage())
       end
     end)
+  end
+
+  # Spell out the orientation in the JSON so the relationship is unambiguous regardless of how the
+  # reader interprets `from`/`to`: `from` is the dependent, `to` is the prerequisite.
+  defp edge_payload(from, to, extra) do
+    Map.merge(%{"from" => from, "to" => to, "dependent" => from, "prerequisite" => to}, extra)
   end
 
   defp usage,

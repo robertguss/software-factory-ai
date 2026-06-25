@@ -52,22 +52,70 @@ defmodule Conveyor.Mix.Tasks.ConveyorTaskCliTest do
     listed = json(Mix.Tasks.Conveyor.Task.List, ["--epic", epic])
     assert Enum.map(listed["tasks"], & &1["stable_key"]) == ["SLICE-001", "SLICE-002"]
 
-    # SLICE-001 -> SLICE-002 (SLICE-002 depends on SLICE-001)
+    # --from is the dependent: SLICE-002 depends on SLICE-001, so SLICE-001 runs first.
     dep =
       json(Mix.Tasks.Conveyor.Task.Dep, [
         "add",
         "--epic",
         epic,
         "--from",
-        "SLICE-001",
+        "SLICE-002",
         "--to",
-        "SLICE-002"
+        "SLICE-001"
       ])
 
-    assert dep == %{"from" => "SLICE-001", "to" => "SLICE-002", "kind" => "execution_hard"}
+    assert dep == %{
+             "from" => "SLICE-002",
+             "to" => "SLICE-001",
+             "dependent" => "SLICE-002",
+             "prerequisite" => "SLICE-001",
+             "kind" => "execution_hard"
+           }
 
     ready = json(Mix.Tasks.Conveyor.Task.Ready, ["--epic", epic])
     assert Enum.map(ready["ready"], & &1["stable_key"]) == ["SLICE-001"]
+  end
+
+  test "dep direction: --from depends on --to, and remove is symmetric", %{epic: epic} do
+    json(Mix.Tasks.Conveyor.Task.Create, ["--epic", epic, "--title", "First"])
+    json(Mix.Tasks.Conveyor.Task.Create, ["--epic", epic, "--title", "Second"])
+
+    # `--from SLICE-002 --to SLICE-001` makes SLICE-002 depend on SLICE-001 (R1): the
+    # prerequisite (SLICE-001) is ready, the dependent (SLICE-002) is gated. This is the
+    # inverse of the pre-fix behavior.
+    added =
+      json(Mix.Tasks.Conveyor.Task.Dep, [
+        "add",
+        "--epic",
+        epic,
+        "--from",
+        "SLICE-002",
+        "--to",
+        "SLICE-001"
+      ])
+
+    assert added["dependent"] == "SLICE-002"
+    assert added["prerequisite"] == "SLICE-001"
+
+    ready = json(Mix.Tasks.Conveyor.Task.Ready, ["--epic", epic])
+    assert Enum.map(ready["ready"], & &1["stable_key"]) == ["SLICE-001"]
+
+    # `remove` with the same flags drops that same edge (add/remove symmetry): both ready again.
+    removed =
+      json(Mix.Tasks.Conveyor.Task.Dep, [
+        "remove",
+        "--epic",
+        epic,
+        "--from",
+        "SLICE-002",
+        "--to",
+        "SLICE-001"
+      ])
+
+    assert removed["removed"] == true
+
+    ready_after = json(Mix.Tasks.Conveyor.Task.Ready, ["--epic", epic])
+    assert Enum.map(ready_after["ready"], & &1["stable_key"]) == ["SLICE-001", "SLICE-002"]
   end
 
   test "show reflects authored attributes", %{epic: epic} do
