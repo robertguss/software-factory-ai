@@ -61,3 +61,6 @@ conveyor-*.tar
 .conveyor/
 # Compound Engineering local config
 .compound-engineering/*.local.yaml
+
+# bv (beads viewer) local config and caches
+.bv/
