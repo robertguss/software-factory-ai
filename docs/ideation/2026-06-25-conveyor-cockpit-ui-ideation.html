@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideation: Conveyor Living-Graph Cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#0b0f15; --panel:#121823; --panel-2:#0e141d; --raise:#161d28;
+    --ink:#e7eef6; --ink-muted:#9fb1c4; --ink-dim:#7287a0;
+    --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.06);
+    --cyan:#46c2f5; --cyan-soft:rgba(70,194,245,.13);
+    --amber:#f4b14a; --amber-soft:rgba(244,177,74,.13);
+    --green:#46d196; --green-soft:rgba(70,209,150,.14);
+    --red:#f6736f; --red-soft:rgba(246,115,111,.14);
+    --violet:#b692f6; --violet-soft:rgba(182,146,246,.14);
+    --slate-soft:rgba(159,177,196,.12);
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); font-size:16px; line-height:1.62;
+    font-feature-settings:"cv05","ss01"; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px; margin-inline:auto; padding:48px 24px 96px}
+  p{max-width:72ch}
+  a{color:var(--cyan); text-decoration:none; border-bottom:1px solid rgba(70,194,245,.3)}
+  a:hover{border-bottom-color:var(--cyan)}
+  code{font-family:var(--mono); font-size:.86em; background:var(--raise);
+    border:1px solid var(--line-2); border-radius:5px; padding:.08em .38em; color:#cdd9e6}
+  strong{font-weight:650; color:inherit}
+  h1{font-size:2.05rem; line-height:1.18; letter-spacing:-.02em; margin:.1em 0 .15em; font-weight:700}
+  h2{font-size:1.4rem; letter-spacing:-.01em; margin:2.6em 0 .2em; font-weight:650;
+    padding-bottom:.35em; border-bottom:1px solid var(--line)}
+  h3{font-size:1.12rem; margin:0; font-weight:640}
+  .eyebrow{font:600 .72rem/1 var(--mono); letter-spacing:.18em; text-transform:uppercase;
+    color:var(--cyan); margin-bottom:1.1em}
+  .sub{color:var(--ink-muted); font-size:1.05rem; max-width:70ch; margin:.4em 0 0}
+  .meta{display:flex; flex-wrap:wrap; gap:.5em 1.4em; margin:1.5em 0 0;
+    font:500 .82rem/1.4 var(--mono); color:var(--ink-dim)}
+  .meta b{color:var(--ink-muted); font-weight:500}
+  .meta span{color:var(--ink)}
+  /* stats strip */
+  .stats{display:flex; flex-wrap:wrap; gap:10px; margin:2em 0 0}
+  .stat{flex:1 1 0; min-width:120px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:14px 16px}
+  .stat .n{font:700 1.5rem/1 var(--sans); color:var(--ink)}
+  .stat .k{font:500 .74rem/1.3 var(--mono); letter-spacing:.04em; color:var(--ink-dim);
+    text-transform:uppercase; margin-top:6px}
+  /* callouts */
+  .callout{border-radius:12px; padding:16px 18px; margin:1.5em 0; border:1px solid var(--line)}
+  .callout .lbl{font:700 .7rem/1 var(--mono); letter-spacing:.13em; text-transform:uppercase;
+    display:block; margin-bottom:.6em}
+  .callout p{margin:.3em 0 0; max-width:none}
+  .callout.warn{background:var(--amber-soft); border-color:rgba(244,177,74,.32)}
+  .callout.warn .lbl{color:var(--amber)}
+  .callout.info{background:var(--cyan-soft); border-color:rgba(70,194,245,.3)}
+  .callout.info .lbl{color:var(--cyan)}
+  .callout.note{background:var(--panel); border-color:var(--line)}
+  .callout.note .lbl{color:var(--ink-muted)}
+  /* sections */
+  section{margin-top:.5em}
+  .lead{color:var(--ink-muted)}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:1em}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr}}
+  .axis{background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:13px 15px}
+  .axis .id{font:700 .82rem/1 var(--mono); color:var(--cyan)}
+  .axis .nm{font-weight:620; margin-left:.4em}
+  .axis .ds{color:var(--ink-muted); font-size:.92rem; margin-top:.25em}
+  /* jump list */
+  .jump{margin:1.2em 0 0; padding:16px 18px; background:var(--panel-2);
+    border:1px solid var(--line); border-radius:12px}
+  .jump .jt{font:600 .7rem/1 var(--mono); letter-spacing:.13em; text-transform:uppercase;
+    color:var(--ink-dim); margin-bottom:.7em}
+  .jump ol{margin:0; padding:0; list-style:none; columns:2; column-gap:24px}
+  @media(max-width:680px){.jump ol{columns:1}}
+  .jump li{margin:.16em 0; break-inside:avoid; font-size:.93rem}
+  .jump a{border:0; color:var(--ink)}
+  .jump a:hover{color:var(--cyan)}
+  .jump .jn{font:600 .8rem/1 var(--mono); color:var(--cyan); margin-right:.5em}
+  /* idea card */
+  .idea{background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:22px 24px; margin-top:18px; scroll-margin-top:18px}
+  .idea>header{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap}
+  .idchip{font:700 .82rem/1 var(--mono); color:var(--cyan); background:var(--cyan-soft);
+    border:1px solid rgba(70,194,245,.3); border-radius:7px; padding:5px 9px; white-space:nowrap}
+  .idea h3{flex:1 1 240px}
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:14px}
+  .chip{font:500 .73rem/1 var(--mono); letter-spacing:.01em; border-radius:999px;
+    padding:6px 11px; border:1px solid var(--line); background:var(--slate-soft); color:var(--ink-muted)}
+  .chip b{font-weight:600; color:var(--ink)}
+  .chip.cf-high{background:var(--green-soft); border-color:rgba(70,209,150,.3); color:#8fe6c1}
+  .chip.cf-med{background:var(--amber-soft); border-color:rgba(244,177,74,.3); color:#f3cd8f}
+  .chip.axis-a{background:var(--cyan-soft); border-color:rgba(70,194,245,.3); color:#a6dcf6}
+  .chip.axis-b{background:var(--violet-soft); border-color:rgba(182,146,246,.3); color:#d3c2fb}
+  .chip.axis-c{background:var(--green-soft); border-color:rgba(70,209,150,.3); color:#8fe6c1}
+  .chip.axis-d{background:var(--amber-soft); border-color:rgba(244,177,74,.3); color:#f3cd8f}
+  .chip.axis-e{background:var(--red-soft); border-color:rgba(246,115,111,.3); color:#f3a9a6}
+  .field{margin-top:15px}
+  .field>.fl{font:600 .68rem/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-dim); display:block; margin-bottom:.45em}
+  .field p{margin:0; max-width:none; color:var(--ink)}
+  .field.down p{color:var(--ink-muted)}
+  .basis{display:flex; gap:10px; align-items:flex-start; margin:.5em 0 0}
+  .btag{font:600 .64rem/1.5 var(--mono); letter-spacing:.06em; text-transform:uppercase;
+    border-radius:6px; padding:3px 7px; white-space:nowrap; margin-top:2px}
+  .btag.direct{background:var(--green-soft); color:#8fe6c1; border:1px solid rgba(70,209,150,.3)}
+  .btag.external{background:var(--cyan-soft); color:#a6dcf6; border:1px solid rgba(70,194,245,.3)}
+  .btag.reasoned{background:var(--violet-soft); color:#d3c2fb; border:1px solid rgba(182,146,246,.3)}
+  .basis .bx{flex:1; color:var(--ink-muted); font-size:.95rem}
+  /* figures */
+  figure{margin:18px 0 4px; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:12px; padding:14px 14px 10px}
+  figure svg{display:block; width:100%; height:auto}
+  figcaption{font-size:.82rem; color:var(--ink-dim); margin-top:9px; font-style:italic}
+  /* table */
+  table{width:100%; border-collapse:collapse; margin-top:1em; font-size:.93rem}
+  th,td{text-align:left; padding:11px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font:600 .7rem/1.2 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim)}
+  td:first-child{font-family:var(--mono); color:var(--cyan); white-space:nowrap; font-size:.85rem}
+  tr:last-child td{border-bottom:0}
+  .gap-row td{color:var(--ink-muted)}
+  .gap-row td:first-child{color:var(--ink-dim)}
+  footer{margin-top:3em; padding-top:1.4em; border-top:1px solid var(--line);
+    font:500 .78rem/1.5 var(--mono); color:var(--ink-dim)}
+  footer code{background:none; border:0; padding:0; color:var(--ink-muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="eyebrow">Conveyor · UI Ideation</div>
+<h1>Living-Graph Cockpit</h1>
+<p class="sub">Ten ranked directions for a Phoenix LiveView UI whose centerpiece is a task-dependency graph that doubles as a real-time cockpit — slices as nodes, dependencies as edges, execution state overlaid live, light control on the node.</p>
+
+<div class="meta">
+  <span><b>date</b> 2026-06-25</span>
+  <span><b>topic</b> conveyor-cockpit-ui</span>
+  <span><b>focus</b> real-time inspection + task/dependency graph + cockpit</span>
+  <span><b>mode</b> repo-grounded</span>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n">~50</div><div class="k">raw ideas</div></div>
+  <div class="stat"><div class="n">10</div><div class="k">ranked</div></div>
+  <div class="stat"><div class="n">5</div><div class="k">axes</div></div>
+  <div class="stat"><div class="n">6</div><div class="k">ideation frames</div></div>
+  <div class="stat"><div class="n">1</div><div class="k">fresh-eyes verify pass</div></div>
+</div>
+
+<div class="callout warn">
+  <span class="lbl">Verification overturned a scoping assumption</span>
+  <p>The light-control scope assumed <strong>pause / resume a run</strong> was a cheap, already-wired action. Fresh-eyes verification refuted it: there is <strong>no pause action</strong>, <code>SerialDriver.resume!</code> is crash-recovery only, and <code>SerialDriver.run!</code> is <strong>synchronous</strong> — there is no live run process to pause against. Pause is the one "control" that needs real new backend (an async run process + a <code>:paused</code> state). The other two controls — <strong>decide a parked gate</strong> and <strong>retry</strong> — are real and cheap. Scope corrected, not asserted.</p>
+</div>
+
+<p class="lead">This is largely an <strong>activation</strong> play, not new capture. The realtime substrate (transactional outbox → <code>Conveyor.PubSub</code> → LiveView), the rich data model, and even the run-reconstruction machinery already exist; what's missing is the projection. Eight of these ten directions are mostly wiring. The list clusters into a <strong>spine you build first</strong> (1–2), <strong>thesis-distinctive instruments</strong> (3–6, 8), <strong>operator leverage</strong> (7, 10), a <strong>fast delight win</strong> (4), and a <strong>later-when-volume-exists</strong> capability (9).</p>
+
+<h2>Grounding Context</h2>
+<section>
+<p><strong>Conveyor</strong> executes a frozen plan as a DAG of "slices" (tasks). A width-1 serial orchestrator (<code>SerialDriver</code>) walks the graph in dependency order; each slice runs through stations → agent sessions (implementer / reviewer / scout) → a patch + evidence → a 7-stage verification <strong>gate</strong> that emits pass/fail + a trust score. Everything is recorded append-only as <code>LedgerEvent</code>s. North star: <em>trustworthy autonomous verification when no human is watching</em> — so the gate must be real, not theater.</p>
+
+<p><strong>What the UI is today.</strong> The web endpoint is live but thin: <code>/runs</code> (<code>RunViewerLive</code>) renders a nested-<code>&lt;div&gt;</code> Project→Plan→Epic→Slice hierarchy and dumps each event as pretty-printed JSON, re-fetching <strong>17 resources and re-rendering the whole page on every event</strong>; <code>/parked</code> (<code>ParkedQueueLive</code>) is a read-only inbox of gate decisions that <em>need</em> a human but that the page <strong>cannot actually act on</strong>. There is no graph and no JS/asset pipeline anywhere (no esbuild, tailwind, or hooks).</p>
+
+<p><strong>What's already built (the activation surface).</strong> Realtime: <code>EventOutboxRelay</code> broadcasts <code>{:ledger_event, …}</code> over PubSub. Data: <code>Plan→Epic→Slice</code> with directed <code>TaskDependency</code> edges (<code>:execution_hard</code>); <code>RunAttempt</code> / <code>StationRun</code> (with <code>heartbeat_at</code>) / <code>AgentSession</code>; <code>GateResult</code> with 7 stages + a <code>trust_score</code> map (score / band / <strong>components / thresholds</strong>) + a <code>false_negative</code> flag; an append-only <code>LedgerEvent</code> stream; and reconstruction machinery (<code>Conveyor.Replay</code>, <code>Conveyor.Planning.RunReconstruction</code>) that already folds the ledger into ordered state.</p>
+
+<p><strong>Constraints that shape everything.</strong> <em>ADR-09</em>: PubSub is best-effort notification, not durable history — reconstruct from the ledger on mount, then subscribe for deltas, with idempotent handlers ordered by <code>occurred_at</code> (there is no integer sequence column). <em>ADR-21</em>: LiveView is a projection, not authority — every UI control must map to the <strong>same typed domain action</strong> the CLI uses; no UI-only state. Locked decisions: graph-as-home, render via <strong>LiveView + a JS graph hook</strong> (Cytoscape.js + elkjs recommended), <strong>observe + light control</strong> only.</p>
+</section>
+
+<h2>Topic Axes</h2>
+<section>
+<p class="lead">The subject was decomposed into five orthogonal surfaces; ideas are tagged with the one they most centrally target.</p>
+<div class="grid2">
+  <div class="axis"><span class="id">A</span><span class="nm">Graph canvas &amp; layout</span><div class="ds">How the DAG looks and navigates: layout, semantic zoom, node form, edges, legibility at 100s of nodes.</div></div>
+  <div class="axis"><span class="id">B</span><span class="nm">Live execution overlay</span><div class="ds">How running state animates onto the graph: node-state encoding, the active-node detail rail, streaming, replay.</div></div>
+  <div class="axis"><span class="id">C</span><span class="nm">Verification &amp; trust surfacing</span><div class="ds">Making the gate cascade, trust score, and "why it failed" legible and non-vacuous — the anti-theater mission.</div></div>
+  <div class="axis"><span class="id">D</span><span class="nm">Glanceability &amp; attention-routing</span><div class="ds">The cockpit layer: at-a-glance health, "what needs me now," dark-cockpit, jump-to-problem.</div></div>
+  <div class="axis"><span class="id">E</span><span class="nm">Light control &amp; operator actions</span><div class="ds">The bounded mutations (decide parked gate, retry) surfaced on the node, mapped to typed domain actions.</div></div>
+</div>
+</section>
+
+<h2>Ranked Ideas</h2>
+<section>
+<div class="jump">
+  <div class="jt">Jump to</div>
+  <ol>
+    <li><a href="#c1"><span class="jn">C1</span>Render the stored edges — the graph substrate</a></li>
+    <li><a href="#c2"><span class="jn">C2</span>The event-fold engine (live · replay · diff)</a></li>
+    <li><a href="#c3"><span class="jn">C3</span>Honest node-state taxonomy</a></li>
+    <li><a href="#c4"><span class="jn">C4</span>Run Radio + active-node detail rail</a></li>
+    <li><a href="#c5"><span class="jn">C5</span>The non-vacuous gate card</a></li>
+    <li><a href="#c6"><span class="jn">C6</span>Gate self-audit &amp; trust calibration</a></li>
+    <li><a href="#c7"><span class="jn">C7</span>The Walk-Away Meter</a></li>
+    <li><a href="#c8"><span class="jn">C8</span>Forecast — the flight plan</a></li>
+    <li><a href="#c9"><span class="jn">C9</span>Failure fingerprinting &amp; BubbleUp</a></li>
+    <li><a href="#c10"><span class="jn">C10</span>Decide-on-the-node control</a></li>
+  </ol>
+</div>
+
+<!-- C1 -->
+<article class="idea" id="c1">
+  <header><span class="idchip">C1</span><h3>Render the stored edges — the living-graph substrate</h3></header>
+  <div class="chips">
+    <span class="chip axis-a">Axis A · Graph canvas</span>
+    <span class="chip cf-high">Confidence <b>92%</b></span>
+    <span class="chip">Complexity <b>Medium</b></span>
+    <span class="chip">Role <b>Spine · build first</b></span>
+  </div>
+  <figure>
+    <svg viewBox="0 0 720 250" role="img" aria-label="Before and after: nested divs with discarded edges become a DAG with drawn dependency edges and one live node.">
+      <rect x="0" y="0" width="720" height="250" rx="12" fill="#0e141d"/>
+      <text x="30" y="32" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1.5" fill="#7287a0">TODAY</text>
+      <rect x="40" y="52" width="240" height="30" rx="6" fill="#1b2430" stroke="#2a3645"/><text x="160" y="71" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#cdd9e6">Plan</text>
+      <rect x="40" y="90" width="240" height="30" rx="6" fill="#1b2430" stroke="#2a3645"/><text x="160" y="109" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#cdd9e6">Epic</text>
+      <rect x="40" y="128" width="240" height="30" rx="6" fill="#1b2430" stroke="#2a3645"/><text x="160" y="147" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#cdd9e6">Slice S3</text>
+      <rect x="40" y="166" width="240" height="30" rx="6" fill="#1b2430" stroke="#2a3645"/><text x="160" y="185" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#cdd9e6">Slice S4</text>
+      <text x="40" y="222" font-family="Inter, sans-serif" font-size="11" fill="#7287a0">nested &lt;div&gt;s · dependency edges discarded</text>
+      <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#46c2f5"/></marker>
+        <marker id="arg" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5a6b7d"/></marker></defs>
+      <line x1="300" y1="124" x2="352" y2="124" stroke="#46c2f5" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="400" y="32" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1.5" fill="#46c2f5">LIVING GRAPH</text>
+      <line x1="438" y1="142" x2="505" y2="106" stroke="#5a6b7d" stroke-width="1.6" marker-end="url(#arg)"/>
+      <line x1="438" y1="158" x2="505" y2="186" stroke="#5a6b7d" stroke-width="1.6" marker-end="url(#arg)"/>
+      <line x1="540" y1="104" x2="616" y2="142" stroke="#5a6b7d" stroke-width="1.6" marker-end="url(#arg)"/>
+      <line x1="540" y1="188" x2="616" y2="160" stroke="#5a6b7d" stroke-width="1.6" marker-end="url(#arg)"/>
+      <circle cx="420" cy="150" r="19" fill="rgba(70,209,150,.14)" stroke="#46d196" stroke-width="1.6"/><text x="420" y="154" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">S1</text>
+      <circle cx="522" cy="95" r="19" fill="rgba(70,209,150,.14)" stroke="#46d196" stroke-width="1.6"/><text x="522" y="99" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">S2</text>
+      <circle cx="522" cy="195" r="19" fill="none" stroke="#4a5a6a" stroke-width="1.6"/><text x="522" y="199" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9fb1c4">S3</text>
+      <circle cx="636" cy="150" r="20" fill="rgba(70,194,245,.16)" stroke="#46c2f5" stroke-width="2.4"/><text x="636" y="154" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#a6dcf6">S4</text>
+      <text x="400" y="222" font-family="Inter, sans-serif" font-size="11" fill="#7287a0">slices = nodes · TaskDependency = edges · 1 live token</text>
+    </svg>
+    <figcaption>Directional — the core move is drawing the edges Conveyor already stores. Layout/zoom/detail are decided downstream.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Description</span><p>Replace the nested-<code>&lt;div&gt;</code> hierarchy with a Cytoscape.js canvas in a <code>phx-hook</code> (elkjs <em>layered</em>, left-to-right): Plan/Epic become compound parent containers, Slices are nodes, and the <code>TaskDependency</code> <code>from→to</code> edges — captured in the DB but never loaded by the web layer — finally get drawn. Width-1 execution means exactly one "live token" on the network at a time (a single-train read). Optionally overlay faint, clearly-labeled <em>heuristic</em> "latent-conflict" edges between slices that share a <code>conflict_domain</code> but have no hard dependency — a planning-blunder catcher.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>RunViewerLive</code> renders a Project→Plan→Epic→Slice <code>&lt;div&gt;</code> hierarchy and <code>load_projects/0</code> reads 17 resources but never <code>TaskDependency</code> (<code>run_viewer_live.ex:482–518, 750–766</code>); the edge is a directed <code>from_slice→to_slice :execution_hard</code> (<code>task_dependency.ex:28–49</code>); <code>Slice.conflict_domains</code> exists (<code>slice.ex:126</code>).</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>The activation thesis in one move: the locked centerpiece (graph-as-home) literally doesn't exist, and the missing piece is data Conveyor already persists and <code>WorkGraphBuilder</code> already consumes. Every other direction in this document rides on this substrate.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p>The real cost isn't backend — it's net-new <em>frontend</em> infra: with no asset pipeline today, this stands up the first hook and the first build. The latent-conflict overlay is a reasoned inference, not stored topology — keep it visually subordinate to the real edges so it never reads as a committed dependency.</p></div>
+</article>
+
+<!-- C2 -->
+<article class="idea" id="c2">
+  <header><span class="idchip">C2</span><h3>The event-fold engine — live · replay · diff</h3></header>
+  <div class="chips">
+    <span class="chip axis-b">Axis B · Live overlay</span>
+    <span class="chip cf-high">Confidence <b>88%</b></span>
+    <span class="chip">Complexity <b>Medium–High</b></span>
+    <span class="chip">Role <b>Spine · build first</b></span>
+  </div>
+  <figure>
+    <svg viewBox="0 0 720 220" role="img" aria-label="One fold over the ledger, parameterized by position, produces live, replay, debug, and diff surfaces.">
+      <rect x="0" y="0" width="720" height="220" rx="12" fill="#0e141d"/>
+      <rect x="30" y="84" width="180" height="52" rx="9" fill="rgba(70,194,245,.13)" stroke="#46c2f5"/>
+      <text x="120" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="#a6dcf6">fold(ledger, T)</text>
+      <text x="120" y="124" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#7287a0">one pure projection</text>
+      <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#4a5a6a"/></marker></defs>
+      <line x1="212" y1="110" x2="455" y2="34" stroke="#4a5a6a" stroke-width="1.5" marker-end="url(#ar2)"/>
+      <line x1="212" y1="110" x2="455" y2="86" stroke="#4a5a6a" stroke-width="1.5" marker-end="url(#ar2)"/>
+      <line x1="212" y1="110" x2="455" y2="138" stroke="#4a5a6a" stroke-width="1.5" marker-end="url(#ar2)"/>
+      <line x1="212" y1="110" x2="455" y2="190" stroke="#4a5a6a" stroke-width="1.5" marker-end="url(#ar2)"/>
+      <g font-family="Inter, sans-serif" font-size="11.5">
+        <rect x="462" y="16" width="244" height="36" rx="7" fill="#161d28" stroke="#2a3645"/><text x="476" y="38" fill="#e7eef6"><tspan font-family="JetBrains Mono, monospace" fill="#46c2f5">T=head</tspan>  →  LIVE · patch one node/event</text>
+        <rect x="462" y="68" width="244" height="36" rx="7" fill="#161d28" stroke="#2a3645"/><text x="476" y="90" fill="#e7eef6"><tspan font-family="JetBrains Mono, monospace" fill="#b692f6">T=t</tspan>  →  REPLAY · scrub playhead</text>
+        <rect x="462" y="120" width="244" height="36" rx="7" fill="#161d28" stroke="#2a3645"/><text x="476" y="142" fill="#e7eef6"><tspan font-family="JetBrains Mono, monospace" fill="#f4b14a">T=fail</tspan>  →  DEBUG · freeze at failure</text>
+        <rect x="462" y="172" width="244" height="36" rx="7" fill="#161d28" stroke="#2a3645"/><text x="476" y="194" fill="#e7eef6"><tspan font-family="JetBrains Mono, monospace" fill="#46d196">T=last-seen</tspan> → DIFF · what did I miss</text>
+      </g>
+      <text x="30" y="170" font-family="Inter, sans-serif" font-size="11" fill="#7287a0">replaces today's</text>
+      <text x="30" y="186" font-family="Inter, sans-serif" font-size="11" fill="#7287a0">17-table refetch</text>
+      <text x="30" y="202" font-family="Inter, sans-serif" font-size="11" fill="#7287a0">on every event</text>
+    </svg>
+    <figcaption>Directional — one fold parameterized by position retires several roadmap-shaped surfaces at once.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Description</span><p>Today every ledger event triggers a full re-fetch of 17 resources and a whole-page re-render. Replace that with a pure fold over the <code>LedgerEvent</code> stream: seed once from durable history (ADR-09 reconstruct-then-subscribe), then apply each PubSub delta as a targeted <code>push_event</code> patch to the single node the event names — no re-fetch, no relayout. The same fold, parameterized by position, powers four surfaces: fold-to-head (live), fold-to-time-T (a DAW-style scrub playhead), fold-to-failure (debug freeze), and fold-since-last-seen ("what did I miss").</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>handle_info({:ledger_event,_}) → assign_run_data → load_projects</code> re-reads 17 resources on every event (<code>run_viewer_live.ex:38–39, 862–868, 822</code>); <code>Conveyor.Replay.timeline!</code> sorts events by <code>occurred_at</code> µs and <code>RunReconstruction</code> folds them into state (<code>replay.ex:15</code>, <code>run_reconstruction.ex:50–66</code>); <code>LedgerEvent</code> has no integer sequence column — ordering is <code>occurred_at</code>, dedup is <code>idempotency_key</code> (<code>ledger_event.ex:23–28, 59</code>).</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">DAW timeline + playhead; <code>bv --robot-diff</code>; ADR-09 reconstruct-then-subscribe.</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>Fixes the crudest flaw in today's UI and turns the append-only ledger (a recording, not a dashboard) into navigable time — reusing reconstruction machinery <em>already built</em>. One fold retires several separate roadmap items (live, replay/time-travel, debug, catch-up).</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p>The scrubber must order by <code>occurred_at</code>, not a dense global integer (the only "sequence" is payload-local to the resume fold). A declarative <code>event.type → node-patch</code> registry is worth it but adds a small indirection layer. The eval-metrics facet is a downstream bonus, not load-bearing — don't let it gate the core.</p></div>
+</article>
+
+<!-- C3 -->
+<article class="idea" id="c3">
+  <header><span class="idchip">C3</span><h3>Honest node-state taxonomy</h3></header>
+  <div class="chips">
+    <span class="chip axis-b">Axis B · Live overlay</span>
+    <span class="chip cf-high">Confidence <b>88%</b></span>
+    <span class="chip">Complexity <b>Medium</b></span>
+    <span class="chip">Role <b>Thesis-distinctive</b></span>
+  </div>
+  <figure>
+    <svg viewBox="0 0 720 210" role="img" aria-label="Five node states: running, ready-idle, blocked, skipped, stalled.">
+      <rect x="0" y="0" width="720" height="210" rx="12" fill="#0e141d"/>
+      <text x="30" y="30" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1.3" fill="#7287a0">FIVE STATES THE GRAPH CAN NAME — BECAUSE ONLY CONVEYOR HAS THE DATA</text>
+      <g font-family="Inter, sans-serif">
+        <circle cx="92" cy="86" r="21" fill="rgba(70,194,245,.16)" stroke="#46c2f5" stroke-width="2.6"/>
+        <text x="92" y="132" text-anchor="middle" font-size="12.5" font-weight="600" fill="#a6dcf6">Running</text>
+        <text x="92" y="150" text-anchor="middle" font-size="10" fill="#7e93aa">1 active slice</text>
+        <circle cx="234" cy="86" r="21" fill="none" stroke="#52647a" stroke-width="2"/>
+        <text x="234" y="132" text-anchor="middle" font-size="12.5" font-weight="600" fill="#cdd9e6">Ready · idle</text>
+        <text x="234" y="150" text-anchor="middle" font-size="10" fill="#7e93aa">deps met · serial-tax</text>
+        <circle cx="376" cy="86" r="21" fill="rgba(244,177,74,.15)" stroke="#f4b14a" stroke-width="2.2"/>
+        <rect x="370" y="80" width="12" height="10" rx="2" fill="none" stroke="#f4b14a" stroke-width="1.4"/><path d="M372,80 v-3 a4,4 0 0 1 8,0 v3" fill="none" stroke="#f4b14a" stroke-width="1.4"/>
+        <text x="376" y="132" text-anchor="middle" font-size="12.5" font-weight="600" fill="#f3cd8f">Blocked</text>
+        <text x="376" y="150" text-anchor="middle" font-size="10" fill="#7e93aa">unmet dep / your gate</text>
+        <circle cx="518" cy="86" r="21" fill="#141b25" stroke="#3a4654" stroke-width="1.8" stroke-dasharray="4 3" opacity="0.7"/>
+        <text x="518" y="132" text-anchor="middle" font-size="12.5" font-weight="600" fill="#8295ab">Skipped</text>
+        <text x="518" y="150" text-anchor="middle" font-size="10" fill="#7e93aa">upstream parked</text>
+        <circle cx="650" cy="86" r="21" fill="rgba(246,115,111,.16)" stroke="#f6736f" stroke-width="2.6"/>
+        <text x="650" y="132" text-anchor="middle" font-size="12.5" font-weight="600" fill="#f3a9a6">Stalled</text>
+        <text x="650" y="150" text-anchor="middle" font-size="10" fill="#7e93aa">heartbeat cold / cap</text>
+      </g>
+      <text x="30" y="190" font-family="Inter, sans-serif" font-size="10.5" fill="#7287a0">When a slice parks, a one-time "skip-wave" animates outward along its edges and counts the starved dependents.</text>
+    </svg>
+    <figcaption>Directional — the colour conventions are placeholders; the point is that "blocked-by-dep," "skipped," and "stalled" are distinct, computable states.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Description</span><p>Give the graph a vocabulary no other DAG tool has, because no other tool has the data. <strong>Running</strong> (the single active slice); <strong>Ready-but-idle</strong> (deps satisfied, waiting only because the driver is width-1 — surfaced as a "serial-tax: N could run now" counter); <strong>Blocked-by-unmet-dependency</strong> (computed from the edges, reading "blocked: SLICE-003 awaiting your gate" when the upstream is parked); <strong>Skipped-because-upstream-parked</strong> (Conveyor literally emits this); and <strong>Stalled</strong> (heartbeat gone cold or past the 1h cap — a dead worker, not a busy one). A park triggers an andon-style "skip-wave" that counts the starved dependents.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>SerialDriver</code> <code>:partial</code> skip-and-continue walks a deterministic topo order and emits a <code>skipped</code> event carrying blockers (<code>serial_driver.ex:74–76, 97–103, 199–217</code>); <code>StationRun.heartbeat_at</code> + per-slice 1h cap; <code>Slice.state</code> has no blocked encoding, so it is computed from <code>TaskDependency</code> + the ready-set.</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">Airflow <code>upstream_failed</code> (the rare tool that separates blocked from not-queued); Toyota andon; CSS-only attribute diffs (never relayout on a status event).</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>"Blocked-by-dep vs not-yet-queued" is the universal gap the field gets wrong; Conveyor uniquely has the edges to compute it <em>and</em> the parked-causality to make it actionable. The serial-tax counter doubles as the exact signal that tells you when parallelizing the driver would pay off.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p>Requires the C1 substrate first. The stall threshold needs tuning — a false "stalled" on a legitimately slow station erodes trust, so honor the don't-fake-liveness rule and drive it from real heartbeat/cap data only.</p></div>
+</article>
+
+<!-- C4 -->
+<article class="idea" id="c4">
+  <header><span class="idchip">C4</span><h3>Run Radio + active-node detail rail</h3></header>
+  <div class="chips">
+    <span class="chip axis-b">Axis B · Live overlay</span>
+    <span class="chip cf-high">Confidence <b>85%</b></span>
+    <span class="chip">Complexity <b>Low–Medium</b></span>
+    <span class="chip">Role <b>Fast delight win</b></span>
+  </div>
+  <div class="field"><span class="fl">Description</span><p>Replace the per-event raw-JSON dump with a single live-scrolling plain-language commentary in the active node's detail rail: <em>"Implementer wrote 3 files → tests 11/12 green → reviewer asked for rework on error handling → gate failed at DiffScope."</em> It's a pure server-side projection — each <code>LedgerEvent.type</code> maps to one templated sentence. The rail blooms only for the active node (progressive disclosure: colour-glance → station/role/elapsed → full event drill-down), instead of today's ~10 always-expanded record lists per slice.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>RunViewerLive</code> renders every event as <code>Jason.encode!(payload, pretty: true)</code> (<code>run_viewer_live.ex:739, 897–901</code>) and renders ~10 always-expanded per-slice record lists (<code>590–727</code>); the <code>LedgerEvent.type</code> vocabulary is already semantic (<code>run.gated</code>, <code>gate.failed</code>, <code>agent.implemented</code>…).</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">Kestra inline node logs; Ecological Interface Design (skill / rule / knowledge cognition registers).</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>The single most-cited current-UI pain is "reads like a JSON dump." The data to narrate already exists; this is the cheapest move that most changes the felt experience — directly serving your "easier and more enjoyable to inspect" goal, and a strong early momentum win.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p>Someone authors the <code>type → prose</code> templates (small, and ongoing as event types grow — pairs naturally with C2's registry). Narration can hide detail; keep the raw payload one click away for forensic moments.</p></div>
+</article>
+
+<!-- C5 -->
+<article class="idea" id="c5">
+  <header><span class="idchip">C5</span><h3>The non-vacuous gate card</h3></header>
+  <div class="chips">
+    <span class="chip axis-c">Axis C · Verification</span>
+    <span class="chip cf-med">Confidence <b>80%</b></span>
+    <span class="chip">Complexity <b>Medium</b></span>
+    <span class="chip">Role <b>Thesis-distinctive</b></span>
+  </div>
+  <figure>
+    <svg viewBox="0 0 720 318" role="img" aria-label="A go/no-go gate cascade with the first failing stage promoted as the headline.">
+      <rect x="0" y="0" width="720" height="318" rx="12" fill="#0e141d"/>
+      <rect x="20" y="16" width="680" height="46" rx="8" fill="rgba(246,115,111,.14)" stroke="rgba(246,115,111,.4)"/>
+      <text x="36" y="38" font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="#f6736f">NO-GO · DiffScope</text>
+      <text x="36" y="54" font-family="Inter, sans-serif" font-size="11.5" fill="#e7b6b4">patch touched 4 files outside the declared scope — the binding constraint</text>
+      <g font-family="Inter, sans-serif" font-size="12.5">
+        <!-- rows -->
+        <g>
+          <rect x="20" y="74" width="680" height="28" rx="6" fill="#141b25"/><text x="36" y="92" fill="#cdd9e6">WorkspaceIntegrity</text>
+          <rect x="608" y="78" width="76" height="20" rx="10" fill="rgba(70,209,150,.16)"/><text x="646" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">GO</text>
+        </g>
+        <g>
+          <rect x="20" y="106" width="680" height="28" rx="6" fill="#141b25"/><text x="36" y="124" fill="#cdd9e6">ContractLock</text>
+          <rect x="608" y="110" width="76" height="20" rx="10" fill="rgba(70,209,150,.16)"/><text x="646" y="124" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">GO</text>
+        </g>
+        <g>
+          <rect x="20" y="138" width="680" height="28" rx="6" fill="rgba(246,115,111,.13)" stroke="rgba(246,115,111,.35)"/><text x="36" y="156" fill="#f3a9a6" font-weight="600">DiffScope</text>
+          <rect x="600" y="142" width="84" height="20" rx="10" fill="rgba(246,115,111,.28)"/><text x="642" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ffd9d7">NO-GO</text>
+        </g>
+        <g>
+          <rect x="20" y="170" width="680" height="28" rx="6" fill="#141b25"/><text x="36" y="188" fill="#cdd9e6">SecretSafety</text>
+          <rect x="608" y="174" width="76" height="20" rx="10" fill="rgba(70,209,150,.16)"/><text x="646" y="188" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">GO</text>
+        </g>
+        <g>
+          <rect x="20" y="202" width="680" height="28" rx="6" fill="#141b25"/><text x="36" y="220" fill="#cdd9e6">PolicyCompliance</text>
+          <rect x="608" y="206" width="76" height="20" rx="10" fill="rgba(70,209,150,.16)"/><text x="646" y="220" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">GO</text>
+        </g>
+        <g>
+          <rect x="20" y="234" width="680" height="28" rx="6" fill="#141b25"/><text x="36" y="252" fill="#cdd9e6">TestExecution</text>
+          <rect x="608" y="238" width="76" height="20" rx="10" fill="rgba(70,209,150,.16)"/><text x="646" y="252" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">GO</text>
+        </g>
+        <g>
+          <rect x="20" y="266" width="680" height="28" rx="6" fill="#141b25"/><text x="36" y="284" fill="#cdd9e6">AcceptanceMapping</text>
+          <rect x="608" y="270" width="76" height="20" rx="10" fill="rgba(70,209,150,.16)"/><text x="646" y="284" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8fe6c1">GO</text>
+        </g>
+      </g>
+    </svg>
+    <figcaption>Directional — the first <code>NO-GO</code> is promoted as the headline "why"; the six passing stages collapse. Trust components decompose into measured-vs-threshold rows.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Description</span><p>Bloom a node's gate into a NASA-style go/no-go cascade: the 7 stages each calling <code>GO</code> / <code>NO-GO</code>, with the first <code>NO-GO</code> auto-promoted as the headline "why" and the rest collapsed. Decompose the <code>trust_score</code> into SonarQube-style measured-value-vs-threshold rows (it persists <code>components</code> + <code>thresholds</code> the UI never shows). Mark a gate that passed only on retry as amber "low-confidence," not clean-green. And surface each stage's <code>required?</code> flag as a standing guardrail.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>GateResult.trust_score</code> carries <code>components / thresholds / policy_digest</code> but the UI shows only band/score or just <code>key:status</code> with reasoning dropped (<code>gate_result.ex:39–42</code>; <code>run_viewer_live.ex:930–936</code>); <code>RunReadModel.failing_stage</code> already computes the first non-passed stage (<code>run_read_model.ex:254–262</code>); <code>gate.ex:158</code> has a <code>stage_passes_gate?(%StageResult{required?: false}) → true</code> path.</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">NASA go/no-go launch poll; SonarQube quality-gate condition rows; flaky-test reporters' "low-confidence" tier.</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>A non-vacuous gate must decompose into the conditions that produced it — the anti-theater mission that is Conveyor's north star. The reasoning is computed, stored, then string-mangled away; surfacing it makes a failure self-explanatory instead of a forensic exercise.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p><strong>Verified trim:</strong> the <code>required?: false</code> vacuity path is <em>latent, not live</em> — every production stage is <code>required?: true</code> today, so this is a <em>forward guardrail</em> (so a future non-required stage can't silently neuter the gate), not "here's the current hole." Don't oversell it as an active leak.</p></div>
+</article>
+
+<!-- C6 -->
+<article class="idea" id="c6">
+  <header><span class="idchip">C6</span><h3>Gate self-audit &amp; trust calibration</h3></header>
+  <div class="chips">
+    <span class="chip axis-c">Axis C · Verification</span>
+    <span class="chip cf-high">Confidence <b>85%</b></span>
+    <span class="chip">Complexity <b>Medium</b></span>
+    <span class="chip">Role <b>Most thesis-aligned</b></span>
+  </div>
+  <figure>
+    <svg viewBox="0 0 720 300" role="img" aria-label="Bar chart of per-stage gate failure rates; one stage that never fails is flagged as unproven.">
+      <rect x="0" y="0" width="720" height="300" rx="12" fill="#0e141d"/>
+      <text x="20" y="28" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1.2" fill="#7287a0">GATE-STAGE FAILURE RATE · 214 RUNS</text>
+      <line x1="165" y1="48" x2="165" y2="262" stroke="#2a3645" stroke-width="1"/>
+      <g font-family="Inter, sans-serif" font-size="11">
+        <text x="155" y="61" text-anchor="end" fill="#cdd9e6">WorkspaceIntegrity</text><rect x="165" y="50" width="131" height="16" rx="3" fill="rgba(70,194,245,.4)"/><text x="304" y="63" font-family="JetBrains Mono, monospace" font-size="10" fill="#9fb1c4">6%</text>
+        <text x="155" y="91" text-anchor="end" fill="#cdd9e6">ContractLock</text><rect x="165" y="80" width="65" height="16" rx="3" fill="rgba(70,194,245,.4)"/><text x="238" y="93" font-family="JetBrains Mono, monospace" font-size="10" fill="#9fb1c4">3%</text>
+        <text x="155" y="121" text-anchor="end" fill="#cdd9e6">DiffScope</text><rect x="165" y="110" width="392" height="16" rx="3" fill="rgba(70,194,245,.45)"/><text x="565" y="123" font-family="JetBrains Mono, monospace" font-size="10" fill="#9fb1c4">18%</text>
+        <text x="155" y="151" text-anchor="end" fill="#f3cd8f" font-weight="600">SecretSafety</text>
+        <rect x="165" y="140" width="150" height="16" rx="3" fill="none" stroke="#f4b14a" stroke-dasharray="4 3"/>
+        <text x="178" y="153" font-family="Inter, sans-serif" font-size="10.5" fill="#f3cd8f">0% — never fails · unproven</text>
+        <text x="155" y="181" text-anchor="end" fill="#cdd9e6">PolicyCompliance</text><rect x="165" y="170" width="87" height="16" rx="3" fill="rgba(70,194,245,.4)"/><text x="260" y="183" font-family="JetBrains Mono, monospace" font-size="10" fill="#9fb1c4">4%</text>
+        <text x="155" y="211" text-anchor="end" fill="#cdd9e6">TestExecution</text><rect x="165" y="200" width="480" height="16" rx="3" fill="rgba(70,194,245,.5)"/><text x="653" y="213" font-family="JetBrains Mono, monospace" font-size="10" fill="#9fb1c4">22%</text>
+        <text x="155" y="241" text-anchor="end" fill="#cdd9e6">AcceptanceMapping</text><rect x="165" y="230" width="240" height="16" rx="3" fill="rgba(70,194,245,.45)"/><text x="413" y="243" font-family="JetBrains Mono, monospace" font-size="10" fill="#9fb1c4">11%</text>
+      </g>
+      <text x="20" y="284" font-family="Inter, sans-serif" font-size="10.5" fill="#7287a0">A stage that never fails may be vacuous — the UI audits the verifier, continuously.</text>
+    </svg>
+    <figcaption>Directional — illustrative rates. The mechanic: build the screen and the vacuous stage becomes impossible to not see.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Description</span><p>Turn the UI into an instrument that audits the verifier. A "Vacuity Radar" aggregates every <code>GateResult.stages</code> verdict across all runs and flags any of the 7 stages that has <em>never once</em> failed ("unproven"). A calibration view bins trust-band against actual downstream rework — if "high-trust" passes need rework as often as "low-trust" ones, the band is theater (a visibly flat reliability line). The canary false-negative rate (already computed) sits beside the score as the gate's own record of how often it let a known-bad through.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>GateResult</code> carries <code>passed + stages + false_negative</code> (<code>gate_result.ex:30–32</code>); <code>SwarmReadinessAudit</code> computes <code>canary_false_negative_rate = false_negatives/total</code> exactly (<code>swarm_readiness_audit.ex:197–200</code>); <code>GateHealth.false_negative_count</code> exists and is <em>already rendered</em> as a bare string (<code>gate_health.ex:34</code>; <code>run_viewer_live.ex:696</code>).</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">SonarQube; flaky reporters; SLO burn-rate; the project's own "replay-fidelity / producer-vacuous" anti-pattern.</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>The thesis made visible — "trustworthy verification when no one is watching." The UI can't make a fake gate real, but it makes fakeness legible and embarrassing, which compounds into pressure to fix the gate itself. The data is already on disk; this is pure activation and the most differentiated idea in the set.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p><strong>Verified caveat:</strong> the calibration signal only has teeth once <code>false_negative</code> actually gets set by the calibration loop. If it's perpetually nil/false, featuring it would itself be a producer-vacuous indicator — so add a "does this ever fire?" check before promoting it to a headline tile.</p></div>
+</article>
+
+<!-- C7 -->
+<article class="idea" id="c7">
+  <header><span class="idchip">C7</span><h3>The Walk-Away Meter</h3></header>
+  <div class="chips">
+    <span class="chip axis-d">Axis D · Glanceability</span>
+    <span class="chip cf-med">Confidence <b>80%</b></span>
+    <span class="chip">Complexity <b>Medium</b></span>
+    <span class="chip">Role <b>Strategically aligned</b></span>
+  </div>
+  <div class="field"><span class="fl">Description</span><p>Replace the header's vanity counts (Projects / Plans / Slices / <em>Events</em>) with the question the north star actually asks: a single top-left verdict — <em>"nothing needs you for ~22 min — go"</em> — computed from forward signals (no parked gates, no slice near its 1h cap, no recent low-band passes, next high-risk slice far off). The canvas stays dark (Airbus dark-cockpit: colour only for non-nominal); a persistent "N awaiting you" HUD pings and flies the viewport to the offending node. You don't watch the cockpit; it summons you.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx">per-slice 1h / per-run 8h caps (a real countdown); <code>slice.autonomy_level</code>; ADR-21 projection parity; <code>RunReadModel.verdict</code> returns band/score; <code>ParkedQueue</code>'s own moduledoc calls the parked queue "the only work the operator must triage."</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">Grafana top-left worst-of verdict; Airbus dark cockpit; SLO error-budget as a depletable quantity; RTS minimap-ping / jump-to-location.</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>Every other cockpit optimizes "see everything"; this one optimizes "earn the right to leave." Permission to disengage is the literal endgame (run wider, unattended). It reframes the whole product from a screen you stare at into a system that interrupts you only when it must — and turns C3's states + C6's trust into one headline.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p><strong>Verified stretch:</strong> a typed <code>CockpitStatus</code> projection consumable by a <em>second AI</em> is net-new backend (a new resource/action), which collides with "minimal new backend." Keep the dark-cockpit glance + HUD (cheap, grounded); treat the machine-readable verdict as a later stretch.</p></div>
+</article>
+
+<!-- C8 -->
+<article class="idea" id="c8">
+  <header><span class="idchip">C8</span><h3>Forecast — the flight plan</h3></header>
+  <div class="chips">
+    <span class="chip axis-b">Axis B · Live overlay</span>
+    <span class="chip cf-med">Confidence <b>75%</b></span>
+    <span class="chip">Complexity <b>Medium–High</b></span>
+    <span class="chip">Role <b>Structurally uncopyable</b></span>
+  </div>
+  <figure>
+    <svg viewBox="0 0 720 210" role="img" aria-label="A principal-variation forecast: solid completed trail, a now token, and a dashed ghost line of the next slices ahead.">
+      <rect x="0" y="0" width="720" height="210" rx="12" fill="#0e141d"/>
+      <text x="20" y="30" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1.2" fill="#7287a0">PRINCIPAL VARIATION · THE DETERMINISTIC NEXT K</text>
+      <line x1="90" y1="112" x2="360" y2="112" stroke="#46d196" stroke-width="2.5"/>
+      <line x1="378" y1="112" x2="660" y2="112" stroke="#5a6b7d" stroke-width="2" stroke-dasharray="5 5"/>
+      <line x1="360" y1="66" x2="360" y2="158" stroke="#46c2f5" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+      <g font-family="JetBrains Mono, monospace" font-size="10">
+        <circle cx="90" cy="112" r="15" fill="rgba(70,209,150,.16)" stroke="#46d196" stroke-width="1.6"/><text x="90" y="116" text-anchor="middle" fill="#8fe6c1">S11</text>
+        <circle cx="225" cy="112" r="15" fill="rgba(70,209,150,.16)" stroke="#46d196" stroke-width="1.6"/><text x="225" y="116" text-anchor="middle" fill="#8fe6c1">S12</text>
+        <circle cx="360" cy="112" r="18" fill="rgba(70,194,245,.18)" stroke="#46c2f5" stroke-width="2.6"/><text x="360" y="116" text-anchor="middle" fill="#a6dcf6">S13</text>
+        <circle cx="470" cy="112" r="15" fill="#161d27" stroke="#5a6b7d" stroke-width="1.6" stroke-dasharray="3 2"/><text x="470" y="116" text-anchor="middle" fill="#9fb1c4">S14</text>
+        <circle cx="565" cy="112" r="15" fill="#161d27" stroke="#5a6b7d" stroke-width="1.6" stroke-dasharray="3 2"/><text x="565" y="116" text-anchor="middle" fill="#9fb1c4">S15</text>
+        <circle cx="650" cy="112" r="15" fill="#161d27" stroke="#5a6b7d" stroke-width="1.6" stroke-dasharray="3 2"/><text x="650" y="116" text-anchor="middle" fill="#9fb1c4">S16</text>
+      </g>
+      <g font-family="Inter, sans-serif" font-size="10.5">
+        <text x="157" y="160" text-anchor="middle" fill="#7287a0">completed trail</text>
+        <text x="360" y="62" text-anchor="middle" font-weight="600" fill="#46c2f5">NOW</text>
+        <text x="470" y="146" text-anchor="middle" fill="#cdd9e6">~18m</text><text x="470" y="160" text-anchor="middle" fill="#f3cd8f">high risk</text>
+        <text x="565" y="146" text-anchor="middle" fill="#cdd9e6">~6m</text>
+        <text x="650" y="146" text-anchor="middle" fill="#7e93aa">—</text>
+      </g>
+      <text x="20" y="194" font-family="Inter, sans-serif" font-size="10.5" fill="#7287a0">Order is exact (topo walk); time is an estimate — degrades honestly to "blocked by Sx" when no history exists.</text>
+    </svg>
+    <figcaption>Directional — width-1 + a frozen DAG make the next moves deterministic, so the cockpit can show the windshield, not just the rear-view.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Description</span><p>Because the driver is width-1 and walks a deterministic topological order, Conveyor already knows the exact sequence it will run next. Overlay a chess-engine-style "principal variation": the next K slices ghosted in execution order ahead of the live token, with per-slice ETAs from historical <code>StationRun</code> durations and a faint playhead ahead of "now." The instant a slice parks, the trail recomputes and the dependents it will skip ghost out — you see a stall's blast radius before it lands. Per-blocked-node "time-to-unblock" countdowns degrade honestly to "blocked by SLICE-003" when there's no history.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>SerialDriver</code> walks <code>do_topo</code> in deterministic dependency order and never bails early (<code>serial_driver.ex:97–103, 199–217</code>); <code>StationRun.started_at/completed_at</code> give real durations; per-slice 1h cap bounds the estimate.</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">Chess-engine principal variation; weather nowcast time-to-impact; transit countdown boards.</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>A monitor shows what <em>is</em>; trust-to-walk-away needs what's <em>about to</em> happen. The reframe from rear-view to windshield is something competitors structurally can't copy — their orchestrators aren't deterministic-serial. Pairs with C7: it's what lets you decide to stay-or-go before the high-risk moment.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p><strong>Verified:</strong> the <em>order</em> forecast is rock-solid; the <em>time</em> estimate is soft (width-1 + variable agent latency) — lead with order, hedge time. If the driver later goes parallel, "the next slice" becomes a wavefront and the exact-order framing needs a probabilistic version.</p></div>
+</article>
+
+<!-- C9 -->
+<article class="idea" id="c9">
+  <header><span class="idchip">C9</span><h3>Failure fingerprinting &amp; BubbleUp</h3></header>
+  <div class="chips">
+    <span class="chip axis-d">Axis D · Glanceability</span>
+    <span class="chip cf-med">Confidence <b>72%</b></span>
+    <span class="chip">Complexity <b>Medium</b></span>
+    <span class="chip">Role <b>Later · scales with volume</b></span>
+  </div>
+  <div class="field"><span class="fl">Description</span><p>When ≥2 slices fail or park, auto-cluster them and surface the shared dimension Honeycomb-BubbleUp-style: "all 3 ran station <code>apply_patch</code>," "all share <code>conflict_domain: auth</code>," "all <code>error_category: lease_lost</code>." Fingerprint identical failures across runs into one issue with a count and first/last-seen (Sentry-style) instead of N identical reds; click it to highlight the implicated subgraph across every affected run.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>StationRun.error_category/error_message</code>; <code>Slice.conflict_domains/likely_files</code>; <code>AgentSession.role</code>; <code>GateResult.stages</code> key; <code>LedgerEvent</code> entity links — the join keys all exist.</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">Honeycomb BubbleUp (rank which dimension differs in the failing population); Sentry fingerprint grouping (count + first/last-seen).</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>A solo operator can't manually diff 50 red nodes. Correlated failures usually share one root; auto-finding it converts N investigations into one fix and feeds the "factory improves itself" loop — diagnostic value that grows, rather than drowns, as run count rises.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p><strong>Verified:</strong> value compounds with run volume — thin early for a solo operator with few failures, so best sequenced as a "later" capability once history exists. Fingerprint heuristics can over- or under-merge and need tuning.</p></div>
+</article>
+
+<!-- C10 -->
+<article class="idea" id="c10">
+  <header><span class="idchip">C10</span><h3>Decide-on-the-node control</h3></header>
+  <div class="chips">
+    <span class="chip axis-e">Axis E · Light control</span>
+    <span class="chip cf-high">Confidence <b>85%</b> <span style="opacity:.7">(core)</span></span>
+    <span class="chip">Complexity <b>Medium</b></span>
+    <span class="chip">Role <b>Closes the loop</b></span>
+  </div>
+  <div class="field"><span class="fl">Description</span><p>The whitespace nobody fills: surface the parked-gate decision (approve / keep-parked) and <strong>retry</strong> as primary actions <em>on the node itself</em> — wired to the same typed domain actions the CLI uses (ADR-21), with optimistic recolor that reconciles on the resulting ledger event. Pre-compute a recommendation and the single swing fact ("Recommend APPROVE — band B; only <code>test_coverage</code> is below threshold, by 0.03"). Order the parked queue by acuity (downstream slices starved × trust × age), not arrival. The operator becomes a judge ratifying pre-made decisions, not a pilot.</p></div>
+  <div class="field"><span class="fl">Basis</span>
+    <div class="basis"><span class="btag direct">direct</span><div class="bx"><code>ParkedQueueLive</code> has no <code>handle_event</code> — the "needs-a-human" inbox literally can't act; the only web mutation is <code>RunViewerLive</code>'s <code>mark_external → HumanIntegration.record!</code> (<code>run_viewer_live.ex:43–44</code>), a real typed action; ADR-21 maps controls to typed actions; <code>trust_score</code> components/thresholds give the swing fact; <code>:partial</code> gives downstream-starvation for acuity.</div></div>
+    <div class="basis"><span class="btag external">external</span><div class="bx">GitLab manual-gate inline play-button; ED triage by acuity; counterfactual "one fact that would flip it."</div></div>
+  </div>
+  <div class="field"><span class="fl">Rationale</span><p>Closes the loop the whole UI exists for — the one place a human is the bottleneck — and exposes that today's "needs-a-human" page can't take the human's decision. The actions already exist for the CLI, so the UI just calls them; pure activation.</p></div>
+  <div class="field down"><span class="fl">Downsides</span><p><strong>Verified — scope correction:</strong> the "pause/resume" control assumed during scoping does <em>not</em> exist (no pause action; <code>resume!</code> is crash-recovery; <code>run!</code> is synchronous with no live process to pause). Decide-gate and retry are cheap activation; <strong>pause is backend-gated</strong> (needs an async run process + a <code>:paused</code> state). The pre-armed "tripwire pause" variant is cut for the same reason — neuter it to a no-pause "page-me-when-this-parks" flag.</p></div>
+</article>
+</section>
+
+<h2>Rejection Summary</h2>
+<section>
+<p class="lead">The ~50 raw candidates were mostly merged into the ten directions above; this records what was cut, demoted, or trimmed, and why.</p>
+<table>
+  <thead><tr><th>#</th><th>Considered idea</th><th>Why cut / demoted</th></tr></thead>
+  <tbody>
+    <tr><td>R1</td><td>Pre-armed conditional "tripwire" pause</td><td>Depends on a pause action that doesn't exist; creeps toward an operating console. Neutered to a no-pause "page-me-on-park" flag inside C10.</td></tr>
+    <tr><td>R2</td><td>Ghost-edges (latent-conflict) as a standalone direction</td><td><code>conflict_domains</code> is a reasoned inference, not stored topology. Folded into C1 as a visually-subordinate heuristic overlay rather than promoted to equal billing.</td></tr>
+    <tr><td>R3</td><td>Pause / resume as a "cheap" light control</td><td>Verification found no pause action; <code>run!</code> is synchronous; <code>resume!</code> is crash-recovery. Backend-gated, not activation — removed from the cheap-control set and flagged at the top of the doc.</td></tr>
+    <tr><td>R4</td><td>"Gate is live-vacuous via <code>required?: false</code>"</td><td>Over-claim: the code path exists but every production stage is <code>required?: true</code>. Reframed in C5 as a forward guardrail, not a current hole.</td></tr>
+    <tr><td>R5</td><td><code>CockpitStatus</code> typed projection "for a 2nd AI" as a core feature</td><td>Net-new backend; collides with activation-not-build. Demoted to a stretch within C7 (the dark-cockpit glance + HUD stay).</td></tr>
+    <tr><td>R6</td><td>Replay-as-eval-scorer as a headline</td><td>The live + replay + diff fold (C2) is solid; eval-scoring is a downstream bonus, not load-bearing — demoted within C2, not cut.</td></tr>
+    <tr class="gap-row"><td>axes</td><td>Axis coverage</td><td>All five axes have survivors (A×1, B×4, C×2, D×2, E×1). B is intentionally heavy — the live execution overlay is the cockpit's heart. No empty-axis gap.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<footer>
+  Composed 2026-06-25 by <code>ce-ideate</code> from the session prompt — <em>"a UI for Conveyor: real-time cockpit + task/dependency graph."</em> Six ideation frames, fresh-eyes basis verification against the repo at <code>HEAD</code> (commit <code>7036e6e</code>). Directional discovery artifact — not a plan or spec.
+</footer>
+
+</div>
+</body>
+</html>
