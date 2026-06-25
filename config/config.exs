@@ -56,6 +56,20 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# esbuild bundles the browser runtime in assets/ into priv/static/assets.
+# `phoenix` and `phoenix_live_view` resolve from deps/ via NODE_PATH; npm
+# packages (cytoscape, elkjs) resolve from assets/node_modules, which the
+# `assets.setup` alias creates with `npm install` (the esbuild binary bundles
+# from node_modules but does not create it).
+config :esbuild,
+  version: "0.25.4",
+  conveyor: [
+    args:
+      ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
+    cd: Path.expand("../assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
