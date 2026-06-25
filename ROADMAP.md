@@ -1,5 +1,39 @@
 # Conveyor — ROADMAP (v2)
 
+> **🟢 Execution update (2026-06-25).** Seven PRs have landed on `main` since
+> the 2026-06-23 snapshot below (which ended at PR #19 / M4). They move **M5**
+> and **M6** off "untouched"; where that older snapshot disagrees with this
+> block, **this block wins.**
+>
+> - **M5 (decomposition) — front door + real dep-graph landed; in-factory
+>   auto-decomposition reframed.** `mix conveyor.author` is wired as the
+>   plan-authoring front door (ADR-27, **PR #20** `d9c68a1`). The **DB-native
+>   task graph + br-style CLI** (**PR #27** `808c387`) retires YAML as the
+>   source of truth, persists an explicit `TaskDependency` task→task edge, and
+>   computes the work-graph from it via `WorkGraphBuilder` — **the fabricated
+>   linear dep-chain is gone.** Design shift: an **external AI authors tasks +
+>   deps into the DB** via the CLI; the content-blind in-factory
+>   `Decomposer.propose` stub still exists but is now **bypassed**, so
+>   "prose→graph auto-decomposition _inside_ the factory" is the piece that
+>   remains.
+> - **M6 (long-horizon) — survivability core landed.** Crash-survivable runs via
+>   an **event-sourced run ledger + reaper** (**PR #21** `f9004c8`):
+>   commit-then-advance, fold/reconstruct on restart, a startup reconciler for
+>   runs frozen in `:running`, and a wall-clock reaper for stuck slices —
+>   satisfying the M2-deferred **watchdog/reaper** and **durable
+>   crash-recovery/resume**. Remaining M6: drift/convergence/repeat-offender
+>   detection, `EmergencyStop` + `BudgetReservations` enforcement, the GC
+>   sweeper, morning-digest/parked-queue wiring, and the **≥20-slice medium-plan
+>   live run** (the §4 bar evidence).
+> - **Verifier honesty.** `replay_fidelity.status` is **no longer hardcoded
+>   `"matched"`** — it emits an honest `"baseline_absent"` (**PR #22**
+>   `22a9268`); a full cross-run replay-divergence _producer_ was reviewed and
+>   **deliberately deferred as vacuous** on the serial path (rationale in
+>   `docs/solutions/architecture-patterns/replay-fidelity-producer-vacuous-on-serial-driver.md`).
+> - **Dogfooding on-ramp.** `mix conveyor.run_view` read-after-run CLI +
+>   getting-started + dogfood aids (**PRs #23/#26**), plus a `conveyor.doctor`
+>   postgres-check fix (**PR #25**).
+
 > **🟢 Execution status (2026-06-23, PR #19 merged).** **M0 ✅ · M1 ✅ · M2 ✅ ·
 > M3 ✅.** **M4 (activate the trust gate) 🟡 substantially in progress** —
 > merged via **PR #19** (`m4-gate-honesty`, merge `3bca611`, 23 commits). The
@@ -23,7 +57,8 @@
 > reviewer_aggregation, canary_freshness, code_quality_delta — each needs a
 > producer), the docker hermetic / network-isolated gate, and the remaining
 > deferred static mutants (contract_lock, code_quality, run_check). **M5
-> (decomposition) and M6 (long-horizon) untouched.**
+> (decomposition) front door + M6 (long-horizon) survivability core have since
+> landed (PRs #20/#21/#27) — see the 2026-06-25 update at the top of this doc.**
 >
 > **M2/M3 wiring note.** Rework-on-fail (`AttemptLoop`) is wired into
 > `SerialDriver` and **ON by default** (`rework_enabled?/1`); ADR-26 amendment
@@ -124,15 +159,21 @@ bar.
 Legend: **maturity** = built-out · **functional** = actually works on the live
 `mix conveyor.run` path (not just "code exists").
 
+> **Note (2026-06-25):** rows below were written at the 2026-06-23 checkpoint;
+> PRs #20–#27 have since advanced Planning/decomposition, Evidence/replay,
+> Autonomy, and Orchestration (see the execution update at the top). Per-row
+> text is corrected where flatly contradicted; the maturity/functional columns
+> still reflect the 2026-06-23 snapshot.
+
 | Subsystem                           | Maturity                          | Functional on live path                 | One-line reality                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ----------------------------------- | --------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Core execution loop**             | high                              | **functional (serial)**                 | Joined end-to-end with a **real agent** (M1) and proven live on two plans. **No longer single-attempt/halt-on-fail:** rework-on-fail is ON by default (M2) and skip-and-continue lets independents proceed past a parked slice (M3). Width-1 serial; cross-slice parallelism is Track B.                                                                                                                                                                                                                                                                           |
-| **Planning / decomposition**        | low–partial                       | **no**                                  | Requires a hand-authored `conveyor.plan@1`. `Decomposer` is content-blind. Dep-graph is a fabricated linear chain. `PlanFoundry`/`CodexDrafter` wired to no command.                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Planning / decomposition**        | low–partial                       | **no**                                  | `mix conveyor.author` (PR #20) is the wired plan-authoring front door; the DB-native task graph (PR #27) persists explicit `TaskDependency` edges and computes the work-graph via `WorkGraphBuilder`, so the fabricated linear chain is gone. Open: in-factory prose→graph auto-decomposition (`Decomposer.propose` stays content-blind but is now bypassed).                                                                                                                                                                                                      |
 | **Verification gate / trust**       | high surface, **rising function** | **partial (de-laundered, 7/14 stages)** | M4 activated the core: the live gate runs **7 required stages** (was 4) and `TrustScore` **no longer defaults unmeasured→trustworthy** — unmeasured signals fail closed (calibration→`:not_assessed`, baseline→`:unknown`, integrity→`not_assessed`, replay→`:baseline_absent`), so the **`:abstain` band is reachable and fires** on the live path. On `:local` the IntegritySentinel requires the real `source_mutation` probe (hermeticity stays docker-only). Still partial: 6 static stages unwired; the docker hermeticity + replay/corpus producers remain. |
 | **Test Architect / contract forge** | high                              | **partial**                             | Deterministic projections of fields the human already wrote — no independent test _authoring_, no falsifier _execution_. `test_architect/*` disconnected.                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Evidence / replay / ledger**      | high                              | **partial**                             | Ledger + recorder + blob store load-bearing. `replay_fidelity.status` is **still hardcoded `"matched"`** in the run report (the real replay-divergence producer isn't built) — but the trust-gate's replay _signal_ is now de-laundered (absent → `:baseline_absent`, OD19 renormalizes weights), so it no longer launders a fake "replay OK" into `TrustScore`. Outbox relay still uninvoked; cassettes/replay eval-only.                                                                                                                                         |
-| **Autonomy / self-heal / recovery** | high                              | **partial**                             | `AttemptLoop` rework-on-fail + ADR-26 amendment routing + skip-and-continue are **wired into the live loop** (M2/M3) — the loop retries a bad slice within a budget and proceeds past parks instead of halting. Still unwired: a **clock-based watchdog/timeout** (no wall-clock reaper — `AttemptBudget` bounds attempts only), `EmergencyStop`, and durable crash-recovery (M6).                                                                                                                                                                                 |
-| **Orchestration / runtime**         | partial                           | **no**                                  | Synchronous human-invoked mix task. **Zero `Oban.insert` calls.** Conductor children are no-op skeletons; Docker isolation unwired; no crash-recovery (state in process memory).                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Evidence / replay / ledger**      | high                              | **partial**                             | Ledger + recorder + blob store load-bearing. `replay_fidelity.status` now emits an honest `"baseline_absent"` (PR #22 — no longer hardcoded `"matched"`; the cross-run replay-divergence producer was deliberately deferred as vacuous on the serial path) — but the trust-gate's replay _signal_ is now de-laundered (absent → `:baseline_absent`, OD19 renormalizes weights), so it no longer launders a fake "replay OK" into `TrustScore`. Outbox relay still uninvoked; cassettes/replay eval-only.                                                           |
+| **Autonomy / self-heal / recovery** | high                              | **partial**                             | `AttemptLoop` rework-on-fail + ADR-26 amendment routing + skip-and-continue are **wired into the live loop** (M2/M3) — the loop retries a bad slice within a budget and proceeds past parks instead of halting. M6 (PR #21) added a **wall-clock reaper** for stuck slices + **durable crash-recovery/resume** (event-sourced ledger + startup reconciler). Still unwired: a **per-agent-call watchdog/timeout** (`AttemptBudget` bounds attempts; the `codex` call is still unbounded — br `p639`) and `EmergencyStop`.                                           |
+| **Orchestration / runtime**         | partial                           | **no**                                  | Synchronous human-invoked mix task. **Zero `Oban.insert` calls.** Conductor children are no-op skeletons; Docker isolation unwired. Crash-recovery is now durable (M6/PR #21: event-sourced run ledger + startup reconciler), though orchestration stays synchronous.                                                                                                                                                                                                                                                                                              |
 | **Eval program (Rungs 0–2)**        | real                              | partial                                 | Real, CI-gated, runs real pytest. Only **3 of 8 mutants** covered e2e; `mix conveyor.eval.lift` **crashes** [needs-run] (cause: `load_reports` decodes `usage.json` alongside duel reports — _not_ a "glob collision"; there is no glob).                                                                                                                                                                                                                                                                                                                          |
 | **ADRs 01–23 / 24–27**              | —                                 | mostly / **no**                         | Evidence-kernel + serial-loop ADRs functional; the four "autonomy" ADRs (24–27) are test-covered islands with zero callers.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
@@ -354,11 +395,11 @@ confirm them.
 > (workspace_integrity, policy_compliance, acceptance_mapping → **7 of 14**
 > total); and `MutantGauntlet` discriminates the policy_compliance static stage.
 > **Remaining:** the real **replay-divergence producer**
-> (`replay_fidelity.status` still hardcoded `"matched"`) +
-> **`corpus_pass_rate`**; the **6 unwired static stages** (each needs a producer
-> — `br jmnt`); the **docker hermetic / network-isolated gate** (hermeticity
-> probe); and the remaining deferred static mutants (contract_lock, run_check,
-> code_quality).
+> (`replay_fidelity.status` now honest `"baseline_absent"` per PR #22; the
+> cross-run producer was deferred as vacuous) + **`corpus_pass_rate`**; the **6
+> unwired static stages** (each needs a producer — `br jmnt`); the **docker
+> hermetic / network-isolated gate** (hermeticity probe); and the remaining
+> deferred static mutants (contract_lock, run_check, code_quality).
 
 - Wire the dormant IntegritySentinel producers; write `corpus_pass_rate` +
   `replay_divergence` from production stations (so `TrustScore` stops defaulting
@@ -376,7 +417,17 @@ confirm them.
   (meeting the §4 targets is owned by M2's rework + this milestone's gate work,
   iterated).
 
-#### M5 — Autonomous decomposition **(L)** _(moved earlier in v2 — it's a precondition of the §4 bar and of M6's large plans)_
+#### M5 — Autonomous decomposition **(L)** _(moved earlier in v2 — it's a precondition of the §4 bar and of M6's large plans)_ — 🟡 partially landed (PR #20 + #27)
+
+> **Status (2026-06-25).** The front door and the explicit dep-graph shipped:
+> `mix conveyor.author` wires `PlanFoundry`/`CodexDrafter` (ADR-27, PR #20), and
+> the DB-native task graph (PR #27) computes `work_dependencies` from persisted
+> `TaskDependency` edges via `WorkGraphBuilder`, retiring the fabricated linear
+> chain. **Reframed, still open:** today an external AI authors tasks + deps
+> into the DB via the br-style CLI, so the content-blind in-factory
+> `Decomposer.propose` (prose→slices) is **bypassed, not yet replaced** — true
+> in-factory auto-decomposition + Interrogator-on-ambiguity remain. (br:
+> `dr1m.5` closed; slice-decomposition is its own slice.)
 
 - Wire `PlanFoundry`/`CodexDrafter` into `mix conveyor.author "intent"` →
   `conveyor.plan@1`.
@@ -387,7 +438,18 @@ confirm them.
 - **Exit:** prose intent → autonomous decomposition → a runnable plan; the
   dep-graph is _computed_ and stub-validated.
 
-#### M6 — Long-horizon autonomy + medium plan **(L)**
+#### M6 — Long-horizon autonomy + medium plan **(L)** — 🟡 survivability core landed (PR #21)
+
+> **Status (2026-06-25).** Crash-survivability shipped: an event-sourced run
+> ledger + reaper (PR #21 `f9004c8`) gives commit-then-advance, fold/reconstruct
+> on restart, a startup reconciler for runs frozen in `:running`, and a
+> wall-clock reaper for stuck slices — closing the M2-deferred watchdog/reaper
+> and durable crash-recovery/resume. **Remaining:** drift/no-progress +
+> Convergence Sentinel + Repeat-Offender detection, `EmergencyStop` +
+> `BudgetReservations` enforcement, the GC sweeper, morning-digest/parked-queue
+> wiring, and the ≥20-slice medium-plan unattended live run (the §4 bar
+> evidence). The heavy SerialRun-anchor reconciliation remains its own bead
+> (`bzkr`).
 
 - Drift/no-progress detection; Convergence Sentinel (anti-thrash);
   Repeat-Offender escalation; enforce `EmergencyStop` + activate
@@ -518,7 +580,8 @@ not closed, real agent never through production loop, decomposer is a stub, zero
 thresholds) are **ranges/provisional**, not measurements. Anything tagged
 [needs-run] is resolved in M0.
 
-_Last updated: 2026-06-23 — status reconciled after the M4 trust-gate landing
-(PR #19) and the M2/M3 completion now in `main`; the §9 v2 red-team provenance
-(2026-06-21) is unchanged. For the authoritative M4 landed-vs-remaining
-breakdown see `M4-PROGRESS.md`._
+_Last updated: 2026-06-25 — added the top-of-doc execution update for PRs
+#20–#27 (M5 front door + DB-native task graph, M6 survivability core, replay
+honesty); the 2026-06-23 M4/PR #19 + M2/M3 reconciliation and the §9 v2 red-team
+provenance (2026-06-21) are preserved as prior checkpoints. For the
+authoritative M4 landed-vs-remaining breakdown see `M4-PROGRESS.md`._
