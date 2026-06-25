@@ -24,7 +24,6 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
       RunSpecAssembler.assemble!(slice,
         work_graph: single_slice_work_graph(),
         patch_ref: "samples/beads_insight/.conveyor/canary/reference_full.patch",
-        plan_path: Path.join(workspace_path, "conveyor.plan.yml"),
         blob_root: blob_root,
         agent_adapter: Conveyor.AgentRunner.ReferenceSolution
       )
@@ -67,12 +66,16 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
     assert implement["input"]["blob_root"] == blob_root
     assert implement["input"]["adapter"] == "Conveyor.AgentRunner.ReferenceSolution"
     assert verify["input"]["workspace_path"] == workspace_path
-    assert verify["input"]["plan_path"] == Path.join(workspace_path, "conveyor.plan.yml")
 
     assert verify["input"]["test_refs"] == [
              "tests/test_loader.py::test_corpus_counts_stable",
              "tests/test_loader.py::test_malformed_line_exit_2"
            ]
+
+    # DB-native runs carry the verification plan in the station input so the
+    # verify station never has to read a workspace `conveyor.plan.yml`.
+    assert [%{"argv" => ["pytest", "-q"]} | _] =
+             verify["input"]["plan"]["verification_commands"]
   end
 
   test "materializes the locked slice contract and gates readiness before persisting" do

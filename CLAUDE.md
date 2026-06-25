@@ -91,6 +91,8 @@ therefore unmeasured, not inferred.
   instruction allows the action.
 - Do not edit `priv/conveyor/templates/` as ordinary app code; it is a generated
   project contract surface and has deeper instructions.
+- This project is greenfield and is in active development. You must never write
+  "backward compatibility" code or anything for "legacy" features.
 
 ## COMMANDS
 

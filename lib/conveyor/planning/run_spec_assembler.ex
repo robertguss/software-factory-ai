@@ -31,7 +31,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     * `:work_graph` - the single-slice work graph to lower.
 
   Runtime opts such as `:workspace_path`, `:base_commit`, `:blob_root`,
-  `:patch_ref`, `:plan_path`, and `:agent_adapter` override derived defaults.
+  `:patch_ref`, and `:agent_adapter` override derived defaults.
   """
   @spec assemble!(Slice.t() | Ecto.UUID.t(), keyword()) :: RunSpec.t()
   def assemble!(slice_or_id, opts \\ [])
@@ -128,7 +128,6 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     # (the map is stable — only the attempt_no lookup key changes). Production Codex
     # ignores it.
     patch_refs_by_attempt = Keyword.get(opts, :patch_refs_by_attempt)
-    plan_path = Keyword.get(opts, :plan_path, Path.join(workspace_path, "conveyor.plan.yml"))
     adapter = Keyword.get(opts, :agent_adapter)
 
     stations =
@@ -165,7 +164,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
             "verify" ->
               %{
                 "workspace_path" => workspace_path,
-                "plan_path" => plan_path,
+                "plan" => verify_plan(contract),
                 "test_refs" => contract.test_pack.required_test_refs
               }
 
@@ -182,6 +181,16 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     plan
     |> Map.put("falsifier_forge", contract.falsifier_forge)
     |> Map.put("stations", stations)
+  end
+
+  # The verify station consumes only `verification_commands` (+ acceptance refs)
+  # from a plan map, carried in the station input — the run loop never reads a
+  # `conveyor.plan.yml` from the workspace.
+  defp verify_plan(contract) do
+    %{
+      "verification_commands" => contract.test_pack.runner_command_specs,
+      "acceptance_criteria" => contract.agent_brief.acceptance_criteria
+    }
   end
 
   defp run_spec_attrs(
