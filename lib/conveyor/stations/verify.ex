@@ -9,7 +9,7 @@ defmodule Conveyor.Stations.Verify do
   @impl Conveyor.Station
   def run(input, _context) do
     workspace_path = get(input, "workspace_path")
-    plan = YamlElixir.read_from_file!(get(input, "plan_path"))
+    plan = get(input, "plan")
     backend = backend(get(input, "backend"))
 
     verification_result =
