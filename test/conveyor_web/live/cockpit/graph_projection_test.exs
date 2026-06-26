@@ -128,6 +128,17 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjectionTest do
       assert state(nodes, "under") == :running
     end
 
+    test "a `false` wall-clock cap disables the Stalled signal, same as nil (#14)" do
+      # `serial_driver_slice_wall_clock_ms` is documented as nil/false to disable
+      # (config/config.exs). A long-running station must NOT read Stalled under a
+      # `false` cap — and not merely by accident of number-vs-atom term ordering.
+      over = fact("over", running_since: DateTime.add(@now, -5, :hour))
+
+      %{nodes: nodes} = GraphProjection.resolve([over], [], now: @now, slice_cap_ms: false)
+
+      assert state(nodes, "over") == :running
+    end
+
     test "in_progress slice with no station row still reads Running" do
       %{nodes: nodes} =
         GraphProjection.resolve([fact("x", slice_state: :in_progress)], [], now: @now)
@@ -304,6 +315,64 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjectionTest do
     end
   end
 
+  describe "node_detail/2 — read-only drill-down (R15, KTD2)" do
+    test "a historical (finished) run omits live attempt/station/elapsed (#4, KTD2)" do
+      %{plan: plan, slices: s} = seed_plan([{"SLICE-001", :in_progress}], [])
+
+      # A running station exists — it is the LIVE run's state, not the historical
+      # run's. A finished run is not running, so its panel must not borrow it.
+      seed_running_station(s["SLICE-001"], DateTime.add(@now, -5, :minute))
+      seed_run_started("run-old", ["SLICE-001"], DateTime.add(@now, -1, :hour))
+      seed_outcome("run-old", "SLICE-001", "passed", 1)
+      seed_run_started("run-new", ["SLICE-001"], @now)
+
+      historical = GraphProjection.build(plan.id, run_id: "run-old", now: @now)
+      assert historical.live? == false
+
+      detail = GraphProjection.node_detail(historical, s["SLICE-001"].id)
+
+      # The committed outcome still shows (passed → done), but no live attempt state.
+      assert detail.state == :done
+      assert detail.station == nil
+      assert detail.attempt_no == nil
+      assert detail.attempt_status == nil
+      assert detail.started_at == nil
+      assert detail.elapsed_seconds == nil
+    end
+
+    test "elapsed never goes negative when a station started after the model's `now` (#10)" do
+      %{plan: plan, slices: s} = seed_plan([{"SLICE-001", :in_progress}], [])
+
+      # The model's `now` is captured, then a fresh DB read sees a station that
+      # started slightly later — diff would be negative without a clamp.
+      seed_running_station(s["SLICE-001"], DateTime.add(@now, 5, :second))
+
+      model = GraphProjection.build(plan.id, now: @now, slice_cap_ms: @cap_ms)
+      detail = GraphProjection.node_detail(model, s["SLICE-001"].id)
+
+      assert detail.elapsed_seconds == 0
+    end
+  end
+
+  describe "build/2 — query scoping (#15)" do
+    test "another plan's slices, edges, attempts, and stations never leak into this plan's build" do
+      %{plan: plan_a, slices: a} =
+        seed_plan([{"A-1", :ready}, {"A-2", :ready}], [{"A-1", "A-2"}])
+
+      # A second plan with its own edge + a running attempt/station. Pushing the
+      # membership filter into the Ash query must still scope strictly to plan A.
+      %{slices: b} = seed_plan([{"B-1", :ready}, {"B-2", :ready}], [{"B-1", "B-2"}])
+      seed_running_station(b["B-1"], DateTime.add(@now, -2, :hour))
+
+      model = GraphProjection.build(plan_a.id, now: @now, slice_cap_ms: @cap_ms)
+
+      assert MapSet.new(model.nodes, & &1.id) == MapSet.new([a["A-1"].id, a["A-2"].id])
+      # Only A's single edge survives — none of B's.
+      assert [%{from: from, to: to}] = model.edges
+      assert from == a["A-1"].id and to == a["A-2"].id
+    end
+  end
+
   # ─── helpers ───────────────────────────────────────────────────────────────
 
   defp fact(id, attrs \\ []) do
@@ -327,10 +396,14 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjectionTest do
   defp node_state(model, id), do: node_for(model, id).state
 
   defp seed_plan(slice_specs, edge_specs) do
+    # Unique per call so a single test may seed more than one plan (e.g. the
+    # cross-plan query-scoping test) without colliding on project/plan identities.
+    uid = System.unique_integer([:positive])
+
     project =
       Ash.create!(
         Project,
-        %{name: "Cockpit proj", local_path: "/tmp/cockpit", default_branch: "main"},
+        %{name: "Cockpit proj #{uid}", local_path: "/tmp/cockpit-#{uid}", default_branch: "main"},
         domain: Factory
       )
 
@@ -339,11 +412,11 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjectionTest do
         Plan,
         %{
           project_id: project.id,
-          title: "Cockpit plan",
+          title: "Cockpit plan #{uid}",
           intent: "Exercise the cockpit projection.",
           source_document: "docs/cockpit-plan.md",
           normalized_contract: %{"schema_version" => "conveyor.plan@1"},
-          contract_sha256: "sha256:" <> String.duplicate("c", 64),
+          contract_sha256: digest("plan-#{uid}"),
           status: :active
         },
         domain: Factory

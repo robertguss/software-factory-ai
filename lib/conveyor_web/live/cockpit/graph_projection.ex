@@ -156,12 +156,15 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   def node_detail(model, slice_id) do
     case Enum.find(model.nodes, &(&1.id == slice_id)) do
       nil -> nil
-      node -> detail_for(node, slice_id, model.now)
+      node -> detail_for(node, slice_id, model.now, model.live?)
     end
   end
 
-  defp detail_for(node, slice_id, now) do
-    attempt = latest_attempt_row(slice_id)
+  # Live attempt/station/elapsed are overlaid only for the active run (KTD2): a
+  # finished run is not running, and its latest attempt belongs to a *later* run,
+  # so a historical panel shows its committed outcome (state/reason/events) only.
+  defp detail_for(node, slice_id, now, live?) do
+    attempt = if live?, do: latest_attempt_row(slice_id)
     station = latest_station_row(attempt)
 
     %{
@@ -211,8 +214,10 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   defp station_started_unix(%{started_at: nil}), do: 0
   defp station_started_unix(%{started_at: dt}), do: DateTime.to_unix(dt, :microsecond)
 
+  # Clamp to ≥0: the model's `now` is captured once and can lag a fresh station
+  # read by a few seconds, which would otherwise render a negative elapsed.
   defp elapsed_seconds(%{started_at: %DateTime{} = started}, now),
-    do: DateTime.diff(now, started, :second)
+    do: max(0, DateTime.diff(now, started, :second))
 
   defp elapsed_seconds(_station, _now), do: nil
 
@@ -280,7 +285,7 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   def resolve(facts, edges, opts \\ []) when is_list(facts) and is_list(edges) do
     live? = Keyword.get(opts, :live?, true)
     now = Keyword.get(opts, :now) || DateTime.utc_now()
-    cap = Keyword.get(opts, :slice_cap_ms, @default_slice_cap_ms)
+    cap = normalize_cap(Keyword.get(opts, :slice_cap_ms, @default_slice_cap_ms))
 
     ctx = %{
       live?: live?,
@@ -332,11 +337,18 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   end
 
   defp stalled?(%{running_since: nil}, _ctx), do: false
-  # A disabled cap (`nil`, e.g. in test config) means no wall-clock Stalled signal.
+  # A disabled cap (`nil`/`false`, normalized at the boundary by `normalize_cap/1`)
+  # means no wall-clock Stalled signal — `config :serial_driver_slice_wall_clock_ms`
+  # documents both values as disablers.
   defp stalled?(_fact, %{cap: nil}), do: false
 
   defp stalled?(%{running_since: since}, ctx),
     do: DateTime.diff(ctx.now, since, :millisecond) > ctx.cap
+
+  # The configured cap may be `false` (a documented disable value); collapse it to
+  # `nil` so the Stalled guard never depends on number-vs-atom term ordering.
+  defp normalize_cap(false), do: nil
+  defp normalize_cap(cap), do: cap
 
   defp running?(%{running_since: since}) when not is_nil(since), do: true
   defp running?(%{slice_state: state}), do: state in @in_flight_states
@@ -460,14 +472,17 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
     |> Ash.read!(domain: Factory)
   end
 
+  defp load_edges([]), do: []
+
   defp load_edges(slices) do
-    ids = MapSet.new(slices, & &1.id)
+    # Push the slice-set membership into the query (KTD4) so edge loading stays
+    # bounded by the plan, not the whole TaskDependency table.
+    ids = Enum.map(slices, & &1.id)
 
     TaskDependency
+    |> Ash.Query.filter(from_slice_id in ^ids)
+    |> Ash.Query.filter(to_slice_id in ^ids)
     |> Ash.read!(domain: Factory)
-    |> Enum.filter(
-      &(MapSet.member?(ids, &1.from_slice_id) and MapSet.member?(ids, &1.to_slice_id))
-    )
   end
 
   # Scope the outcome fold by pushing the `run.slice_outcome` type into the query
@@ -484,13 +499,15 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
     |> Map.new(&{&1.payload["slice_id"], &1.payload})
   end
 
+  defp running_since_by_slice([]), do: %{}
+
   defp running_since_by_slice(slices) do
-    slice_ids = MapSet.new(slices, & &1.id)
+    slice_ids = Enum.map(slices, & &1.id)
 
     latest_by_slice =
       RunAttempt
+      |> Ash.Query.filter(slice_id in ^slice_ids)
       |> Ash.read!(domain: Factory)
-      |> Enum.filter(&MapSet.member?(slice_ids, &1.slice_id))
       |> Enum.group_by(& &1.slice_id)
       |> Map.new(fn {slice_id, attempts} ->
         {slice_id, Enum.max_by(attempts, & &1.attempt_no)}
@@ -499,7 +516,7 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
     stations_by_attempt =
       latest_by_slice
       |> Map.values()
-      |> MapSet.new(& &1.id)
+      |> Enum.map(& &1.id)
       |> stations_for_attempts()
       |> Enum.group_by(& &1.run_attempt_id)
 
@@ -523,10 +540,12 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
     end
   end
 
+  defp stations_for_attempts([]), do: []
+
   defp stations_for_attempts(attempt_ids) do
     StationRun
+    |> Ash.Query.filter(run_attempt_id in ^attempt_ids)
     |> Ash.read!(domain: Factory)
-    |> Enum.filter(&MapSet.member?(attempt_ids, &1.run_attempt_id))
   end
 
   # Earliest start among a latest attempt's running stations — that is when the
