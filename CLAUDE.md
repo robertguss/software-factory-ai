@@ -14,7 +14,7 @@ product direction and safety constraints.
 ```
 software-factory-ai/
 ├── lib/conveyor/              # core domains: planning, factory resources, gates, evidence, policy
-├── lib/conveyor_web/          # Phoenix web projections; UI must not become authority
+├── lib/conveyor_web/          # Phoenix web projections;
 ├── lib/mix/tasks/             # operator CLI surfaces such as conveyor.init and conveyor.agents
 ├── test/                      # primary ExUnit behavior and acceptance-gate surface
 ├── priv/repo/migrations/      # append-only schema evolution for Ash/Postgres resources
@@ -85,10 +85,6 @@ therefore unmeasured, not inferred.
   red-team tests.
 - Do not weaken tests, locked contracts, policy files, or generated evidence to
   make a gate pass.
-- Do not use destructive git/shell operations such as `git reset --hard`,
-  `git clean -fd/-fdx`, `rm -rf`, force-push, pipe-to-shell installers, or
-  deploy/release/publish commands unless an explicit higher-authority
-  instruction allows the action.
 - Do not edit `priv/conveyor/templates/` as ordinary app code; it is a generated
   project contract surface and has deeper instructions.
 - This project is greenfield and is in active development. You must never write

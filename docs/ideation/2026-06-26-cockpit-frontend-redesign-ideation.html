@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ideation: Cockpit Frontend Redesign — Conveyor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+<style>
+  :root {
+    --bg: #0d0f12;
+    --panel: #14171c;
+    --panel-2: #181c22;
+    --line: #262c35;
+    --line-2: #313945;
+    --ink: #e7eaf0;
+    --muted: #98a2b3;
+    --faint: #6b7480;
+    --amber: #f5a623;
+    --amber-ink: #f8c069;
+    --amber-soft: rgba(245, 166, 35, 0.12);
+    --amber-line: rgba(245, 166, 35, 0.34);
+    --red: #ef4444;
+    --red-soft: rgba(239, 68, 68, 0.13);
+    --caution: #d9913a;
+    --caution-soft: rgba(217, 145, 58, 0.13);
+    --advisory: #a8a29e;
+    --good: #34d399;
+    --good-soft: rgba(52, 211, 153, 0.12);
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 0);
+    background-size: 22px 22px;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 940px; margin-inline: auto; padding: 56px 24px 96px; }
+  p { max-width: 72ch; }
+  a { color: var(--amber-ink); text-decoration: none; border-bottom: 1px solid var(--amber-line); }
+  a:hover { border-bottom-color: var(--amber-ink); }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 0.06em 0.36em; color: var(--amber-ink); }
+  strong { color: inherit; font-weight: 600; }
+  h1, h2, h3 { line-height: 1.2; letter-spacing: -0.01em; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.18em; color: var(--amber);
+    margin: 0 0 14px;
+  }
+  /* Header */
+  header.doc { border-bottom: 1px solid var(--line); padding-bottom: 30px; margin-bottom: 40px; }
+  header.doc h1 { font-size: 34px; font-weight: 700; margin: 0 0 10px; letter-spacing: -0.02em; }
+  header.doc .lede { color: var(--muted); font-size: 17px; max-width: 70ch; margin: 0 0 24px; }
+  .metaline { display: flex; flex-wrap: wrap; gap: 8px 10px; font-family: var(--mono); font-size: 12px; }
+  .metaline .m { color: var(--faint); }
+  .metaline .m b { color: var(--muted); font-weight: 500; }
+  .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; min-width: 96px; }
+  .stat .n { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--ink); }
+  .stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-top: 2px; }
+  /* Sections */
+  section { margin-top: 52px; }
+  h2.sec { font-size: 13px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); font-weight: 600; padding-bottom: 12px; border-bottom: 1px solid var(--line); margin: 0 0 24px; }
+  .grounding { display: grid; gap: 18px; }
+  .gcard { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; }
+  .gcard h3 { font-size: 15px; margin: 0 0 8px; color: var(--ink); }
+  .gcard p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .gcard p + p { margin-top: 10px; }
+  .pull { color: var(--amber-ink); font-weight: 500; }
+  /* Axes */
+  ol.axes { list-style: none; counter-reset: ax; padding: 0; margin: 0; display: grid; gap: 10px; }
+  ol.axes li { counter-increment: ax; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px 14px 52px; position: relative; color: var(--muted); font-size: 14.5px; }
+  ol.axes li::before { content: "A" counter(ax); position: absolute; left: 16px; top: 13px; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--amber); background: var(--amber-soft); border: 1px solid var(--amber-line); border-radius: 6px; padding: 2px 6px; }
+  ol.axes li b { color: var(--ink); font-weight: 600; }
+  /* Jump list */
+  .jump { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 30px; }
+  .jump .lab { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); margin-bottom: 12px; }
+  .jump ol { margin: 0; padding: 0; list-style: none; counter-reset: j; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; }
+  .jump ol li { counter-increment: j; font-size: 14px; }
+  .jump ol li a { color: var(--muted); border: none; display: flex; gap: 10px; padding: 3px 0; }
+  .jump ol li a:hover { color: var(--amber-ink); }
+  .jump ol li a::before { content: counter(j, decimal-leading-zero); font-family: var(--mono); font-size: 12px; color: var(--amber); flex: 0 0 auto; }
+  .tier-note { color: var(--muted); font-size: 14.5px; margin: 0 0 26px; }
+  /* Idea cards */
+  article.idea { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px 26px 22px; margin-bottom: 22px; scroll-margin-top: 20px; }
+  article.idea.flagship { border-color: var(--amber-line); box-shadow: 0 0 0 1px var(--amber-soft), 0 18px 40px -28px rgba(245,166,35,0.4); }
+  .idea-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .idea-head .rank { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--amber); background: var(--amber-soft); border: 1px solid var(--amber-line); border-radius: 7px; padding: 3px 9px; flex: 0 0 auto; }
+  .idea-head h3 { font-size: 21px; font-weight: 650; margin: 0; flex: 1 1 240px; letter-spacing: -0.015em; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-family: var(--mono); font-size: 11px; font-weight: 500; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--line-2); color: var(--muted); background: var(--panel-2); white-space: nowrap; }
+  .chip.axis { color: var(--amber-ink); background: var(--amber-soft); border-color: var(--amber-line); }
+  .idea .desc { color: var(--ink); font-size: 15.5px; margin: 0 0 18px; }
+  .idea dl.meta { margin: 16px 0 0; display: grid; gap: 0; border-top: 1px solid var(--line); padding-top: 14px; }
+  .idea dl.meta > dt { font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--faint); margin-top: 12px; }
+  .idea dl.meta > dt:first-child { margin-top: 0; }
+  .idea dl.meta > dd { margin: 4px 0 0; color: var(--muted); font-size: 14.5px; max-width: 74ch; }
+  .idea dl.meta > dd .pull { color: var(--ink); }
+  .tag { font-family: var(--mono); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 5px; padding: 1px 6px; margin-right: 4px; }
+  .tag.direct { color: var(--good); background: var(--good-soft); }
+  .tag.external { color: var(--amber-ink); background: var(--amber-soft); }
+  .tag.reasoned { color: #8ab4f8; background: rgba(138,180,248,0.12); }
+  /* Figures / SVG */
+  figure.viz { margin: 4px 0 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 18px; overflow: hidden; }
+  figure.viz svg { display: block; width: 100%; height: auto; }
+  figure.viz figcaption { font-size: 12.5px; color: var(--faint); margin-top: 12px; font-style: italic; }
+  .svg-label { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+  .svg-label.sm { font-size: 9.5px; }
+  .svg-ink { fill: var(--ink); }
+  .svg-amber { fill: var(--amber-ink); }
+  .svg-faint { fill: var(--faint); }
+  .halo { paint-order: stroke fill; stroke: var(--panel-2); stroke-width: 3px; stroke-linejoin: round; }
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  table thead th { text-align: left; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); font-weight: 500; padding: 0 12px 10px; border-bottom: 1px solid var(--line); }
+  table td { padding: 11px 12px; border-bottom: 1px solid var(--line); color: var(--muted); vertical-align: top; }
+  table td:first-child { font-family: var(--mono); font-size: 12px; color: var(--faint); white-space: nowrap; }
+  table td b { color: var(--ink); font-weight: 600; }
+  .rej-merge td:nth-child(3) { color: var(--faint); }
+  /* Footer */
+  footer.composition-signal { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+  footer.composition-signal code { background: none; border: none; padding: 0; color: var(--muted); }
+  @media (max-width: 620px) {
+    .jump ol { grid-template-columns: 1fr; }
+    header.doc h1 { font-size: 27px; }
+    .wrap { padding: 36px 18px 72px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <p class="eyebrow">Ideation · Conveyor Cockpit</p>
+  <h1>Cockpit Frontend Redesign</h1>
+  <p class="lede">Ten ranked directions for turning the Conveyor operator app into a Stripe-level, distinctly-Conveyor product — with the live work-DAG as its flagship. Generated by a six-frame divergent fleet, critiqued, and consolidated.</p>
+  <div class="metaline">
+    <span class="m"><b>Date</b> <time datetime="2026-06-26">2026-06-26</time></span>
+    <span class="m">·</span>
+    <span class="m"><b>Topic</b> cockpit-frontend-redesign</span>
+    <span class="m">·</span>
+    <span class="m"><b>Focus</b> Stripe-level React operator app; cockpit as flagship</span>
+    <span class="m">·</span>
+    <span class="m"><b>Mode</b> repo-grounded</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n">37</div><div class="l">Raw ideas</div></div>
+    <div class="stat"><div class="n">10</div><div class="l">Ranked</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">Axes</div></div>
+    <div class="stat"><div class="n">6</div><div class="l">Frames</div></div>
+  </div>
+</header>
+
+<section id="grounding">
+  <h2 class="sec">Grounding Context — Codebase</h2>
+  <div class="grounding">
+    <div class="gcard">
+      <h3>What exists today</h3>
+      <p>The cockpit is <code>/runs</code> → <code>CockpitLive</code>: a live work-DAG drawn with <strong>Cytoscape + ELK</strong> in <code>assets/js/hooks/dag.js</code>. Nodes are 46px colored <strong>circles</strong>; styling is ~20 lines of hand-typed CSS inlined in the LiveView; the root layout is a bare <code>&lt;body&gt;</code> with no app shell, no design system, no dark mode. Founder's verdict: <span class="pull">"looks awful."</span> The gap to Stripe-level is not the graph library — it is the absence of a design system, an app shell, real node craft, and motion.</p>
+    </div>
+    <div class="gcard">
+      <h3>The locked stack (this ideation sits on top of it)</h3>
+      <p>A uniform <strong>React</strong> frontend via <strong>Inertia.js</strong> on Phoenix — controllers return props → React pages; the server stays the authority. The one live screen (the cockpit) receives real-time deltas over a <strong>Phoenix Channel</strong>. Graph rendering moves to <strong>React Flow v12</strong>; the design layer is <strong>shadcn/ui + Radix + Tailwind + Motion + Lucide</strong>. One cohesive operator app, single deploy.</p>
+    </div>
+    <div class="gcard">
+      <h3>The data we can visualize (real, server-projected)</h3>
+      <p>Nodes are <strong>slices</strong> with eight states — <code>stalled</code>, <code>running</code>, <code>skipped</code>, <code>blocked</code>, <code>ready_idle</code>, <code>done</code>, <code>failed</code>, <code>parked</code>. Each carries <code>epic_id</code> (parent grouping), <code>blocked_by</code> (unsatisfied upstream deps), and <code>starved_dependents</code> (count of downstream work waiting on it). Edges are dependencies. The server pushes <code>graph:init</code> then incremental <code>node:patch</code> deltas as runs progress; multiple runs exist, one viewed at a time.</p>
+    </div>
+    <div class="gcard">
+      <h3>The strategic insight from best-in-class research</h3>
+      <p>"Premium" (Stripe / Linear / Vercel) is a <strong>craft level</strong>, not an aesthetic: near-mono palette + one accent, one type family, tabular numerals, generous whitespace, and every micro-state designed. The graph tools that read as products (GitHub Actions, Dagster, Prefect, n8n, Temporal, Inngest) render <strong>nodes as status cards, not circles</strong>. But the load-bearing warning: <span class="pull">the mono-plus-whitespace-plus-one-accent look is becoming the generic dev-tool default — "serious, but says nothing about who you are."</span> So the distinctive identity must live in the <strong>live DAG's node / edge / motion language</strong>, not the chrome. That insight shapes the entire ranking below.</p>
+    </div>
+  </div>
+</section>
+
+<section id="axes">
+  <h2 class="sec">Topic Axes</h2>
+  <ol class="axes">
+    <li><b>Living graph canvas</b> — node, edge, grouping, and layout craft in React Flow; the flagship surface.</li>
+    <li><b>Real-time &amp; motion</b> — making the live-fold legible and alive: transitions, flow, replay, "now."</li>
+    <li><b>App shell &amp; navigation</b> — information architecture, the operator screen set, command surfaces, moving between screens.</li>
+    <li><b>Detail &amp; data surfaces</b> — node detail, gate cards, evidence, tables, metrics and forecast panels.</li>
+    <li><b>Design language &amp; identity</b> — tokens, type, color, dark mode, density, and the distinctive-not-generic identity.</li>
+  </ol>
+</section>
+
+<section id="ideas">
+  <h2 class="sec">Ranked Ideas</h2>
+
+  <nav class="jump" aria-label="Idea index">
+    <div class="lab">Jump to</div>
+    <ol>
+      <li><a href="#i1">Edges Carry the Factory</a></li>
+      <li><a href="#i2">The Dark-Cockpit Color Law</a></li>
+      <li><a href="#i3">A Motion Grammar for State Change</a></li>
+      <li><a href="#i4">The Design-System Spine</a></li>
+      <li><a href="#i5">Live Frontier + Epic Folding</a></li>
+      <li><a href="#i6">The Slice Dossier + Non-Vacuous Gate</a></li>
+      <li><a href="#i7">The Run Wall / Flight-Strip Board</a></li>
+      <li><a href="#i8">The Needs-Me Inbox</a></li>
+      <li><a href="#i9">The Walk-Away HUD</a></li>
+      <li><a href="#i10">Time Transport</a></li>
+    </ol>
+  </nav>
+
+  <p class="tier-note"><strong>How to read this set.</strong> Ideas <strong>1–4</strong> are the spine: the identity (edges, color, motion) plus the design-system substrate that makes that identity reusable across every future screen — high conviction, mostly frontend craft on data and a protocol that already exist. <strong>5–6</strong> are the canvas-at-scale and the observe-→-act loop. <strong>7–10</strong> are bigger reframes about supervising an autonomous factory; two of them (8, 9) are genuine strategic forks I want to flag, not assume.</p>
+
+  <!-- 1 -->
+  <article class="idea flagship" id="i1">
+    <div class="idea-head">
+      <span class="rank">01</span>
+      <h3>Edges Carry the Factory</h3>
+      <span class="chips"><span class="chip axis">A1 · Canvas</span><span class="chip">Conf 85%</span><span class="chip">Cx Medium</span></span>
+    </div>
+    <p class="desc">Put the distinctive identity where the research says it must live — the edges, not the chrome — and let the product's own name do the work. Dependency edges become the literal conveyor: <strong>directional flow animates only on active paths</strong>; a node's outgoing edges <strong>thicken and glow in proportion to <code>starved_dependents</code></strong>, so a bottleneck visibly <em>bulges</em> with the work piling up behind it; <code>blocked_by</code> edges render as taut, dimmed tension that <em>releases</em> when satisfied. Nodes stay quiet status cards; the system's energy reads off the wires. Three independent frames (analogy/SCADA, constraint-flip, pain) converged here — the strongest signal in the set.</p>
+    <figure class="viz">
+      <svg viewBox="0 0 700 188" role="img" aria-label="Comparison: today's uniform thin edges versus flow-and-back-pressure edges">
+        <!-- divider -->
+        <line x1="350" y1="16" x2="350" y2="172" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/>
+        <text x="20" y="26" class="svg-label svg-faint">TODAY · inert lines</text>
+        <text x="372" y="26" class="svg-label svg-amber">CONVEYOR · flow + back-pressure</text>
+        <!-- LEFT: thin uniform -->
+        <rect x="24" y="80" width="74" height="34" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <rect x="150" y="50" width="74" height="34" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <rect x="150" y="110" width="74" height="34" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <rect x="262" y="80" width="62" height="34" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <line x1="98" y1="93" x2="150" y2="67" stroke="var(--faint)" stroke-width="1.5"/>
+        <line x1="98" y1="100" x2="150" y2="127" stroke="var(--faint)" stroke-width="1.5"/>
+        <line x1="224" y1="67" x2="262" y2="93" stroke="var(--faint)" stroke-width="1.5"/>
+        <line x1="224" y1="127" x2="262" y2="100" stroke="var(--faint)" stroke-width="1.5"/>
+        <!-- RIGHT: flow + bulge + tension -->
+        <rect x="380" y="80" width="74" height="34" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <rect x="512" y="50" width="74" height="34" rx="7" fill="var(--panel)" stroke="var(--amber-line)"/>
+        <rect x="512" y="112" width="74" height="34" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <rect x="626" y="80" width="58" height="34" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <!-- thick glowing back-pressure edge to the busy node -->
+        <path d="M454 93 C 482 80, 488 70, 512 67" stroke="var(--amber)" stroke-width="6" fill="none" opacity="0.9" stroke-linecap="round"/>
+        <!-- starved count badge near edge midpoint -->
+        <rect x="466" y="58" width="34" height="16" rx="8" fill="var(--amber-soft)" stroke="var(--amber-line)"/>
+        <text x="483" y="69" text-anchor="middle" class="svg-label sm svg-amber halo">×6</text>
+        <!-- tension / blocked edge (dashed, dim) -->
+        <path d="M454 100 C 482 112, 488 122, 512 128" stroke="var(--faint)" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+        <!-- outflow -->
+        <path d="M586 67 C 610 80, 612 86, 626 93" stroke="var(--amber)" stroke-width="2.5" fill="none" opacity="0.8"/>
+        <text x="512" y="170" class="svg-label sm svg-faint">edge weight ∝ work waiting behind the node</text>
+      </svg>
+      <figcaption>Same topology, two languages. The fattest, brightest wire is the real bottleneck — no legend, no reading required.</figcaption>
+    </figure>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag direct">direct</span> <code>starved_dependents</code> and <code>blocked_by</code> already exist on every node and are currently unvisualized. <span class="tag external">external</span> SCADA P&amp;ID mimic diagrams (animated flow on live lines, visible back-pressure at blockages) and Sankey flow-weighting. <span class="tag reasoned">reasoned</span> the product is literally named <em>Conveyor</em>; edge-as-flow is the one visual nobody else in the category builds, and it's data-true rather than decorative.</dd>
+      <dt>Rationale</dt>
+      <dd>This is the highest-leverage identity move available: it converts the strategic risk ("looks like every other dev tool") into a signature, and it answers the operator's first question — <span class="pull">where is work piling up?</span> — spatially, in ~100ms, instead of by clicking nodes.</dd>
+      <dt>Downsides</dt>
+      <dd>Edge weighting needs a sensible scale so a 40-waiter node doesn't dominate the canvas; over-animating flow re-introduces the "everything pulsing" noise the research warns against (mitigate: active-path only, motion off by default). Requires a custom React Flow edge renderer.</dd>
+    </dl>
+  </article>
+
+  <!-- 2 -->
+  <article class="idea flagship" id="i2">
+    <div class="idea-head">
+      <span class="rank">02</span>
+      <h3>The Dark-Cockpit Color Law</h3>
+      <span class="chips"><span class="chip axis">A5 · Identity</span><span class="chip">Conf 88%</span><span class="chip">Cx Low</span></span>
+    </div>
+    <p class="desc">Borrow aviation's "dark cockpit" doctrine: when all is nominal, the panel is calm and unlit; <strong>saturated color appears only when something needs you</strong>, ranked by severity. Nominal states (<code>running</code>, <code>ready_idle</code>, <code>done</code>, <code>skipped</code>, <code>parked</code>) render in restrained monochrome; color is reserved for exceptions — <code>failed</code> = warning (red), <code>blocked</code> with high starvation = caution (amber), <code>stalled</code> = advisory. A persistent <strong>master-caution strip</strong> pins the single top-ranked exception so the operator never hunts for it, and a 2px ambient viewport border encodes overall health pre-attentively. This sharpens the generic "color = status" cliché into a law that does real work.</p>
+    <figure class="viz">
+      <svg viewBox="0 0 700 150" role="img" aria-label="Eight states split into calm nominal monochrome and three ranked color exceptions">
+        <text x="20" y="24" class="svg-label svg-faint">NOMINAL · monochrome (calm)</text>
+        <!-- nominal swatches -->
+        <g>
+          <rect x="20" y="36" width="92" height="30" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+          <text x="66" y="55" text-anchor="middle" class="svg-label sm svg-ink">running</text>
+          <rect x="120" y="36" width="92" height="30" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+          <text x="166" y="55" text-anchor="middle" class="svg-label sm svg-ink">ready_idle</text>
+          <rect x="220" y="36" width="92" height="30" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+          <text x="266" y="55" text-anchor="middle" class="svg-label sm svg-ink">done</text>
+          <rect x="320" y="36" width="78" height="30" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+          <text x="359" y="55" text-anchor="middle" class="svg-label sm svg-ink">skipped</text>
+        </g>
+        <text x="430" y="24" class="svg-label svg-amber">EXCEPTIONS · ranked color</text>
+        <g>
+          <rect x="430" y="36" width="80" height="30" rx="7" fill="var(--red-soft)" stroke="var(--red)"/>
+          <text x="470" y="55" text-anchor="middle" class="svg-label sm" fill="#f3a3a3">failed</text>
+          <rect x="518" y="36" width="80" height="30" rx="7" fill="var(--caution-soft)" stroke="var(--caution)"/>
+          <text x="558" y="55" text-anchor="middle" class="svg-label sm" fill="#e7b478">blocked</text>
+          <rect x="606" y="36" width="78" height="30" rx="7" fill="rgba(168,162,158,0.12)" stroke="var(--advisory)"/>
+          <text x="645" y="55" text-anchor="middle" class="svg-label sm" fill="#c4bfbb">stalled</text>
+        </g>
+        <!-- master caution strip -->
+        <rect x="20" y="92" width="664" height="38" rx="9" fill="var(--red-soft)" stroke="var(--red)"/>
+        <circle cx="44" cy="111" r="6" fill="var(--red)"/>
+        <text x="62" y="115" class="svg-label" fill="#f3a3a3">MASTER CAUTION</text>
+        <text x="210" y="115" class="svg-label svg-ink halo" style="stroke:var(--bg)">slice "compile-web" failed · 3 dependents now starved</text>
+        <text x="600" y="115" class="svg-label sm svg-faint">→ jump</text>
+      </svg>
+      <figcaption>Severity, not decoration. A healthy factory is a quiet grey screen; the instant color appears, it is telling you exactly where to look.</figcaption>
+    </figure>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag external">external</span> aviation Crew Alerting System / "dark cockpit" doctrine (warning → caution → advisory tiers; master caution). <span class="tag direct">direct</span> the 8 states partition cleanly into nominal vs. exception; <code>starved_dependents</code> sets caution severity. <span class="tag reasoned">reasoned</span> "color only for status" is under-specified — equal color across 8 states is noise; severity-ranked scarcity makes one glance answer the unattended operator's real question, "does anything need me?"</dd>
+      <dt>Rationale</dt>
+      <dd>This is the difference between a pretty graph and a cockpit you trust to leave running. It is also the cheapest high-impact move in the set — primarily a token + rule decision, not a new component — and it directly serves the founder's walk-away thesis.</dd>
+      <dt>Downsides</dt>
+      <dd>Requires discipline to hold the line (every future screen must resist decorative color); colorblind-safe encoding must pair color with shape/icon; "what counts as an exception" needs a clear, stable definition so the panel doesn't cry wolf.</dd>
+    </dl>
+  </article>
+
+  <!-- 3 -->
+  <article class="idea flagship" id="i3">
+    <div class="idea-head">
+      <span class="rank">03</span>
+      <h3>A Motion Grammar for State Change</h3>
+      <span class="chips"><span class="chip axis">A2 · Motion</span><span class="chip">Conf 82%</span><span class="chip">Cx Medium</span></span>
+    </div>
+    <p class="desc">This is where premium <em>and</em> distinctiveness are actually manufactured — no whitespace dev-tool can copy motion. Define a fixed vocabulary of sub-300ms ease-out transitions, <strong>one signature per state change</strong>, animating only the node and edges a <code>node:patch</code> delta actually touched: a completing slice <em>settles</em> and releases its downstream edge; an unblocking slice's incoming edge <em>fires</em> and the node wakes (the RTS tech-tree "unlock pulse" — the proprietary signature); a failure <em>fractures</em>; a <code>stalled</code> node desaturates and cools; long-running nodes accrue a faint duration aura; and a completed node leaves a 300ms <em>ghost</em> at its old position so the eye keeps its place across re-layout. Shipped as one shared Motion variants object keyed by state — so the grammar is consistent everywhere and free on every new surface.</p>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag direct">direct</span> the server already streams <code>node:patch</code> deltas with old→new state — a free choreography source most tools waste by snapping. <span class="tag external">external</span> Emil Kowalski / Linear motion craft ("&lt;300ms, ease-out, animate only what changed"); RTS tech-tree unlock feedback; Material shared-element continuity. <span class="tag reasoned">reasoned</span> a watcher learns to read state peripherally by motion signature — meaning arrives before the label is read.</dd>
+      <dt>Rationale</dt>
+      <dd>Turns the real-time feed from a jarring snap into choreography, and makes the live-fold the thing that feels alive. Because it is one variants object, the motion identity propagates to list rows, badges, and toasts at zero per-screen cost.</dd>
+      <dt>Downsides</dt>
+      <dd>Easy to overdo — the grammar needs a strict budget and <code>prefers-reduced-motion</code> support; ghosting + re-layout interaction needs care so it reads as continuity, not lag; simultaneous deltas must batch gracefully.</dd>
+    </dl>
+  </article>
+
+  <!-- 4 -->
+  <article class="idea flagship" id="i4">
+    <div class="idea-head">
+      <span class="rank">04</span>
+      <h3>The Design-System Spine</h3>
+      <span class="chips"><span class="chip axis">A5 · Identity</span><span class="chip">Conf 90%</span><span class="chip">Cx Medium</span></span>
+    </div>
+    <p class="desc">The compounding substrate that makes every future screen cheap and the whole app coherent — the highest-confidence direction in the set. Four pieces: <strong>(a) Semantic Status DNA</strong> — one token set (hue / saturation / luminance / motion) per state that every consumer reads, dark-mode-first, so adding a 9th state is one file edit; <strong>(b) the Node-Card Genome</strong> — a single <code>&lt;SliceCard&gt;</code> primitive at three scales (nano in the DAG, compact in lists, full in the detail rail) so the graph node <em>is</em> the list row <em>is</em> the panel header; <strong>(c) a reusable <code>&lt;LiveRail&gt;</code></strong> typed-event-stream component the cockpit, gate audit, and evidence views all mount; <strong>(d) a ⌘K command palette</strong> with a handler-registration API so each new screen ships palette integration in ~15 lines.</p>
+    <figure class="viz">
+      <svg viewBox="0 0 700 170" role="img" aria-label="One SliceCard primitive rendered at three scales: nano, compact, full">
+        <text x="20" y="22" class="svg-label svg-faint">ONE PRIMITIVE · THREE SCALES</text>
+        <!-- nano -->
+        <rect x="24" y="44" width="120" height="40" rx="8" fill="var(--panel)" stroke="var(--line-2)"/>
+        <circle cx="42" cy="64" r="5" fill="var(--amber)"/>
+        <text x="56" y="61" class="svg-label sm svg-ink">compile-web</text>
+        <text x="56" y="74" class="svg-label sm svg-faint">running</text>
+        <text x="84" y="104" text-anchor="middle" class="svg-label sm svg-amber">nano · in DAG</text>
+        <!-- compact -->
+        <rect x="206" y="40" width="190" height="48" rx="8" fill="var(--panel)" stroke="var(--line-2)"/>
+        <circle cx="226" cy="64" r="5" fill="var(--amber)"/>
+        <text x="240" y="60" class="svg-label sm svg-ink">compile-web</text>
+        <text x="240" y="73" class="svg-label sm svg-faint">running · 4m12s · epic: build</text>
+        <rect x="356" y="54" width="28" height="14" rx="7" fill="var(--amber-soft)" stroke="var(--amber-line)"/>
+        <text x="370" y="64" text-anchor="middle" class="svg-label sm svg-amber halo">×6</text>
+        <text x="301" y="104" text-anchor="middle" class="svg-label sm svg-amber">compact · in lists</text>
+        <!-- full -->
+        <rect x="458" y="40" width="218" height="96" rx="9" fill="var(--panel)" stroke="var(--amber-line)"/>
+        <circle cx="478" cy="62" r="5" fill="var(--amber)"/>
+        <text x="492" y="58" class="svg-label sm svg-ink">compile-web</text>
+        <text x="492" y="71" class="svg-label sm svg-faint">running · 4m12s</text>
+        <line x1="470" y1="84" x2="664" y2="84" stroke="var(--line)"/>
+        <text x="470" y="101" class="svg-label sm svg-faint">blocked_by — none</text>
+        <text x="470" y="116" class="svg-label sm svg-faint">starved_dependents — 6</text>
+        <text x="470" y="131" class="svg-label sm svg-amber">[ open dossier ]</text>
+        <text x="567" y="158" text-anchor="middle" class="svg-label sm svg-amber">full · in detail rail</text>
+      </svg>
+      <figcaption>Design the slice once; every entity surface (runs, evidence, reviews, agents) becomes a scale selection, not a new design session.</figcaption>
+    </figure>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag direct">direct</span> the 8 states and the slice fields recur across every planned screen (runs, evidence, reviews, gates). <span class="tag external">external</span> shadcn's "own the code" model + Radix primitives; cmdk command-palette as the standard operator-tool nav (Linear, Vercel); React Flow custom JSX nodes. <span class="tag reasoned">reasoned</span> making the DAG node and the list row the same component is the compounding insight — design effort spent once pays out on every surface.</dd>
+      <dt>Rationale</dt>
+      <dd>This is the pragmatic backbone that lets the ambitious identity ideas (1–3) actually reach the whole app instead of living only on one screen. It is the "build on what exists, compounds over time" move — exactly the leverage the founder optimizes for.</dd>
+      <dt>Downsides</dt>
+      <dd>Less visually exciting than the identity ideas, so easy to under-invest in early; over-abstracting too soon (before 2–3 real screens exist) risks the wrong primitives. Best built <em>alongside</em> the cockpit slice, extracted from it, not ahead of it.</dd>
+    </dl>
+  </article>
+
+  <!-- 5 -->
+  <article class="idea" id="i5">
+    <div class="idea-head">
+      <span class="rank">05</span>
+      <h3>Live Frontier + Epic Folding</h3>
+      <span class="chips"><span class="chip axis">A1 · Canvas</span><span class="chip">Conf 80%</span><span class="chip">Cx Medium</span></span>
+    </div>
+    <p class="desc">Stop rendering the whole flat graph with equal weight — an autonomous run's interesting content is its <strong>moving edge</strong>, not its settled history. Render the execution frontier (the band of <code>running</code> + <code>ready_idle</code> slices) at full fidelity; <strong>fold the completed past into collapsed epic chips</strong> (each showing "7 / 12 done · 1 failed"); and foreshadow the near-future by lighting the slices whose <code>blocked_by</code> is about to clear. <strong>Semantic zoom is the filter</strong> — epics are React Flow sub-flow containers that expand on zoom-in, so a 3-slice smoke test and a 40-epic mega-plan use the same screen with no mode switch. The wavefront sweeps as a moving zone of attention; folding doubles as the scale answer (it keeps React Flow in its comfortable node range without a separate "1000-node mode").</p>
+    <figure class="viz">
+      <svg viewBox="0 0 700 150" role="img" aria-label="A horizontal band: folded past chips, the live frontier at full fidelity, dimmed foreshadowed future">
+        <!-- folded past -->
+        <rect x="20" y="46" width="150" height="58" rx="9" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="34" y="66" class="svg-label sm svg-faint">epic: plan ✓</text>
+        <text x="34" y="82" class="svg-label sm svg-faint">epic: scaffold ✓</text>
+        <rect x="34" y="88" width="100" height="6" rx="3" fill="var(--good-soft)"/>
+        <rect x="34" y="88" width="100" height="6" rx="3" fill="none" stroke="var(--line)"/>
+        <text x="95" y="124" text-anchor="middle" class="svg-label sm svg-faint">FOLDED PAST</text>
+        <!-- frontier -->
+        <rect x="210" y="34" width="260" height="82" rx="10" fill="var(--panel-2)" stroke="var(--amber-line)"/>
+        <rect x="226" y="52" width="108" height="30" rx="7" fill="var(--panel)" stroke="var(--amber-line)"/>
+        <circle cx="244" cy="67" r="4" fill="var(--amber)"/>
+        <text x="256" y="71" class="svg-label sm svg-ink">compile-web</text>
+        <rect x="226" y="86" width="108" height="22" rx="6" fill="var(--panel)" stroke="var(--line-2)"/>
+        <text x="240" y="100" class="svg-label sm svg-faint">test-api</text>
+        <rect x="346" y="52" width="108" height="30" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+        <text x="360" y="71" class="svg-label sm svg-ink">build-cli</text>
+        <text x="340" y="134" text-anchor="middle" class="svg-label sm svg-amber">LIVE FRONTIER · full fidelity</text>
+        <!-- future -->
+        <g opacity="0.45">
+          <rect x="512" y="46" width="168" height="58" rx="9" fill="var(--panel)" stroke="var(--line)" stroke-dasharray="4 4"/>
+          <text x="526" y="66" class="svg-label sm svg-faint">epic: release</text>
+          <text x="526" y="82" class="svg-label sm svg-faint">epic: deploy</text>
+        </g>
+        <text x="596" y="124" text-anchor="middle" class="svg-label sm svg-faint">FORESHADOWED</text>
+        <!-- sweep arrow -->
+        <path d="M180 30 L 196 30" stroke="var(--amber)" stroke-width="1.5" marker-end="url(#ar)"/>
+        <path d="M474 30 L 506 30" stroke="var(--faint)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#ar2)"/>
+        <defs>
+          <marker id="ar" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="var(--amber)"/></marker>
+          <marker id="ar2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="var(--faint)"/></marker>
+        </defs>
+      </svg>
+      <figcaption>The screen answers "where is the factory right now?" from across the room — even on a 300-node run — because the past is folded and the future is dimmed.</figcaption>
+    </figure>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag direct">direct</span> <code>epic_id</code> defines the natural fold boundary; <code>running</code>/<code>ready_idle</code>/<code>blocked_by</code> define the frontier and its leading edge. <span class="tag external">external</span> React Flow v12 sub-flows; Google-Maps semantic zoom; live-tail focus bands (Datadog). <span class="tag reasoned">reasoned</span> equal-weight rendering buries the 5 live nodes among 200 done ones; folding is both legibility and culling.</dd>
+      <dt>Rationale</dt>
+      <dd>Serves the glance-not-stare operator and removes the "overview vs. detail" toggle entirely (zoom is the toggle). It also quietly solves the React Flow performance ceiling without a special large-graph mode.</dd>
+      <dt>Downsides</dt>
+      <dd>"What counts as the frontier" needs a clear rule; auto-folding can hide something the operator wanted to watch (needs a pin/override); animated re-fold on every delta must be calm, not churny.</dd>
+    </dl>
+  </article>
+
+  <!-- 6 -->
+  <article class="idea" id="i6">
+    <div class="idea-head">
+      <span class="rank">06</span>
+      <h3>The Slice Dossier + Non-Vacuous Gate</h3>
+      <span class="chips"><span class="chip axis">A4 · Detail</span><span class="chip">Conf 78%</span><span class="chip">Cx High</span></span>
+    </div>
+    <p class="desc">Break observe-only and close the loop from <em>see the problem</em> to <em>fix the problem</em>. Tapping a node opens not a read-only JSON panel but a <strong>dossier</strong>: the contract the slice promised, the evidence it produced, a failure fingerprint (a state-transition sparkline + the <code>blocked_by</code> chain), and — the centerpiece — the gate rendered as <strong>NASA mission-control's go / no-go poll</strong>. Each verification check is a named "controller" reporting GO / NO-GO / STANDBY with its evidence inline; the gate cannot pass while any check is NO-GO, and a single boolean checkmark becomes impossible. First-class actions live inline (approve / reject gate, retry, park, requeue). The graph stops being a museum behind glass and becomes where you drive the factory.</p>
+    <figure class="viz">
+      <svg viewBox="0 0 700 168" role="img" aria-label="A gate rendered as a go/no-go poll board of named checks, one withholding GO with its reason">
+        <text x="20" y="22" class="svg-label svg-faint">GATE · go / no-go poll</text>
+        <!-- rows -->
+        <g>
+          <rect x="20" y="34" width="660" height="26" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+          <text x="34" y="51" class="svg-label sm svg-ink">tests</text>
+          <rect x="600" y="39" width="66" height="16" rx="8" fill="var(--good-soft)" stroke="var(--good)"/>
+          <text x="633" y="50" text-anchor="middle" class="svg-label sm" fill="#7ee2bd">GO</text>
+          <text x="300" y="51" class="svg-label sm svg-faint">142 passed · 0 failed</text>
+        </g>
+        <g>
+          <rect x="20" y="64" width="660" height="26" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+          <text x="34" y="81" class="svg-label sm svg-ink">lint + format</text>
+          <rect x="600" y="69" width="66" height="16" rx="8" fill="var(--good-soft)" stroke="var(--good)"/>
+          <text x="633" y="80" text-anchor="middle" class="svg-label sm" fill="#7ee2bd">GO</text>
+          <text x="300" y="81" class="svg-label sm svg-faint">clean</text>
+        </g>
+        <g>
+          <rect x="20" y="94" width="660" height="26" rx="6" fill="var(--red-soft)" stroke="var(--red)"/>
+          <text x="34" y="111" class="svg-label sm svg-ink">red-team review</text>
+          <rect x="592" y="99" width="74" height="16" rx="8" fill="var(--red-soft)" stroke="var(--red)"/>
+          <text x="629" y="110" text-anchor="middle" class="svg-label sm" fill="#f3a3a3">NO-GO</text>
+          <text x="300" y="111" class="svg-label sm halo" style="stroke:var(--bg)" fill="#e7b478">unverified claim in §3 — evidence ↓</text>
+        </g>
+        <g>
+          <rect x="20" y="124" width="660" height="26" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+          <text x="34" y="141" class="svg-label sm svg-ink">coverage</text>
+          <rect x="596" y="129" width="70" height="16" rx="8" fill="rgba(168,162,158,0.14)" stroke="var(--advisory)"/>
+          <text x="631" y="140" text-anchor="middle" class="svg-label sm" fill="#c4bfbb">STANDBY</text>
+          <text x="300" y="141" class="svg-label sm svg-faint">awaiting red-team</text>
+        </g>
+      </svg>
+      <figcaption>The gate doesn't just say "failed" — it shows <em>which</em> controller called no-go and hands you the evidence. Vacuity has nowhere to hide.</figcaption>
+    </figure>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag external">external</span> NASA mission-control go/no-go polling (per-discipline controllers, unanimous GO required, named accountability). <span class="tag direct">direct</span> Conveyor's data model is already contract → evidence → review → gate — a dossier waiting for a surface; the prior ideation named "non-vacuous gate card" and "decide-on-the-node." <span class="tag reasoned">reasoned</span> a supervisor who can only watch must context-switch to a CLI to act, which guarantees the UI stays a toy.</dd>
+      <dt>Rationale</dt>
+      <dd>This renders Conveyor's entire trust thesis as UI — the product's hardest claim ("this work is verified") becomes legible and falsifiable at a glance. It is also what turns the cockpit from a viewer into an instrument.</dd>
+      <dt>Downsides</dt>
+      <dd>Highest build cost in the spine — needs the server to surface contract/evidence/gate detail and accept actions through the Channel, and inline actions raise auth/authority questions (the server must remain the decision authority; the UI only requests). Sequence it after the observe-only redesign lands.</dd>
+    </dl>
+  </article>
+
+  <!-- 7 -->
+  <article class="idea" id="i7">
+    <div class="idea-head">
+      <span class="rank">07</span>
+      <h3>The Run Wall / Flight-Strip Board</h3>
+      <span class="chips"><span class="chip axis">A3 · Shell</span><span class="chip">Conf 72%</span><span class="chip">Cx Medium</span></span>
+    </div>
+    <p class="desc">The walk-away endgame ("hand Conveyor a big plan, it builds end-to-end") implies running several plans at once — which makes "one run at a time" the wrong default. Flip the run switcher into a <strong>fleet surface</strong>: a wall of living run-tiles (or air-traffic-control-style flight strips), each a compact miniature showing a per-state status bar, a pulse when a delta lands, and a flag when it needs a human — <strong>sorted by who needs attention</strong>. The full DAG cockpit is what you drill <em>into</em> from a tile. An unattended operator triages the whole factory at a glance before diving into one run.</p>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag external">external</span> ATC flight-progress strips (one strip per concurrent track, ordered by attention) and small-multiples fleet boards (Grafana, Vercel deployments). <span class="tag direct">direct</span> "multiple runs; one viewed at a time"; the 8 states roll up to per-run health and exception counts. <span class="tag reasoned">reasoned</span> without a concurrent overview the operator can't answer "which run needs me?" factory-wide.</dd>
+      <dt>Rationale</dt>
+      <dd>Turns the cockpit from a single-run viewer into a factory-wide control surface — the unattended operator's real job is triaging N runs, which nothing today serves.</dd>
+      <dt>Downsides</dt>
+      <dd>Only earns its keep once multiple concurrent runs are common; risks duplicating the Needs-Me Inbox (#8) if both ship — pick the organizing metaphor deliberately rather than building both.</dd>
+    </dl>
+  </article>
+
+  <!-- 8 -->
+  <article class="idea" id="i8">
+    <div class="idea-head">
+      <span class="rank">08</span>
+      <h3>The Needs-Me Inbox</h3>
+      <span class="chips"><span class="chip axis">A3 · Shell</span><span class="chip">Conf 66%</span><span class="chip">Cx Medium</span></span>
+    </div>
+    <p class="desc"><strong>The boldest reframe in the set — and a genuine strategic fork.</strong> It breaks the assumption that the graph is the centerpiece. In a working autonomous system, almost everything is fine almost all the time; the operator's scarce resource is the handful of moments that need a human (a gate waiting, a slice failed, a decision fork). So a persistent <strong>needs-me inbox</strong> becomes the spine of the app, and the beautiful DAG becomes the <em>evidence</em> surface you expand <em>from</em> an inbox item to see why. Supervise-by-exception, with the graph as the proof layer rather than the homepage. This is what makes the walk-away thesis genuinely operable — but it is in direct tension with making the live DAG the flagship (ideas 1–5), which is exactly why it deserves a deliberate decision.</p>
+    <figure class="viz">
+      <svg viewBox="0 0 700 156" role="img" aria-label="Layout reframe: a needs-me inbox as the spine, the DAG demoted to an evidence panel">
+        <text x="20" y="22" class="svg-label svg-amber">SPINE · needs-me inbox</text>
+        <text x="400" y="22" class="svg-label svg-faint">EVIDENCE · graph on demand</text>
+        <!-- inbox -->
+        <rect x="20" y="32" width="350" height="112" rx="10" fill="var(--panel)" stroke="var(--amber-line)"/>
+        <rect x="34" y="44" width="322" height="28" rx="6" fill="var(--red-soft)" stroke="var(--red)"/>
+        <circle cx="50" cy="58" r="4" fill="var(--red)"/>
+        <text x="64" y="62" class="svg-label sm svg-ink">gate waiting · run #42 · red-team no-go</text>
+        <rect x="34" y="76" width="322" height="28" rx="6" fill="var(--caution-soft)" stroke="var(--caution)"/>
+        <circle cx="50" cy="90" r="4" fill="var(--caution)"/>
+        <text x="64" y="94" class="svg-label sm svg-ink">slice failed · compile-web · 3 starved</text>
+        <rect x="34" y="108" width="322" height="28" rx="6" fill="var(--panel-2)" stroke="var(--line-2)"/>
+        <circle cx="50" cy="122" r="4" fill="var(--advisory)"/>
+        <text x="64" y="126" class="svg-label sm svg-faint">decision fork · pick adapter · run #39</text>
+        <!-- graph as evidence -->
+        <rect x="400" y="32" width="280" height="112" rx="10" fill="var(--panel-2)" stroke="var(--line)"/>
+        <circle cx="445" cy="74" r="9" fill="var(--panel)" stroke="var(--line-2)"/>
+        <circle cx="510" cy="60" r="9" fill="var(--panel)" stroke="var(--red)"/>
+        <circle cx="510" cy="92" r="9" fill="var(--panel)" stroke="var(--line-2)"/>
+        <circle cx="575" cy="74" r="9" fill="var(--panel)" stroke="var(--line-2)"/>
+        <line x1="454" y1="71" x2="501" y2="62" stroke="var(--faint)"/>
+        <line x1="454" y1="77" x2="501" y2="90" stroke="var(--faint)"/>
+        <line x1="519" y1="60" x2="566" y2="71" stroke="var(--faint)"/>
+        <text x="540" y="132" text-anchor="middle" class="svg-label sm svg-faint">expanded from the failed item</text>
+      </svg>
+      <figcaption>Reframe: the queue of things that need a human is primary; the gorgeous graph is the context you open to understand one of them.</figcaption>
+    </figure>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag reasoned">reasoned</span> in a working autonomous system the signal-to-noise of "watch the graph" is terrible — the scarce resource is human decisions, so the UI should be organized around those. <span class="tag external">external</span> Linear inbox; PagerDuty/Opsgenie incident queue; GitHub required-reviews queue. <span class="tag direct">direct</span> prior capabilities "decide-on-the-node," "failure fingerprinting &amp; BubbleUp," "non-vacuous gate card."</dd>
+      <dt>Rationale</dt>
+      <dd>It is the reframe that makes the founder's walk-away thesis operable — you can run unattended precisely because the few things that need you are pushed to a queue instead of hidden in a graph you must stare at.</dd>
+      <dt>Downsides</dt>
+      <dd>Directly competes with the "DAG as flagship/identity" thesis — committing here demotes the very surface ideas 1–5 invest in. Likely the right <em>eventual</em> shell but the wrong thing to lead with while the live graph is still the demo that sells the product. Treat as a deliberate fork, not a both-and.</dd>
+    </dl>
+  </article>
+
+  <!-- 9 -->
+  <article class="idea" id="i9">
+    <div class="idea-head">
+      <span class="rank">09</span>
+      <h3>The Walk-Away HUD</h3>
+      <span class="chips"><span class="chip axis">A4 · Detail</span><span class="chip">Conf 60%</span><span class="chip">Cx High</span></span>
+    </div>
+    <p class="desc">An F1 pit wall continuously answers "given current pace, what's the projected outcome — and do we need to act?" Give each run a pit-wall HUD: projected finish, current pace vs. the plan's expected path, the single current bottleneck slice, and a prominent <strong>walk-away verdict — SAFE TO LEAVE / NEEDS YOU SOON / ACTING NOW</strong>, with the reason. Pair it with <strong>"Since You Last Looked"</strong>: on re-entry, a recap of the deltas you missed ("4 slices done · 1 failed · gate now waiting") with the changed nodes pulsing before the view settles into live mode. Designs for the operator's actual relationship to an autonomous system — intermittent supervision — instead of pretending they stare all day.</p>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag external">external</span> F1 pit-wall strategy screens (timing tower with deltas-to-reference, projected outcome, pit/stay call); macOS Time Machine / Slack unread-since-marker for the re-entry pattern. <span class="tag direct">direct</span> a plan-bearing system knows its own expected path; per-slice time-in-state and the delta stream are available. <span class="tag reasoned">reasoned</span> "is it safe to walk away" is the central unattended question with no quantitative home today.</dd>
+      <dt>Rationale</dt>
+      <dd>Converts a vague feeling ("seems fine?") into an explicit, evidence-backed go/no-go to stop watching — the Walk-Away Meter and Forecast delivered as one trustworthy HUD.</dd>
+      <dt>Downsides</dt>
+      <dd>The forecast/verdict is mostly a <em>backend</em> capability (a pace-vs-plan model Conveyor may not yet produce) — this is more than a frontend redesign, so confidence is lower and it depends on work outside this effort. The "since you last looked" half is cheaper and could ship first.</dd>
+    </dl>
+  </article>
+
+  <!-- 10 -->
+  <article class="idea" id="i10">
+    <div class="idea-head">
+      <span class="rank">10</span>
+      <h3>Time Transport</h3>
+      <span class="chips"><span class="chip axis">A2 · Motion</span><span class="chip">Conf 55%</span><span class="chip">Cx High</span></span>
+    </div>
+    <p class="desc">Give the event-fold a DAW / video-editor transport. A time ruler with epics as stacked tracks, a "now" playhead riding the live edge, <strong>scrub to replay</strong> the run's state at any past instant, and a diff mode that pins two timestamps to show what changed between them. The <code>node:patch</code> stream is the timeline's event source; the playhead snaps to "live" or detaches to investigate history. This is the "what just broke and why" post-mortem made fluent — for the common case where you weren't watching when it happened.</p>
+    <dl class="meta">
+      <dt>Basis</dt>
+      <dd><span class="tag external">external</span> DAW / NLE transport + multitrack timeline (playhead, scrub, in/out diff regions — Ableton, Premiere); Temporal's Timeline/Compact replay views. <span class="tag direct">direct</span> the <code>node:patch</code> stream and <code>epic_id</code> tracks; prior capability "event-fold (live·replay·diff)." <span class="tag reasoned">reasoned</span> playhead-and-scrub is the most universally understood way to move through time over an event stream.</dd>
+      <dt>Rationale</dt>
+      <dd>Turns replay-and-diff from a feature into a craft-grade interaction operators already know how to use — essential for after-action review of an unattended run.</dd>
+      <dt>Downsides</dt>
+      <dd>The heaviest build in the set — requires the server to retain and serve full event history for time-travel reconstruction, which is real infrastructure beyond a frontend redesign. A "later" direction once the live cockpit and dossier exist.</dd>
+    </dl>
+  </article>
+
+</section>
+
+<section id="rejections">
+  <h2 class="sec">Rejection Summary</h2>
+  <p style="color:var(--muted);font-size:14.5px;max-width:74ch;margin:0 0 18px;">Critique was orchestrator arbitration (the fresh-context verifier was folded into selection; cross-frame convergence across five no-shared-context agents served as the primary validation signal). Most strong candidates were not discarded but <em>merged</em> into a higher-ranked direction — recorded below so nothing is silently lost. Axis coverage is complete: every axis (A1–A5) has at least two survivors.</p>
+  <table>
+    <thead><tr><th>Source</th><th>Idea</th><th>Disposition</th></tr></thead>
+    <tbody>
+      <tr><td>X1</td><td><b>Subway / Metro-Map layout</b> (octolinear, epics-as-lines)</td><td>Rejected — high custom-layout build + legibility risk for true DAGs; the identity win it chases is captured better and far cheaper by edge-flow (#1). Worth revisiting as a brainstorm variant if #1 underdelivers.</td></tr>
+      <tr class="rej-merge"><td>P1, P3, X8</td><td>Starvation halos · active-path pulse · SCADA back-pressure</td><td>Merged into #1 — back-pressure is the strongest single encoding of <code>starved_dependents</code>.</td></tr>
+      <tr class="rej-merge"><td>X2, P7, I6</td><td>Dark-cockpit CAS · amber precision palette · ambient health border</td><td>Merged into #2 — one coherent color law (severity tiers + master caution + ambient border).</td></tr>
+      <tr class="rej-merge"><td>I4, L7, L3, P4, X3</td><td>Transition motion vocab · variant map · duration aura · completion ghosts · RTS unlock pulse</td><td>Merged into #3 — all are facets of one motion grammar.</td></tr>
+      <tr class="rej-merge"><td>L1, L2, L4, L5, L6</td><td>Status DNA · card genome · ⌘K registration · persistent minimap · LiveRail</td><td>Consolidated into #4 — the design-system spine.</td></tr>
+      <tr class="rej-merge"><td>I1, I3, B1, B2, I5, P2</td><td>Attention-first viewport · run auto-focus · folded past · epic foldables · epic-first default</td><td>Merged into #5 (#7 absorbs auto-focus of the run that needs you).</td></tr>
+      <tr class="rej-merge"><td>I2, I7, P6, B8, X6</td><td>Causal blame wire · stare-to-expand · failure fingerprint · slice dossier · NASA gate poll</td><td>Merged into #6 — the dossier + non-vacuous gate.</td></tr>
+      <tr class="rej-merge"><td>P5</td><td>Full-viewport DAG + spring slide-over</td><td>Merged — adopted as the baseline layout assumed by #5/#6 (full canvas, detail on demand), not a standalone direction.</td></tr>
+      <tr class="rej-merge"><td>B4</td><td>Since You Last Looked</td><td>Merged into #9 — the re-entry recap rides with the walk-away HUD; could ship independently and earlier.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer class="composition-signal">
+  Composed 2026-06-26 by ce-ideate · six-frame divergent fleet (37 raw → 10 ranked) · source: in-session request to redesign the Conveyor cockpit to Stripe-level quality on the locked Inertia + React + React&nbsp;Flow stack.
+</footer>
+
+</div>
+</body>
+</html>
