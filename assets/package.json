@@ -11,7 +11,11 @@
   "dependencies": {
     "@inertiajs/react": "^2.0.0",
     "axios": "^1.7.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
     "cytoscape": "^3.30.0",
+    "lucide-react": "^0.460.0",
+    "tailwind-merge": "^2.5.4",
     "cytoscape-elk": "^2.3.0",
     "elkjs": "^0.9.3",
     "react": "^18.3.1",

@@ -2,9 +2,9 @@
 // the server→Inertia→React path. Retired at the /runs cutover (U10).
 export default function Hello({ greeting }) {
   return (
-    <main>
-      <h1>Cockpit foundation</h1>
-      <p>{greeting}</p>
+    <main className="min-h-screen bg-bg p-8 text-fg">
+      <h1 className="text-2xl font-semibold text-status-nominal">Cockpit foundation</h1>
+      <p className="text-muted">{greeting}</p>
     </main>
   )
 }

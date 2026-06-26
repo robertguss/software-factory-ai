@@ -55,6 +55,7 @@ defmodule Conveyor.MixProject do
       {:bandit, "~> 1.12"},
       {:inertia, "~> 2.6"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
       {:lazy_html, ">= 0.1.0", only: :test},
       # Direct dep (was transitive via Ash): property-based eval tests must not
       # rely on a transitive dependency. No `:only` restriction — Ash depends on
@@ -82,9 +83,18 @@ defmodule Conveyor.MixProject do
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       # The esbuild binary bundles from assets/node_modules but does not create
       # it, so `npm install` runs alongside the binary install.
-      "assets.setup": ["esbuild.install --if-missing", "cmd --cd assets npm install"],
-      "assets.build": ["esbuild conveyor"],
-      "assets.deploy": ["cmd --cd assets npm install", "esbuild conveyor --minify", "phx.digest"]
+      "assets.setup": [
+        "esbuild.install --if-missing",
+        "tailwind.install --if-missing",
+        "cmd --cd assets npm install"
+      ],
+      "assets.build": ["esbuild conveyor", "tailwind conveyor"],
+      "assets.deploy": [
+        "cmd --cd assets npm install",
+        "esbuild conveyor --minify",
+        "tailwind conveyor --minify",
+        "phx.digest"
+      ]
     ]
   end
 end

@@ -71,6 +71,16 @@ config :esbuild,
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
 
+# Tailwind v4 (standalone CLI via the :tailwind hex wrapper) compiles
+# assets/css/app.css into priv/static/assets/app.css. v4 is CSS-first — content
+# detection and the token layers live in app.css itself (no tailwind.config.js).
+config :tailwind,
+  version: "4.3.0",
+  conveyor: [
+    args: ~w(--input=css/app.css --output=../priv/static/assets/app.css),
+    cd: Path.expand("../assets", __DIR__)
+  ]
+
 # Inertia.js: controllers return props to React pages. SSR is off (no Node
 # worker pool — internal operator tool). `static_paths` drives asset-version
 # busting; props stay snake_case to match the cockpit's server payloads.
