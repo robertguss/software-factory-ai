@@ -226,6 +226,63 @@ defmodule ConveyorWeb.CockpitLiveTest do
     end
   end
 
+  describe "live overlay — run.slice_outcome fold + switcher liveness (review fixes)" do
+    test "a live run.slice_outcome ping folds skipped onto the named node (#2, R13)",
+         %{conn: conn} do
+      now = DateTime.utc_now()
+
+      %{plan: plan, slices: s} =
+        CockpitFixtures.seed_plan(
+          [{"SLICE-001", :parked}, {"SLICE-002", :ready}],
+          [{"SLICE-001", "SLICE-002"}]
+        )
+
+      CockpitFixtures.seed_run_started("run-x", ["SLICE-001", "SLICE-002"], now)
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
+
+      # The driver parks SLICE-001 and skips its dependent. The outcome event names
+      # the slice by its stable_key *inside the payload* (top-level slice_id nil) —
+      # exactly what SerialDriver writes — so the naive top-level read would drop it.
+      CockpitFixtures.seed_outcome("run-x", "SLICE-002", "skipped", 1, now)
+      EventOutboxRelay.publish_pending!()
+
+      assert_push_event(view, "node:patch", %{nodes: nodes}, 2000)
+      assert Enum.find(nodes, &(&1.id == s["SLICE-002"].id)).state == :skipped
+    end
+
+    test "a live run.started ping refreshes the run switcher (#5)", %{conn: conn} do
+      now = DateTime.utc_now()
+      %{plan: plan} = CockpitFixtures.seed_plan([{"SLICE-001", :ready}], [])
+      CockpitFixtures.seed_run_started("run-1", ["SLICE-001"], DateTime.add(now, -60, :second))
+
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
+      refute render(view) =~ "run-2"
+
+      CockpitFixtures.seed_run_started("run-2", ["SLICE-001"], now)
+      EventOutboxRelay.publish_pending!()
+
+      # The switcher list re-reads on a new run, so the run becomes selectable
+      # without a page reload.
+      assert render(view) =~ "run-2"
+    end
+
+    test "a run.started whose payload omits run_id does not crash the switcher (#11)",
+         %{conn: conn} do
+      %{plan: plan, project: project} = CockpitFixtures.seed_plan([{"SLICE-001", :ready}], [])
+
+      Ledger.write!(%{
+        project_id: project.id,
+        idempotency_key: "run:malformed:started",
+        type: "run.started",
+        payload: %{"slice_ids" => ["SLICE-001"]},
+        occurred_at: DateTime.utc_now()
+      })
+
+      {:ok, _view, html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
+      assert html =~ "Cockpit"
+    end
+  end
+
   # Commit a ledger event naming `slice` and drain the outbox to broadcast it —
   # the realtime path the cockpit subscribes to (run_viewer_live_test pattern).
   defp drain_ping(project, slice) do

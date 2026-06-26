@@ -39,7 +39,8 @@ defmodule ConveyorWeb.CockpitLive do
      |> assign(:runs, GraphProjection.list_runs())
      |> assign(:selected, nil)
      |> assign(:model, model)
-     |> assign(:slice_ids, slice_id_set(model))}
+     |> assign(:slice_ids, slice_id_set(model))
+     |> assign(:stable_keys, stable_key_index(model))}
   end
 
   # The `Dag` hook asks for the graph once it is live, so the seed is never raced
@@ -72,6 +73,7 @@ defmodule ConveyorWeb.CockpitLive do
      socket
      |> assign(:model, model)
      |> assign(:slice_ids, slice_id_set(model))
+     |> assign(:stable_keys, stable_key_index(model))
      |> assign(:selected, nil)
      |> push_graph()}
   end
@@ -81,12 +83,9 @@ defmodule ConveyorWeb.CockpitLive do
   # derived state flipped (R7, R8). Pings for slices outside the plan are ignored.
   @impl true
   def handle_info({:ledger_event, message}, socket) do
-    slice_id = message["slice_id"]
-
-    if relevant?(socket, slice_id) do
-      {:noreply, apply_recompute(socket, [slice_id], nil)}
-    else
-      {:noreply, socket}
+    case target_slice(socket, message) do
+      nil -> {:noreply, maybe_refresh_runs(socket, message)}
+      slice_id -> {:noreply, apply_recompute(socket, [slice_id], nil)}
     end
   end
 
@@ -115,8 +114,44 @@ defmodule ConveyorWeb.CockpitLive do
   defp slice_id_set(nil), do: MapSet.new()
   defp slice_id_set(model), do: MapSet.new(model.nodes, & &1.id)
 
+  # The driver's `run.slice_outcome` events name the slice by its stable_key in the
+  # payload (the top-level `slice_id` column is unset), so keep a stable_key → UUID
+  # index to translate those pings back to a node id.
+  defp stable_key_index(nil), do: %{}
+
+  defp stable_key_index(model),
+    do: for(node <- model.nodes, node.stable_key, into: %{}, do: {node.stable_key, node.id})
+
+  # Resolve the in-plan slice a ledger event names — either the lifecycle event's
+  # top-level `slice_id` (a UUID) or an outcome event's payload stable_key — to the
+  # node id we recompute, or `nil` when the ping is not for a displayed slice.
+  defp target_slice(socket, message) do
+    direct = message["slice_id"]
+    via = stable_key_to_id(socket, get_in(message, ["payload", "slice_id"]))
+
+    cond do
+      relevant?(socket, direct) -> direct
+      relevant?(socket, via) -> via
+      true -> nil
+    end
+  end
+
+  defp stable_key_to_id(_socket, nil), do: nil
+  defp stable_key_to_id(socket, stable_key), do: Map.get(socket.assigns.stable_keys, stable_key)
+
+  # A new run does not name a slice; refresh the switcher so it becomes selectable
+  # without a page reload (R5). Other unmatched pings are no-ops.
+  defp maybe_refresh_runs(socket, %{"type" => "run.started"}),
+    do: assign(socket, :runs, GraphProjection.list_runs())
+
+  defp maybe_refresh_runs(socket, _message), do: socket
+
   defp relevant?(_socket, nil), do: false
   defp relevant?(socket, slice_id), do: MapSet.member?(socket.assigns.slice_ids, slice_id)
+
+  # No model (a fresh instance with no plan) has nothing to re-evaluate; the tick
+  # must short-circuit rather than dereference a nil model.
+  defp recompute_stalled(%{assigns: %{model: nil}} = socket, _now), do: socket
 
   defp recompute_stalled(socket, now) do
     time_sensitive =
@@ -294,6 +329,7 @@ defmodule ConveyorWeb.CockpitLive do
 
   defp humanize_state(state), do: state |> to_string() |> String.replace("_", " ")
 
+  defp short(nil), do: "—"
   defp short(run_id), do: String.slice(run_id, 0, 8)
 
   defp format_elapsed(seconds) when seconds < 60, do: "#{seconds}s"
