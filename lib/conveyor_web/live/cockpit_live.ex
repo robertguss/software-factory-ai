@@ -13,6 +13,7 @@ defmodule ConveyorWeb.CockpitLive do
   use ConveyorWeb, :live_view
 
   alias ConveyorWeb.Live.Cockpit.GraphProjection
+  alias ConveyorWeb.Live.Cockpit.GraphSerializer
 
   @ledger_topic "ledger_events"
   # Stalled is time-based (a running station crossing its wall-clock cap), so a
@@ -187,24 +188,15 @@ defmodule ConveyorWeb.CockpitLive do
   defp patch_changed(socket, []), do: socket
 
   defp patch_changed(socket, changed),
-    do: push_event(socket, "node:patch", %{nodes: Enum.map(changed, &node_payload/1)})
+    do:
+      push_event(socket, "node:patch", %{
+        nodes: Enum.map(changed, &GraphSerializer.node_payload/1)
+      })
 
   defp push_graph(%{assigns: %{model: nil}} = socket), do: socket
 
   defp push_graph(%{assigns: %{model: model}} = socket),
-    do: push_event(socket, "graph:init", graph_payload(model))
-
-  defp graph_payload(model) do
-    %{
-      nodes: Enum.map(model.nodes, &node_payload/1),
-      edges: model.edges,
-      epics: model.epics
-    }
-  end
-
-  defp node_payload(node) do
-    Map.take(node, [:id, :label, :state, :epic_id, :title, :blocked_by, :starved_dependents])
-  end
+    do: push_event(socket, "graph:init", GraphSerializer.graph_payload(model))
 
   @impl true
   def render(assigns) do
