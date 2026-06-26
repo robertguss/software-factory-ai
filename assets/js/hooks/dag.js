@@ -148,6 +148,7 @@ const Dag = {
     this.cy.add(elements)
     this.cy.endBatch()
     this.cy.layout(LAYOUT).run()
+    this.applyFlow()
   },
 
   patch(nodes) {
@@ -157,6 +158,14 @@ const Dag = {
       if (ele.nonempty()) ele.data("state", node.state)
     })
     this.cy.endBatch()
+    this.applyFlow()
+  },
+
+  // Edge-flow is limited to edges leaving the active (running) node (R9): work is
+  // flowing downstream from there. Recomputed from current node state, not relayout.
+  applyFlow() {
+    this.cy.edges(".flowing").removeClass("flowing")
+    this.cy.nodes('[state = "running"]').outgoers("edge").addClass("flowing")
   },
 }
 

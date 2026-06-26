@@ -73,7 +73,9 @@ defmodule Conveyor.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "assets.setup", "ecto.setup"],
+      # `ecto.setup` precedes `assets.setup` so DB provisioning never depends on a
+      # successful `npm install` (offline / no-Node machines still get a usable DB).
+      setup: ["deps.get", "ecto.setup", "assets.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
