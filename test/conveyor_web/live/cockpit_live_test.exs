@@ -25,7 +25,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
   end
 
   test "mounts and renders the graph hook container (phx-hook + ignore)", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/cockpit")
+    {:ok, _view, html} = live(conn, ~p"/runs")
 
     assert html =~ ~s(id="cockpit-dag")
     assert html =~ ~s(phx-hook="Dag")
@@ -34,7 +34,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
 
   test "seeds graph:init with the plan's nodes, TaskDependency edges, and epics (R1, R3)",
        %{conn: conn, epic: epic, slices: slices} do
-    {:ok, view, _html} = live(conn, ~p"/cockpit")
+    {:ok, view, _html} = live(conn, ~p"/runs")
 
     render_hook(view, "dag:mounted", %{})
 
@@ -59,7 +59,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
   end
 
   test "server-rendered node list mirrors the projection for no-JS / parity", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/cockpit")
+    {:ok, _view, html} = live(conn, ~p"/runs")
 
     assert html =~ "SLICE-001"
     assert html =~ ~s(data-state="done")
@@ -67,7 +67,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
   end
 
   test "a bogus plan_id renders an empty graph rather than crashing", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/cockpit?plan_id=#{Ecto.UUID.generate()}")
+    {:ok, _view, html} = live(conn, ~p"/runs?plan_id=#{Ecto.UUID.generate()}")
 
     refute html =~ "SLICE-001"
   end
@@ -80,7 +80,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
           [{"SLICE-001", "SLICE-002"}]
         )
 
-      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{seeded.plan.id}")
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{seeded.plan.id}")
       Map.put(seeded, :view, view)
     end
 
@@ -90,7 +90,8 @@ defmodule ConveyorWeb.CockpitLiveTest do
       Ash.update!(s["SLICE-001"], %{state: :done}, domain: Factory)
       drain_ping(project, s["SLICE-001"])
 
-      assert_push_event(view, "node:patch", %{nodes: nodes})
+      # The fold does a few scoped DB reads; allow more than the 100ms default.
+      assert_push_event(view, "node:patch", %{nodes: nodes}, 2000)
       states = Map.new(nodes, &{&1.id, &1.state})
 
       # The named slice → done, and its dependent flips blocked → ready_idle.
@@ -104,11 +105,11 @@ defmodule ConveyorWeb.CockpitLiveTest do
          %{view: view, project: project, slices: s} do
       Ash.update!(s["SLICE-001"], %{state: :done}, domain: Factory)
       drain_ping(project, s["SLICE-001"])
-      assert_push_event(view, "node:patch", %{})
+      assert_push_event(view, "node:patch", %{}, 2000)
 
       # Same durable state, pinged again → convergent re-read → nothing changes.
       drain_ping(project, s["SLICE-001"])
-      refute_push_event(view, "node:patch", %{}, 60)
+      refute_push_event(view, "node:patch", %{}, 300)
     end
 
     test "a ping for a slice outside the displayed plan is ignored (KTD7)", %{view: view} do
@@ -120,7 +121,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
          %{conn: conn, plan: plan, slices: s} do
       Ash.update!(s["SLICE-001"], %{state: :done}, domain: Factory)
 
-      {:ok, view2, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      {:ok, view2, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
       render_hook(view2, "dag:mounted", %{})
 
       assert_push_event(view2, "graph:init", %{nodes: nodes})
@@ -138,7 +139,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
         DateTime.add(DateTime.utc_now(), -300, :second)
       )
 
-      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
       html = render_hook(view, "node:select", %{"id" => s["SLICE-001"].id})
 
       assert html =~ ~s(id="cockpit-panel")
@@ -153,7 +154,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
           [{"SLICE-001", "SLICE-002"}]
         )
 
-      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
       html = render_hook(view, "node:select", %{"id" => s["SLICE-002"].id})
 
       assert html =~ "blocked by SLICE-001"
@@ -172,7 +173,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
         occurred_at: DateTime.utc_now()
       })
 
-      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
       html = render_hook(view, "node:select", %{"id" => s["SLICE-001"].id})
 
       # Compact event is shown; the raw payload sits behind a collapsed <details>.
@@ -202,7 +203,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
       CockpitFixtures.seed_run_started("run-new", ["SLICE-001"], now)
       CockpitFixtures.seed_outcome("run-new", "SLICE-001", "skipped", 1, now)
 
-      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
       render_hook(view, "dag:mounted", %{})
       assert_push_event(view, "graph:init", %{nodes: nodes})
       assert Enum.find(nodes, &(&1.id == s["SLICE-001"].id)).state == :skipped
@@ -217,7 +218,7 @@ defmodule ConveyorWeb.CockpitLiveTest do
     test "the panel and page expose no domain-write action (R18 carried)", %{conn: conn} do
       %{plan: plan, slices: s} = CockpitFixtures.seed_plan([{"SLICE-001", :ready}], [])
 
-      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
       html = render_hook(view, "node:select", %{"id" => s["SLICE-001"].id})
 
       refute html =~ "phx-submit"

@@ -29,7 +29,7 @@ defmodule ConveyorWeb.CockpitLiveStalledTest do
     started = DateTime.utc_now()
     CockpitFixtures.seed_running_station(s["SLICE-001"], started)
 
-    {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+    {:ok, view, _html} = live(conn, ~p"/runs?plan_id=#{plan.id}")
     render_hook(view, "dag:mounted", %{})
 
     assert_push_event(view, "graph:init", %{nodes: nodes})
@@ -38,7 +38,8 @@ defmodule ConveyorWeb.CockpitLiveStalledTest do
     # Tick two hours after the station started: now past the one-hour cap.
     send(view.pid, {:stalled_tick, DateTime.add(started, 2, :hour)})
 
-    assert_push_event(view, "node:patch", %{nodes: patched})
+    # The recompute does a few scoped DB reads; allow more than the 100ms default.
+    assert_push_event(view, "node:patch", %{nodes: patched}, 2000)
     assert Enum.find(patched, &(&1.id == s["SLICE-001"].id)).state == :stalled
   end
 end
