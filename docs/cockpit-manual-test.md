@@ -49,6 +49,11 @@ PGPORT=55432 mix conveyor.cockpit_demo
 Reload <http://localhost:4000/runs>. The graph seeds client-side (Cytoscape +
 elkjs), laid out left-to-right.
 
+> On server boot you may see `mark_stale` / `NoMatchingTransition` log lines —
+> that's the dev reconciler (a one-shot boot job) reaping the seeded "orphan" run
+> attempts. Harmless: the running/stalled overlay reads `StationRun` rows, so it
+> is unaffected and the graph still shows `db-migrate` running and `auth` stalled.
+
 - [ ] **Layout (R2):** nodes flow **left → right** in dependency order (roots on
       the left). Edges are drawn as arrows from a slice to its dependents.
 - [ ] **Epics as containers (R3):** slices are grouped inside two compound boxes
