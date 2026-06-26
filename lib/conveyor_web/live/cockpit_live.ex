@@ -36,6 +36,8 @@ defmodule ConveyorWeb.CockpitLive do
      socket
      |> assign(:page_title, "Cockpit")
      |> assign(:plan_id, plan_id)
+     |> assign(:runs, GraphProjection.list_runs())
+     |> assign(:selected, nil)
      |> assign(:model, model)
      |> assign(:slice_ids, slice_id_set(model))}
   end
@@ -45,6 +47,33 @@ defmodule ConveyorWeb.CockpitLive do
   @impl true
   def handle_event("dag:mounted", _params, socket) do
     {:noreply, push_graph(socket)}
+  end
+
+  # Open the read-only detail panel for a node (R15). Observe-only: this assigns
+  # detail, it never mutates the domain.
+  def handle_event("node:select", %{"id" => slice_id}, socket) do
+    detail =
+      if relevant?(socket, slice_id),
+        do: GraphProjection.node_detail(socket.assigns.model, slice_id)
+
+    {:noreply, assign(socket, :selected, detail)}
+  end
+
+  def handle_event("close-panel", _params, socket) do
+    {:noreply, assign(socket, :selected, nil)}
+  end
+
+  # Run switcher (R5): re-seed the graph for the chosen run. A historical run
+  # renders its run-scoped outcome fold without live attempt state (KTD2).
+  def handle_event("switch-run", %{"run_id" => run_id}, socket) do
+    model = build_model(socket.assigns.plan_id, run_id: blank_to_nil(run_id))
+
+    {:noreply,
+     socket
+     |> assign(:model, model)
+     |> assign(:slice_ids, slice_id_set(model))
+     |> assign(:selected, nil)
+     |> push_graph()}
   end
 
   # A ledger ping: fold it by re-reading just the named slice (idempotent), then
@@ -74,8 +103,12 @@ defmodule ConveyorWeb.CockpitLive do
     {:noreply, recompute_stalled(socket, now)}
   end
 
-  defp build_model(nil), do: nil
-  defp build_model(plan_id), do: GraphProjection.build(plan_id)
+  defp build_model(plan_id, opts \\ [])
+  defp build_model(nil, _opts), do: nil
+  defp build_model(plan_id, opts), do: GraphProjection.build(plan_id, opts)
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(run_id), do: run_id
 
   defp schedule_tick, do: Process.send_after(self(), :stalled_tick, @tick_ms)
 
@@ -151,6 +184,17 @@ defmodule ConveyorWeb.CockpitLive do
         .cockpit-nodes { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 1.25rem; margin: 0; }
         .cockpit-nodes .node { display: inline-flex; gap: 0.4rem; align-items: center; padding: 0.2rem 0.55rem; border: 1px solid #e2e8f0; border-radius: 999px; font-size: 0.8rem; }
         .cockpit-nodes .node-state { color: #64748b; text-transform: capitalize; }
+        .cockpit-switcher { margin-left: auto; font-size: 0.8rem; color: #64748b; }
+        .cockpit-switcher select { margin-left: 0.4rem; }
+        .cockpit-panel { position: fixed; top: 0; right: 0; width: 22rem; max-width: 90vw; height: 100vh; overflow-y: auto; background: #ffffff; border-left: 1px solid #e2e8f0; box-shadow: -4px 0 16px rgba(15,23,42,0.08); padding: 1rem 1.25rem; }
+        .cockpit-panel .panel-head { display: flex; align-items: center; justify-content: space-between; }
+        .cockpit-panel h2 { font-size: 1rem; margin: 0; }
+        .cockpit-panel .panel-facts { display: grid; gap: 0.3rem; margin: 0.75rem 0; }
+        .cockpit-panel .panel-facts dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
+        .cockpit-panel .panel-facts dd { margin: 0 0 0.4rem; }
+        .cockpit-panel .panel-event { border-top: 1px solid #f1f5f9; padding: 0.4rem 0; font-size: 0.8rem; }
+        .cockpit-panel .event-type { font-weight: 600; }
+        .cockpit-panel pre { background: #f8fafc; padding: 0.5rem; overflow-x: auto; font-size: 0.72rem; }
       </style>
 
       <header class="cockpit-header">
@@ -159,6 +203,20 @@ defmodule ConveyorWeb.CockpitLive do
           {length(@model.nodes)} slices · {@model.stats.ready_idle_count} could run now
           <span :if={@model.run_id}> · run {short(@model.run_id)}</span>
         </p>
+        <form :if={@runs != []} id="cockpit-run-switcher" phx-change="switch-run" class="cockpit-switcher">
+          <label>
+            Run
+            <select name="run_id">
+              <option
+                :for={run <- @runs}
+                value={run.run_id}
+                selected={@model && @model.run_id == run.run_id}
+              >
+                {short(run.run_id)} · {Calendar.strftime(run.started_at, "%Y-%m-%d %H:%M UTC")}
+              </option>
+            </select>
+          </label>
+        </form>
       </header>
 
       <p :if={is_nil(@model)} id="cockpit-empty" class="cockpit-meta" style="padding: 1.25rem;">
@@ -185,6 +243,51 @@ defmodule ConveyorWeb.CockpitLive do
           <span class="node-state">{humanize_state(node.state)}</span>
         </li>
       </ul>
+
+      <aside :if={@selected} id="cockpit-panel" class="cockpit-panel">
+        <div class="panel-head">
+          <h2>{@selected.label}</h2>
+          <button type="button" phx-click="close-panel" aria-label="Close panel">×</button>
+        </div>
+
+        <dl class="panel-facts">
+          <div>
+            <dt>State</dt>
+            <dd data-state={@selected.state}>{humanize_state(@selected.state)}</dd>
+          </div>
+          <div :if={@selected.reason}>
+            <dt>Why</dt>
+            <dd id="panel-reason">{@selected.reason}</dd>
+          </div>
+          <div :if={@selected.station}>
+            <dt>Station</dt>
+            <dd>{@selected.station}</dd>
+          </div>
+          <div :if={@selected.attempt_no}>
+            <dt>Attempt</dt>
+            <dd>#{@selected.attempt_no} · {@selected.attempt_status}</dd>
+          </div>
+          <div :if={@selected.elapsed_seconds}>
+            <dt>Elapsed</dt>
+            <dd>{format_elapsed(@selected.elapsed_seconds)}</dd>
+          </div>
+        </dl>
+
+        <section class="panel-events">
+          <h3>Recent events</h3>
+          <p :if={@selected.events == []} class="cockpit-meta">No events recorded for this slice.</p>
+          <ul>
+            <li :for={event <- @selected.events} class="panel-event">
+              <span class="event-type">{event.type}</span>
+              <time>{Calendar.strftime(event.occurred_at, "%H:%M:%S")}</time>
+              <details class="event-raw">
+                <summary>raw payload</summary>
+                <pre>{Jason.encode!(event.payload, pretty: true)}</pre>
+              </details>
+            </li>
+          </ul>
+        </section>
+      </aside>
     </main>
     """
   end
@@ -192,4 +295,11 @@ defmodule ConveyorWeb.CockpitLive do
   defp humanize_state(state), do: state |> to_string() |> String.replace("_", " ")
 
   defp short(run_id), do: String.slice(run_id, 0, 8)
+
+  defp format_elapsed(seconds) when seconds < 60, do: "#{seconds}s"
+
+  defp format_elapsed(seconds) when seconds < 3600,
+    do: "#{div(seconds, 60)}m #{rem(seconds, 60)}s"
+
+  defp format_elapsed(seconds), do: "#{div(seconds, 3600)}h #{div(rem(seconds, 3600), 60)}m"
 end

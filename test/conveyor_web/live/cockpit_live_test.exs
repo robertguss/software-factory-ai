@@ -128,6 +128,103 @@ defmodule ConveyorWeb.CockpitLiveTest do
     end
   end
 
+  describe "node-detail panel + run switcher (U5)" do
+    test "node:select opens the read-only panel with state, station, and reason (R15)",
+         %{conn: conn} do
+      %{plan: plan, slices: s} = CockpitFixtures.seed_plan([{"SLICE-001", :in_progress}], [])
+
+      CockpitFixtures.seed_running_station(
+        s["SLICE-001"],
+        DateTime.add(DateTime.utc_now(), -300, :second)
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      html = render_hook(view, "node:select", %{"id" => s["SLICE-001"].id})
+
+      assert html =~ ~s(id="cockpit-panel")
+      assert html =~ ~s(data-state="running")
+      assert html =~ "implement"
+    end
+
+    test "a blocked node's panel names its blocker (R11, AE2)", %{conn: conn} do
+      %{plan: plan, slices: s} =
+        CockpitFixtures.seed_plan(
+          [{"SLICE-001", :ready}, {"SLICE-002", :ready}],
+          [{"SLICE-001", "SLICE-002"}]
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      html = render_hook(view, "node:select", %{"id" => s["SLICE-002"].id})
+
+      assert html =~ "blocked by SLICE-001"
+    end
+
+    test "the raw event payload is reachable but not the default view (R16)", %{conn: conn} do
+      %{plan: plan, project: project, slices: s} =
+        CockpitFixtures.seed_plan([{"SLICE-001", :ready}], [])
+
+      Ledger.write!(%{
+        project_id: project.id,
+        slice_id: s["SLICE-001"].id,
+        idempotency_key: "detail:#{s["SLICE-001"].id}",
+        type: "slice.transitioned",
+        payload: %{"slice_id" => s["SLICE-001"].id, "state" => "ready"},
+        occurred_at: DateTime.utc_now()
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      html = render_hook(view, "node:select", %{"id" => s["SLICE-001"].id})
+
+      # Compact event is shown; the raw payload sits behind a collapsed <details>.
+      assert html =~ "slice.transitioned"
+      assert html =~ "<details"
+      assert html =~ "raw payload"
+    end
+
+    test "switching runs re-seeds the graph for the chosen run (R5, KTD2)", %{conn: conn} do
+      now = DateTime.utc_now()
+      %{plan: plan, slices: s} = CockpitFixtures.seed_plan([{"SLICE-001", :ready}], [])
+
+      CockpitFixtures.seed_run_started(
+        "run-old",
+        ["SLICE-001"],
+        DateTime.add(now, -3600, :second)
+      )
+
+      CockpitFixtures.seed_outcome(
+        "run-old",
+        "SLICE-001",
+        "passed",
+        1,
+        DateTime.add(now, -3600, :second)
+      )
+
+      CockpitFixtures.seed_run_started("run-new", ["SLICE-001"], now)
+      CockpitFixtures.seed_outcome("run-new", "SLICE-001", "skipped", 1, now)
+
+      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      render_hook(view, "dag:mounted", %{})
+      assert_push_event(view, "graph:init", %{nodes: nodes})
+      assert Enum.find(nodes, &(&1.id == s["SLICE-001"].id)).state == :skipped
+
+      # Switch to the older run: its run-scoped outcome fold (passed) is shown.
+      view |> element("form.cockpit-switcher") |> render_change(%{"run_id" => "run-old"})
+
+      assert_push_event(view, "graph:init", %{nodes: historical})
+      assert Enum.find(historical, &(&1.id == s["SLICE-001"].id)).state == :done
+    end
+
+    test "the panel and page expose no domain-write action (R18 carried)", %{conn: conn} do
+      %{plan: plan, slices: s} = CockpitFixtures.seed_plan([{"SLICE-001", :ready}], [])
+
+      {:ok, view, _html} = live(conn, ~p"/cockpit?plan_id=#{plan.id}")
+      html = render_hook(view, "node:select", %{"id" => s["SLICE-001"].id})
+
+      refute html =~ "phx-submit"
+      refute html =~ "mark_external"
+    end
+  end
+
   # Commit a ledger event naming `slice` and drain the outbox to broadcast it —
   # the realtime path the cockpit subscribes to (run_viewer_live_test pattern).
   defp drain_ping(project, slice) do

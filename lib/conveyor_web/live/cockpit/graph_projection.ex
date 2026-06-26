@@ -145,6 +145,86 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
     {new_model, changed}
   end
 
+  # ─── Node detail (read-only drill-down, R15/R16) ───────────────────────────
+
+  @doc """
+  The read-only detail for one node: its computed state + reason, latest
+  attempt/station, elapsed, and recent ledger events (compact, raw payload
+  carried for an on-demand disclosure). Returns `nil` for an unknown slice.
+  """
+  @spec node_detail(map(), String.t()) :: map() | nil
+  def node_detail(model, slice_id) do
+    case Enum.find(model.nodes, &(&1.id == slice_id)) do
+      nil -> nil
+      node -> detail_for(node, slice_id, model.now)
+    end
+  end
+
+  defp detail_for(node, slice_id, now) do
+    attempt = latest_attempt_row(slice_id)
+    station = latest_station_row(attempt)
+
+    %{
+      id: slice_id,
+      label: node.label,
+      title: node.title,
+      state: node.state,
+      blocked_by: node.blocked_by,
+      starved_dependents: node.starved_dependents,
+      reason: reason_for(node),
+      station: station && station.station,
+      attempt_no: attempt && attempt.attempt_no,
+      attempt_status: attempt && attempt.status,
+      started_at: station && station.started_at,
+      elapsed_seconds: elapsed_seconds(station, now),
+      events: recent_events(slice_id)
+    }
+  end
+
+  defp reason_for(%{state: :blocked, blocked_by: blockers}),
+    do: "blocked by " <> Enum.join(blockers, ", ")
+
+  defp reason_for(%{state: :stalled}), do: "running past its wall-clock cap"
+
+  defp reason_for(%{state: :skipped, starved_dependents: n}),
+    do: "skipped — upstream parked (#{n} starved downstream)"
+
+  defp reason_for(_node), do: nil
+
+  defp latest_attempt_row(slice_id) do
+    case RunAttempt |> Ash.Query.filter(slice_id == ^slice_id) |> Ash.read!(domain: Factory) do
+      [] -> nil
+      attempts -> Enum.max_by(attempts, & &1.attempt_no)
+    end
+  end
+
+  defp latest_station_row(nil), do: nil
+
+  defp latest_station_row(attempt) do
+    StationRun
+    |> Ash.Query.filter(run_attempt_id == ^attempt.id)
+    |> Ash.read!(domain: Factory)
+    |> Enum.sort_by(&station_started_unix/1, :desc)
+    |> List.first()
+  end
+
+  defp station_started_unix(%{started_at: nil}), do: 0
+  defp station_started_unix(%{started_at: dt}), do: DateTime.to_unix(dt, :microsecond)
+
+  defp elapsed_seconds(%{started_at: %DateTime{} = started}, now),
+    do: DateTime.diff(now, started, :second)
+
+  defp elapsed_seconds(_station, _now), do: nil
+
+  defp recent_events(slice_id) do
+    LedgerEvent
+    |> Ash.Query.filter(slice_id == ^slice_id)
+    |> Ash.read!(domain: Factory)
+    |> Enum.sort_by(& &1.occurred_at, {:desc, DateTime})
+    |> Enum.take(8)
+    |> Enum.map(&%{type: &1.type, occurred_at: &1.occurred_at, payload: &1.payload})
+  end
+
   # ─── Run discovery ─────────────────────────────────────────────────────────
 
   @doc """
