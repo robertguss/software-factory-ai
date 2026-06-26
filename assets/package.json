@@ -4,9 +4,21 @@
   "private": true,
   "description": "Conveyor cockpit browser assets bundled by esbuild.",
   "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "cytoscape": "^3.30.0",
     "cytoscape-elk": "^2.3.0",
-    "elkjs": "^0.9.3"
+    "elkjs": "^0.9.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.0.1",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.8"
   }
 }

@@ -58,14 +58,15 @@ config :phoenix, :json_library, Jason
 
 # esbuild bundles the browser runtime in assets/ into priv/static/assets.
 # `phoenix` and `phoenix_live_view` resolve from deps/ via NODE_PATH; npm
-# packages (cytoscape, elkjs) resolve from assets/node_modules, which the
-# `assets.setup` alias creates with `npm install` (the esbuild binary bundles
-# from node_modules but does not create it).
+# packages (react, react-dom, cytoscape, …) resolve from assets/node_modules,
+# which the `assets.setup` alias creates with `npm install` (the esbuild binary
+# bundles from node_modules but does not create it). `--loader:.js=jsx` lets the
+# React/JSX entrypoint and components build; `--alias:@=./js` matches jsconfig.
 config :esbuild,
   version: "0.25.4",
   conveyor: [
     args:
-      ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
+      ~w(js/app.jsx --bundle --target=es2020 --outdir=../priv/static/assets --loader:.js=jsx --loader:.jsx=jsx --alias:@=./js --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
