@@ -8,7 +8,29 @@
 // outside LiveViewTest.
 import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
+import { createInertiaApp } from "@inertiajs/react"
+import { createRoot } from "react-dom/client"
+import axios from "axios"
 import Dag from "./hooks/dag"
+import Hello from "@/pages/Hello"
+
+// Inertia uses axios; Phoenix expects the CSRF token in `x-csrf-token`.
+axios.defaults.xsrfHeaderName = "x-csrf-token"
+
+// Static page registry. This esbuild profile has no Vite-style glob or code
+// splitting, so pages resolve by name from this map (not dynamic import).
+const pages = { Hello }
+
+// Bootstrap Inertia only when its mount node is present. LiveView routes
+// (/runs, /parked) render no #app node and keep using LiveSocket alone.
+if (document.getElementById("app")) {
+  createInertiaApp({
+    resolve: (name) => pages[name],
+    setup({ App, el, props }) {
+      createRoot(el).render(<App {...props} />)
+    },
+  })
+}
 
 const csrfToken = document
   .querySelector("meta[name='csrf-token']")

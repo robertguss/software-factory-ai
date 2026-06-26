@@ -9,6 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@inertiajs/react": "^2.0.0",
+    "axios": "^1.7.0",
     "cytoscape": "^3.30.0",
     "cytoscape-elk": "^2.3.0",
     "elkjs": "^0.9.3",

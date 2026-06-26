@@ -53,6 +53,7 @@ defmodule Conveyor.MixProject do
       {:jsv, "~> 0.19.5"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.12"},
+      {:inertia, "~> 2.6"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:lazy_html, ">= 0.1.0", only: :test},
       # Direct dep (was transitive via Ash): property-based eval tests must not

@@ -71,6 +71,16 @@ config :esbuild,
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
 
+# Inertia.js: controllers return props to React pages. SSR is off (no Node
+# worker pool — internal operator tool). `static_paths` drives asset-version
+# busting; props stay snake_case to match the cockpit's server payloads.
+config :inertia,
+  endpoint: ConveyorWeb.Endpoint,
+  static_paths: ["/assets/app.js"],
+  default_version: "1",
+  camelize_props: false,
+  ssr: false
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
