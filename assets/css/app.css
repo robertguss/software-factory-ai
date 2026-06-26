@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* React Flow's base styles. Imported through Tailwind (not via a JS `import`)
+   so esbuild does not emit a competing app.css that the Tailwind build would
+   clobber — one stylesheet, one writer. */
+@import "@xyflow/react/dist/style.css";
+
 /* Tailwind v4 is CSS-first: scan our React sources for utility names. The
    esbuild output bundle and node_modules are noise, so scope scanning to the
    hand-written sources. */

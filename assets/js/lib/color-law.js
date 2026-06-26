@@ -70,3 +70,28 @@ export function colorLaw(state, { starved_dependents = 0 } = {}) {
 
   return { state, severity, token, rank, icon }
 }
+
+/**
+ * The single highest-ranked exception across a node list, or null if the run is
+ * calm. Powers the master-caution strip (R9). On a rank tie the first node wins
+ * (stable input order).
+ * @returns {?{ node: object, severity: string, token: string, rank: number, icon: Function }}
+ */
+export function topException(nodes) {
+  return nodes.reduce((top, node) => {
+    const law = colorLaw(node.state, node)
+    if (law.rank === 0) return top
+    if (!top || law.rank > top.rank) return { node, ...law }
+    return top
+  }, null)
+}
+
+/**
+ * Overall run health: the max severity present across all nodes (null → calm).
+ * Drives the ambient viewport border (R9), sharing the color-law ranking.
+ * @returns {?string}
+ */
+export function overallSeverity(nodes) {
+  const top = topException(nodes)
+  return top ? top.severity : null
+}

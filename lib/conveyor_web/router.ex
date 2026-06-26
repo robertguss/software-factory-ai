@@ -23,6 +23,9 @@ defmodule ConveyorWeb.Router do
 
     # Temporary Inertia baseline page (U2); retired at the /runs cutover (U10).
     get "/hello", PageController, :index
+
+    # The React cockpit (U9). Temporary route until U10 cuts /runs over to it.
+    get "/cockpit", CockpitController, :index
   end
 
   scope "/api", ConveyorWeb do

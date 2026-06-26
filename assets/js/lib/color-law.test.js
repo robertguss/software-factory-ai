@@ -3,7 +3,9 @@ import {
   colorLaw,
   HIGH_STARVATION_THRESHOLD,
   NOMINAL_TOKEN,
+  overallSeverity,
   SEVERITY,
+  topException,
 } from "@/lib/color-law"
 
 const NOMINAL_STATES = ["running", "ready_idle", "done", "skipped", "parked"]
@@ -94,6 +96,37 @@ describe("colorLaw", () => {
 
     it("throws on an unknown state", () => {
       expect(() => colorLaw("nope")).toThrow()
+    })
+  })
+
+  // The shared exception ranking that the master-caution strip and ambient
+  // border both consume (R9/AE3).
+  describe("topException / overallSeverity", () => {
+    const n = (id, state, extra = {}) => ({ id, state, ...extra })
+
+    it("returns null when the run is calm", () => {
+      const nodes = [n("a", "running"), n("b", "done"), n("c", "ready_idle")]
+      expect(topException(nodes)).toBeNull()
+      expect(overallSeverity(nodes)).toBeNull()
+    })
+
+    it("pins the failed node over a high-starvation blocked node (AE3)", () => {
+      const nodes = [
+        n("a", "running"),
+        n("b", "blocked", { starved_dependents: HIGH_STARVATION_THRESHOLD }),
+        n("c", "failed"),
+        n("d", "stalled"),
+      ]
+      const top = topException(nodes)
+      expect(top.node.id).toBe("c")
+      expect(top.severity).toBe("warning")
+      expect(overallSeverity(nodes)).toBe("warning")
+    })
+
+    it("falls to the next severity when no warning is present", () => {
+      const nodes = [n("a", "stalled"), n("b", "blocked", { starved_dependents: 5 })]
+      expect(topException(nodes).severity).toBe("caution")
+      expect(overallSeverity(nodes)).toBe("caution")
     })
   })
 })

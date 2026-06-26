@@ -9,7 +9,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.4",
     "@inertiajs/react": "^2.0.0",
+    "@xyflow/react": "^12.3.5",
     "axios": "^1.7.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",

@@ -13,13 +13,14 @@ import { createRoot } from "react-dom/client"
 import axios from "axios"
 import Dag from "./hooks/dag"
 import Hello from "@/pages/Hello"
+import Cockpit from "@/pages/Cockpit"
 
 // Inertia uses axios; Phoenix expects the CSRF token in `x-csrf-token`.
 axios.defaults.xsrfHeaderName = "x-csrf-token"
 
 // Static page registry. This esbuild profile has no Vite-style glob or code
 // splitting, so pages resolve by name from this map (not dynamic import).
-const pages = { Hello }
+const pages = { Hello, Cockpit }
 
 // Bootstrap Inertia only when its mount node is present. LiveView routes
 // (/runs, /parked) render no #app node and keep using LiveSocket alone.
