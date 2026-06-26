@@ -53,6 +53,7 @@ defmodule Conveyor.MixProject do
       {:jsv, "~> 0.19.5"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.12"},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:lazy_html, ">= 0.1.0", only: :test},
       # Direct dep (was transitive via Ash): property-based eval tests must not
       # rely on a transitive dependency. No `:only` restriction — Ash depends on
@@ -72,10 +73,17 @@ defmodule Conveyor.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "ecto.setup"],
+      # `ecto.setup` precedes `assets.setup` so DB provisioning never depends on a
+      # successful `npm install` (offline / no-Node machines still get a usable DB).
+      setup: ["deps.get", "ecto.setup", "assets.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      # The esbuild binary bundles from assets/node_modules but does not create
+      # it, so `npm install` runs alongside the binary install.
+      "assets.setup": ["esbuild.install --if-missing", "cmd --cd assets npm install"],
+      "assets.build": ["esbuild conveyor"],
+      "assets.deploy": ["cmd --cd assets npm install", "esbuild conveyor --minify", "phx.digest"]
     ]
   end
 end

@@ -25,7 +25,9 @@ config :conveyor, ConveyorWeb.Endpoint,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "cSK865TMBkUguvnssQ/j5I1k4TZO8+yrnrs/sKHOcrezdnsRU7W/VtcBvuEI0A1Y",
-  watchers: []
+  watchers: [
+    esbuild: {Esbuild, :install_and_run, [:conveyor, ~w(--sourcemap=inline --watch)]}
+  ]
 
 # ## SSL Support
 #

@@ -1,0 +1,12 @@
+{
+  "name": "conveyor-assets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Conveyor cockpit browser assets bundled by esbuild.",
+  "license": "MIT",
+  "dependencies": {
+    "cytoscape": "^3.30.0",
+    "cytoscape-elk": "^2.3.0",
+    "elkjs": "^0.9.3"
+  }
+}

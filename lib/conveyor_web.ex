@@ -36,6 +36,17 @@ defmodule ConveyorWeb do
     end
   end
 
+  def html do
+    quote do
+      use Phoenix.Component
+
+      # Convenience helpers used inside layouts/components.
+      import Phoenix.Controller, only: [get_csrf_token: 0]
+
+      unquote(verified_routes())
+    end
+  end
+
   def controller do
     quote do
       use Phoenix.Controller,
