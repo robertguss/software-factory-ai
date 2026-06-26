@@ -59,7 +59,7 @@ config :phoenix, :json_library, Jason
 # esbuild bundles the browser runtime in assets/ into priv/static/assets.
 # `phoenix` and `phoenix_live_view` resolve from deps/ via NODE_PATH; npm
 # packages (react, react-dom, cytoscape, …) resolve from assets/node_modules,
-# which the `assets.setup` alias creates with `npm install` (the esbuild binary
+# which the `assets.setup` alias creates with `aube install` (the esbuild binary
 # bundles from node_modules but does not create it). `--loader:.js=jsx` lets the
 # React/JSX entrypoint and components build; `--alias:@=./js` matches jsconfig.
 config :esbuild,

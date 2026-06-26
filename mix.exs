@@ -76,21 +76,21 @@ defmodule Conveyor.MixProject do
   defp aliases do
     [
       # `ecto.setup` precedes `assets.setup` so DB provisioning never depends on a
-      # successful `npm install` (offline / no-Node machines still get a usable DB).
+      # successful `aube install` (offline / no-Node machines still get a usable DB).
       setup: ["deps.get", "ecto.setup", "assets.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       # The esbuild binary bundles from assets/node_modules but does not create
-      # it, so `npm install` runs alongside the binary install.
+      # it, so `aube install` runs alongside the binary install.
       "assets.setup": [
         "esbuild.install --if-missing",
         "tailwind.install --if-missing",
-        "cmd --cd assets npm install"
+        "cmd --cd assets aube install"
       ],
       "assets.build": ["esbuild conveyor", "tailwind conveyor"],
       "assets.deploy": [
-        "cmd --cd assets npm install",
+        "cmd --cd assets aube install",
         "esbuild conveyor --minify",
         "tailwind conveyor --minify",
         "phx.digest"

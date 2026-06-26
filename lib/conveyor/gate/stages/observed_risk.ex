@@ -384,7 +384,8 @@ defmodule Conveyor.Gate.Stages.ObservedRisk do
         "package.json",
         "package-lock.json",
         "pnpm-lock.yaml",
-        "yarn.lock"
+        "yarn.lock",
+        "aube-lock.yaml"
       ]
 
   defp migration_path?(path), do: String.starts_with?(path, "priv/repo/migrations/")

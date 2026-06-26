@@ -124,7 +124,8 @@ defmodule Conveyor.Gate.Stages.DiffScope do
       "package.json",
       "package-lock.json",
       "pnpm-lock.yaml",
-      "yarn.lock"
+      "yarn.lock",
+      "aube-lock.yaml"
     ]
   end
 

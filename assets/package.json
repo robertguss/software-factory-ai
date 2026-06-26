@@ -9,21 +9,21 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^1.1.4",
-    "@inertiajs/react": "^2.0.0",
-    "@xyflow/react": "^12.3.5",
+    "@dagrejs/dagre": "^3.0.0",
+    "@inertiajs/react": "^3.4.0",
+    "@xyflow/react": "^12.11.0",
     "axios": "^1.7.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.460.0",
-    "tailwind-merge": "^2.5.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "lucide-react": "^1.21.0",
+    "tailwind-merge": "^3.6.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^16.0.1",
-    "jsdom": "^25.0.1",
+    "jsdom": "^29.1.1",
     "vitest": "^4.1.9"
   }
 }
