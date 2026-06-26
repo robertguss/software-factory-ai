@@ -25,7 +25,7 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   require Ash.Query
 
   alias Conveyor.Factory
-  alias Conveyor.Factory.{Epic, LedgerEvent, RunAttempt, Slice, StationRun, TaskDependency}
+  alias Conveyor.Factory.{Epic, LedgerEvent, Plan, RunAttempt, Slice, StationRun, TaskDependency}
 
   # Mirrors `Conveyor.TaskGraph`'s done states for the predecessor/ready-set check.
   @done_states [:done, :integrated]
@@ -146,6 +146,22 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   end
 
   # ─── Run discovery ─────────────────────────────────────────────────────────
+
+  @doc """
+  The plan the cockpit shows by default: the most-recently-imported `:active`
+  plan, falling back to the most-recent plan of any status (`nil` when none).
+  """
+  @spec default_plan_id() :: String.t() | nil
+  def default_plan_id do
+    plans = Ash.read!(Plan, domain: Factory)
+    active = Enum.filter(plans, &(&1.status == :active))
+    pool = if active == [], do: plans, else: active
+
+    case Enum.sort_by(pool, & &1.imported_at, {:desc, DateTime}) do
+      [plan | _] -> plan.id
+      [] -> nil
+    end
+  end
 
   @doc "The most-recent run's id (the active run), or `nil` when no run has started."
   @spec most_recent_run_id() :: String.t() | nil

@@ -19,6 +19,8 @@ defmodule ConveyorWeb.Router do
 
     live "/runs", RunViewerLive, :index
     live "/parked", ParkedQueueLive, :index
+    # Temporary build route for the cockpit; /runs is swapped to it at cutover (U6).
+    live "/cockpit", CockpitLive, :index
   end
 
   scope "/api", ConveyorWeb do
