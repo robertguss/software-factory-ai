@@ -14,15 +14,30 @@ defmodule ConveyorWeb.CockpitLive do
 
   alias ConveyorWeb.Live.Cockpit.GraphProjection
 
+  @ledger_topic "ledger_events"
+  # Stalled is time-based (a running station crossing its wall-clock cap), so a
+  # periodic tick re-evaluates it without waiting for a ledger event (R14).
+  @tick_ms 20_000
+
   @impl true
   def mount(params, _session, socket) do
+    # Subscribe BEFORE seeding (ADR-09 / KTD3): a ping that arrives during the
+    # mount reconstruction then triggers an idempotent re-read rather than being
+    # dropped.
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Conveyor.PubSub, @ledger_topic)
+      schedule_tick()
+    end
+
     plan_id = params["plan_id"] || GraphProjection.default_plan_id()
+    model = build_model(plan_id)
 
     {:ok,
      socket
      |> assign(:page_title, "Cockpit")
      |> assign(:plan_id, plan_id)
-     |> assign(:model, build_model(plan_id))}
+     |> assign(:model, model)
+     |> assign(:slice_ids, slice_id_set(model))}
   end
 
   # The `Dag` hook asks for the graph once it is live, so the seed is never raced
@@ -32,8 +47,79 @@ defmodule ConveyorWeb.CockpitLive do
     {:noreply, push_graph(socket)}
   end
 
+  # A ledger ping: fold it by re-reading just the named slice (idempotent), then
+  # patch only the node(s) that changed — the named slice plus any dependent whose
+  # derived state flipped (R7, R8). Pings for slices outside the plan are ignored.
+  @impl true
+  def handle_info({:ledger_event, message}, socket) do
+    slice_id = message["slice_id"]
+
+    if relevant?(socket, slice_id) do
+      {:noreply, apply_recompute(socket, [slice_id], nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # The scheduled Stalled tick: re-evaluate running nodes against the cap at the
+  # current wall-clock, then reschedule.
+  def handle_info(:stalled_tick, socket) do
+    schedule_tick()
+    {:noreply, recompute_stalled(socket, DateTime.utc_now())}
+  end
+
+  # Recompute Stalled at an explicit time (the scheduled tick is the same path with
+  # `utc_now`); does not reschedule, so callers control cadence.
+  def handle_info({:stalled_tick, now}, socket) do
+    {:noreply, recompute_stalled(socket, now)}
+  end
+
   defp build_model(nil), do: nil
   defp build_model(plan_id), do: GraphProjection.build(plan_id)
+
+  defp schedule_tick, do: Process.send_after(self(), :stalled_tick, @tick_ms)
+
+  defp slice_id_set(nil), do: MapSet.new()
+  defp slice_id_set(model), do: MapSet.new(model.nodes, & &1.id)
+
+  defp relevant?(_socket, nil), do: false
+  defp relevant?(socket, slice_id), do: MapSet.member?(socket.assigns.slice_ids, slice_id)
+
+  defp recompute_stalled(socket, now) do
+    time_sensitive =
+      for node <- socket.assigns.model.nodes, node.state in [:running, :stalled], do: node.id
+
+    apply_recompute(socket, time_sensitive, now)
+  end
+
+  # Re-read the given slices, recompute the graph, and push a targeted patch for
+  # only the nodes whose view changed. `nil` `now` keeps the model's build time.
+  defp apply_recompute(socket, [], _now), do: socket
+
+  defp apply_recompute(socket, slice_ids, now) do
+    model = socket.assigns.model
+    previous = Map.new(model.nodes, &{&1.id, &1})
+
+    new_model =
+      Enum.reduce(slice_ids, model, fn slice_id, acc ->
+        {acc, _changed} = GraphProjection.recompute_slice(acc, slice_id, recompute_opts(now))
+        acc
+      end)
+
+    changed = Enum.reject(new_model.nodes, &(Map.get(previous, &1.id) == &1))
+
+    socket
+    |> assign(:model, new_model)
+    |> patch_changed(changed)
+  end
+
+  defp recompute_opts(nil), do: []
+  defp recompute_opts(now), do: [now: now]
+
+  defp patch_changed(socket, []), do: socket
+
+  defp patch_changed(socket, changed),
+    do: push_event(socket, "node:patch", %{nodes: Enum.map(changed, &node_payload/1)})
 
   defp push_graph(%{assigns: %{model: nil}} = socket), do: socket
 

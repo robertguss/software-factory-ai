@@ -29,10 +29,15 @@ defmodule Conveyor.CockpitFixtures do
   Returns `%{project:, plan:, epic:, slices: %{stable_key => Slice}}`.
   """
   def seed_plan(slice_specs, edge_specs \\ []) do
+    # Unique per call so a test may seed more than one plan (e.g. a second plan to
+    # exercise the out-of-plan ping filter) without colliding on project/plan
+    # identities.
+    uid = System.unique_integer([:positive])
+
     project =
       Ash.create!(
         Project,
-        %{name: "Cockpit proj", local_path: "/tmp/cockpit", default_branch: "main"},
+        %{name: "Cockpit proj #{uid}", local_path: "/tmp/cockpit-#{uid}", default_branch: "main"},
         domain: Factory
       )
 
@@ -41,11 +46,11 @@ defmodule Conveyor.CockpitFixtures do
         Plan,
         %{
           project_id: project.id,
-          title: "Cockpit plan",
+          title: "Cockpit plan #{uid}",
           intent: "Exercise the cockpit.",
           source_document: "docs/cockpit-plan.md",
           normalized_contract: %{"schema_version" => "conveyor.plan@1"},
-          contract_sha256: "sha256:" <> String.duplicate("c", 64),
+          contract_sha256: digest("plan-#{uid}"),
           status: :active
         },
         domain: Factory
