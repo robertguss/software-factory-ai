@@ -3,9 +3,9 @@ defmodule ConveyorWeb.Live.Cockpit.GraphSerializer do
   Shapes the cockpit wire payloads — `graph:init` (full snapshot) and the node
   rows in `node:patch` deltas — from a `GraphProjection` model.
 
-  Lifted verbatim from `CockpitLive` so the Channel (U8) reuses one serializer
-  and the LiveView and Channel stay byte-for-byte identical. No payload shape
-  change; `GraphProjection.build/2` / `recompute_slice/3` remain the model
+  Originally lifted from the cockpit's first LiveView transport (since retired at
+  the /runs cutover) so every reader shares one serializer and stays byte-for-byte
+  identical. `GraphProjection.build/2` / `recompute_slice/3` remain the model
   source.
   """
 

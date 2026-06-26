@@ -1,8 +1,8 @@
 defmodule ConveyorWeb.CockpitChannelTest do
   @moduledoc """
-  The observe-only cockpit Channel emits the same seed/deltas CockpitLive does
-  today, over a net-new socket (R5/R6). These port the LiveView event assertions
-  to Phoenix.ChannelTest.
+  The observe-only cockpit Channel emits the seed/deltas over a net-new socket
+  (R5/R6). These port the event assertions from the cockpit's retired LiveView
+  transport to Phoenix.ChannelTest.
 
   Shared (non-async) sandbox: the channel runs in a process spawned by
   `subscribe_and_join`, and its `:after_join` seed reads the DB before the test
@@ -150,5 +150,59 @@ defmodule ConveyorWeb.CockpitChannelTest do
     # No inbound mutation messages — observe-only.
     ref = push(socket, "slice:retry", %{"id" => s["SLICE-001"].id})
     assert_reply ref, :error, %{reason: "observe-only"}
+  end
+
+  # Ported from the retired CockpitLive stalled/parity tests (KTD8/R14/AE4): no
+  # faked liveness — Stalled is a real stored StationRun.started_at evaluated
+  # against the cap. The per-slice cap is disabled in test config, so pin
+  # production's one-hour cap. ChannelCase is non-async, so put_env is safe.
+  describe "stalled liveness (KTD8/R14 parity, ported from CockpitLive)" do
+    setup do
+      previous = Application.get_env(:conveyor, :serial_driver_slice_wall_clock_ms)
+      Application.put_env(:conveyor, :serial_driver_slice_wall_clock_ms, 3_600_000)
+
+      on_exit(fn ->
+        Application.put_env(:conveyor, :serial_driver_slice_wall_clock_ms, previous)
+      end)
+
+      :ok
+    end
+
+    test "seeds an over-cap running slice as stalled and a within-cap one as running" do
+      %{plan: plan, slices: s} =
+        CockpitFixtures.seed_plan([{"SLICE-001", :in_progress}, {"SLICE-002", :in_progress}], [])
+
+      CockpitFixtures.seed_running_station(
+        s["SLICE-001"],
+        DateTime.add(DateTime.utc_now(), -2, :hour)
+      )
+
+      CockpitFixtures.seed_running_station(
+        s["SLICE-002"],
+        DateTime.add(DateTime.utc_now(), -5, :minute)
+      )
+
+      join_cockpit("cockpit:default", plan.id)
+      assert_push "graph:init", %{nodes: nodes}
+
+      assert Enum.find(nodes, &(&1.id == s["SLICE-001"].id)).state == :stalled
+      assert Enum.find(nodes, &(&1.id == s["SLICE-002"].id)).state == :running
+    end
+
+    test "the stalled tick flips a running slice once it crosses its cap → node:patch" do
+      %{plan: plan, slices: s} = CockpitFixtures.seed_plan([{"SLICE-001", :in_progress}], [])
+      started = DateTime.utc_now()
+      CockpitFixtures.seed_running_station(s["SLICE-001"], started)
+
+      socket = join_cockpit("cockpit:default", plan.id)
+      assert_push "graph:init", %{nodes: nodes}
+      assert Enum.find(nodes, &(&1.id == s["SLICE-001"].id)).state == :running
+
+      # Tick two hours after the station started: now past the one-hour cap.
+      send(socket.channel_pid, {:stalled_tick, DateTime.add(started, 2, :hour)})
+
+      assert_push "node:patch", %{nodes: patched}, 2000
+      assert Enum.find(patched, &(&1.id == s["SLICE-001"].id)).state == :stalled
+    end
   end
 end

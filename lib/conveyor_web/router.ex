@@ -18,14 +18,10 @@ defmodule ConveyorWeb.Router do
   scope "/", ConveyorWeb do
     pipe_through :browser
 
-    live "/runs", CockpitLive, :index
+    # /runs is the React/Inertia cockpit (U10 cutover); the graph streams over the
+    # cockpit Channel. /parked stays a LiveView.
+    get "/runs", CockpitController, :index
     live "/parked", ParkedQueueLive, :index
-
-    # Temporary Inertia baseline page (U2); retired at the /runs cutover (U10).
-    get "/hello", PageController, :index
-
-    # The React cockpit (U9). Temporary route until U10 cuts /runs over to it.
-    get "/cockpit", CockpitController, :index
   end
 
   scope "/api", ConveyorWeb do

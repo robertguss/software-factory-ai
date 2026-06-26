@@ -11,8 +11,8 @@ defmodule ConveyorWeb.CockpitController do
   @doc """
   Seed the cockpit shell props — the plan/run identity the React page opens the
   Channel with. The graph itself does NOT come through here; it streams over the
-  cockpit Channel (`graph:init` / `node:patch`). The page resolves its own
-  default plan id when none is given, mirroring CockpitLive.
+  cockpit Channel (`graph:init` / `node:patch`). The default plan id is resolved
+  server-side when none is given.
   """
   def index(conn, params) do
     plan_id = params["plan_id"] || GraphProjection.default_plan_id()

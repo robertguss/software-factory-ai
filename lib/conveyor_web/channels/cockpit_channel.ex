@@ -1,9 +1,9 @@
 defmodule ConveyorWeb.CockpitChannel do
   @moduledoc """
   The observe-only cockpit Channel: one run's task-dependency graph, streamed
-  live. It emits the same seed and deltas CockpitLive does today (R4/R5/R6) via
-  the shared `GraphSerializer`, so the React client folds `graph:init` →
-  `node:patch` exactly as the LiveView path did.
+  live. It emits the seed and deltas (R4/R5/R6) via the shared `GraphSerializer`,
+  so the React client folds `graph:init` → `node:patch`. This replaced the
+  cockpit's original LiveView `push_event` transport at the /runs cutover.
 
   Subscribe-then-seed (ADR-09 / KTD3): `join` subscribes to the ledger topic and
   defers the seed to `:after_join`, so a ping arriving during join triggers an
@@ -83,7 +83,7 @@ defmodule ConveyorWeb.CockpitChannel do
   def handle_in(_event, _payload, socket),
     do: {:reply, {:error, %{reason: "observe-only"}}, socket}
 
-  # ── model + state, ported from CockpitLive ──────────────────────────────────
+  # ── model + state (the cockpit's run-graph fold) ────────────────────────────
 
   # "default" is the live frontier (no run scope); any other run_id scopes the
   # fold to that run. A nil plan (no default plan) has no model.

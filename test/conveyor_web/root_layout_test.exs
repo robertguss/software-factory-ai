@@ -13,6 +13,7 @@ defmodule ConveyorWeb.RootLayoutTest do
     html = conn |> get(~p"/parked") |> html_response(200)
 
     assert html =~ ~s(src="/assets/app.js")
+    assert html =~ ~s(href="/assets/app.css")
     assert html =~ "phx-track-static"
     assert html =~ ~s(name="csrf-token")
     assert html =~ "<!DOCTYPE html>"
