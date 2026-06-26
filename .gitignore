@@ -45,6 +45,9 @@ erl_crash.dump
 
 # Phoenix/asset build outputs.
 /assets/node_modules/
+# A stray root node_modules / vite cache can appear if a JS test runner is
+# invoked from the repo root instead of assets/ — never tracked.
+/node_modules/
 /priv/static/assets/
 /priv/static/cache/
 

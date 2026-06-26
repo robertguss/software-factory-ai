@@ -20,6 +20,12 @@ defmodule ConveyorWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
+  # The cockpit's observe-only realtime transport (R5). Unauthenticated by
+  # design — internal-only (KTD10), trust boundary documented in UserSocket.
+  socket "/socket", ConveyorWeb.UserSocket,
+    websocket: true,
+    longpoll: false
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
