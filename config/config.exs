@@ -58,17 +58,38 @@ config :phoenix, :json_library, Jason
 
 # esbuild bundles the browser runtime in assets/ into priv/static/assets.
 # `phoenix` and `phoenix_live_view` resolve from deps/ via NODE_PATH; npm
-# packages (cytoscape, elkjs) resolve from assets/node_modules, which the
-# `assets.setup` alias creates with `npm install` (the esbuild binary bundles
-# from node_modules but does not create it).
+# packages (react, react-dom, cytoscape, …) resolve from assets/node_modules,
+# which the `assets.setup` alias creates with `aube install` (the esbuild binary
+# bundles from node_modules but does not create it). `--loader:.js=jsx` lets the
+# React/JSX entrypoint and components build; `--alias:@=./js` matches jsconfig.
 config :esbuild,
   version: "0.25.4",
   conveyor: [
     args:
-      ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
+      ~w(js/app.jsx --bundle --target=es2020 --outdir=../priv/static/assets --loader:.js=jsx --loader:.jsx=jsx --alias:@=./js --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
+
+# Tailwind v4 (standalone CLI via the :tailwind hex wrapper) compiles
+# assets/css/app.css into priv/static/assets/app.css. v4 is CSS-first — content
+# detection and the token layers live in app.css itself (no tailwind.config.js).
+config :tailwind,
+  version: "4.3.0",
+  conveyor: [
+    args: ~w(--input=css/app.css --output=../priv/static/assets/app.css),
+    cd: Path.expand("../assets", __DIR__)
+  ]
+
+# Inertia.js: controllers return props to React pages. SSR is off (no Node
+# worker pool — internal operator tool). `static_paths` drives asset-version
+# busting; props stay snake_case to match the cockpit's server payloads.
+config :inertia,
+  endpoint: ConveyorWeb.Endpoint,
+  static_paths: ["/assets/app.js"],
+  default_version: "1",
+  camelize_props: false,
+  ssr: false
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

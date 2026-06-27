@@ -27,6 +27,8 @@ defmodule ConveyorWeb.Layouts do
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content={get_csrf_token()} />
         <title>{assigns[:page_title] || "Conveyor"}</title>
+        <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+        <Inertia.HTML.inertia_head :if={assigns[:inertia_head]} content={@inertia_head} />
         <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
         </script>
       </head>

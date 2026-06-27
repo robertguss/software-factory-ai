@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["js/*"] },
+    "jsx": "react-jsx",
+    "checkJs": false,
+    "module": "esnext",
+    "target": "es2020"
+  },
+  "include": ["js/**/*"]
+}

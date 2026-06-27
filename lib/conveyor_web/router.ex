@@ -12,12 +12,15 @@ defmodule ConveyorWeb.Router do
     plug :put_root_layout, html: {ConveyorWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug Inertia.Plug
   end
 
   scope "/", ConveyorWeb do
     pipe_through :browser
 
-    live "/runs", CockpitLive, :index
+    # /runs is the React/Inertia cockpit (U10 cutover); the graph streams over the
+    # cockpit Channel. /parked stays a LiveView.
+    get "/runs", CockpitController, :index
     live "/parked", ParkedQueueLive, :index
   end
 

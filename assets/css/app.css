@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/* React Flow's base styles. Imported through Tailwind (not via a JS `import`)
+   so esbuild does not emit a competing app.css that the Tailwind build would
+   clobber — one stylesheet, one writer. */
+@import "@xyflow/react/dist/style.css";
+
+/* Tailwind v4 is CSS-first: scan our React sources for utility names. The
+   esbuild output bundle and node_modules are noise, so scope scanning to the
+   hand-written sources. */
+@source "./js/**/*.{js,jsx}";
+
+/* Three-layer token set, dark-mode-first (R11). Dark lives on :root — there is
+   no light theme in this slice, so there is no `.dark` class to toggle. Tokens
+   name by role, not value. Tailwind v4 emits each `@theme` var to :root AND
+   generates matching utilities (`--color-status-nominal` → `bg-status-nominal`,
+   `text-status-nominal`, `border-status-nominal`). `static` forces every token
+   into :root even before a utility references it, so the role-named set is a
+   stable contract the color law (U4) and SliceCard (U5) resolve against. */
+@theme static {
+  /* Layer 1 — base surface palette. */
+  --color-bg: oklch(0.17 0.01 260);
+  --color-surface: oklch(0.21 0.01 260);
+  --color-border: oklch(0.32 0.01 260);
+  --color-fg: oklch(0.92 0.01 260);
+  --color-muted: oklch(0.62 0.01 260);
+
+  /* Layer 2 — semantic status tokens consumed by the color law (U4). The five
+     nominal states collapse to one monochrome token; exceptions rank
+     failed > blocked > stalled by severity (R8). */
+  --color-status-nominal: oklch(0.70 0.01 260);
+  --color-sev-warning: oklch(0.64 0.2 25); /* failed */
+  --color-sev-caution: oklch(0.78 0.15 75); /* blocked, high starvation */
+  --color-sev-advisory: oklch(0.72 0.1 240); /* stalled */
+}
+
+/* Layer 3 — component ground. The cockpit is dark-first from the page down. */
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+  }
+}
