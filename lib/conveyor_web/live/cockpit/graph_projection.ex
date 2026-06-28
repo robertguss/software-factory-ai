@@ -33,6 +33,14 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   @failed_states [:failed, :policy_blocked]
   @default_slice_cap_ms 3_600_000
 
+  # The `RunAttempt.outcome` verdicts that route a slice to a human — the
+  # gate-waiting signal for the needs-me rail (KTD4/R5).
+  @human_routing_outcomes [:needs_rework, :rejected, :policy_blocked, :abstained]
+
+  # Committed `run.slice_outcome` statuses that are NOT a clean pass — the
+  # per-run attention signal for the switcher rollup (KTD4/R6).
+  @clean_outcome_statuses ~w(passed skipped)
+
   @typedoc "A normalized per-slice fact: the input to the pure resolver."
   @type fact :: %{
           id: String.t(),
@@ -156,15 +164,15 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   def node_detail(model, slice_id) do
     case Enum.find(model.nodes, &(&1.id == slice_id)) do
       nil -> nil
-      node -> detail_for(node, slice_id, model.now, model.live?)
+      node -> detail_for(model, node, slice_id)
     end
   end
 
   # Live attempt/station/elapsed are overlaid only for the active run (KTD2): a
   # finished run is not running, and its latest attempt belongs to a *later* run,
   # so a historical panel shows its committed outcome (state/reason/events) only.
-  defp detail_for(node, slice_id, now, live?) do
-    attempt = if live?, do: latest_attempt_row(slice_id)
+  defp detail_for(model, node, slice_id) do
+    attempt = if model.live?, do: latest_attempt_row(slice_id)
     station = latest_station_row(attempt)
 
     %{
@@ -179,9 +187,76 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
       attempt_no: attempt && attempt.attempt_no,
       attempt_status: attempt && attempt.status,
       started_at: station && station.started_at,
-      elapsed_seconds: elapsed_seconds(station, now),
+      elapsed_seconds: elapsed_seconds(station, model.now),
       events: recent_events(slice_id)
     }
+    |> Map.merge(verdict_detail(model, node, attempt))
+  end
+
+  # The read-only gate/review/evidence verdict for the dossier (R7/R8) — reflected,
+  # never upgraded. Two sources by run liveness (KTD5):
+  #   * Live run: load the latest attempt's modeled gate/review/evidence.
+  #   * Finished run: the committed verdict from the run-scoped `run.slice_outcome`
+  #     payload — the attempt belongs to a later run and cannot be tied to this one.
+  defp verdict_detail(%{live?: true}, _node, nil), do: %{gate: nil, reviews: [], evidence: []}
+
+  defp verdict_detail(%{live?: true}, _node, attempt) do
+    loaded = Ash.load!(attempt, [:gate_results, :reviews, :evidence_records], domain: Factory)
+
+    %{
+      gate: gate_view(List.first(loaded.gate_results)),
+      reviews: Enum.map(loaded.reviews, &review_view/1),
+      evidence: Enum.map(loaded.evidence_records, &evidence_view/1)
+    }
+  end
+
+  defp verdict_detail(%{live?: false, run_id: run_id}, node, _attempt) do
+    %{gate: committed_gate(run_id, node.stable_key), reviews: [], evidence: []}
+  end
+
+  # A passed gate's stages carry the per-check verdicts (GO/NO-GO/STANDBY/Abstain);
+  # `trust_score` is nil when the gate did not compute a calibrated verdict. Both
+  # are reflected verbatim — the client never upgrades an uncomputed dimension.
+  defp gate_view(nil), do: nil
+
+  defp gate_view(gate),
+    do: %{passed: gate.passed, stages: gate.stages, trust_score: gate.trust_score}
+
+  # The minimum the gate board + dossier need (Open Question): status enums + the
+  # findings/checks/acceptance text. Sensitive refs (tool_invocation_refs, diff_ref)
+  # stay server-side.
+  defp review_view(review) do
+    %{
+      kind: review.review_kind,
+      decision: review.decision,
+      recommendation: review.recommendation,
+      summary: review.summary,
+      findings: review.findings,
+      checks: review.checks
+    }
+  end
+
+  defp evidence_view(evidence) do
+    %{
+      summary: evidence.summary,
+      acceptance_results: evidence.acceptance_results,
+      risks: evidence.risks,
+      changed_files: evidence.changed_files
+    }
+  end
+
+  defp committed_gate(run_id, stable_key) do
+    case Map.get(load_outcomes_scoped(run_id), stable_key) do
+      nil ->
+        nil
+
+      payload ->
+        %{
+          status: payload["status"],
+          findings: payload["findings"] || [],
+          gate_result: payload["gate_result"]
+        }
+    end
   end
 
   defp reason_for(%{state: :blocked, blocked_by: blockers}),
@@ -269,6 +344,103 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
       }
     )
     |> Enum.uniq_by(& &1.run_id)
+  end
+
+  # ─── Attention projection (needs-me rail + switcher rollup, R5/R6) ──────────
+
+  @doc """
+  The needs-a-human items for a run's current `model` (R5), highest-attention
+  first. Surfaces failed slices (from computed state) and slices whose latest
+  attempt routed to a human (gate-waiting, from `RunAttempt.outcome`), each with
+  a server-computed rank — the client only paints, it does not rank or infer
+  attention. Live-only: a historical run's attempts belong to a *later* run
+  (KTD5), so it yields `[]` rather than mis-attributing a later verdict.
+  """
+  @spec attention_for(map() | nil) :: [map()]
+  def attention_for(nil), do: []
+  def attention_for(%{live?: false}), do: []
+
+  def attention_for(%{nodes: nodes}) do
+    outcomes = latest_outcome_by_slice(Enum.map(nodes, & &1.id))
+
+    nodes
+    |> Enum.map(&attention_item(&1, outcomes))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.sort_by(& &1.rank, :desc)
+  end
+
+  @doc """
+  Per-run attention rollups for the switcher (R6), newest run first (mirroring
+  `list_runs/0`). Derived from run-scoped ledger outcomes (KTD4), not attempt
+  rows: a committed outcome whose status is not a clean pass/skip is a slice that
+  needed a human. The switcher orders runs by this count.
+  """
+  @spec run_attention() :: [%{run_id: String.t(), attention: non_neg_integer()}]
+  def run_attention do
+    by_run = attention_counts_by_run()
+    Enum.map(list_runs(), &%{run_id: &1.run_id, attention: Map.get(by_run, &1.run_id, 0)})
+  end
+
+  defp attention_item(%{state: :failed} = node, _outcomes), do: attention(node, :failed, nil)
+
+  defp attention_item(node, outcomes) do
+    case Map.get(outcomes, node.id) do
+      outcome when outcome in @human_routing_outcomes -> attention(node, :gate_waiting, outcome)
+      _ -> nil
+    end
+  end
+
+  defp attention(node, kind, outcome) do
+    %{
+      slice_id: node.id,
+      label: node.label,
+      title: node.title,
+      # The computed node state so the rail can render the slice through the same
+      # color law as the canvas (compact SliceCard); `kind` carries why it needs a
+      # human (a gate-waiting slice has no dedicated taxonomy state).
+      state: node.state,
+      kind: kind,
+      outcome: outcome,
+      rank: attention_rank(kind, outcome)
+    }
+  end
+
+  # Higher rank = more urgent. A hard failure outranks any gate-waiting verdict;
+  # among verdicts, a rejection/policy block outranks rework, which outranks an
+  # abstain. Tunable knobs, not magic numbers.
+  defp attention_rank(:failed, _), do: 40
+  defp attention_rank(:gate_waiting, :rejected), do: 30
+  defp attention_rank(:gate_waiting, :policy_blocked), do: 30
+  defp attention_rank(:gate_waiting, :needs_rework), do: 20
+  defp attention_rank(:gate_waiting, _), do: 10
+
+  defp latest_outcome_by_slice([]), do: %{}
+
+  defp latest_outcome_by_slice(slice_ids) do
+    RunAttempt
+    |> Ash.Query.filter(slice_id in ^slice_ids)
+    |> Ash.read!(domain: Factory)
+    |> Enum.group_by(& &1.slice_id)
+    |> Map.new(fn {slice_id, attempts} ->
+      {slice_id, Enum.max_by(attempts, & &1.attempt_no).outcome}
+    end)
+  end
+
+  # Distinct non-clean slices per run, from the latest committed outcome per
+  # {run_id, slice_id} (a slice can emit several outcome events across sequences).
+  defp attention_counts_by_run do
+    LedgerEvent
+    |> Ash.Query.filter(type == "run.slice_outcome")
+    |> Ash.read!(domain: Factory)
+    |> Enum.sort_by(& &1.payload["sequence"])
+    |> Enum.reduce(%{}, fn ev, acc ->
+      Map.put(acc, {ev.payload["run_id"], ev.payload["slice_id"]}, ev.payload["status"])
+    end)
+    |> Enum.reduce(%{}, fn {{run_id, _slice}, status}, acc ->
+      if is_nil(run_id) or status in @clean_outcome_statuses,
+        do: acc,
+        else: Map.update(acc, run_id, 1, &(&1 + 1))
+    end)
   end
 
   # ─── Pure resolver: the node-state taxonomy (R10–R14) ──────────────────────

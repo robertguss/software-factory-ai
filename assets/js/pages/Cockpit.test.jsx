@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // Shared spies/state the mocks read, set per test.
@@ -31,6 +31,8 @@ const hook = (overrides = {}) => ({
   status: "live",
   graph: { nodes: [], edges: [], epics: [] },
   runs: [],
+  attention: { items: [], runs: [] },
+  history: {},
   seeded: true,
   requestDetail: vi.fn(),
   ...overrides,
@@ -100,6 +102,21 @@ describe("Cockpit", () => {
     expect(h.setCenter).toHaveBeenCalled()
   })
 
+  it("toggles a node's pin through the canvas (R4)", () => {
+    h.hook = hook({
+      graph: {
+        nodes: [{ id: "a", state: "running", title: "Slice A" }],
+        edges: [],
+        epics: [],
+      },
+    })
+    render(<Cockpit plan_id="p1" />)
+
+    const pin = screen.getByRole("button", { name: "Pin node" })
+    fireEvent.click(pin)
+    expect(screen.getByRole("button", { name: "Unpin node" })).toBeInTheDocument()
+  })
+
   it("dims/stale-marks the canvas and shows the status when not live (AE7)", () => {
     h.hook = hook({ status: "reconnecting", graph: { nodes: [], edges: [], epics: [] } })
     const { container } = render(<Cockpit plan_id="p1" />)
@@ -112,5 +129,88 @@ describe("Cockpit", () => {
     h.hook = hook({ runs: [{ run_id: "run-2", started_at: "x", slice_ids: [] }] })
     render(<Cockpit plan_id="p1" />)
     expect(screen.getByRole("option", { name: "run-2" })).toBeInTheDocument()
+  })
+
+  it("shows the needs-me rail; selecting an item centers the viewport, no mutation (R5/AE5)", () => {
+    h.hook = hook({
+      graph: {
+        nodes: [{ id: "a", state: "failed", title: "Slice A" }],
+        edges: [],
+        epics: [],
+      },
+      attention: {
+        items: [
+          { slice_id: "a", title: "Slice A", label: "A", state: "failed", kind: "failed", rank: 40 },
+        ],
+        runs: [],
+      },
+    })
+    render(<Cockpit plan_id="p1" />)
+
+    // The rail lists the needs-a-human item; clicking it centers the canvas.
+    const rail = screen.getByLabelText("Needs me")
+    fireEvent.click(within(rail).getByRole("button"))
+    expect(h.setCenter).toHaveBeenCalled()
+  })
+
+  it("orders the switcher by attention and persists the selection to the URL (R6/AE10)", () => {
+    h.hook = hook({
+      runs: [
+        { run_id: "calm", started_at: "x", slice_ids: [] },
+        { run_id: "busy", started_at: "y", slice_ids: [] },
+      ],
+      attention: {
+        items: [],
+        runs: [
+          { run_id: "calm", attention: 0 },
+          { run_id: "busy", attention: 3 },
+        ],
+      },
+    })
+    render(<Cockpit plan_id="p1" />)
+
+    // The busy run (more attention) sorts above the calm one.
+    const options = screen.getAllByRole("option").map((o) => o.value)
+    expect(options.indexOf("busy")).toBeLessThan(options.indexOf("calm"))
+
+    // Selecting a run writes it to the URL so a reload restores it.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "busy" } })
+    expect(new URLSearchParams(window.location.search).get("run")).toBe("busy")
+  })
+
+  it("restores the selected run from the URL on mount (AE10)", () => {
+    window.history.replaceState({}, "", "/?run=run-7")
+    h.hook = hook({ runs: [{ run_id: "run-7", started_at: "x", slice_ids: [] }] })
+    render(<Cockpit plan_id="p1" />)
+    expect(screen.getByRole("combobox")).toHaveValue("run-7")
+    window.history.replaceState({}, "", "/")
+  })
+
+  it("opens the read-only dossier on a needs-me selection and closes it on Escape (R7)", async () => {
+    const requestDetail = vi.fn().mockResolvedValue({
+      blocked_by: [],
+      gate: { stages: [{ name: "tests", status: "failed" }] },
+      reviews: [],
+      evidence: [],
+    })
+    h.hook = hook({
+      graph: { nodes: [{ id: "a", state: "failed", title: "Slice A" }], edges: [], epics: [] },
+      attention: {
+        items: [{ slice_id: "a", title: "Slice A", label: "A", state: "failed", kind: "failed", rank: 40 }],
+        runs: [],
+      },
+      requestDetail,
+    })
+    render(<Cockpit plan_id="p1" />)
+
+    fireEvent.click(within(screen.getByLabelText("Needs me")).getByRole("button"))
+
+    // The dossier loads the detail and renders the non-vacuous gate board.
+    expect(await screen.findByText("NO-GO")).toBeInTheDocument()
+    expect(requestDetail).toHaveBeenCalledWith("a")
+
+    // Escape dismisses it back to the placeholder.
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(screen.getByTestId("dossier-empty")).toBeInTheDocument()
   })
 })

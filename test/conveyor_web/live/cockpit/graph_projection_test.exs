@@ -21,6 +21,7 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjectionTest do
     TaskDependency
   }
 
+  alias Conveyor.CockpitFixtures
   alias Conveyor.Ledger
   alias ConveyorWeb.Live.Cockpit.GraphProjection
 
@@ -338,6 +339,58 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjectionTest do
       assert detail.attempt_status == nil
       assert detail.started_at == nil
       assert detail.elapsed_seconds == nil
+    end
+
+    test "a live run loads the attempt's gate / review / evidence, reflecting verdicts (R7/R8)" do
+      %{plan: plan, slices: s} = seed_plan([{"SLICE-001", :gated}], [])
+
+      CockpitFixtures.seed_attempt_with_verdict(s["SLICE-001"],
+        gate: %{
+          passed: false,
+          stages: [
+            %{"name" => "tests", "status" => "no_go"},
+            %{"name" => "coverage", "status" => "baseline_absent"}
+          ],
+          trust_score: %{"verdict" => "abstain"}
+        },
+        review: %{decision: :needs_rework, recommendation: :ask_human, summary: "needs a human"},
+        evidence: %{summary: "did the thing", acceptance_results: [%{"name" => "AC1"}], risks: []}
+      )
+
+      model = GraphProjection.build(plan.id, now: @now)
+      assert model.live? == true
+
+      detail = GraphProjection.node_detail(model, s["SLICE-001"].id)
+
+      assert detail.gate.passed == false
+      # Abstain / baseline_absent are reflected verbatim — never upgraded to a pass.
+      assert %{"name" => "coverage", "status" => "baseline_absent"} in detail.gate.stages
+      assert detail.gate.trust_score == %{"verdict" => "abstain"}
+
+      assert [review] = detail.reviews
+      assert review.decision == :needs_rework
+      assert review.recommendation == :ask_human
+
+      assert [evidence] = detail.evidence
+      assert evidence.summary == "did the thing"
+    end
+
+    test "a finished run projects the committed verdict from the outcome payload, not empty (AE11)" do
+      %{plan: plan, slices: s} = seed_plan([{"SLICE-001", :in_progress}], [])
+      seed_run_started("run-old", ["SLICE-001"], DateTime.add(@now, -1, :hour))
+      seed_outcome("run-old", "SLICE-001", "parked", 1)
+      seed_run_started("run-new", ["SLICE-001"], @now)
+
+      historical = GraphProjection.build(plan.id, run_id: "run-old", now: @now)
+      assert historical.live? == false
+
+      detail = GraphProjection.node_detail(historical, s["SLICE-001"].id)
+
+      # The committed verdict shows (not an empty panel); attempt-tied rows do not,
+      # since the latest attempt belongs to a later run (KTD5).
+      assert detail.gate.status == "parked"
+      assert detail.reviews == []
+      assert detail.evidence == []
     end
 
     test "elapsed never goes negative when a station started after the model's `now` (#10)" do

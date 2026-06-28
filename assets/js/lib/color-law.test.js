@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  byAttention,
   colorLaw,
   HIGH_STARVATION_THRESHOLD,
   NOMINAL_TOKEN,
@@ -128,5 +129,23 @@ describe("colorLaw", () => {
       expect(topException(nodes).severity).toBe("caution")
       expect(overallSeverity(nodes)).toBe("caution")
     })
+  })
+})
+
+describe("byAttention (needs-me rail ordering)", () => {
+  it("orders higher server rank first", () => {
+    const items = [
+      { slice_id: "a", rank: 10, label: "A" },
+      { slice_id: "b", rank: 40, label: "B" },
+    ]
+    expect([...items].sort(byAttention).map((i) => i.slice_id)).toEqual(["b", "a"])
+  })
+
+  it("breaks an equal-rank tie by label, deterministically", () => {
+    const items = [
+      { slice_id: "z", rank: 20, label: "Zebra" },
+      { slice_id: "a", rank: 20, label: "Apple" },
+    ]
+    expect([...items].sort(byAttention).map((i) => i.slice_id)).toEqual(["a", "z"])
   })
 })
