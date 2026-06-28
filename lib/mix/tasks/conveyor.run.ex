@@ -37,7 +37,7 @@ defmodule Mix.Tasks.Conveyor.Run do
         |> Jason.encode!()
         |> Mix.shell().info()
 
-        exit_fun().(exit_code(result.serial_result.status))
+        exit_fun().(exit_code(result.serial_result))
 
       {:unapproved, message} ->
         # Human diagnostic on stderr; stdout stays pure JSON. The driver was never invoked.
@@ -134,6 +134,7 @@ defmodule Mix.Tasks.Conveyor.Run do
 
     %{
       "status" => Atom.to_string(serial_result.status),
+      "disposition" => disposition(serial_result),
       "plan_path" => result.plan_path,
       "adapter" => adapter_name(result.adapter),
       "slice_count" => map_size(result.slices_by_stable_key),
@@ -149,11 +150,34 @@ defmodule Mix.Tasks.Conveyor.Run do
   defp adapter_name(Conveyor.AgentRunner.ReferenceSolution), do: "reference_solution"
   defp adapter_name(adapter), do: inspect(adapter)
 
-  defp exit_code(:passed), do: ExitCodes.fetch!(:success)
-  # M3: a :partial run advanced past ≥1 parked/skipped slice — non-zero so an
-  # unattended caller still treats "not fully green" as needs-attention. (Refining
-  # the parked-vs-hard-fail exit distinction is tracked in dr1m.6.1.)
-  defp exit_code(:partial), do: ExitCodes.fetch!(:deterministic_gate_failed)
+  # dr1m.6.1/KTD-3: a :partial run advanced past ≥1 non-passing slice (M3
+  # skip-and-continue). Split the old blanket :deterministic_gate_failed: a HARD
+  # gate failure (a slice the gate REJECTED, or policy-blocked) stays
+  # deterministic_gate_failed, while a run that only PARKED slices for human
+  # review (trust abstained, reaped, rework-exhausted, or skipped behind a parked
+  # predecessor) gets the distinct parked_for_review code — so an unattended
+  # caller can tell "blocked on review" from "the gate said no".
+  defp exit_code(serial_result) do
+    case disposition(serial_result) do
+      "passed" -> ExitCodes.fetch!(:success)
+      "gate_failed" -> ExitCodes.fetch!(:deterministic_gate_failed)
+      "parked_for_review" -> ExitCodes.fetch!(:parked_for_review)
+    end
+  end
+
+  defp disposition(%{status: :passed}), do: "passed"
+
+  defp disposition(%{status: :partial, events: events}) do
+    if hard_gate_failure?(events), do: "gate_failed", else: "parked_for_review"
+  end
+
+  # A slice the gate hard-failed (critical → :rejected, or :policy_blocked). Every
+  # other non-passing outcome (:abstained, :parked, :needs_rework, :skipped) is a
+  # park awaiting a human, not a deterministic gate failure.
+  @hard_fail_outcomes [:rejected, :policy_blocked, "rejected", "policy_blocked"]
+  defp hard_gate_failure?(events) do
+    Enum.any?(events, &(Map.get(&1, "run_attempt_outcome") in @hard_fail_outcomes))
+  end
 
   defp usage do
     "usage: mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]"
