@@ -64,13 +64,14 @@ defmodule Mix.Tasks.Conveyor.Show do
     end
   end
 
-  # ponytail: GateResult carries no timestamp, so recency can't be read from the
-  # DB. `id` (uuid) is the only stable key — pick the max for a DETERMINISTIC
-  # verdict instead of an arbitrary `List.last` over an unordered `Ash.read!`.
-  # True most-recent-wins needs a `timestamps()`/`inserted_at` on GateResult
-  # (schema change, outside this bead's allowed files).
+  # enjh: GateResult.created_at gives the true insertion time — pick the MOST RECENT
+  # verdict (uuid id is a stable tiebreaker for the rare same-microsecond case),
+  # instead of an arbitrary `List.last` over an unordered `Ash.read!`.
   defp deterministic_gate_result([]), do: nil
-  defp deterministic_gate_result(gate_results), do: Enum.max_by(gate_results, & &1.id)
+
+  defp deterministic_gate_result(gate_results) do
+    Enum.max_by(gate_results, &{DateTime.to_unix(&1.created_at, :microsecond), &1.id})
+  end
 
   defp station_runs(nil), do: []
 
