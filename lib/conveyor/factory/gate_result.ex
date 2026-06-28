@@ -40,6 +40,10 @@ defmodule Conveyor.Factory.GateResult do
     # conductor supplied no trust evidence). Records score / band / components /
     # thresholds / policy_digest so abstentions are durable and queryable.
     attribute :trust_score, :map, public?: true
+
+    # enjh: insertion time so multiple verdicts per attempt resolve by recency
+    # (conveyor.show + ParkedQueue pick the most recent), not by arbitrary uuid id.
+    create_timestamp :created_at
   end
 
   relationships do

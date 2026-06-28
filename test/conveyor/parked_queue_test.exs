@@ -93,28 +93,20 @@ defmodule Conveyor.ParkedQueueTest do
     assert Enum.map(entries, & &1.score) == [0.5, nil]
   end
 
-  test "abstained/0 dedups multiple gate verdicts per attempt deterministically" do
+  test "abstained/0 dedups multiple gate verdicts per attempt, newest verdict wins" do
     %{run_attempts: run_attempts} =
-      create_run_with_ledger!(slices: [abstained_slice(0.3)])
+      create_run_with_ledger!(slices: [abstained_slice(0.7)])
 
     [run_attempt] = run_attempts |> Map.values() |> List.flatten()
 
-    # A second, competing trust verdict on the SAME attempt.
-    create_gate_result!(run_attempt.id, 0.7)
-
-    # The deterministic winner is the highest-id verdict (id is the stable key;
-    # GateResult has no timestamp). Compute it from the persisted rows so the test
-    # tracks the implementation's rule rather than a hard-coded score.
-    expected_score =
-      GateResult
-      |> Ash.read!(domain: Factory)
-      |> Enum.filter(&(&1.run_attempt_id == run_attempt.id))
-      |> Enum.max_by(& &1.id)
-      |> then(& &1.trust_score["score"])
+    # A LATER, lower-scored verdict on the SAME attempt — created_at forced ahead so it
+    # is unambiguously the most recent. Proves recency wins over the earlier verdict
+    # (and over uuid id / score), not merely that dedup is deterministic.
+    create_gate_result!(run_attempt.id, 0.2, ~U[2099-01-01 00:00:00.000000Z])
 
     assert [entry] = ParkedQueue.abstained()
-    assert entry.score == expected_score
-    # Identical across repeated calls — the survivor no longer depends on read order.
+    assert entry.score == 0.2
+    # Identical across repeated calls — the survivor is stable.
     assert ParkedQueue.abstained() == ParkedQueue.abstained()
   end
 
@@ -125,22 +117,21 @@ defmodule Conveyor.ParkedQueueTest do
     }
   end
 
-  defp create_gate_result!(run_attempt_id, score) do
-    Ash.create!(
-      GateResult,
-      %{
-        run_attempt_id: run_attempt_id,
-        passed: true,
-        stages: [],
-        trust_score: %{"band" => "abstain", "score" => score},
-        gate_version: "gate@1",
-        gate_code_sha256: "sha256:gate-code",
-        policy_sha256: "sha256:policy",
-        contract_lock_sha256: "sha256:contract-lock",
-        canary_suite_version: "canary@1"
-      },
-      domain: Factory
-    )
+  defp create_gate_result!(run_attempt_id, score, %DateTime{} = created_at) do
+    GateResult
+    |> Ash.Changeset.for_create(:create, %{
+      run_attempt_id: run_attempt_id,
+      passed: true,
+      stages: [],
+      trust_score: %{"band" => "abstain", "score" => score},
+      gate_version: "gate@1",
+      gate_code_sha256: "sha256:gate-code",
+      policy_sha256: "sha256:policy",
+      contract_lock_sha256: "sha256:contract-lock",
+      canary_suite_version: "canary@1"
+    })
+    |> Ash.Changeset.force_change_attribute(:created_at, created_at)
+    |> Ash.create!(domain: Factory)
   end
 
   defp get_by_id!(resource, id) do
