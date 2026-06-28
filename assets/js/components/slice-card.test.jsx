@@ -52,4 +52,42 @@ describe("SliceCard", () => {
     expect(container.querySelector("img")).toBeNull()
     expect(container.textContent).toContain("<img src=x onerror=alert(1)>")
   })
+
+  it("defaults to the nano scale", () => {
+    const { container } = render(<SliceCard node={node()} />)
+    expect(container.querySelector("article")).toHaveAttribute("data-scale", "nano")
+  })
+
+  // AE8: one primitive, three scales — the same node applies the same color-law
+  // treatment (severity + icon) at every scale; only the fields shown differ.
+  it("applies the same severity and icon across nano, compact, and full scales", () => {
+    const n = node({ state: "failed", starved_dependents: 2 })
+    const scales = ["nano", "compact", "full"]
+    const results = scales.map((scale) => {
+      const { container } = render(<SliceCard node={n} scale={scale} />)
+      const article = container.querySelector("article")
+      return {
+        scale: article.getAttribute("data-scale"),
+        severity: article.getAttribute("data-severity"),
+        hasFailedIcon: !!container.querySelector(".lucide-octagon-alert"),
+      }
+    })
+    expect(results.map((r) => r.scale)).toEqual(scales)
+    expect(results.every((r) => r.severity === "warning")).toBe(true)
+    expect(results.every((r) => r.hasFailedIcon)).toBe(true)
+  })
+
+  it("shows the state and epic on the compact scale", () => {
+    render(<SliceCard node={node({ state: "running", epic_id: "build" })} scale="compact" />)
+    const meta = screen.getByTestId("compact-meta")
+    expect(meta).toHaveTextContent("running")
+    expect(meta).toHaveTextContent("build")
+  })
+
+  it("shows the blocked-by and starved field block on the full scale", () => {
+    render(<SliceCard node={node({ state: "blocked", blocked_by: ["a", "b"], starved_dependents: 4 })} scale="full" />)
+    expect(screen.getByText("blocked by")).toBeInTheDocument()
+    expect(screen.getByText("2")).toBeInTheDocument()
+    expect(screen.getByText("starved")).toBeInTheDocument()
+  })
 })
