@@ -39,7 +39,7 @@ defmodule ConveyorWeb.CockpitChannel do
      |> assign(:model, model)
      |> assign(:slice_ids, slice_id_set(model))
      |> assign(:stable_keys, stable_key_index(model))
-     |> assign(:attention, [])
+     |> assign(:attention, %{items: [], runs: []})
      |> assign(:seq, 0)}
   end
 
@@ -152,23 +152,22 @@ defmodule ConveyorWeb.CockpitChannel do
   defp maybe_push_runs(socket, _message), do: socket
 
   # Push the needs-me items + per-run attention rollup (R5/R6). `force` always
-  # emits (the seed and a new run); otherwise it pushes only when the items
-  # actually changed, so a Stalled tick or a no-op recompute stays quiet.
+  # emits (the seed and a new run); otherwise it pushes only when the projection
+  # actually changed — comparing BOTH the items and the per-run rollup, since a
+  # committed `parked` outcome moves the switcher rollup without adding a rail
+  # item. A no-op recompute then stays quiet.
   defp push_attention(socket, force \\ false) do
-    items = GraphProjection.attention_for(socket.assigns.model)
+    next = %{
+      items: GraphProjection.attention_for(socket.assigns.model),
+      runs: GraphProjection.run_attention()
+    }
 
-    if not force and items == socket.assigns.attention do
+    if not force and next == socket.assigns.attention do
       socket
     else
       {seq, socket} = next_seq(socket)
-
-      push(socket, "attention:update", %{
-        items: items,
-        runs: GraphProjection.run_attention(),
-        seq: seq
-      })
-
-      assign(socket, :attention, items)
+      push(socket, "attention:update", Map.put(next, :seq, seq))
+      assign(socket, :attention, next)
     end
   end
 
