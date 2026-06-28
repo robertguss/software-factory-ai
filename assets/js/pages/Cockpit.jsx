@@ -5,6 +5,7 @@ import AmbientBorder from "@/components/ambient-border"
 import ConnectionStatus, { isLive } from "@/components/connection-status"
 import MasterCautionStrip from "@/components/master-caution-strip"
 import NeedsMeRail from "@/components/needs-me-rail"
+import DossierPanel from "@/components/dossier-panel"
 import SliceNode from "@/components/slice-node"
 import EpicChip from "@/components/epic-chip"
 import FlowEdge from "@/components/flow-edge"
@@ -22,7 +23,7 @@ const ZOOM_EXPAND_THRESHOLD = 1.4
 
 // The graph canvas. Positions are recomputed by dagre only when the topology
 // changes; a data-only patch reuses them (no relayout, AE1).
-function CockpitCanvas({ graph, focus }) {
+function CockpitCanvas({ graph, focus, onSelectNode, onBackgroundClick }) {
   const { setCenter } = useReactFlow()
   const positionsRef = useRef(new Map())
   const topo = topologyKey(graph.nodes, graph.edges)
@@ -86,6 +87,8 @@ function CockpitCanvas({ graph, focus }) {
           fitView
           onlyRenderVisibleElements
           onMove={(_e, viewport) => setExpandAll(viewport.zoom >= ZOOM_EXPAND_THRESHOLD)}
+          onNodeClick={(_e, clicked) => clicked.type === "slice" && onSelectNode?.(clicked.id)}
+          onPaneClick={() => onBackgroundClick?.()}
           proOptions={{ hideAttribution: true }}
         >
           <Background />
@@ -139,7 +142,7 @@ function persistRunToUrl(runId) {
 
 export default function Cockpit({ plan_id, run_id = LIVE_RUN }) {
   const [selectedRun, setSelectedRun] = useState(() => runFromUrl(run_id))
-  const { status, graph, runs, attention, seeded } = useCockpitChannel({
+  const { status, graph, runs, attention, history, seeded, requestDetail } = useCockpitChannel({
     planId: plan_id,
     runId: selectedRun,
   })
@@ -158,6 +161,44 @@ export default function Cockpit({ plan_id, run_id = LIVE_RUN }) {
     [],
   )
 
+  // The read-only dossier (R7): selecting a node centers it and loads its detail
+  // over the observe-only node:detail read. Selecting another replaces in place;
+  // Escape or a canvas-background click dismisses.
+  const [selected, setSelected] = useState(null)
+  const [detail, setDetail] = useState(null)
+  const [detailState, setDetailState] = useState("idle")
+
+  const selectNode = useCallback(
+    async (id) => {
+      setSelected({ id })
+      focusNode(id)
+      setDetail(null)
+      setDetailState("loading")
+      try {
+        const loaded = await requestDetail(id)
+        setDetail(loaded)
+        setDetailState(loaded ? "ready" : "error")
+      } catch {
+        setDetailState("error")
+      }
+    },
+    [requestDetail, focusNode],
+  )
+
+  const dismiss = useCallback(() => {
+    setSelected(null)
+    setDetail(null)
+    setDetailState("idle")
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && dismiss()
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [dismiss])
+
+  const selectedNode = selected ? graph.nodes.find((n) => n.id === selected.id) : null
+
   return (
     <AppShell>
       <div className="flex h-screen flex-col">
@@ -174,7 +215,7 @@ export default function Cockpit({ plan_id, run_id = LIVE_RUN }) {
 
         <div className="flex flex-1 gap-2 p-2">
           <div className="w-56 shrink-0 overflow-y-auto border-r border-border pr-2">
-            <NeedsMeRail items={attention.items} onSelect={(item) => focusNode(item.slice_id)} />
+            <NeedsMeRail items={attention.items} onSelect={(item) => selectNode(item.slice_id)} />
           </div>
 
           <div className="min-w-0 flex-1">
@@ -192,11 +233,29 @@ export default function Cockpit({ plan_id, run_id = LIVE_RUN }) {
                   </p>
                 ) : (
                   <ReactFlowProvider>
-                    <CockpitCanvas graph={graph} focus={focus} />
+                    <CockpitCanvas
+                      graph={graph}
+                      focus={focus}
+                      onSelectNode={selectNode}
+                      onBackgroundClick={dismiss}
+                    />
                   </ReactFlowProvider>
                 )}
               </div>
             </AmbientBorder>
+          </div>
+
+          {/* Fixed dossier column, always in the DOM so opening it never reflows
+              the canvas (R7). */}
+          <div className="w-72 shrink-0 overflow-y-auto border-l border-border pl-2">
+            <DossierPanel
+              node={selectedNode}
+              detail={detail}
+              state={detailState}
+              history={selected ? (history[selected.id] ?? []) : []}
+              onRetry={() => selected && selectNode(selected.id)}
+              onClose={dismiss}
+            />
           </div>
         </div>
       </div>

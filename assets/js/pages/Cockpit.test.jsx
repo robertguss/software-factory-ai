@@ -32,6 +32,7 @@ const hook = (overrides = {}) => ({
   graph: { nodes: [], edges: [], epics: [] },
   runs: [],
   attention: { items: [], runs: [] },
+  history: {},
   seeded: true,
   requestDetail: vi.fn(),
   ...overrides,
@@ -183,5 +184,33 @@ describe("Cockpit", () => {
     render(<Cockpit plan_id="p1" />)
     expect(screen.getByRole("combobox")).toHaveValue("run-7")
     window.history.replaceState({}, "", "/")
+  })
+
+  it("opens the read-only dossier on a needs-me selection and closes it on Escape (R7)", async () => {
+    const requestDetail = vi.fn().mockResolvedValue({
+      blocked_by: [],
+      gate: { stages: [{ name: "tests", status: "failed" }] },
+      reviews: [],
+      evidence: [],
+    })
+    h.hook = hook({
+      graph: { nodes: [{ id: "a", state: "failed", title: "Slice A" }], edges: [], epics: [] },
+      attention: {
+        items: [{ slice_id: "a", title: "Slice A", label: "A", state: "failed", kind: "failed", rank: 40 }],
+        runs: [],
+      },
+      requestDetail,
+    })
+    render(<Cockpit plan_id="p1" />)
+
+    fireEvent.click(within(screen.getByLabelText("Needs me")).getByRole("button"))
+
+    // The dossier loads the detail and renders the non-vacuous gate board.
+    expect(await screen.findByText("NO-GO")).toBeInTheDocument()
+    expect(requestDetail).toHaveBeenCalledWith("a")
+
+    // Escape dismisses it back to the placeholder.
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(screen.getByTestId("dossier-empty")).toBeInTheDocument()
   })
 })

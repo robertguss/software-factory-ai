@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Socket } from "phoenix"
+import { accumulateHistory, seedHistory } from "@/lib/state-sparkline"
 
 const SOCKET_PATH = "/socket"
 
@@ -23,7 +24,7 @@ export function foldPatch(nodes, patched) {
  * socket disconnected — so a StrictMode double-mount tears its first subscription
  * down cleanly rather than leaking a duplicate.
  *
- * Returns `{ status, graph, runs, attention, seeded, requestDetail }`. `status` is the
+ * Returns `{ status, graph, runs, attention, history, seeded, requestDetail }`. `status` is the
  * connection state (connecting/live/reconnecting/disconnected/rejected);
  * `seeded` flips true on the first `graph:init` (distinguishing the pre-seed
  * loading state from a genuine zero-node empty run).
@@ -33,6 +34,7 @@ export function useCockpitChannel({ runId = "default", planId } = {}) {
   const [graph, setGraph] = useState({ nodes: [], edges: [], epics: [] })
   const [runs, setRuns] = useState([])
   const [attention, setAttention] = useState({ items: [], runs: [] })
+  const [history, setHistory] = useState({})
   const [seeded, setSeeded] = useState(false)
   const channelRef = useRef(null)
 
@@ -46,12 +48,16 @@ export function useCockpitChannel({ runId = "default", planId } = {}) {
 
     channel.on("graph:init", (payload) => {
       setGraph({ nodes: payload.nodes, edges: payload.edges, epics: payload.epics })
+      // Reseed the sparkline baseline — a reconnect's fresh seed clears prior
+      // session accumulation (KTD7).
+      setHistory(seedHistory(payload.nodes))
       setSeeded(true)
       setStatus("live")
     })
 
     channel.on("node:patch", (payload) => {
       setGraph((current) => ({ ...current, nodes: foldPatch(current.nodes, payload.nodes) }))
+      setHistory((current) => accumulateHistory(current, payload.nodes))
     })
 
     channel.on("runs:update", (payload) => setRuns(payload.runs))
@@ -87,5 +93,5 @@ export function useCockpitChannel({ runId = "default", planId } = {}) {
       channel.push("node:detail", { id }).receive("ok", (reply) => resolve(reply.detail))
     })
 
-  return { status, graph, runs, attention, seeded, requestDetail }
+  return { status, graph, runs, attention, history, seeded, requestDetail }
 }
