@@ -57,12 +57,20 @@ defmodule Mix.Tasks.Conveyor.Show do
     GateResult
     |> Ash.read!(domain: Factory)
     |> Enum.filter(&(&1.run_attempt_id == run_attempt.id and &1.trust_score))
-    |> List.last()
+    |> deterministic_gate_result()
     |> case do
       nil -> nil
       gate_result -> Map.take(gate_result.trust_score, ["band", "score"])
     end
   end
+
+  # ponytail: GateResult carries no timestamp, so recency can't be read from the
+  # DB. `id` (uuid) is the only stable key — pick the max for a DETERMINISTIC
+  # verdict instead of an arbitrary `List.last` over an unordered `Ash.read!`.
+  # True most-recent-wins needs a `timestamps()`/`inserted_at` on GateResult
+  # (schema change, outside this bead's allowed files).
+  defp deterministic_gate_result([]), do: nil
+  defp deterministic_gate_result(gate_results), do: Enum.max_by(gate_results, & &1.id)
 
   defp station_runs(nil), do: []
 

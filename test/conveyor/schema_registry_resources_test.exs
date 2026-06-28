@@ -61,6 +61,32 @@ defmodule Conveyor.SchemaRegistryResourcesTest do
     end
   end
 
+  test "plan@1 work_dependency kind enum stays a subset of the work_dependency_kind vocabulary" do
+    plan_schema = read_json!("docs/schemas/conveyor.plan@1.json")
+
+    plan_kind_enum =
+      plan_schema["$defs"]["work_dependency"]["properties"]["kind"]["enum"]
+
+    registry = read_json!("docs/schemas/registry.json")
+
+    vocab_values =
+      Enum.find_value(registry["vocabularies"], fn vocabulary ->
+        vocabulary["key"] == "work_dependency_kind" && vocabulary["values"]
+      end)
+
+    assert is_list(plan_kind_enum) and plan_kind_enum != []
+    assert is_list(vocab_values) and vocab_values != []
+
+    # The vocabulary may be a strict superset (e.g. `advisory` is in the vocab but
+    # deliberately excluded from plan@1). The dangerous drift is a schema enum value
+    # that escaped the vocabulary, which this subset check catches.
+    assert MapSet.subset?(MapSet.new(plan_kind_enum), MapSet.new(vocab_values)),
+           "plan@1 work_dependency.kind enum #{inspect(plan_kind_enum)} must be a subset of " <>
+             "registry work_dependency_kind vocabulary #{inspect(vocab_values)}; " <>
+             "extra values escaped the registry vocabulary: " <>
+             "#{inspect(MapSet.difference(MapSet.new(plan_kind_enum), MapSet.new(vocab_values)) |> MapSet.to_list())}"
+  end
+
   defp schema_path(schema_name), do: "docs/schemas/#{schema_name}.json"
 
   defp valid_example_path(schema_name), do: "docs/schemas/examples/#{schema_name}.valid.json"

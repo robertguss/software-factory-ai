@@ -21,6 +21,17 @@ defmodule Conveyor.Planning.PlanRunner do
   defmodule Result do
     @moduledoc "Plan-level serial run result."
 
+    @type t :: %__MODULE__{
+            adapter: module() | binary(),
+            plan_path: binary() | nil,
+            project: struct(),
+            plan: struct(),
+            epic: struct(),
+            slices_by_stable_key: %{optional(binary()) => struct()},
+            serial_result: term(),
+            work_graph: term()
+          }
+
     @enforce_keys [
       :adapter,
       :plan_path,

@@ -31,13 +31,15 @@ defmodule Mix.Tasks.Conveyor.Run do
 
     case run_plan(selector, workspace, adapter, opts) do
       {:ok, result} ->
+        disposition = disposition(result.serial_result)
+
         result
-        |> summary()
+        |> summary(disposition)
         |> Map.put("workspace", workspace)
         |> Jason.encode!()
         |> Mix.shell().info()
 
-        exit_fun().(exit_code(result.serial_result.status))
+        exit_fun().(exit_code(disposition))
 
       {:unapproved, message} ->
         # Human diagnostic on stderr; stdout stays pure JSON. The driver was never invoked.
@@ -128,12 +130,13 @@ defmodule Mix.Tasks.Conveyor.Run do
     Mix.raise("unsupported --adapter #{inspect(adapter)} (expected codex|reference_solution)")
   end
 
-  defp summary(result) do
+  defp summary(result, disposition) do
     serial_result = result.serial_result
     report = serial_result.report
 
     %{
       "status" => Atom.to_string(serial_result.status),
+      "disposition" => disposition,
       "plan_path" => result.plan_path,
       "adapter" => adapter_name(result.adapter),
       "slice_count" => map_size(result.slices_by_stable_key),
@@ -149,11 +152,37 @@ defmodule Mix.Tasks.Conveyor.Run do
   defp adapter_name(Conveyor.AgentRunner.ReferenceSolution), do: "reference_solution"
   defp adapter_name(adapter), do: inspect(adapter)
 
-  defp exit_code(:passed), do: ExitCodes.fetch!(:success)
-  # M3: a :partial run advanced past ≥1 parked/skipped slice — non-zero so an
-  # unattended caller still treats "not fully green" as needs-attention. (Refining
-  # the parked-vs-hard-fail exit distinction is tracked in dr1m.6.1.)
-  defp exit_code(:partial), do: ExitCodes.fetch!(:deterministic_gate_failed)
+  # dr1m.6.1/KTD-3: a :partial run advanced past ≥1 non-passing slice (M3
+  # skip-and-continue). Split the old blanket :deterministic_gate_failed: a HARD
+  # gate failure (a slice the gate REJECTED, or policy-blocked) stays
+  # deterministic_gate_failed, while a run that only PARKED slices for human
+  # review (trust abstained, reaped, rework-exhausted, or skipped behind a parked
+  # predecessor) gets the distinct parked_for_review code — so an unattended
+  # caller can tell "blocked on review" from "the gate said no".
+  defp exit_code("passed"), do: ExitCodes.fetch!(:success)
+  defp exit_code("gate_failed"), do: ExitCodes.fetch!(:deterministic_gate_failed)
+  defp exit_code("parked_for_review"), do: ExitCodes.fetch!(:parked_for_review)
+
+  defp disposition(%{status: :passed}), do: "passed"
+
+  defp disposition(%{status: :partial, events: events}) do
+    if hard_gate_failure?(events), do: "gate_failed", else: "parked_for_review"
+  end
+
+  # Defensive: SerialDriver.Result.status is :passed | :partial today. A future status
+  # (or a :partial result somehow missing :events) must not crash the operator CLI with a
+  # FunctionClauseError — treat the unknown as a non-zero gate failure rather than raise.
+  defp disposition(_serial_result), do: "gate_failed"
+
+  # A slice the gate hard-failed (critical → :rejected, or :policy_blocked). Every
+  # other non-passing outcome (:abstained, :parked, :needs_rework, :skipped) is a
+  # park awaiting a human, not a deterministic gate failure. run_attempt_outcome is
+  # an atom in the in-memory event maps; to_string normalizes it (DB reads stringify).
+  defp hard_gate_failure?(events) do
+    Enum.any?(events, fn event ->
+      to_string(Map.get(event, "run_attempt_outcome")) in ["rejected", "policy_blocked"]
+    end)
+  end
 
   defp usage do
     "usage: mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]"

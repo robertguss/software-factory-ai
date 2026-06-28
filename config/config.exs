@@ -56,6 +56,11 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Ash re-sends in-transaction notifications after commit via `Ash.Notifier.notify/1`
+# (see `Conveyor.Station.complete_station!/3`), so the per-create "Missed N
+# notifications" warning on the gate path is noise, not a defect. Suppress it.
+config :ash, :missed_notifications, :ignore
+
 # esbuild bundles the browser runtime in assets/ into priv/static/assets.
 # `phoenix` and `phoenix_live_view` resolve from deps/ via NODE_PATH; npm
 # packages (react, react-dom, cytoscape, …) resolve from assets/node_modules,

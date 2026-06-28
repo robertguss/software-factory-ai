@@ -302,14 +302,23 @@ defmodule Conveyor.Planning.RunSpecAssembler do
   end
 
   defp create_default_diff_policy!(%Slice{} = slice) do
+    # Defense-in-depth: tests/ is never agent-editable (AGENTS.md), so it is LOCKED into
+    # protected_path_globs and STRIPPED from allowed_path_globs — a path may never appear in
+    # both. `tests/**` (the matcher's `**` spans `/`, so it also covers tests/golden/digest.md)
+    # is unioned with the slice's literal locked test files (which also catch Elixir-style
+    # `test/..._test.exs`, not under `tests/`). The budget counts only the stripped allowed set.
+    locked_tests = locked_test_paths(slice)
+    allowed_path_globs = Enum.reject(slice.likely_files, &(&1 in locked_tests))
+    protected_path_globs = Enum.sort(Enum.uniq(["tests/**" | locked_tests]))
+
     diff_policy =
       Ash.create!(
         DiffPolicy,
         %{
           slice_id: slice.id,
-          allowed_path_globs: slice.likely_files,
-          protected_path_globs: locked_test_paths(slice),
-          max_files_changed: max(length(slice.likely_files), 1),
+          allowed_path_globs: allowed_path_globs,
+          protected_path_globs: protected_path_globs,
+          max_files_changed: max(length(allowed_path_globs), 1),
           dependency_changes_allowed: false,
           migrations_allowed: false,
           generated_files_allowed: false,

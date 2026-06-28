@@ -59,6 +59,12 @@ defmodule Conveyor.ParkedQueue do
     GateResult
     |> Ash.read!(domain: Factory)
     |> Enum.filter(& &1.trust_score)
+    # An attempt can carry multiple GateResults. `Map.new` keeps the LAST tuple
+    # per `run_attempt_id`, so over `Ash.read!`'s unordered result the surviving
+    # trust verdict was arbitrary. Sort by `id` first to make the winner stable
+    # and reproducible: the highest-id verdict deterministically wins. (GateResult
+    # has no timestamp column, so `id` — not recency — is the stable key.)
+    |> Enum.sort_by(& &1.id)
     |> Map.new(&{&1.run_attempt_id, &1.trust_score})
   end
 

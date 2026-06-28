@@ -205,6 +205,95 @@ defmodule Conveyor.AttemptLoopTest do
     refute Map.has_key?(result.report, "amendment_proposal")
   end
 
+  test "retries needs-rework up to the cap then parks as budget-exhausted" do
+    fixture = attempt_fixture!()
+    send_to = self()
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        max_attempts: 2,
+        actor: "attempt-loop-test",
+        run_slice: fn attempt ->
+          send(send_to, {:run_slice, attempt.attempt_no})
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          gate_result(false, [
+            %{
+              "category" => "acceptance_mapping",
+              "severity" => "blocking",
+              "stage" => "verify",
+              "message" => "AC-003 was not met.",
+              "acceptance_criterion_id" => "AC-003",
+              "evidence_status" => "not_met"
+            }
+          ])
+        end,
+        finalize_gate: fn _gate, _run_spec, attempt ->
+          Ash.update!(fixture.slice, %{state: :needs_rework}, domain: Factory)
+
+          rework =
+            Ash.update!(
+              attempt,
+              %{status: :needs_rework, outcome: :needs_rework, failure_category: "gate_failed"},
+              domain: Factory
+            )
+
+          %{run_attempt: rework}
+        end,
+        # Pin the post-exhaustion audit to the plain park branch (a clean contract).
+        contract_audit: fn _attempt -> :rework end
+      )
+
+    assert result.status == :attempt_budget_exhausted
+    assert result.report["attempt_count"] == 2
+    assert Enum.map(result.attempts, & &1.attempt_no) == [1, 2]
+    refute Map.has_key?(result.report, "amendment_proposal")
+
+    # The loop ran exactly max_attempts slices: it retried once, then stopped at the cap.
+    assert_received {:run_slice, 1}
+    assert_received {:run_slice, 2}
+    refute_received {:run_slice, 3}
+  end
+
+  test "stops on a terminal outcome on attempt 1 without retrying" do
+    fixture = attempt_fixture!()
+    send_to = self()
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        # Budget would permit retries; the terminal outcome must short-circuit anyway.
+        max_attempts: 3,
+        actor: "attempt-loop-test",
+        run_slice: fn attempt ->
+          send(send_to, {:run_slice, attempt.attempt_no})
+          %{status: :succeeded, output: %{"verification_result" => %{}}}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          gate_result(false, [])
+        end,
+        finalize_gate: fn _gate, _run_spec, attempt ->
+          blocked =
+            Ash.update!(
+              attempt,
+              %{status: :gated, outcome: :policy_blocked},
+              domain: Factory
+            )
+
+          %{run_attempt: blocked}
+        end
+      )
+
+    assert result.status == :policy_blocked
+    assert result.report["attempt_count"] == 1
+    assert Enum.map(result.attempts, & &1.attempt_no) == [1]
+
+    assert_received {:run_slice, 1}
+    refute_received {:run_slice, 2}
+  end
+
   defp finalize_needs_rework(_gate, _run_spec, attempt) do
     %{
       run_attempt:

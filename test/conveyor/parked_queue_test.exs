@@ -4,6 +4,7 @@ defmodule Conveyor.ParkedQueueTest do
   import Conveyor.FactoryFixtures
 
   alias Conveyor.Factory
+  alias Conveyor.Factory.GateResult
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
@@ -60,6 +61,86 @@ defmodule Conveyor.ParkedQueueTest do
 
   test "abstained/0 is empty when nothing has abstained" do
     assert ParkedQueue.abstained() == []
+  end
+
+  test "abstained/0 orders multiple parked runs least-trusted first" do
+    create_run_with_ledger!(
+      slices: [
+        abstained_slice(0.8),
+        abstained_slice(0.2),
+        abstained_slice(0.5)
+      ]
+    )
+
+    entries = ParkedQueue.abstained()
+
+    # Headline contract: most urgent (lowest trust) on top, regardless of insert order.
+    assert Enum.map(entries, & &1.score) == [0.2, 0.5, 0.8]
+  end
+
+  test "abstained/0 places parked runs with no trust verdict after scored ones" do
+    create_run_with_ledger!(
+      slices: [
+        abstained_slice(0.5),
+        # outcome :abstained but no gate -> no GateResult -> no trust verdict.
+        %{outcome: :abstained}
+      ]
+    )
+
+    entries = ParkedQueue.abstained()
+
+    # score_key(nil) = {1, 0.0} sorts the verdict-less attempt last.
+    assert Enum.map(entries, & &1.score) == [0.5, nil]
+  end
+
+  test "abstained/0 dedups multiple gate verdicts per attempt deterministically" do
+    %{run_attempts: run_attempts} =
+      create_run_with_ledger!(slices: [abstained_slice(0.3)])
+
+    [run_attempt] = run_attempts |> Map.values() |> List.flatten()
+
+    # A second, competing trust verdict on the SAME attempt.
+    create_gate_result!(run_attempt.id, 0.7)
+
+    # The deterministic winner is the highest-id verdict (id is the stable key;
+    # GateResult has no timestamp). Compute it from the persisted rows so the test
+    # tracks the implementation's rule rather than a hard-coded score.
+    expected_score =
+      GateResult
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.run_attempt_id == run_attempt.id))
+      |> Enum.max_by(& &1.id)
+      |> then(& &1.trust_score["score"])
+
+    assert [entry] = ParkedQueue.abstained()
+    assert entry.score == expected_score
+    # Identical across repeated calls — the survivor no longer depends on read order.
+    assert ParkedQueue.abstained() == ParkedQueue.abstained()
+  end
+
+  defp abstained_slice(score) do
+    %{
+      outcome: :abstained,
+      gate: %{passed: true, trust_score: %{"band" => "abstain", "score" => score}}
+    }
+  end
+
+  defp create_gate_result!(run_attempt_id, score) do
+    Ash.create!(
+      GateResult,
+      %{
+        run_attempt_id: run_attempt_id,
+        passed: true,
+        stages: [],
+        trust_score: %{"band" => "abstain", "score" => score},
+        gate_version: "gate@1",
+        gate_code_sha256: "sha256:gate-code",
+        policy_sha256: "sha256:policy",
+        contract_lock_sha256: "sha256:contract-lock",
+        canary_suite_version: "canary@1"
+      },
+      domain: Factory
+    )
   end
 
   defp get_by_id!(resource, id) do

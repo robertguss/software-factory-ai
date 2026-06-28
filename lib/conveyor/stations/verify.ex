@@ -40,13 +40,23 @@ defmodule Conveyor.Stations.Verify do
   # production loop stays :local by default (unchanged) and the live demo can opt
   # into the hermetic docker backend.
   defp runner_opts(input) do
-    Workspace.venv_opts()
+    input
+    |> get("workspace_path")
+    |> venv_opts_for()
     |> Keyword.merge(test_refs: get(input, "test_refs") || [])
     |> maybe_put(:backend, backend(get(input, "backend")))
     |> maybe_put(:network, get(input, "network"))
     |> maybe_put(:docker_image, get(input, "docker_image"))
     |> maybe_put(:source_root, get(input, "source_root"))
   end
+
+  # 8hx7 (hermeticity): resolve the pytest venv from the slice's OWN workspace, not the
+  # foreign samples/tasks_service default — the gate must not depend on a sibling sample's
+  # venv. nil workspace -> no venv_bin (matches the station's nil-as-absent style and keeps
+  # resolution hermetic; the default would re-introduce the foreign-sample dependency).
+  @doc false
+  def venv_opts_for(nil), do: []
+  def venv_opts_for(workspace_path), do: Workspace.venv_opts(workspace_path)
 
   # ADR-23 / M4: the IntegritySentinel observations ToolchainRunner produced
   # (source-mutation always; hermeticity only under docker). On :local only

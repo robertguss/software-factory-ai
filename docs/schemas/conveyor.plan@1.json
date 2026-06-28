@@ -70,7 +70,10 @@
       "properties": {
         "from": { "$ref": "#/$defs/slice_key" },
         "to": { "$ref": "#/$defs/slice_key" },
-        "kind": { "enum": ["execution_hard", "integration_order"] }
+        "kind": {
+          "description": "plan@1 deliberately restricts this enum to the execution-affecting work_dependency_kind values (execution_hard, integration_order). The registry vocabulary work_dependency_kind also defines `advisory`, but advisory dependencies are inert in SerialDriver and are intentionally excluded here. The schema enum must remain a subset of the registry vocabulary; see test/conveyor/schema_registry_resources_test.exs.",
+          "enum": ["execution_hard", "integration_order"]
+        }
       }
     },
     "requirement": {

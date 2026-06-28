@@ -10,6 +10,7 @@ defmodule Mix.Tasks.Conveyor.RunTest do
   import ExUnit.CaptureIO
   import Conveyor.FactoryFixtures
 
+  alias Conveyor.CLI.ExitCodes
   alias Conveyor.Factory
   alias Conveyor.Factory.{Epic, Plan, Project}
   alias Conveyor.TaskGraph
@@ -97,7 +98,41 @@ defmodule Mix.Tasks.Conveyor.RunTest do
     assert driver_workspace(opts) == ws
   end
 
+  test "a parked-only partial run exits parked_for_review (needs a human), not gate-failed", %{
+    plan_id: plan_id
+  } do
+    stub_serial_driver!([
+      %{"status" => "passed", "run_attempt_outcome" => :accepted},
+      %{"status" => "parked", "run_attempt_outcome" => :parked}
+    ])
+
+    out = capture_io(fn -> Mix.Tasks.Conveyor.Run.run([plan_id]) end)
+
+    assert Jason.decode!(out)["disposition"] == "parked_for_review"
+    assert_received {:exit_code, code}
+    assert code == ExitCodes.fetch!(:parked_for_review)
+    refute code == ExitCodes.fetch!(:deterministic_gate_failed)
+  end
+
+  test "a hard gate failure still exits deterministic_gate_failed (no regression)", %{
+    plan_id: plan_id
+  } do
+    stub_serial_driver!([%{"status" => "parked", "run_attempt_outcome" => :rejected}])
+
+    out = capture_io(fn -> Mix.Tasks.Conveyor.Run.run([plan_id]) end)
+
+    assert Jason.decode!(out)["disposition"] == "gate_failed"
+    assert_received {:exit_code, code}
+    assert code == ExitCodes.fetch!(:deterministic_gate_failed)
+  end
+
   test "a non-UUID selector is rejected (YAML retired)" do
     assert_raise Mix.Error, fn -> Mix.Tasks.Conveyor.Run.run(["some-plan.yml"]) end
+  end
+
+  defp stub_serial_driver!(events) do
+    Process.put(:conveyor_run_serial_driver, fn _input, _opts ->
+      %{status: :partial, order: [], events: events, report: %{}}
+    end)
   end
 end
