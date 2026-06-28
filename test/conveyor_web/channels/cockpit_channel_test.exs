@@ -213,7 +213,9 @@ defmodule ConveyorWeb.CockpitChannelTest do
     assert_push "graph:init", %{}
 
     ref = push(socket, "node:detail", %{"id" => s["SLICE-001"].id})
-    assert_reply ref, :ok, %{detail: detail}
+    # The reply loads the attempt's gate/review/evidence, so allow a DB roundtrip
+    # beyond assert_reply's tight 100ms default.
+    assert_reply ref, :ok, %{detail: detail}, 2000
     assert detail.gate.passed == false
     assert [%{"name" => "tests"}] = detail.gate.stages
     assert [%{decision: :needs_rework}] = detail.reviews

@@ -395,6 +395,10 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
       slice_id: node.id,
       label: node.label,
       title: node.title,
+      # The computed node state so the rail can render the slice through the same
+      # color law as the canvas (compact SliceCard); `kind` carries why it needs a
+      # human (a gate-waiting slice has no dedicated taxonomy state).
+      state: node.state,
       kind: kind,
       outcome: outcome,
       rank: attention_rank(kind, outcome)

@@ -95,3 +95,18 @@ export function overallSeverity(nodes) {
   const top = topException(nodes)
   return top ? top.severity : null
 }
+
+/**
+ * Comparator for the needs-me rail (R5/R6): order attention items by the
+ * server-computed `rank` (highest first), breaking ties by label so equal-rank
+ * items stay in a stable, deterministic order. The server owns the ranking; this
+ * only resolves ties on the client.
+ * @param {{rank?: number, label?: string, title?: string}} a
+ * @param {{rank?: number, label?: string, title?: string}} b
+ * @returns {number}
+ */
+export function byAttention(a, b) {
+  const byRank = (b.rank ?? 0) - (a.rank ?? 0)
+  if (byRank !== 0) return byRank
+  return String(a.label ?? a.title ?? "").localeCompare(String(b.label ?? b.title ?? ""))
+}
