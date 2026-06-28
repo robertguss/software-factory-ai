@@ -82,6 +82,15 @@ defmodule Conveyor.AttemptBudgetTest do
       refute AttemptBudget.retry_allowed?(budget, 3)
     end
 
+    test "denies a retry once the ladder runs out even when the cap would allow more" do
+      budget = AttemptBudget.new(max_attempts: 100)
+
+      # completed=6 -> next attempt 7 -> last rung (failing_test_pinned_brief) -> allowed
+      assert AttemptBudget.retry_allowed?(budget, 6)
+      # completed=7 -> next attempt 8 -> rung_for_retry is nil -> denied despite 7 < 100
+      refute AttemptBudget.retry_allowed?(budget, 7)
+    end
+
     # Characterization (not an endorsement): retry_allowed?/2 is only well-defined for
     # completed_attempt_count >= 1 — attempt 1 always runs unconditionally, so the loop
     # never asks "may I retry?" with zero completed attempts. With 0, rung_for_retry/2's
