@@ -2,10 +2,37 @@ import { describe, expect, it } from "vitest"
 import { layoutPositions, toFlowEdges, toFlowNodes, topologyKey } from "@/lib/flow"
 
 describe("toFlowEdges", () => {
-  it("maps {from,to} to React Flow source/target with a stable id", () => {
+  it("maps {from,to} to a slice edge with a stable id and living-graph data", () => {
     expect(toFlowEdges([{ from: "a", to: "b" }])).toEqual([
-      { id: "a->b", source: "a", target: "b" },
+      { id: "a->b", source: "a", target: "b", type: "slice", data: { weight: 0, tension: false } },
     ])
+  })
+
+  it("weights an edge by the target's downstream waiting closure", () => {
+    const nodes = [
+      { id: "a", state: "running" },
+      { id: "b", state: "blocked" },
+    ]
+    const [edge] = toFlowEdges([{ from: "a", to: "b" }], nodes)
+    expect(edge.data.weight).toBeGreaterThan(0)
+  })
+
+  it("marks tension when the target's blocked_by includes the source", () => {
+    const nodes = [
+      { id: "a", state: "running" },
+      { id: "b", state: "blocked", blocked_by: ["a"] },
+    ]
+    const [edge] = toFlowEdges([{ from: "a", to: "b" }], nodes)
+    expect(edge.data.tension).toBe(true)
+  })
+
+  it("releases tension once the dependency is no longer in blocked_by", () => {
+    const nodes = [
+      { id: "a", state: "done" },
+      { id: "b", state: "ready_idle", blocked_by: [] },
+    ]
+    const [edge] = toFlowEdges([{ from: "a", to: "b" }], nodes)
+    expect(edge.data.tension).toBe(false)
   })
 })
 

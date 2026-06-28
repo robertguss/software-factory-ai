@@ -5,12 +5,15 @@ import AmbientBorder from "@/components/ambient-border"
 import ConnectionStatus, { isLive } from "@/components/connection-status"
 import MasterCautionStrip from "@/components/master-caution-strip"
 import SliceNode from "@/components/slice-node"
+import FlowEdge from "@/components/flow-edge"
 import { useCockpitChannel } from "@/hooks/use-cockpit-channel"
 import { cn } from "@/lib/cn"
+import { downstreamWaitingCounts } from "@/lib/edge-weight"
 import { layoutPositions, toFlowEdges, toFlowNodes, topologyKey } from "@/lib/flow"
 
-// Defined at module scope so React Flow's node-type registry is stable.
+// Defined at module scope so React Flow's type registries stay stable.
 const nodeTypes = { slice: SliceNode }
+const edgeTypes = { slice: FlowEdge }
 const LIVE_RUN = "default"
 
 // The graph canvas. Positions are recomputed by dagre only when the topology
@@ -24,8 +27,15 @@ function CockpitCanvas({ graph }) {
     positionsRef.current = layoutPositions(graph.nodes, graph.edges)
   }, [topo])
 
+  // Edge weight depends on node state, so it recomputes per patch (not just on a
+  // topology change); memoized on the graph object the hook swaps per patch.
+  const counts = useMemo(
+    () => downstreamWaitingCounts(graph.nodes, graph.edges),
+    [graph],
+  )
+
   const rfNodes = toFlowNodes(graph.nodes, positionsRef.current)
-  const rfEdges = toFlowEdges(graph.edges)
+  const rfEdges = toFlowEdges(graph.edges, graph.nodes, counts)
 
   // The caution-strip jump centers the viewport on the pinned node.
   const jumpTo = (id) => {
@@ -41,6 +51,7 @@ function CockpitCanvas({ graph }) {
           nodes={rfNodes}
           edges={rfEdges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           nodesDraggable={false}
           fitView
           proOptions={{ hideAttribution: true }}
