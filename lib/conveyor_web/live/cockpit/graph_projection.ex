@@ -164,15 +164,15 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
   def node_detail(model, slice_id) do
     case Enum.find(model.nodes, &(&1.id == slice_id)) do
       nil -> nil
-      node -> detail_for(node, slice_id, model.now, model.live?)
+      node -> detail_for(model, node, slice_id)
     end
   end
 
   # Live attempt/station/elapsed are overlaid only for the active run (KTD2): a
   # finished run is not running, and its latest attempt belongs to a *later* run,
   # so a historical panel shows its committed outcome (state/reason/events) only.
-  defp detail_for(node, slice_id, now, live?) do
-    attempt = if live?, do: latest_attempt_row(slice_id)
+  defp detail_for(model, node, slice_id) do
+    attempt = if model.live?, do: latest_attempt_row(slice_id)
     station = latest_station_row(attempt)
 
     %{
@@ -187,9 +187,76 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
       attempt_no: attempt && attempt.attempt_no,
       attempt_status: attempt && attempt.status,
       started_at: station && station.started_at,
-      elapsed_seconds: elapsed_seconds(station, now),
+      elapsed_seconds: elapsed_seconds(station, model.now),
       events: recent_events(slice_id)
     }
+    |> Map.merge(verdict_detail(model, node, attempt))
+  end
+
+  # The read-only gate/review/evidence verdict for the dossier (R7/R8) — reflected,
+  # never upgraded. Two sources by run liveness (KTD5):
+  #   * Live run: load the latest attempt's modeled gate/review/evidence.
+  #   * Finished run: the committed verdict from the run-scoped `run.slice_outcome`
+  #     payload — the attempt belongs to a later run and cannot be tied to this one.
+  defp verdict_detail(%{live?: true}, _node, nil), do: %{gate: nil, reviews: [], evidence: []}
+
+  defp verdict_detail(%{live?: true}, _node, attempt) do
+    loaded = Ash.load!(attempt, [:gate_results, :reviews, :evidence_records], domain: Factory)
+
+    %{
+      gate: gate_view(List.first(loaded.gate_results)),
+      reviews: Enum.map(loaded.reviews, &review_view/1),
+      evidence: Enum.map(loaded.evidence_records, &evidence_view/1)
+    }
+  end
+
+  defp verdict_detail(%{live?: false, run_id: run_id}, node, _attempt) do
+    %{gate: committed_gate(run_id, node.stable_key), reviews: [], evidence: []}
+  end
+
+  # A passed gate's stages carry the per-check verdicts (GO/NO-GO/STANDBY/Abstain);
+  # `trust_score` is nil when the gate did not compute a calibrated verdict. Both
+  # are reflected verbatim — the client never upgrades an uncomputed dimension.
+  defp gate_view(nil), do: nil
+
+  defp gate_view(gate),
+    do: %{passed: gate.passed, stages: gate.stages, trust_score: gate.trust_score}
+
+  # The minimum the gate board + dossier need (Open Question): status enums + the
+  # findings/checks/acceptance text. Sensitive refs (tool_invocation_refs, diff_ref)
+  # stay server-side.
+  defp review_view(review) do
+    %{
+      kind: review.review_kind,
+      decision: review.decision,
+      recommendation: review.recommendation,
+      summary: review.summary,
+      findings: review.findings,
+      checks: review.checks
+    }
+  end
+
+  defp evidence_view(evidence) do
+    %{
+      summary: evidence.summary,
+      acceptance_results: evidence.acceptance_results,
+      risks: evidence.risks,
+      changed_files: evidence.changed_files
+    }
+  end
+
+  defp committed_gate(run_id, stable_key) do
+    case Map.get(load_outcomes_scoped(run_id), stable_key) do
+      nil ->
+        nil
+
+      payload ->
+        %{
+          status: payload["status"],
+          findings: payload["findings"] || [],
+          gate_result: payload["gate_result"]
+        }
+    end
   end
 
   defp reason_for(%{state: :blocked, blocked_by: blockers}),

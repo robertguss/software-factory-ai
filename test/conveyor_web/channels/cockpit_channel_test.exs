@@ -201,6 +201,24 @@ defmodule ConveyorWeb.CockpitChannelTest do
     assert_reply ref, :error, %{reason: "observe-only"}
   end
 
+  test "node:detail reply carries the dossier gate/review/evidence for a live slice (R7/R8)" do
+    %{plan: plan, slices: s} = CockpitFixtures.seed_plan([{"SLICE-001", :gated}], [])
+
+    CockpitFixtures.seed_attempt_with_verdict(s["SLICE-001"],
+      gate: %{passed: false, stages: [%{"name" => "tests", "status" => "no_go"}]},
+      review: %{decision: :needs_rework}
+    )
+
+    socket = join_cockpit("cockpit:default", plan.id)
+    assert_push "graph:init", %{}
+
+    ref = push(socket, "node:detail", %{"id" => s["SLICE-001"].id})
+    assert_reply ref, :ok, %{detail: detail}
+    assert detail.gate.passed == false
+    assert [%{"name" => "tests"}] = detail.gate.stages
+    assert [%{decision: :needs_rework}] = detail.reviews
+  end
+
   # Ported from the retired CockpitLive stalled/parity tests (KTD8/R14/AE4): no
   # faked liveness — Stalled is a real stored StationRun.started_at evaluated
   # against the cap. The per-slice cap is disabled in test config, so pin

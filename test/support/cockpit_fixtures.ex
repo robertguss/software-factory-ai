@@ -10,8 +10,12 @@ defmodule Conveyor.CockpitFixtures do
 
   alias Conveyor.Factory.{
     Epic,
+    Evidence,
+    GateResult,
+    PatchSet,
     Plan,
     Project,
+    Review,
     RunAttempt,
     RunSpec,
     Slice,
@@ -146,6 +150,103 @@ defmodule Conveyor.CockpitFixtures do
         orchestrator_version: "conveyor@0.1.0",
         trace_id: "trace-cockpit",
         started_at: DateTime.utc_now()
+      },
+      domain: Factory
+    )
+  end
+
+  @doc """
+  Seed a `RunAttempt` for `slice` with optional dossier rows for the live dossier
+  read (U7): `:gate` -> a `%{passed:, stages:, trust_score:}` GateResult, `:review`
+  -> a Review, `:evidence` -> an Evidence (+ its PatchSet). Returns the attempt.
+  """
+  def seed_attempt_with_verdict(slice, opts \\ []) do
+    run_spec = Ash.create!(RunSpec, run_spec_attrs(slice.id), domain: Factory)
+
+    attempt =
+      Ash.create!(
+        RunAttempt,
+        %{
+          slice_id: slice.id,
+          run_spec_id: run_spec.id,
+          attempt_no: 1,
+          base_commit: run_spec.base_commit,
+          status: Keyword.get(opts, :status, :gated),
+          outcome: Keyword.get(opts, :outcome, :none),
+          orchestrator_version: "conveyor@0.1.0",
+          trace_id: "trace-cockpit",
+          started_at: DateTime.utc_now()
+        },
+        domain: Factory
+      )
+
+    if gate = opts[:gate], do: build_gate!(attempt, gate)
+    if review = opts[:review], do: build_review!(attempt, review)
+    if evidence = opts[:evidence], do: build_evidence!(attempt, run_spec, evidence)
+
+    attempt
+  end
+
+  defp build_gate!(attempt, gate) do
+    Ash.create!(
+      GateResult,
+      %{
+        run_attempt_id: attempt.id,
+        passed: Map.get(gate, :passed, false),
+        stages: Map.get(gate, :stages, []),
+        trust_score: Map.get(gate, :trust_score),
+        gate_version: "gate@1",
+        gate_code_sha256: digest("gate-code"),
+        policy_sha256: digest("policy"),
+        contract_lock_sha256: digest("contract-lock"),
+        canary_suite_version: "canary@1"
+      },
+      domain: Factory
+    )
+  end
+
+  defp build_review!(attempt, review) do
+    Ash.create!(
+      Review,
+      %{
+        run_attempt_id: attempt.id,
+        reviewer_profile_id: Ecto.UUID.generate(),
+        review_kind: Map.get(review, :review_kind, :general),
+        rubric_version: "rubric@1",
+        dossier_sha256: digest("dossier"),
+        reviewed_at: DateTime.utc_now(),
+        decision: Map.get(review, :decision, :needs_rework),
+        recommendation: Map.get(review, :recommendation, :ask_human),
+        summary: Map.get(review, :summary, "needs a human"),
+        findings: Map.get(review, :findings, []),
+        checks: Map.get(review, :checks, [])
+      },
+      domain: Factory
+    )
+  end
+
+  defp build_evidence!(attempt, run_spec, evidence) do
+    patch_set =
+      Ash.create!(
+        PatchSet,
+        %{
+          run_attempt_id: attempt.id,
+          base_commit: run_spec.base_commit,
+          patch_ref: "artifacts/patch.diff",
+          patch_sha256: digest("patch")
+        },
+        domain: Factory
+      )
+
+    Ash.create!(
+      Evidence,
+      %{
+        run_attempt_id: attempt.id,
+        patch_set_id: patch_set.id,
+        diff_ref: "artifacts/diff",
+        summary: Map.get(evidence, :summary, "evidence summary"),
+        acceptance_results: Map.get(evidence, :acceptance_results, []),
+        risks: Map.get(evidence, :risks, [])
       },
       domain: Factory
     )
