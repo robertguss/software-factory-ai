@@ -126,6 +126,31 @@ defmodule Conveyor.CockpitFixtures do
     })
   end
 
+  @doc """
+  Seed a completed `RunAttempt` for `slice` carrying a gate verdict — the
+  gate-waiting attention signal (`outcome` is one of `RunAttempt`'s human-routing
+  verdicts). No running station; just the attempt + its RunSpec.
+  """
+  def seed_attempt_outcome(slice, outcome, status \\ :gated) do
+    run_spec = Ash.create!(RunSpec, run_spec_attrs(slice.id), domain: Factory)
+
+    Ash.create!(
+      RunAttempt,
+      %{
+        slice_id: slice.id,
+        run_spec_id: run_spec.id,
+        attempt_no: 1,
+        base_commit: run_spec.base_commit,
+        status: status,
+        outcome: outcome,
+        orchestrator_version: "conveyor@0.1.0",
+        trace_id: "trace-cockpit",
+        started_at: DateTime.utc_now()
+      },
+      domain: Factory
+    )
+  end
+
   @doc "Seed a running StationRun for `slice`, started at `started_at`, plus its RunAttempt/RunSpec."
   def seed_running_station(slice, started_at) do
     run_spec = Ash.create!(RunSpec, run_spec_attrs(slice.id), domain: Factory)

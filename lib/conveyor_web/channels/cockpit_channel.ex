@@ -39,12 +39,14 @@ defmodule ConveyorWeb.CockpitChannel do
      |> assign(:model, model)
      |> assign(:slice_ids, slice_id_set(model))
      |> assign(:stable_keys, stable_key_index(model))
+     |> assign(:attention, [])
      |> assign(:seq, 0)}
   end
 
   # The seed is deferred out of join (a channel cannot push during join).
   @impl true
-  def handle_info(:after_join, socket), do: {:noreply, push_graph(socket)}
+  def handle_info(:after_join, socket),
+    do: {:noreply, socket |> push_graph() |> push_attention(true)}
 
   # A ledger ping: fold it by re-reading just the named slice (idempotent), then
   # patch only the nodes whose view changed. A run.started ping carries no slice,
@@ -52,7 +54,7 @@ defmodule ConveyorWeb.CockpitChannel do
   def handle_info({:ledger_event, message}, socket) do
     case target_slice(socket, message) do
       nil -> {:noreply, maybe_push_runs(socket, message)}
-      slice_id -> {:noreply, apply_recompute(socket, [slice_id], nil)}
+      slice_id -> {:noreply, socket |> apply_recompute([slice_id], nil) |> push_attention()}
     end
   end
 
@@ -144,10 +146,31 @@ defmodule ConveyorWeb.CockpitChannel do
   # selectable without a reload (R5). Other unmatched pings are no-ops.
   defp maybe_push_runs(socket, %{"type" => "run.started"}) do
     push(socket, "runs:update", %{runs: GraphProjection.list_runs()})
-    socket
+    push_attention(socket, true)
   end
 
   defp maybe_push_runs(socket, _message), do: socket
+
+  # Push the needs-me items + per-run attention rollup (R5/R6). `force` always
+  # emits (the seed and a new run); otherwise it pushes only when the items
+  # actually changed, so a Stalled tick or a no-op recompute stays quiet.
+  defp push_attention(socket, force \\ false) do
+    items = GraphProjection.attention_for(socket.assigns.model)
+
+    if not force and items == socket.assigns.attention do
+      socket
+    else
+      {seq, socket} = next_seq(socket)
+
+      push(socket, "attention:update", %{
+        items: items,
+        runs: GraphProjection.run_attention(),
+        seq: seq
+      })
+
+      assign(socket, :attention, items)
+    end
+  end
 
   # Resolve the in-plan slice a ledger event names — either the lifecycle event's
   # top-level `slice_id` or an outcome event's payload stable_key — to a node id,
