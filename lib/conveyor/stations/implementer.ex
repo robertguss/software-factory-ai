@@ -10,9 +10,11 @@ defmodule Conveyor.Stations.Implementer do
   alias Conveyor.PromptBuilder
 
   @impl Conveyor.Station
+  @spec effects(map()) :: [atom() | map()]
   def effects(_input), do: [:file_write]
 
   @impl Conveyor.Station
+  @spec run(map(), Conveyor.Station.Context.t()) :: {:ok, map()} | {:error, term()}
   def run(input, context) do
     adapter = adapter_module(input)
     agent_session = agent_session!(context.run_attempt, input)
