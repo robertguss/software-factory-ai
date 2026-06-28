@@ -16,6 +16,23 @@ defmodule Conveyor.Genome.BackEdge do
   @role "verified_by_gate"
   @invalidation_policy "invalidate_on_change"
 
+  # KTD-1: `:edge_sha256` is the content-addressed identity of the LOGICAL provenance
+  # edge and is deduped by the `unique_edge_sha256` identity, so its digest input must
+  # be stable across re-finalizations of the same attempt. These keys are persisted on
+  # the row but EXCLUDED from the digest because they are per-finalization nonces:
+  #
+  #   * `:gate_result_id` — re-running the gate on the same run_attempt persists a fresh
+  #     `GateResult` row (new UUID) every time. Including it made every re-finalization
+  #     mint a duplicate edge instead of deduping. The column still records which gate
+  #     verdict minted the edge.
+  #
+  # `:run_attempt_id` is deliberately KEPT: `Gate.Finalizer` re-finalizes by reusing the
+  # existing run_attempt from context (it never creates a new one), so the attempt id is
+  # constant across re-finalizations and is the "attempt" component of the logical edge
+  # identity. A rework is a genuinely new attempt (new run_attempt_id / attempt_no) and
+  # SHOULD mint a distinct edge — so excluding it would wrongly collapse reworks.
+  @digest_excluded_keys [:gate_result_id]
+
   @spec mint!(map(), GateResult.t(), keyword()) :: [CodeProvenanceEdge.t()]
   def mint!(context, gate_result, opts \\ [])
 
@@ -64,10 +81,19 @@ defmodule Conveyor.Genome.BackEdge do
       |> Map.put(:role, @role)
       |> Map.put(:invalidation_policy, @invalidation_policy)
 
+    edge_sha256 = Conveyor.CanonicalJson.digest(Map.drop(attrs, @digest_excluded_keys))
+
+    # Idempotent on the logical edge (dr1m.1.2): the digest excludes the per-run
+    # gate_result_id, so a re-finalization of the same (slice, attempt, criterion,
+    # code_symbol) yields the same edge_sha256. Upsert on that identity collapses the
+    # duplicate instead of raising a unique-constraint error — the row's gate_result_id
+    # is refreshed to the latest finalization.
     Ash.create!(
       CodeProvenanceEdge,
-      Map.put(attrs, :edge_sha256, Conveyor.CanonicalJson.digest(attrs)),
-      domain: Factory
+      Map.put(attrs, :edge_sha256, edge_sha256),
+      domain: Factory,
+      upsert?: true,
+      upsert_identity: :unique_edge_sha256
     )
   end
 
