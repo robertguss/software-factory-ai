@@ -31,13 +31,15 @@ defmodule Mix.Tasks.Conveyor.Run do
 
     case run_plan(selector, workspace, adapter, opts) do
       {:ok, result} ->
+        disposition = disposition(result.serial_result)
+
         result
-        |> summary()
+        |> summary(disposition)
         |> Map.put("workspace", workspace)
         |> Jason.encode!()
         |> Mix.shell().info()
 
-        exit_fun().(exit_code(result.serial_result))
+        exit_fun().(exit_code(disposition))
 
       {:unapproved, message} ->
         # Human diagnostic on stderr; stdout stays pure JSON. The driver was never invoked.
@@ -128,13 +130,13 @@ defmodule Mix.Tasks.Conveyor.Run do
     Mix.raise("unsupported --adapter #{inspect(adapter)} (expected codex|reference_solution)")
   end
 
-  defp summary(result) do
+  defp summary(result, disposition) do
     serial_result = result.serial_result
     report = serial_result.report
 
     %{
       "status" => Atom.to_string(serial_result.status),
-      "disposition" => disposition(serial_result),
+      "disposition" => disposition,
       "plan_path" => result.plan_path,
       "adapter" => adapter_name(result.adapter),
       "slice_count" => map_size(result.slices_by_stable_key),
@@ -157,13 +159,9 @@ defmodule Mix.Tasks.Conveyor.Run do
   # review (trust abstained, reaped, rework-exhausted, or skipped behind a parked
   # predecessor) gets the distinct parked_for_review code — so an unattended
   # caller can tell "blocked on review" from "the gate said no".
-  defp exit_code(serial_result) do
-    case disposition(serial_result) do
-      "passed" -> ExitCodes.fetch!(:success)
-      "gate_failed" -> ExitCodes.fetch!(:deterministic_gate_failed)
-      "parked_for_review" -> ExitCodes.fetch!(:parked_for_review)
-    end
-  end
+  defp exit_code("passed"), do: ExitCodes.fetch!(:success)
+  defp exit_code("gate_failed"), do: ExitCodes.fetch!(:deterministic_gate_failed)
+  defp exit_code("parked_for_review"), do: ExitCodes.fetch!(:parked_for_review)
 
   defp disposition(%{status: :passed}), do: "passed"
 
@@ -171,12 +169,19 @@ defmodule Mix.Tasks.Conveyor.Run do
     if hard_gate_failure?(events), do: "gate_failed", else: "parked_for_review"
   end
 
+  # Defensive: SerialDriver.Result.status is :passed | :partial today. A future status
+  # (or a :partial result somehow missing :events) must not crash the operator CLI with a
+  # FunctionClauseError — treat the unknown as a non-zero gate failure rather than raise.
+  defp disposition(_serial_result), do: "gate_failed"
+
   # A slice the gate hard-failed (critical → :rejected, or :policy_blocked). Every
   # other non-passing outcome (:abstained, :parked, :needs_rework, :skipped) is a
-  # park awaiting a human, not a deterministic gate failure.
-  @hard_fail_outcomes [:rejected, :policy_blocked, "rejected", "policy_blocked"]
+  # park awaiting a human, not a deterministic gate failure. run_attempt_outcome is
+  # an atom in the in-memory event maps; to_string normalizes it (DB reads stringify).
   defp hard_gate_failure?(events) do
-    Enum.any?(events, &(Map.get(&1, "run_attempt_outcome") in @hard_fail_outcomes))
+    Enum.any?(events, fn event ->
+      to_string(Map.get(event, "run_attempt_outcome")) in ["rejected", "policy_blocked"]
+    end)
   end
 
   defp usage do

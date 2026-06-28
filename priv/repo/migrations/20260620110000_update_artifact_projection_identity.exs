@@ -56,7 +56,12 @@ defmodule Conveyor.Repo.Migrations.UpdateArtifactProjectionIdentity do
                    )
 
     # Dedupe by content identity before recreating the old unique index, which
-    # would otherwise fail on duplicate (sha256, size_bytes) rows.
+    # would otherwise fail on duplicate (sha256, size_bytes) rows. NOTE: this down is
+    # intentionally LOSSY — the new schema legitimately allows two artifacts to share
+    # (sha256, size_bytes) across different run/projection contexts, which the old
+    # global unique index forbids, so rolling back must drop the older of each
+    # content-identical pair. Acceptable for this greenfield project (fresh CI db);
+    # operators rolling back populated data would lose those artifact-to-run rows.
     execute("""
     DELETE FROM artifacts a USING (
       SELECT id, row_number() OVER (
