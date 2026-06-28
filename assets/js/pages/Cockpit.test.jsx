@@ -100,6 +100,21 @@ describe("Cockpit", () => {
     expect(h.setCenter).toHaveBeenCalled()
   })
 
+  it("toggles a node's pin through the canvas (R4)", () => {
+    h.hook = hook({
+      graph: {
+        nodes: [{ id: "a", state: "running", title: "Slice A" }],
+        edges: [],
+        epics: [],
+      },
+    })
+    render(<Cockpit plan_id="p1" />)
+
+    const pin = screen.getByRole("button", { name: "Pin node" })
+    fireEvent.click(pin)
+    expect(screen.getByRole("button", { name: "Unpin node" })).toBeInTheDocument()
+  })
+
   it("dims/stale-marks the canvas and shows the status when not live (AE7)", () => {
     h.hook = hook({ status: "reconnecting", graph: { nodes: [], edges: [], epics: [] } })
     const { container } = render(<Cockpit plan_id="p1" />)

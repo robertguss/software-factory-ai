@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow } from "@xyflow/react"
 import AppShell from "@/components/app-shell"
 import AmbientBorder from "@/components/ambient-border"
 import ConnectionStatus, { isLive } from "@/components/connection-status"
 import MasterCautionStrip from "@/components/master-caution-strip"
 import SliceNode from "@/components/slice-node"
+import EpicChip from "@/components/epic-chip"
 import FlowEdge from "@/components/flow-edge"
 import { useCockpitChannel } from "@/hooks/use-cockpit-channel"
 import { cn } from "@/lib/cn"
@@ -12,9 +13,11 @@ import { downstreamWaitingCounts } from "@/lib/edge-weight"
 import { layoutPositions, toFlowEdges, toFlowNodes, topologyKey } from "@/lib/flow"
 
 // Defined at module scope so React Flow's type registries stay stable.
-const nodeTypes = { slice: SliceNode }
+const nodeTypes = { slice: SliceNode, epicChip: EpicChip }
 const edgeTypes = { slice: FlowEdge }
 const LIVE_RUN = "default"
+// Past this zoom, semantic zoom expands every folded epic (no mode switch, AE3).
+const ZOOM_EXPAND_THRESHOLD = 1.4
 
 // The graph canvas. Positions are recomputed by dagre only when the topology
 // changes; a data-only patch reuses them (no relayout, AE1).
@@ -22,6 +25,18 @@ function CockpitCanvas({ graph }) {
   const { setCenter } = useReactFlow()
   const positionsRef = useRef(new Map())
   const topo = topologyKey(graph.nodes, graph.edges)
+
+  // A pin keeps a chosen node from being auto-folded away (R4); component-local.
+  const [pinned, setPinned] = useState(() => new Set())
+  const togglePin = useCallback((id) => {
+    setPinned((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+  // Semantic zoom: zooming in expands the folded past (overview ↔ detail).
+  const [expandAll, setExpandAll] = useState(false)
 
   useMemo(() => {
     positionsRef.current = layoutPositions(graph.nodes, graph.edges)
@@ -34,8 +49,13 @@ function CockpitCanvas({ graph }) {
     [graph],
   )
 
-  const rfNodes = toFlowNodes(graph.nodes, positionsRef.current)
-  const rfEdges = toFlowEdges(graph.edges, graph.nodes, counts)
+  const foldOpts = { pinned, expandAll, epics: graph.epics }
+  const rfNodes = toFlowNodes(graph.nodes, positionsRef.current, foldOpts).map((n) =>
+    n.type === "slice"
+      ? { ...n, data: { ...n.data, pinned: pinned.has(n.id), onTogglePin: togglePin } }
+      : n,
+  )
+  const rfEdges = toFlowEdges(graph.edges, graph.nodes, { counts, pinned, expandAll })
 
   // The caution-strip jump centers the viewport on the pinned node.
   const jumpTo = (id) => {
@@ -54,6 +74,8 @@ function CockpitCanvas({ graph }) {
           edgeTypes={edgeTypes}
           nodesDraggable={false}
           fitView
+          onlyRenderVisibleElements
+          onMove={(_e, viewport) => setExpandAll(viewport.zoom >= ZOOM_EXPAND_THRESHOLD)}
           proOptions={{ hideAttribution: true }}
         >
           <Background />
