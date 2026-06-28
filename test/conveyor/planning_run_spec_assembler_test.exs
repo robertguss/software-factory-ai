@@ -122,8 +122,9 @@ defmodule Conveyor.PlanningRunSpecAssemblerTest do
     assert run_spec.contract_lock_sha256 == ContractEvolution.contract_lock_sha256(lock)
     assert run_spec.diff_policy_sha256 == diff_policy_sha256(diff_policy)
     assert run_spec.test_pack_sha256 == test_pack.test_pack_sha256
-    assert diff_policy.allowed_path_globs == ["src/app.py", "tests/test_loader.py"]
-    assert diff_policy.protected_path_globs == ["tests/test_loader.py"]
+    # q8dz: tests/ is locked into protected and stripped from allowed (never both).
+    assert diff_policy.allowed_path_globs == ["src/app.py"]
+    assert diff_policy.protected_path_globs == ["tests/**", "tests/test_loader.py"]
 
     assert run_spec.station_plan["falsifier_forge"] == %{
              "schema_version" => "conveyor.falsifier_forge@1",
