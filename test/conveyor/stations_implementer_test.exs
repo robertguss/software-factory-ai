@@ -46,6 +46,98 @@ defmodule Conveyor.StationsImplementerTest do
     assert prompt.body =~ "Fake runner writes deterministic output."
   end
 
+  test "AE1: input with no adapter defaults to Claude Code (injected exec, no real CLI)" do
+    fixture = fixture!("implementer-default-cc")
+    test_pid = self()
+
+    exec = fn _prompt, _ws, _opts ->
+      send(test_pid, :exec_called)
+      {claude_stream_json(), 0}
+    end
+
+    assert {:ok, output} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "claude_code_exec" => exec
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    assert output["adapter"] == "Conveyor.AgentRunner.ClaudeCode"
+    assert_received :exec_called
+  end
+
+  test "AE2: naming the Codex adapter selects it — both string and atom forms" do
+    fixture = fixture!("implementer-codex")
+    exec = fn _prompt, _ws, _opts -> {codex_jsonl(), 0} end
+
+    for adapter <- ["Conveyor.AgentRunner.Codex", Conveyor.AgentRunner.Codex] do
+      assert {:ok, output} =
+               Implementer.run(
+                 %{
+                   "workspace_path" => fixture.workspace_path,
+                   "base_commit" => fixture.base_commit,
+                   "blob_root" => fixture.blob_root,
+                   "context_pack_id" => fixture.context_pack.id,
+                   "adapter" => adapter,
+                   "codex_exec" => exec
+                 },
+                 %{run_attempt: fixture.run_attempt}
+               )
+
+      assert output["adapter"] == "Conveyor.AgentRunner.Codex"
+    end
+  end
+
+  test "AE3: input model override threads claude_code_model into adapter opts" do
+    fixture = fixture!("implementer-model")
+    test_pid = self()
+
+    exec = fn _prompt, _ws, opts ->
+      send(test_pid, {:opts, opts})
+      {claude_stream_json(), 0}
+    end
+
+    assert {:ok, _output} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "model" => "sonnet",
+                 "claude_code_exec" => exec
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    assert_received {:opts, opts}
+    assert opts[:claude_code_model] == "sonnet"
+  end
+
+  # A minimal valid stream-json transcript: a single final `result` event.
+  defp claude_stream_json do
+    Jason.encode!(%{
+      "type" => "result",
+      "subtype" => "success",
+      "is_error" => false,
+      "result" => "done",
+      "total_cost_usd" => 0.01,
+      "usage" => %{"input_tokens" => 10, "output_tokens" => 5}
+    }) <> "\n"
+  end
+
+  defp codex_jsonl do
+    Jason.encode!(%{
+      "type" => "item.completed",
+      "item" => %{"type" => "agent_message", "text" => "done"}
+    }) <> "\n"
+  end
+
   defp fixture!(label) do
     workspace_path = git_workspace!(label)
     base_commit = git!(workspace_path, ["rev-parse", "HEAD"])

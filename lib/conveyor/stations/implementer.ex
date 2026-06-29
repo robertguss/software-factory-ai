@@ -4,7 +4,7 @@ defmodule Conveyor.Stations.Implementer do
   use Conveyor.Station, station: "implement"
 
   alias Conveyor.AgentRunner
-  alias Conveyor.AgentRunner.Codex
+  alias Conveyor.AgentRunner.ClaudeCode
   alias Conveyor.Factory
   alias Conveyor.Factory.{AgentSession, ContextPack, Policy, RunPrompt}
   alias Conveyor.PromptBuilder
@@ -23,16 +23,23 @@ defmodule Conveyor.Stations.Implementer do
 
     by_attempt = get(input, "patch_refs_by_attempt")
 
-    opts = [
-      agent_session_id: agent_session.id,
-      run_attempt_id: context.run_attempt.id,
-      blob_root: get(input, "blob_root"),
-      reference_patch: reference_patch_for(input, by_attempt, context.run_attempt.attempt_no),
-      # a per-attempt reference run re-applies a different patch each attempt, so the
-      # tree must be reset to base first (the prior attempt's patch is uncommitted).
-      reset_workspace: is_map(by_attempt) and map_size(by_attempt) > 0,
-      session_id: "run-#{context.run_attempt.id}"
-    ]
+    opts =
+      [
+        agent_session_id: agent_session.id,
+        run_attempt_id: context.run_attempt.id,
+        blob_root: get(input, "blob_root"),
+        reference_patch: reference_patch_for(input, by_attempt, context.run_attempt.attempt_no),
+        # a per-attempt reference run re-applies a different patch each attempt, so the
+        # tree must be reset to base first (the prior attempt's patch is uncommitted).
+        reset_workspace: is_map(by_attempt) and map_size(by_attempt) > 0,
+        session_id: "run-#{context.run_attempt.id}"
+      ]
+      # Per-station model override (KTD6) and the adapter test exec seams, threaded from
+      # station input. Only added when present — a nil value would override the adapter's
+      # own default (model/exec) and break the run.
+      |> maybe_put(:claude_code_model, get(input, "model"))
+      |> maybe_put(:claude_code_exec, get(input, "claude_code_exec"))
+      |> maybe_put(:codex_exec, get(input, "codex_exec"))
 
     case AgentRunner.run(adapter, run_prompt, workspace, policy(), opts) do
       {:ok, raw} ->
@@ -58,11 +65,14 @@ defmodule Conveyor.Stations.Implementer do
 
   defp adapter_module(input) do
     case get(input, "adapter") do
-      nil -> Codex
+      nil -> ClaudeCode
       module when is_atom(module) -> module
       name when is_binary(name) -> Module.concat([String.trim_leading(name, "Elixir.")])
     end
   end
+
+  defp maybe_put(opts, _key, nil), do: opts
+  defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
   # Reference/test-only: pick the canned patch for THIS attempt from an attempt-keyed
   # map (string keys survive the run_spec JSON round-trip), falling back to the single
