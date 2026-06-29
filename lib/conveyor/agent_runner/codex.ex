@@ -30,7 +30,14 @@ defmodule Conveyor.AgentRunner.Codex do
 
   @behaviour Conveyor.AgentRunner
 
-  alias Conveyor.AgentRunner.{AdapterBase, Capabilities, EventRecorder, RawRunResult}
+  alias Conveyor.AgentRunner.{
+    AdapterBase,
+    Capabilities,
+    ContainedExec,
+    EventRecorder,
+    RawRunResult
+  }
+
   alias Conveyor.Factory.{Policy, RunPrompt}
 
   @adapter "codex"
@@ -60,7 +67,10 @@ defmodule Conveyor.AgentRunner.Codex do
   end
 
   @impl true
-  def run(%RunPrompt{} = run_prompt, workspace, %Policy{} = _policy, opts \\ []) do
+  def run(%RunPrompt{} = run_prompt, workspace, %Policy{} = policy, opts \\ []) do
+    # Thread the declared policy down to the contained exec so it enforces the
+    # network/env boundary (R11/U8). put_new: a test-injected policy wins.
+    opts = Keyword.put_new(opts, :policy, policy)
     agent_session_id = Keyword.fetch!(opts, :agent_session_id)
     session_id = Keyword.get(opts, :session_id, "codex-#{Ash.UUID.generate()}")
     blob_opts = Keyword.take(opts, [:blob_root])
@@ -188,14 +198,19 @@ defmodule Conveyor.AgentRunner.Codex do
 
   # --- codex exec --------------------------------------------------------------
 
+  # The real station exec routes the agent through Conveyor's containment boundary
+  # (R11/U8): the `codex` argv runs inside a hardened container enforcing the declared
+  # %Policy{}. `--cd` points at the in-container workspace mount, not the host path.
+  # `--ephemeral`: don't persist session rollout files. Codex's own `--sandbox
+  # workspace-write` is kept as belt-and-suspenders, but the container is now the real
+  # boundary; if its inner sandbox conflicts with the container hardening, operators set
+  # `--sandbox danger-full-access` (the container provides isolation).
   defp default_exec(prompt, ws_path, opts) do
-    # `--ephemeral`: don't persist session rollout files to disk (recommended for
-    # automation / repeated eval runs; we never resume these sessions).
     args =
       [
         "exec",
         "--cd",
-        ws_path,
+        ContainedExec.workspace_mount(),
         "--sandbox",
         "workspace-write",
         "--json",
@@ -204,12 +219,7 @@ defmodule Conveyor.AgentRunner.Codex do
       ] ++
         model_args(opts) ++ reasoning_args(opts) ++ [prompt]
 
-    # `codex exec` reads stdin for "additional input" and blocks forever when stdin
-    # never EOFs (System.cmd leaves the child's stdin open). Run it through a tiny sh
-    # wrapper that closes stdin so codex proceeds with just the prompt arg. No shell
-    # injection: codex and its args are passed as positional params ($0/$@), never
-    # interpolated into the script.
-    System.cmd("/bin/sh", ["-c", ~s(exec "$0" "$@" </dev/null), "codex" | args])
+    ContainedExec.run(["codex" | args], ws_path, opts)
   end
 
   defp model_args(opts) do

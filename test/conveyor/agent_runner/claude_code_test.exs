@@ -82,7 +82,7 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
     assert Enum.any?(result.tool_calls, &(&1["name"] == "Bash"))
   end
 
-  test "default model is opus; claude_code_model overrides it (argv captured via injected cmd)" do
+  test "default model is opus; claude_code_model overrides it (argv captured via the contained docker cmd)" do
     fixture =
       BridgeFixtures.sample_fixture!(
         label: "cc-model",
@@ -92,8 +92,10 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
 
     test_pid = self()
 
-    capture_cmd = fn _sh, sh_args, _cmd_opts ->
-      send(test_pid, {:argv, sh_args})
+    # Under U8 the default exec routes through ContainedExec → `docker run …`, so the
+    # claude argv (with --model) is appended to the docker invocation.
+    capture_cmd = fn "docker", docker_args, _cmd_opts ->
+      send(test_pid, {:argv, docker_args})
       {fixture_jsonl(), 0}
     end
 
@@ -101,10 +103,16 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
       ClaudeCode.run(fixture.run_prompt, fixture.workspace, fixture.policy,
         agent_session_id: fixture.agent_session.id,
         blob_root: fixture.blob_root,
-        claude_code_cmd: capture_cmd
+        cmd: capture_cmd,
+        agent_image: "test-agent-image"
       )
 
     assert_receive {:argv, default_argv}
+    # routed through the contained boundary…
+    assert "run" in default_argv
+    assert "--network" in default_argv
+    assert "test-agent-image" in default_argv
+    # …carrying the claude model flags
     assert "--model" in default_argv
     assert "opus" in default_argv
     assert "--fallback-model" in default_argv
@@ -114,7 +122,8 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
         agent_session_id: fixture.agent_session.id,
         blob_root: fixture.blob_root,
         claude_code_model: "sonnet",
-        claude_code_cmd: capture_cmd
+        cmd: capture_cmd,
+        agent_image: "test-agent-image"
       )
 
     assert_receive {:argv, sonnet_argv}
@@ -167,7 +176,7 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
     assert result.metadata["latency_ms"] < 5_000
   end
 
-  test "the agent subprocess receives an allowlisted env with ANTHROPIC_API_KEY scrubbed" do
+  test "the contained station exec routes through the hardened boundary and never threads ANTHROPIC_API_KEY" do
     fixture =
       BridgeFixtures.sample_fixture!(
         label: "cc-env",
@@ -180,8 +189,8 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
 
     test_pid = self()
 
-    capture_cmd = fn _sh, _sh_args, cmd_opts ->
-      send(test_pid, {:env, cmd_opts[:env]})
+    capture_cmd = fn "docker", docker_args, _cmd_opts ->
+      send(test_pid, {:argv, docker_args})
       {fixture_jsonl(), 0}
     end
 
@@ -189,15 +198,23 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
       ClaudeCode.run(fixture.run_prompt, fixture.workspace, fixture.policy,
         agent_session_id: fixture.agent_session.id,
         blob_root: fixture.blob_root,
-        claude_code_cmd: capture_cmd
+        cmd: capture_cmd,
+        agent_image: "test-agent-image"
       )
 
-    assert_receive {:env, env}
-    # ANTHROPIC_API_KEY is actively unset (nil), never passed through with its value.
-    refute Enum.any?(env, fn {k, v} -> k == "ANTHROPIC_API_KEY" and not is_nil(v) end)
-    assert {"ANTHROPIC_API_KEY", nil} in env
-    # the allowlist still threads PATH so the CLI is resolvable.
-    assert Enum.any?(env, fn {k, v} -> k == "PATH" and is_binary(v) end)
+    assert_receive {:argv, argv}
+    # the boundary hardening is present…
+    assert "--network" in argv
+    assert "--read-only" in argv
+    # …and the host secret is never threaded into the container env. docker run starts
+    # with a fresh env, so ANTHROPIC_API_KEY simply has no --env flag.
+    env_values =
+      argv
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.filter(fn [a, _] -> a == "--env" end)
+      |> Enum.map(fn [_, v] -> v end)
+
+    refute Enum.any?(env_values, &String.starts_with?(&1, "ANTHROPIC_API_KEY"))
   end
 
   test "known secret patterns are redacted before the transcript blob is written" do

@@ -9,8 +9,9 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
 
   Auth is the user's Claude **subscription** (the CLI's own saved login) — no API
   key. The agent subprocess never sees `ANTHROPIC_API_KEY` or unrelated host
-  secrets: the default exec passes an *allowlisted* env (PATH/HOME/…), actively
-  unsetting everything else.
+  secrets: the default exec runs the agent through `Conveyor.AgentRunner.ContainedExec`
+  (R11/U8), which starts a fresh, scrubbed container env and only threads the keys
+  the declared `%Policy{}` allowlists.
 
   KTD1 — `--output-format stream-json` (JSONL), not single `json`: a `system`/init
   event, one `assistant` event per turn (text and `tool_use` blocks), then a final
@@ -34,13 +35,20 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
   `(prompt, workspace_path, opts) -> {stream_json_stdout, exit_code}`; the default
   drives the real `claude -p`. Tests inject a fake (canned stream-json + a patch) so
   conformance stays deterministic and $0 (mirrors `AgentRunner.Codex`). The
-  `System.cmd` call itself is a finer seam (`:claude_code_cmd`) so arg/env building
-  is verifiable without shelling out.
+  contained `docker` invocation is a finer seam (`opts[:cmd]`, consumed by
+  `ContainedExec`) so arg/boundary building is verifiable without shelling out.
   """
 
   @behaviour Conveyor.AgentRunner
 
-  alias Conveyor.AgentRunner.{AdapterBase, Capabilities, EventRecorder, RawRunResult}
+  alias Conveyor.AgentRunner.{
+    AdapterBase,
+    Capabilities,
+    ContainedExec,
+    EventRecorder,
+    RawRunResult
+  }
+
   alias Conveyor.Factory.{Policy, RunPrompt}
 
   @adapter "claude_code"
@@ -51,12 +59,6 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
   # unattended multi-hour run (M2). The shared watchdog reports a timeout as a non-zero
   # (124) run with empty output -> the slice fails its gate and parks/reworks.
   @default_agent_timeout_ms 900_000
-
-  # Only these vars reach the agent subprocess; everything else on the host (incl.
-  # ANTHROPIC_API_KEY and unrelated secrets) is actively unset. The CLI authenticates
-  # via its own saved login under HOME, not an env key.
-  @env_allowlist ~w(PATH HOME USER LOGNAME SHELL LANG LANGUAGE LC_ALL LC_CTYPE TERM
-                    TMPDIR TZ XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME)
 
   @impl true
   def capabilities do
@@ -80,13 +82,15 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
   end
 
   @impl true
-  def run(%RunPrompt{} = run_prompt, workspace, %Policy{} = _policy, opts \\ []) do
+  def run(%RunPrompt{} = run_prompt, workspace, %Policy{} = policy, opts \\ []) do
     if root_preflight_required?(opts) and root?() do
       {:error,
        {:must_not_run_as_root,
         "Claude Code refuses --permission-mode bypassPermissions as root; run the agent as a non-root user (KTD2/U8)."}}
     else
-      do_run(run_prompt, workspace, opts)
+      # Thread the declared policy down to the contained exec so it enforces the
+      # network/env boundary (R11). put_new: a test-injected policy wins.
+      do_run(run_prompt, workspace, Keyword.put_new(opts, :policy, policy))
     end
   end
 
@@ -224,18 +228,13 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
 
   # --- claude -p ---------------------------------------------------------------
 
+  # The real station exec routes the agent through Conveyor's containment boundary
+  # (R11/U8): the `claude` argv runs inside a hardened container that enforces the
+  # declared %Policy{} (network egress, workspace-scoped writes, scrubbed env). The
+  # container's --workdir is the workspace mount, so `claude` (no --cd flag) operates
+  # on the mounted workspace directly. KTD1: stream-json, no merged stderr.
   defp default_exec(prompt, ws_path, opts) do
-    args = build_args(prompt, opts)
-    cmd = Keyword.get(opts, :claude_code_cmd, &System.cmd/3)
-
-    # `claude -p` reads stdin; close it via the sh wrapper so it proceeds with just the
-    # prompt arg (mirrors Codex). No shell injection: `claude` and its args are passed
-    # as positional params ($0/$@), never interpolated into the script. No
-    # `stderr_to_stdout` (KTD1). Allowlisted env: the agent never sees host secrets.
-    cmd.("/bin/sh", ["-c", ~s(exec "$0" "$@" </dev/null), "claude" | args],
-      cd: ws_path,
-      env: allowlisted_env()
-    )
+    ContainedExec.run(["claude" | build_args(prompt, opts)], ws_path, opts)
   end
 
   defp build_args(prompt, opts) do
@@ -258,12 +257,6 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
       "--fallback-model",
       @fallback_model
     ]
-  end
-
-  defp allowlisted_env do
-    Enum.map(System.get_env(), fn {key, value} ->
-      if key in @env_allowlist, do: {key, value}, else: {key, nil}
-    end)
   end
 
   # Root check only gates the real default exec; an injected exec (tests) bypasses it.
