@@ -20,14 +20,14 @@ defmodule Conveyor.Planning.PlanFoundry do
 
   Built: `interrogation_questions/1` (the pure question reducer) and the
   deterministic `draft/2` spine — draft (via an injectable `Drafter`) -> structural
-  audit -> interrogation. The live `CodexDrafter` is the next slice; until it is
-  wired, `draft/2` with the default drafter returns `{:error, :not_implemented}`,
-  and the orchestration is exercised through an injected drafter.
+  audit -> interrogation. Two live drafters are wired — `ClaudeCodeDrafter` (the
+  default) and `CodexDrafter` — both driving their CLI read-only via the shared
+  `PlanPrompt`; the orchestration is also exercised through an injected drafter.
   """
 
   alias Conveyor.Planning.StructuralAudit
 
-  @default_drafter Conveyor.Planning.PlanFoundry.CodexDrafter
+  @default_drafter Conveyor.Planning.PlanFoundry.ClaudeCodeDrafter
 
   @type question :: %{id: String.t(), prompt: String.t()}
 
@@ -40,8 +40,8 @@ defmodule Conveyor.Planning.PlanFoundry do
   Draft a plan from a paragraph of intent.
 
   Drives the deterministic spine: a `Drafter` (default
-  `Conveyor.Planning.PlanFoundry.CodexDrafter`, override with `:drafter`) turns the
-  intent into a structured `conveyor.plan@1` map, the pure
+  `Conveyor.Planning.PlanFoundry.ClaudeCodeDrafter`, override with `:drafter`) turns
+  the intent into a structured `conveyor.plan@1` map, the pure
   `Conveyor.Planning.StructuralAudit` checks it, and any blocking findings become
   operator questions.
 

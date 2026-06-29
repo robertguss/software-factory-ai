@@ -75,7 +75,7 @@ defmodule Conveyor.Planning.PlanRunner do
     slices_by_stable_key = Map.new(slices, &{&1.stable_key, &1})
     selected_slice_ids = Enum.map(slices, & &1.stable_key)
     work_graph = WorkGraphBuilder.build(plan)
-    adapter = Keyword.get(opts, :agent_adapter, Conveyor.AgentRunner.Codex)
+    adapter = Keyword.get(opts, :agent_adapter, Conveyor.AgentRunner.ClaudeCode)
 
     serial_result =
       serial_driver().(

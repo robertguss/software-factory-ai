@@ -2,15 +2,21 @@ defmodule Mix.Tasks.Conveyor.Run do
   @moduledoc """
   Runs a persisted, approved DB-native plan through the production width-1 loop.
 
-      mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]
+      mix conveyor.run PLAN_ID [--adapter claude_code|codex|reference_solution] [--workspace PATH] [--in-place]
 
   `PLAN_ID` is the UUID of a plan authored via the `conveyor.task.*` CLI (or brought in from a
   legacy YAML plan with `Conveyor.Planning.PlanImporter`). The run refuses unless every task is
   approved.
 
-  By default the run operates on an **isolated copy** of `--workspace`: the loop
+  The default backend is **Claude Code** (`--adapter claude_code`): the `claude`
+  CLI authenticated via your subscription, run inside Conveyor's containment
+  boundary. Pass `--adapter codex` for Codex or `--adapter reference_solution`
+  for a free dry-run.
+
+  The run operates on an **isolated copy** of `--workspace` by default: the loop
   resets and commits as it goes, so it must never mutate a directory you care
-  about (there is no blast-radius container yet). The source dir is left
+  about. The agent subprocess additionally runs inside a Conveyor-enforced
+  blast-radius container (network/filesystem/env policy). The source dir is left
   untouched and the isolated copy's path is printed. Pass `--in-place` to run
   directly in `--workspace` (e.g. a throwaway dir you have already staged).
   """
@@ -26,7 +32,7 @@ defmodule Mix.Tasks.Conveyor.Run do
   def run([selector | args]) do
     Mix.Task.run("app.start")
     opts = parse_opts!(args)
-    adapter = adapter!(Keyword.get(opts, :adapter, "codex"))
+    adapter = adapter!(Keyword.get(opts, :adapter, "claude_code"))
     workspace = resolve_workspace!(opts)
 
     case run_plan(selector, workspace, adapter, opts) do
@@ -123,11 +129,14 @@ defmodule Mix.Tasks.Conveyor.Run do
     dest
   end
 
+  defp adapter!("claude_code"), do: Conveyor.AgentRunner.ClaudeCode
   defp adapter!("codex"), do: Conveyor.AgentRunner.Codex
   defp adapter!("reference_solution"), do: Conveyor.AgentRunner.ReferenceSolution
 
   defp adapter!(adapter) do
-    Mix.raise("unsupported --adapter #{inspect(adapter)} (expected codex|reference_solution)")
+    Mix.raise(
+      "unsupported --adapter #{inspect(adapter)} (expected claude_code|codex|reference_solution)"
+    )
   end
 
   defp summary(result, disposition) do
@@ -148,6 +157,7 @@ defmodule Mix.Tasks.Conveyor.Run do
     }
   end
 
+  defp adapter_name(Conveyor.AgentRunner.ClaudeCode), do: "claude_code"
   defp adapter_name(Conveyor.AgentRunner.Codex), do: "codex"
   defp adapter_name(Conveyor.AgentRunner.ReferenceSolution), do: "reference_solution"
   defp adapter_name(adapter), do: inspect(adapter)
@@ -185,7 +195,7 @@ defmodule Mix.Tasks.Conveyor.Run do
   end
 
   defp usage do
-    "usage: mix conveyor.run PLAN_ID [--adapter codex|reference_solution] [--workspace PATH] [--in-place]"
+    "usage: mix conveyor.run PLAN_ID [--adapter claude_code|codex|reference_solution] [--workspace PATH] [--in-place]"
   end
 
   defp exit_fun do

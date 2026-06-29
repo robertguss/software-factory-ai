@@ -126,16 +126,13 @@ defmodule Conveyor.Planning.PlanFoundryTest do
                PlanFoundry.draft("ready issues CLI", drafter: FailingDrafter)
     end
 
-    test "the default drafter routes through the Codex CLI seam" do
-      jsonl =
-        Jason.encode!(%{
-          "type" => "item.completed",
-          "item" => %{"type" => "agent_message", "text" => Jason.encode!(clean_plan())}
-        })
+    test "the default drafter routes through the Claude Code CLI seam" do
+      # Default is now ClaudeCodeDrafter (U4): `claude -p --output-format json` emits a
+      # single JSON object whose `result` field carries the model's plan text.
+      json = Jason.encode!(%{"result" => Jason.encode!(clean_plan())})
+      exec = fn _prompt, _opts -> {json, 0} end
 
-      exec = fn _prompt, _opts -> {jsonl <> "\n", 0} end
-
-      assert {:ok, plan} = PlanFoundry.draft("ready issues CLI", codex_exec: exec)
+      assert {:ok, plan} = PlanFoundry.draft("ready issues CLI", claude_exec: exec)
       assert plan["goal"] == "Print the set of ready issues."
     end
 
