@@ -406,6 +406,11 @@ defmodule Conveyor.Planning.SerialDriver do
         {event, false}
 
       :continue ->
+        # Option C: stage + commit this slice's locked acceptance tests into the
+        # workspace BEFORE assembly, so base_commit (git HEAD at assemble time)
+        # already contains them — the agent then diffs cleanly against a base that
+        # holds the locked tests, and the calibration worktree sees them red at base.
+        materialize_locked_tests!(slice_key, opts)
         run_spec = assemble_run_spec!(slice_key, single_slice_graph, opts)
         # M3 isolation: start this slice from the last ACCEPTED commit, discarding
         # any uncommitted leftovers from a prior parked slice so an independent slice
@@ -787,6 +792,50 @@ defmodule Conveyor.Planning.SerialDriver do
   # behind. Injectable (`:reset_workspace_base`) and a no-op when there is no
   # workspace (map-fake unit tests) or the tree is already clean (accepted slices
   # committed, so HEAD already holds their work).
+  # Option C seam: injectable like reset/advance. Default resolves the slice's locked
+  # test refs from its TestPack and delegates to Conveyor.LockedTests, which no-ops
+  # unless the workspace actually carries a `.conveyor/locked-tests` directory (so
+  # runs without materialized tests — every existing flow — are unaffected).
+  defp materialize_locked_tests!(slice_key, opts) do
+    case Keyword.get(opts, :materialize_locked_tests) do
+      fun when is_function(fun, 1) ->
+        fun.(slice_key)
+        :ok
+
+      false ->
+        :ok
+
+      nil ->
+        default_materialize_locked_tests!(slice_key, opts)
+    end
+  end
+
+  defp default_materialize_locked_tests!(slice_key, opts) do
+    workspace_path = opts |> Keyword.get(:run_spec_opts, []) |> Keyword.get(:workspace_path)
+
+    # Gate on the locked-tests dir FIRST so runs without materialized tests never
+    # touch the DB or require :slices_by_stable_key (keeps every existing flow inert).
+    if is_binary(workspace_path) and
+         File.dir?(Path.join(workspace_path, ".conveyor/locked-tests")) do
+      slice = slice_for!(slice_key, opts)
+      Conveyor.LockedTests.materialize!(workspace_path, locked_test_refs(slice.id), slice_key)
+    end
+
+    :ok
+  end
+
+  defp locked_test_refs(slice_id) do
+    Conveyor.Factory.TestPack
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.slice_id == slice_id))
+    |> Enum.sort_by(&{&1.version, DateTime.to_unix(&1.locked_at, :microsecond)}, :desc)
+    |> List.first()
+    |> case do
+      nil -> []
+      test_pack -> test_pack.required_test_refs || []
+    end
+  end
+
   defp reset_workspace_to_base!(run_spec, opts) do
     case Keyword.get(opts, :reset_workspace_base) do
       fun when is_function(fun, 1) ->
