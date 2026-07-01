@@ -46,6 +46,18 @@ defmodule Conveyor.AgentRunner.ContainedExecTest do
       assert Enum.slice(args, -3, 3) == ["claude", "-p", "hi"]
     end
 
+    test "honors an egress network policy (agent needs its model API) via open bridge" do
+      args =
+        ContainedExec.docker_args(["claude"], "/tmp/ws",
+          policy: policy(%{network_policy: %{"default" => "egress"}}),
+          agent_image: "img",
+          id_cmd: non_root_ids()
+        )
+
+      assert contains_pair?(args, "--network", "bridge")
+      refute contains_pair?(args, "--network", "none")
+    end
+
     test "env: only allowlisted host keys cross the boundary; HOME forced onto tmpfs" do
       System.put_env("CONTAINED_TEST_ALLOWED", "yes")
       System.put_env("ANTHROPIC_API_KEY", "sk-should-not-leak")
@@ -62,6 +74,37 @@ defmodule Conveyor.AgentRunner.ContainedExecTest do
       assert "HOME=/tmp" in env_values
       assert "CONTAINED_TEST_ALLOWED=yes" in env_values
       refute Enum.any?(env_values, &String.starts_with?(&1, "ANTHROPIC_API_KEY"))
+    end
+
+    test "mounts an agent credential file read-only into the container HOME when given" do
+      args =
+        ContainedExec.docker_args(["claude"], "/tmp/ws",
+          policy: policy(),
+          agent_image: "img",
+          creds_path: "/host/home/.claude/.credentials.json",
+          id_cmd: non_root_ids()
+        )
+
+      # Mounted to a NEUTRAL read-only path (not $HOME/.claude) so docker's root-owned
+      # bind-mount parent can't block the non-root agent from writing its own
+      # $HOME/.claude; the image entrypoint copies it in.
+      assert contains_pair?(
+               args,
+               "--volume",
+               "/host/home/.claude/.credentials.json:/tmp/.conveyor-creds/credentials.json:ro"
+             )
+    end
+
+    test "no credential mount is added when no creds_path is given (codex path unaffected)" do
+      args =
+        ContainedExec.docker_args(["codex"], "/tmp/ws",
+          policy: policy(),
+          agent_image: "img",
+          id_cmd: non_root_ids()
+        )
+
+      refute Enum.any?(env_flag_values(args), &String.contains?(&1, ".credentials.json"))
+      refute Enum.any?(args, &String.contains?(&1, ".credentials.json"))
     end
 
     test "refuses to run the contained agent as root (uid 0)" do

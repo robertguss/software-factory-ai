@@ -131,7 +131,10 @@ defmodule Conveyor.Stations.Implementer do
         allowlist: [],
         denylist: [],
         env_policy: %{"allowlist" => []},
-        network_policy: %{"default" => "none"},
+        # ponytail: a real coding agent cannot function with network :none — it must reach
+        # its model API. Egress is open-bridge (ContainedExec); fs/env/non-root confinement
+        # stays intact. Verify/gate sandboxes remain :none. Upgrade: allowlist-via-proxy.
+        network_policy: %{"default" => "egress"},
         budget_policy: %{},
         autonomy_ceiling: 2
       }

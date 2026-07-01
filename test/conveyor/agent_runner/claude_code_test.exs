@@ -217,6 +217,39 @@ defmodule Conveyor.AgentRunner.ClaudeCodeTest do
     refute Enum.any?(env_values, &String.starts_with?(&1, "ANTHROPIC_API_KEY"))
   end
 
+  test "the default station exec bind-mounts the Claude subscription credentials into the agent HOME" do
+    fixture =
+      BridgeFixtures.sample_fixture!(
+        label: "cc-creds",
+        adapter_name: "claude_code",
+        patch_ref: @known_good
+      )
+
+    Application.put_env(:conveyor, :claude_credentials_path, "/host/.claude/.credentials.json")
+    on_exit(fn -> Application.delete_env(:conveyor, :claude_credentials_path) end)
+
+    test_pid = self()
+
+    capture_cmd = fn "docker", docker_args, _cmd_opts ->
+      send(test_pid, {:argv, docker_args})
+      {fixture_jsonl(), 0}
+    end
+
+    {:ok, _} =
+      ClaudeCode.run(fixture.run_prompt, fixture.workspace, fixture.policy,
+        agent_session_id: fixture.agent_session.id,
+        blob_root: fixture.blob_root,
+        cmd: capture_cmd,
+        agent_image: "test-agent-image"
+      )
+
+    assert_receive {:argv, argv}
+    # the fresh, scrubbed container gets ONLY the subscription token, read-only, at a neutral
+    # path (the entrypoint copies it into an agent-owned $HOME/.claude) — no host API key,
+    # no other host config.
+    assert "/host/.claude/.credentials.json:/tmp/.conveyor-creds/credentials.json:ro" in argv
+  end
+
   test "known secret patterns are redacted before the transcript blob is written" do
     fixture =
       BridgeFixtures.sample_fixture!(

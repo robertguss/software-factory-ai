@@ -55,6 +55,10 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
   @default_model "opus"
   @fallback_model "sonnet"
 
+  # Resolved model default: per-run opts win, then `config :conveyor, :claude_code_model`
+  # (e.g. "sonnet" to cut dogfood cost), then the opus code default. KTD6.
+  defp default_model, do: Application.get_env(:conveyor, :claude_code_model, @default_model)
+
   # Watchdog: bound the (blocking) agent shell-out so a hung `claude -p` can't hang an
   # unattended multi-hour run (M2). The shared watchdog reports a timeout as a non-zero
   # (124) run with empty output -> the slice fails its gate and parks/reworks.
@@ -165,7 +169,7 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
         "session_id" => session_id,
         "patch_set_id" => patch_capture.patch_set_id,
         "raw_transcript_ref" => raw_transcript_ref,
-        "model" => Keyword.get(opts, :claude_code_model, @default_model),
+        "model" => Keyword.get(opts, :claude_code_model, default_model()),
         "exit_code" => exit_code,
         "is_error" => is_error,
         "usage" => usage,
@@ -234,7 +238,17 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
   # container's --workdir is the workspace mount, so `claude` (no --cd flag) operates
   # on the mounted workspace directly. KTD1: stream-json, no merged stderr.
   defp default_exec(prompt, ws_path, opts) do
+    # The fresh, scrubbed container has no saved login; thread the host's subscription
+    # credential file so ContainedExec bind-mounts it read-only into the agent HOME.
+    opts = Keyword.put_new(opts, :creds_path, claude_credentials_path())
     ContainedExec.run(["claude" | build_args(prompt, opts)], ws_path, opts)
+  end
+
+  # Where the `claude` CLI stores its subscription token on the host. Overridable via
+  # `config :conveyor, :claude_credentials_path` for non-default homes / CI.
+  defp claude_credentials_path do
+    Application.get_env(:conveyor, :claude_credentials_path) ||
+      Path.expand("~/.claude/.credentials.json")
   end
 
   defp build_args(prompt, opts) do
@@ -253,7 +267,7 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
   defp model_args(opts) do
     [
       "--model",
-      Keyword.get(opts, :claude_code_model, @default_model),
+      Keyword.get(opts, :claude_code_model, default_model()),
       "--fallback-model",
       @fallback_model
     ]

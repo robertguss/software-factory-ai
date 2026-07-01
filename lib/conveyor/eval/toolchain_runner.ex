@@ -294,19 +294,53 @@ defmodule Conveyor.Eval.ToolchainRunner do
     venv = Path.join(System.tmp_dir!(), "conveyor_eval_venv_" <> binary_part(key, 0, 16))
     pytest = Path.join([venv, "bin", "pytest"])
 
-    unless File.exists?(pytest) do
-      {_, 0} = System.cmd("python3", ["-m", "venv", venv], stderr_to_stdout: true)
-      pip = Path.join([venv, "bin", "pip"])
-
-      {_, 0} =
-        System.cmd(
-          pip,
-          ["install", "--quiet", "--disable-pip-version-check", "--no-input", "-r", lock],
-          stderr_to_stdout: true
-        )
-    end
+    unless File.exists?(pytest), do: build_venv!(venv, lock)
 
     Path.join(venv, "bin")
+  end
+
+  # Build the eval venv. Prefer `uv` — self-contained, needs no system `python3-venv`/`ensurepip`
+  # — falling back to stdlib `python3 -m venv` + `pip`. A build step that exits non-zero raises a
+  # descriptive error naming the step and its output (bug 9g1i) instead of the previous bare
+  # `{_, 0} = System.cmd(...)` MatchError, so Verify surfaces a legible infrastructure failure.
+  defp build_venv!(venv, lock) do
+    # We only reach here when the cached venv has no `bin/pytest` — i.e. it's missing or a
+    # partial/failed build. Clear any stale dir first so the builder is idempotent (a crashed
+    # `python3 -m venv` leaves a pip-less shell that `uv venv` then refuses to overwrite).
+    File.rm_rf!(venv)
+
+    case System.find_executable("uv") do
+      nil -> stdlib_venv!(venv, lock)
+      uv -> uv_venv!(uv, venv, lock)
+    end
+  end
+
+  defp uv_venv!(uv, venv, lock) do
+    run_build_step!("uv venv", uv, ["venv", venv])
+    python = Path.join([venv, "bin", "python"])
+    run_build_step!("uv pip install", uv, ["pip", "install", "--python", python, "-r", lock])
+  end
+
+  defp stdlib_venv!(venv, lock) do
+    run_build_step!("python3 -m venv", "python3", ["-m", "venv", venv])
+    pip = Path.join([venv, "bin", "pip"])
+
+    run_build_step!(
+      "pip install",
+      pip,
+      ["install", "--quiet", "--disable-pip-version-check", "--no-input", "-r", lock]
+    )
+  end
+
+  defp run_build_step!(label, cmd, args) do
+    case System.cmd(cmd, args, stderr_to_stdout: true) do
+      {_out, 0} ->
+        :ok
+
+      {out, code} ->
+        raise "eval venv build step #{inspect(label)} failed (exit #{code}): " <>
+                String.slice(out, 0, 2000)
+    end
   end
 
   defp pinned_env(opts) do

@@ -27,4 +27,8 @@ defmodule Conveyor.Sandbox.NetworkPolicyTest do
   test "external hosts can be allowlisted" do
     assert :ok = NetworkPolicy.validate_egress_allowlist!(["api.openai.com", "pypi.org"])
   end
+
+  test "egress opens outbound networking (open bridge) so a coding agent can reach its model API" do
+    assert NetworkPolicy.docker_args(:egress) == ["--network", "bridge"]
+  end
 end

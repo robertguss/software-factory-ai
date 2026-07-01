@@ -60,17 +60,38 @@ defmodule Conveyor.AgentRunner.ContainedExec do
     ["run", "--rm", "--workdir", @workspace_mount] ++
       DockerProfile.create_args(network: network_mode(opts), user: host_user!(opts)) ++
       ["--volume", "#{ws_path}:#{@workspace_mount}:rw"] ++
+      creds_mount_args(opts) ++
       env_args(opts) ++
       [image!(opts) | argv]
+  end
+
+  # Neutral in-container path the host credential file is mounted to. Deliberately NOT under
+  # $HOME/.claude: a bind-mount there makes docker create a root-owned $HOME/.claude, which the
+  # non-root agent then cannot write into (Claude Code's Bash tool needs $HOME/.claude/session-env).
+  # The agent image entrypoint copies this file into an agent-owned $HOME/.claude before exec.
+  @creds_container_path "/tmp/.conveyor-creds/credentials.json"
+
+  # The container starts with a fresh, scrubbed env, so the agent CLI has no saved login.
+  # When the adapter supplies a host credential file (e.g. Claude Code's subscription token),
+  # bind-mount ONLY that file read-only — no other host secret or config crosses the boundary.
+  # Absent (e.g. Codex, which auths differently), nothing is mounted.
+  defp creds_mount_args(opts) do
+    case opts[:creds_path] do
+      path when is_binary(path) and path != "" ->
+        ["--volume", "#{Path.expand(path)}:#{@creds_container_path}:ro"]
+
+      _ ->
+        []
+    end
   end
 
   defp network_mode(opts) do
     case opts[:policy] do
       %Policy{network_policy: np} when is_map(np) ->
-        # Only :none is wired today; NetworkPolicy.docker_args/1 raises for :egress
-        # (it requires an explicit proxy network), so fail closed to :none.
+        # A coding agent needs egress to reach its model API; other values fail closed
+        # to :none. `:egress` is open-bridge today (see NetworkPolicy.docker_args/1).
         case Map.get(np, "default", "none") do
-          "none" -> :none
+          "egress" -> :egress
           _ -> :none
         end
 

@@ -56,6 +56,17 @@ config :conveyor, ConveyorWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :conveyor, dev_routes: true
 
+# Agent containment (U8): the coding-agent subprocess runs inside this Docker image via
+# Conveyor.AgentRunner.ContainedExec. Build it with:
+#   docker build -t conveyor-agent:latest toolchains/agent-image
+# The host's `claude` subscription credential file (default ~/.claude/.credentials.json,
+# override with :claude_credentials_path) is bind-mounted read-only into the container.
+config :conveyor, :agent_container_image, "conveyor-agent:latest"
+
+# Dogfood cost control: default the implementer to Sonnet (Opus stays the code default and
+# the per-task station-input "model" override still wins). Fallback model is Sonnet too.
+config :conveyor, :claude_code_model, "sonnet"
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"
 
