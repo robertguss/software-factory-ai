@@ -58,9 +58,11 @@ defmodule Conveyor.Sandbox.NetworkPolicy do
   @spec docker_args(mode()) :: [String.t()]
   def docker_args(:none), do: ["--network", "none"]
 
-  def docker_args(:egress) do
-    raise ArgumentError, "egress requires an explicit external proxy network"
-  end
+  # ponytail: full outbound egress via Docker's default bridge — the minimum that lets a
+  # coding agent reach its model API. Filesystem/env/non-root confinement is unaffected.
+  # Upgrade path: an allowlist-via-proxy network (validate_egress_allowlist!/1 already
+  # exists for it) to constrain egress to specific hosts.
+  def docker_args(:egress), do: ["--network", "bridge"]
 
   @spec validate_egress_allowlist!([String.t()]) :: :ok
   def validate_egress_allowlist!(hosts) when is_list(hosts) do
