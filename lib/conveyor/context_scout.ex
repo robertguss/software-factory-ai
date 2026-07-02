@@ -45,6 +45,7 @@ defmodule Conveyor.ContextScout do
     existing_tests = existing_tests(brief, files)
     relevant_files = relevant_files(context, files, existing_tests)
     file_excerpts = file_excerpts(relevant_files, context.project.local_path, opts)
+    log_scout_summary(slice, relevant_files, file_excerpts)
     suggested_validation = suggested_validation(brief, context.project)
     risks = risks(context)
 
@@ -119,6 +120,18 @@ defmodule Conveyor.ContextScout do
   end
 
   defp excluded_path?(entry), do: MapSet.member?(@excluded_dirs, entry)
+
+  # aabq.3: one per-slice line so an operator can see what context the agent got — which files were
+  # selected, how many bytes of excerpt, and how many were truncated against the budget.
+  defp log_scout_summary(slice, relevant_files, file_excerpts) do
+    bytes = file_excerpts |> Enum.map(&(&1["bytes"] || 0)) |> Enum.sum()
+    truncations = Enum.count(file_excerpts, & &1["truncated"])
+
+    Logger.info(
+      "context_scout: slice=#{slice.id} files_selected=#{length(relevant_files)} " <>
+        "excerpts=#{length(file_excerpts)} excerpt_bytes=#{bytes} truncations=#{truncations}"
+    )
+  end
 
   defp relevant_files(context, files, existing_tests) do
     brief = context.agent_brief
