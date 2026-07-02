@@ -3,10 +3,13 @@ defmodule Conveyor.Stations.Implementer do
 
   use Conveyor.Station, station: "implement"
 
+  require Logger
+
   alias Conveyor.AgentRunner
   alias Conveyor.AgentRunner.ClaudeCode
+  alias Conveyor.Budget.ReservationGate
   alias Conveyor.Factory
-  alias Conveyor.Factory.{AgentSession, ContextPack, Policy, RunPrompt}
+  alias Conveyor.Factory.{AgentSession, ContextPack, Policy, RunBudget, RunPrompt}
   alias Conveyor.PromptBuilder
 
   @impl Conveyor.Station
@@ -16,6 +19,43 @@ defmodule Conveyor.Stations.Implementer do
   @impl Conveyor.Station
   @spec run(map(), Conveyor.Station.Context.t()) :: {:ok, map()} | {:error, term()}
   def run(input, context) do
+    # a3hf.2.1.3: reserve against the run budget BEFORE the agent call spends. A run with a
+    # RunBudget whose envelope is gone is refused here rather than after burning the call; a run
+    # with no RunBudget (most tests, un-provisioned runs) proceeds unchanged.
+    case reserve_budget(context.run_attempt) do
+      :ok -> do_run(input, context)
+      {:deny, reason} -> refuse(context.run_attempt, reason)
+    end
+  end
+
+  defp reserve_budget(run_attempt) do
+    case run_budget_for(run_attempt.id) do
+      nil ->
+        :ok
+
+      budget ->
+        case ReservationGate.reserve(budget) do
+          {:ok, _reservation} -> :ok
+          {:deny, reason} -> {:deny, reason}
+        end
+    end
+  end
+
+  defp run_budget_for(run_attempt_id) do
+    RunBudget
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(&(&1.run_attempt_id == run_attempt_id))
+  end
+
+  defp refuse(run_attempt, reason) do
+    Logger.warning(
+      "Budget reservation refused before spend: run_attempt=#{run_attempt.id} reason=#{reason}"
+    )
+
+    {:error, {:budget_refused, reason}}
+  end
+
+  defp do_run(input, context) do
     adapter = adapter_module(input)
     agent_session = agent_session!(context.run_attempt, input)
     run_prompt = Ash.get!(RunPrompt, agent_session.run_prompt_id, domain: Factory)

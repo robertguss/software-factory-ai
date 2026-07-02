@@ -9,6 +9,7 @@ defmodule Conveyor.StationsImplementerTest do
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.RunAttempt
+  alias Conveyor.Factory.RunBudget
   alias Conveyor.Factory.RunPrompt
   alias Conveyor.Factory.RunSpec
   alias Conveyor.Factory.Slice
@@ -44,6 +45,46 @@ defmodule Conveyor.StationsImplementerTest do
     assert prompt.context_pack_id == fixture.context_pack.id
     assert prompt.brief_id == fixture.brief.id
     assert prompt.body =~ "Fake runner writes deterministic output."
+  end
+
+  test "refuses the agent call before spending when the run budget envelope is gone (a3hf.2.1.3)" do
+    fixture = fixture!("implementer-budget-refuse")
+    create_budget!(fixture.run_attempt, %{max_tokens: 1000, consumed_tokens: 1000})
+
+    assert {:error, {:budget_refused, :token_limit}} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "adapter" => "Conveyor.AgentRunner.Fake"
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    # refused BEFORE spending: no agent session was created (the adapter never ran)
+    assert [] = Ash.read!(AgentSession, domain: Factory)
+  end
+
+  test "proceeds when the run budget still has envelope remaining (a3hf.2.1.3)" do
+    fixture = fixture!("implementer-budget-ok")
+    create_budget!(fixture.run_attempt, %{max_tokens: 100_000, consumed_tokens: 100})
+
+    assert {:ok, output} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "adapter" => "Conveyor.AgentRunner.Fake"
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    assert output["diff_ref"]
+    assert [_session] = Ash.read!(AgentSession, domain: Factory)
   end
 
   test "threads the workspace AGENTS.md excerpt into the implementer prompt (uh2g)" do
@@ -455,6 +496,24 @@ defmodule Conveyor.StationsImplementerTest do
 
     File.mkdir_p!(path)
     path
+  end
+
+  defp create_budget!(run_attempt, overrides) do
+    attrs =
+      %{
+        run_attempt_id: run_attempt.id,
+        max_wall_clock_ms: 900_000,
+        max_idle_ms: 120_000,
+        max_tool_calls: 200,
+        max_command_count: 50,
+        max_output_bytes: 10_000_000,
+        max_repeated_command_count: 3,
+        max_same_file_rewrites: 5,
+        max_no_diff_progress_ms: 180_000
+      }
+      |> Map.merge(Map.new(overrides))
+
+    Ash.create!(RunBudget, attrs, domain: Factory)
   end
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)
