@@ -8,11 +8,11 @@ defmodule Conveyor.AgentRunner do
   alias Conveyor.AgentRunner.RawRunResult
 
   @callback capabilities() :: Capabilities.t() | map()
-  @callback run(struct(), struct(), map(), keyword()) ::
+  @callback run(struct(), map(), map(), keyword()) ::
               {:ok, RawRunResult.t()} | {:error, term()}
   @callback cancel(String.t()) :: :ok | {:error, term()}
 
-  @spec run(module(), struct(), struct(), map(), keyword()) ::
+  @spec run(module(), struct(), map(), map(), keyword()) ::
           {:ok, RawRunResult.t()} | {:error, term()}
   def run(adapter_module, run_prompt, workspace, policy, opts \\ [])
       when is_atom(adapter_module) and is_list(opts) do
