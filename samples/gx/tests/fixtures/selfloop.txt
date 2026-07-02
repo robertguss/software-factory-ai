@@ -1,0 +1,3 @@
+# Self-loop fixture: a -> a is a length-1 cycle; b -> c is an acyclic edge.
+a a
+b c

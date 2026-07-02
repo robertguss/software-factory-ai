@@ -1,0 +1,4 @@
+# Duplicate-edge fixture: the same directed edge listed twice must collapse to one.
+a b
+a b
+b c

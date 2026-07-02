@@ -25,6 +25,9 @@ GRAPH_TXT = FIXTURES / "graph.txt"
 CYCLIC_TXT = FIXTURES / "cyclic.txt"
 MANYCYCLES_TXT = FIXTURES / "manycycles.txt"
 MALFORMED_TXT = FIXTURES / "malformed.txt"
+SELFLOOP_TXT = FIXTURES / "selfloop.txt"
+DUPEDGES_TXT = FIXTURES / "dupedges.txt"
+EMPTY_TXT = FIXTURES / "empty.txt"
 
 # Ensure the src/ layout is importable even without an editable install.
 if str(SRC_DIR) not in sys.path:

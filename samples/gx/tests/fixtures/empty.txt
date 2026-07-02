@@ -1,0 +1,2 @@
+# Empty-graph fixture: comments and blank lines only, so no nodes and no edges.
+
