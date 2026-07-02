@@ -56,6 +56,16 @@ defmodule Conveyor.Factory.Slice do
     update :policy_block do
       change transition_state(:policy_blocked)
     end
+
+    # uevc.2: operator triage dispositions out of :parked. These are human-authority overrides of a
+    # gate abstain, so they are intentionally unguarded (the human has authority the gate lacks).
+    update :disposition_approve do
+      change transition_state(:integrated)
+    end
+
+    update :disposition_rework do
+      change transition_state(:needs_rework)
+    end
   end
 
   attributes do
@@ -236,6 +246,10 @@ defmodule Conveyor.Factory.Slice do
 
       transition(:fail, from: [:in_progress, :gated, :integrated, :needs_rework], to: :failed)
       transition(:policy_block, from: [:ready, :in_progress, :gated], to: :policy_blocked)
+
+      # uevc.2: operator dispositions out of :parked (reject stays parked, needs no transition).
+      transition(:disposition_approve, from: :parked, to: :integrated)
+      transition(:disposition_rework, from: :parked, to: :needs_rework)
     end
   end
 end

@@ -58,6 +58,31 @@ defmodule Mix.Tasks.Conveyor.TriageTest do
     assert code == ExitCodes.fetch!(:success)
   end
 
+  test "the reject subcommand disposes a parked slice and emits disposition JSON" do
+    parked = abstain_run!(%{calibration_status: :invalid})
+
+    output =
+      capture_io(fn ->
+        Mix.Tasks.Conveyor.Triage.run([
+          "reject",
+          parked.slice_id,
+          "--actor",
+          "alice",
+          "--note",
+          "no"
+        ])
+      end)
+
+    decoded = Jason.decode!(output)
+    assert decoded["schema_version"] == "conveyor.triage_disposition@1"
+    assert decoded["disposition"] == "reject"
+    assert decoded["slice_id"] == parked.slice_id
+    assert decoded["human_approval_id"]
+
+    assert_received {:exit_code, code}
+    assert code == ExitCodes.fetch!(:success)
+  end
+
   # Build a passed-but-abstained (parked) run whose gate evidence yields the given signals.
   defp abstain_run!(evidence_overrides) do
     unique = System.unique_integer([:positive])

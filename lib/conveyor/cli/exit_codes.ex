@@ -13,7 +13,10 @@ defmodule Conveyor.CLI.ExitCodes do
     # dr1m.6.1/KTD-3: a run that PARKED ≥1 slice for human review (trust abstained,
     # reaped, rework-exhausted, or skipped behind a parked predecessor) and hit no
     # hard gate failure — "needs a human", distinct from deterministic_gate_failed.
-    parked_for_review: 8
+    parked_for_review: 8,
+    # uevc.2: bad CLI invocation or a disposition that cannot be applied (e.g. approve blocked by a
+    # patch conflict) — an operator-actionable error distinct from the gate/infra failure classes.
+    usage: 9
   }
 
   @spec all() :: %{atom() => non_neg_integer()}
