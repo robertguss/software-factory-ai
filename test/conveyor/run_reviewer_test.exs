@@ -202,9 +202,11 @@ defmodule Conveyor.RunReviewerTest do
            "RunReviewer must not hardcode an accepted decision — an unconfigured review must fail closed"
   end
 
-  test "rejects malformed reviewer output and records failed reviewer session" do
+  test "m4b2.2: malformed reviewer output records a :not_assessed review (fail closed), not a raise" do
+    import ExUnit.CaptureLog
     fixture = reviewer_fixture!("run-reviewer-malformed")
 
+    # missing the required `checks` field -> schema-invalid verdict
     reviewer = fn context ->
       %{
         "schema_version" => "conveyor.review@1",
@@ -222,14 +224,50 @@ defmodule Conveyor.RunReviewerTest do
       }
     end
 
-    assert_raise ArgumentError, ~r/review JSON failed schema validation/, fn ->
-      RunReviewer.run!(fixture.run_attempt, blob_root: fixture.blob_root, reviewer: reviewer)
-    end
+    {result, log} =
+      with_log(fn ->
+        RunReviewer.run!(fixture.run_attempt, blob_root: fixture.blob_root, reviewer: reviewer)
+      end)
 
-    assert [] = Ash.read!(Review, domain: Factory)
+    # fail closed: a not_assessed review the gate blocks on, carrying the parse error — not a stamp
+    assert result.review.decision == :not_assessed
+    assert result.review.summary =~ "failed validation"
+    assert log =~ "not_assessed"
+
+    assert [stored] = Ash.read!(Review, domain: Factory)
+    assert stored.decision == :not_assessed
     assert [session] = Ash.read!(AgentSession, domain: Factory)
     assert session.role == :reviewer
     assert session.status == :failed
+  end
+
+  test "m4b2.2: stamps token usage and cost on the reviewer session" do
+    fixture = reviewer_fixture!("run-reviewer-usage")
+
+    reviewer = fn context ->
+      %{
+        "schema_version" => "conveyor.review@1",
+        "run_spec_sha256" => raw_sha256(context.run_spec.run_spec_sha256),
+        "dossier_sha256" => context.dossier_sha256,
+        "reviewer" => %{
+          "actor_id" => context.reviewer_session_id,
+          "profile_id" => context.reviewer_profile_id
+        },
+        "rubric_version" => context.rubric_version,
+        "decision" => "accepted",
+        "recommendation" => "merge",
+        "summary" => "Looks good.",
+        "findings" => [],
+        "checks" => [],
+        "usage" => %{"input_tokens" => 800, "output_tokens" => 200, "cost_usd" => 0.03}
+      }
+    end
+
+    result =
+      RunReviewer.run!(fixture.run_attempt, blob_root: fixture.blob_root, reviewer: reviewer)
+
+    assert result.reviewer_session.tokens == 1000
+    assert Decimal.equal?(result.reviewer_session.cost_estimate, Decimal.new("0.03"))
   end
 
   test "forbids reviewer profile reuse from implementer sessions" do

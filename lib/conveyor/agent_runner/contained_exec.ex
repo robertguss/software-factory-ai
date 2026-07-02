@@ -59,10 +59,19 @@ defmodule Conveyor.AgentRunner.ContainedExec do
 
     ["run", "--rm", "--workdir", @workspace_mount] ++
       DockerProfile.create_args(network: network_mode(opts), user: host_user!(opts)) ++
-      ["--volume", "#{ws_path}:#{@workspace_mount}:rw"] ++
+      ["--volume", "#{ws_path}:#{@workspace_mount}:#{mount_mode(opts)}"] ++
       creds_mount_args(opts) ++
       env_args(opts) ++
       [image!(opts) | argv]
+  end
+
+  # m4b2.2: the reviewer runs with a READ-ONLY workspace mount (it must never mutate the code it
+  # judges). Default :rw preserves the implementer, which writes its diff into the workspace.
+  defp mount_mode(opts) do
+    case Keyword.get(opts, :mount_mode, :rw) do
+      :ro -> "ro"
+      _rw -> "rw"
+    end
   end
 
   # Neutral in-container path the host credential file is mounted to. Deliberately NOT under

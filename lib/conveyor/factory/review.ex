@@ -43,7 +43,10 @@ defmodule Conveyor.Factory.Review do
 
     attribute :decision, :atom do
       allow_nil? false
-      constraints one_of: [:accepted, :needs_rework, :rejected]
+      # m4b2.2: :not_assessed is the fail-closed disposition when the reviewer produced no
+      # schema-valid verdict (malformed output). It is not :accepted, so ReviewerAggregation
+      # fails the gate on it — an un-assessment never launders into a pass.
+      constraints one_of: [:accepted, :needs_rework, :rejected, :not_assessed]
       public? true
     end
 
