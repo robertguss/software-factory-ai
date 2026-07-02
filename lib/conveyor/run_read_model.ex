@@ -29,6 +29,7 @@ defmodule Conveyor.RunReadModel do
   alias Conveyor.Factory.AgentSession
   alias Conveyor.Factory.GateResult
   alias Conveyor.Factory.LedgerEvent
+  alias Conveyor.Factory.Review
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.Slice
   alias Conveyor.Planning.RunReconstruction
@@ -54,9 +55,14 @@ defmodule Conveyor.RunReadModel do
           gate_result: String.t() | nil,
           findings: [String.t()],
           gate: gate(),
+          review: review_summary(),
           rework_attempts: non_neg_integer(),
           spend: spend()
         }
+
+  # m4b2.4: the independent-review outcome for the latest attempt (nil when no review exists —
+  # reviewer_aggregation off, or a run that predates it). finding_count is operator-legible triage.
+  @type review_summary :: %{decision: String.t() | nil, finding_count: non_neg_integer()} | nil
 
   @type story :: %{
           run_id: String.t(),
@@ -118,6 +124,7 @@ defmodule Conveyor.RunReadModel do
           gate_result: payload["gate_result"],
           findings: List.wrap(payload["findings"]),
           gate: %{failed_stage: nil, failed_status: nil, verdict: nil},
+          review: nil,
           rework_attempts: 0,
           spend: :unknown
         }
@@ -169,6 +176,7 @@ defmodule Conveyor.RunReadModel do
     attempts = read(RunAttempt)
     gate_results = read(GateResult)
     sessions = read(AgentSession)
+    reviews = read(Review)
     db_slices = read(Slice)
 
     # The ledger run story keys slices by stable key ("SLICE-005"); the DB keys
@@ -192,7 +200,7 @@ defmodule Conveyor.RunReadModel do
       | slices:
           Enum.map(
             slices,
-            &enrich_slice(&1, uuids_by_key, attempts_by_key, gate_results, sessions)
+            &enrich_slice(&1, uuids_by_key, attempts_by_key, gate_results, sessions, reviews)
           )
     }
   end
@@ -202,9 +210,10 @@ defmodule Conveyor.RunReadModel do
           %{optional(String.t()) => [String.t()]},
           %{optional(String.t()) => [RunAttempt.t()]},
           [GateResult.t()],
-          [AgentSession.t()]
+          [AgentSession.t()],
+          [Review.t()]
         ) :: slice_story()
-  defp enrich_slice(slice, uuids_by_key, attempts_by_key, gate_results, sessions) do
+  defp enrich_slice(slice, uuids_by_key, attempts_by_key, gate_results, sessions, reviews) do
     case Map.get(uuids_by_key, slice.slice_id, []) do
       [_single_slice_row] ->
         slice_attempts = Map.get(attempts_by_key, slice.slice_id, [])
@@ -214,11 +223,30 @@ defmodule Conveyor.RunReadModel do
           slice
           | rework_attempts: length(slice_attempts),
             gate: gate_for(latest, gate_results),
+            review: review_for(latest, reviews),
             spend: spend_for(latest, sessions)
         }
 
       _none_or_ambiguous ->
         slice
+    end
+  end
+
+  # m4b2.4: the latest attempt's review decision + finding count, for per-slice operator triage.
+  @spec review_for(RunAttempt.t() | nil, [Review.t()]) :: review_summary()
+  defp review_for(nil, _reviews), do: nil
+
+  defp review_for(attempt, reviews) do
+    reviews
+    |> Enum.filter(&(&1.run_attempt_id == attempt.id))
+    |> Enum.sort_by(& &1.reviewed_at, {:desc, DateTime})
+    |> List.first()
+    |> case do
+      nil ->
+        nil
+
+      review ->
+        %{decision: to_string(review.decision), finding_count: length(review.findings || [])}
     end
   end
 

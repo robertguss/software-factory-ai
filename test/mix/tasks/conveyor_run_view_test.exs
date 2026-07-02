@@ -83,6 +83,24 @@ defmodule Mix.Tasks.Conveyor.RunViewTest do
     assert code == ExitCodes.fetch!(:success)
   end
 
+  test "(m4b2.4) the per-slice review decision + finding count surface in human and JSON" do
+    %{run_id: run_id} =
+      FactoryFixtures.create_run_with_ledger!(
+        terminal: :finished,
+        slices: [
+          %{
+            status: "passed",
+            review: %{decision: :rejected, findings: [FactoryFixtures.finding()]}
+          }
+        ]
+      )
+
+    assert run([run_id]) =~ "review:rejected(1)"
+
+    [slice] = run([run_id, "--json"]) |> Jason.decode!() |> Map.fetch!("slices")
+    assert slice["review"] == %{"decision" => "rejected", "finding_count" => 1}
+  end
+
   test "(4) unmeasured spend renders as unknown, not 0" do
     %{run_id: run_id} =
       FactoryFixtures.create_run_with_ledger!(

@@ -44,6 +44,28 @@ defmodule Conveyor.Gate.TrustScoreTest do
       assert TrustScore.evaluate(evidence).band == :abstain
     end
 
+    test "m4b2.4: an accepted independent review keeps a fully-green run auto-accepting" do
+      evidence = Map.put(reference_evidence(), :review_decision, :accepted)
+      assert TrustScore.evaluate(evidence).band == :auto_accept
+    end
+
+    test "m4b2.4: an absent/not_assessed review de-launders — never trustworthy-by-default" do
+      # When review IS a factor for the run (reviewer_aggregation on), an unmeasured review must
+      # abstain even if every other signal is green — an un-assessment is not a pass.
+      evidence = Map.put(reference_evidence(), :review_decision, :not_assessed)
+      assert TrustScore.evaluate(evidence).band == :abstain
+    end
+
+    test "m4b2.4: a rejected review abstains (defense in depth behind the stage)" do
+      evidence = Map.put(reference_evidence(), :review_decision, :rejected)
+      assert TrustScore.evaluate(evidence).band == :abstain
+    end
+
+    test "m4b2.4: an absent review key is NOT a factor (loop_integrity preserved when review off)" do
+      refute Map.has_key?(reference_evidence(), :review_decision)
+      assert TrustScore.evaluate(reference_evidence()).band == :auto_accept
+    end
+
     test "untrustworthy integrity abstains with a low score" do
       evidence = %{reference_evidence() | integrity_verdict: "untrustworthy"}
       result = TrustScore.evaluate(evidence)

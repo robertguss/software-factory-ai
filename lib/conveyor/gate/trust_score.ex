@@ -36,7 +36,9 @@ defmodule Conveyor.Gate.TrustScore do
           optional(:calibration_status) => :valid | :invalid | :not_assessed,
           optional(:baseline_status) => :green | :red | :unknown,
           optional(:replay_divergence) => :none | :diverged | :baseline_absent | :unknown,
-          optional(:corpus_pass_rate) => float() | nil
+          optional(:corpus_pass_rate) => float() | nil,
+          optional(:review_decision) =>
+            :accepted | :not_assessed | :rejected | :needs_rework | nil
         }
 
   @type result :: %{
@@ -126,8 +128,18 @@ defmodule Conveyor.Gate.TrustScore do
     fetch(evidence, :integrity_verdict) == "trustworthy" and
       fetch(evidence, :calibration_status) == :valid and
       fetch(evidence, :baseline_status) == :green and
-      replay_ok?(fetch(evidence, :replay_divergence))
+      replay_ok?(fetch(evidence, :replay_divergence)) and
+      review_ok?(fetch(evidence, :review_decision))
   end
+
+  # m4b2.4: the independent-review signal is OPTIONAL in the evidence — absent (nil) means review is
+  # not a factor for this run (reviewer_aggregation off), so a cold-start reference is unaffected
+  # (loop_integrity). When present it must be `:accepted`; any other value (an unmeasured/absent
+  # review recorded as :not_assessed, or a rejection) is never laundered into a trustworthy verdict.
+  defp review_ok?(nil), do: true
+  defp review_ok?(:accepted), do: true
+  defp review_ok?("accepted"), do: true
+  defp review_ok?(_present_not_accepted), do: false
 
   # :none = the run matched its replay baseline; :baseline_absent = no baseline to compare
   # (OD19 — non-blocking, weight-renormalized). A real :diverged (or anything else) blocks.

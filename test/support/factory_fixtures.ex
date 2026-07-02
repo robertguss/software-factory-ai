@@ -9,6 +9,7 @@ defmodule Conveyor.FactoryFixtures do
   alias Conveyor.Factory.GateResult
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
+  alias Conveyor.Factory.Review
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.RunSpec
   alias Conveyor.Factory.Slice
@@ -295,6 +296,7 @@ defmodule Conveyor.FactoryFixtures do
     latest = List.last(run_attempts)
 
     maybe_build_gate_result!(latest, Map.get(spec, :gate))
+    maybe_build_review!(latest, Map.get(spec, :review))
     maybe_build_session!(latest, Map.get(spec, :session))
 
     %{slice: slice, spec: spec, sequence: sequence, run_attempts: run_attempts}
@@ -324,6 +326,30 @@ defmodule Conveyor.FactoryFixtures do
         policy_sha256: digest("policy"),
         contract_lock_sha256: digest("contract-lock"),
         canary_suite_version: "canary@1"
+      },
+      domain: Factory
+    )
+  end
+
+  # m4b2.4: an independent Review on the latest attempt. `:decision` is required; `:findings`
+  # (a list of maps) drives the read model's finding_count. Other fields default.
+  defp maybe_build_review!(_run_attempt, nil), do: :ok
+
+  defp maybe_build_review!(run_attempt, review) do
+    Ash.create!(
+      Review,
+      %{
+        run_attempt_id: run_attempt.id,
+        reviewer_profile_id: Ash.UUID.generate(),
+        review_kind: Map.get(review, :review_kind, :general),
+        rubric_version: "reviewer@1",
+        dossier_sha256: digest("dossier"),
+        reviewed_at: Map.get(review, :reviewed_at, DateTime.utc_now(:microsecond)),
+        decision: Map.fetch!(review, :decision),
+        recommendation: Map.get(review, :recommendation, :merge),
+        summary: Map.get(review, :summary, "review summary"),
+        findings: Map.get(review, :findings, []),
+        checks: []
       },
       domain: Factory
     )
@@ -418,6 +444,20 @@ defmodule Conveyor.FactoryFixtures do
       code_quality_profile: "standard",
       canary_suite_version: "canary@1"
     }
+  end
+
+  @doc "A schema-valid `conveyor.review@1` finding map (string-keyed, as persisted). Override any key."
+  def finding(overrides \\ %{}) do
+    Map.merge(
+      %{
+        "severity" => "warning",
+        "category" => "review",
+        "message" => "example finding",
+        "artifact_refs" => [],
+        "next_actions" => []
+      },
+      overrides
+    )
   end
 
   defp digest(label), do: "sha256:" <> digest_bytes(label)

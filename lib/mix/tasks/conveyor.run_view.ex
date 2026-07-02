@@ -71,6 +71,7 @@ defmodule Mix.Tasks.Conveyor.RunView do
         "failed_status" => slice.gate.failed_status,
         "verdict" => slice.gate.verdict
       },
+      "review" => review_envelope(slice.review),
       "rework_attempts" => slice.rework_attempts,
       "spend" => spend_envelope(slice.spend)
     }
@@ -81,6 +82,11 @@ defmodule Mix.Tasks.Conveyor.RunView do
   defp spend_envelope(%{tokens: tokens, cost_estimate: cost}) do
     %{"tokens" => tokens, "cost_estimate" => cost && Decimal.to_string(cost)}
   end
+
+  defp review_envelope(nil), do: nil
+
+  defp review_envelope(%{decision: decision, finding_count: count}),
+    do: %{"decision" => decision, "finding_count" => count}
 
   # --- Human ----------------------------------------------------------------
 
@@ -103,6 +109,7 @@ defmodule Mix.Tasks.Conveyor.RunView do
         slice.outcome || "(no outcome)",
         gate_field(slice.gate),
         findings_field(slice.findings),
+        review_field(slice.review),
         verdict_field(slice.gate.verdict),
         rework_field(slice.rework_attempts),
         spend_field(slice.spend)
@@ -118,6 +125,13 @@ defmodule Mix.Tasks.Conveyor.RunView do
   # DB gate stage cannot be resolved.
   defp findings_field([]), do: ""
   defp findings_field(findings), do: "findings:" <> Enum.join(findings, ",")
+
+  # m4b2.4: the independent review's verdict for this slice's latest attempt.
+  defp review_field(nil), do: ""
+  defp review_field(%{decision: decision, finding_count: 0}), do: "review:#{decision}"
+
+  defp review_field(%{decision: decision, finding_count: count}),
+    do: "review:#{decision}(#{count})"
 
   defp seq(nil), do: "·"
   defp seq(n), do: "#{n}."

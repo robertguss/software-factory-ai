@@ -237,6 +237,28 @@ defmodule Conveyor.RunReadModelTest do
       assert slice.gate.verdict == %{"band" => "abstain", "score" => 0.42}
     end
 
+    test "(m4b2.4) a slice's latest Review surfaces decision + finding_count; no review -> nil" do
+      %{run_id: run_id} =
+        FactoryFixtures.create_run_with_ledger!(
+          terminal: :finished,
+          slices: [
+            %{
+              status: "passed",
+              review: %{
+                decision: :rejected,
+                findings: [FactoryFixtures.finding(), FactoryFixtures.finding()]
+              }
+            },
+            %{status: "passed"}
+          ]
+        )
+
+      [reviewed, unreviewed] = RunReadModel.summarize(run_id).slices
+
+      assert reviewed.review == %{decision: "rejected", finding_count: 2}
+      assert unreviewed.review == nil
+    end
+
     test "(9) a stable key shared across two runs is not DB-enriched, but ledger findings still surface" do
       # Same explicit stable key in two runs => the key resolves to two slice
       # rows. With no run_id->slice link yet, the read model refuses to DB-enrich

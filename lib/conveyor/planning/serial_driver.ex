@@ -821,7 +821,7 @@ defmodule Conveyor.Planning.SerialDriver do
       %{
         run_attempt: run_attempt,
         run_spec: run_spec,
-        trust_evidence: trust_evidence(slice_result)
+        trust_evidence: trust_evidence(slice_result, run_attempt, opts)
       },
       actor: Keyword.get(opts, :actor, "serial-driver")
     )
@@ -834,10 +834,35 @@ defmodule Conveyor.Planning.SerialDriver do
   # ADR-23: thread the slice run's calibration/baseline signals into the gate
   # finalizer so a passed-but-unconfident run abstains. nil => no evidence =>
   # legacy auto-accept.
-  defp trust_evidence(%{output: output}) when is_map(output),
-    do: TrustEvidence.from_run_output(output)
+  defp trust_evidence(%{output: output}, run_attempt, opts) when is_map(output) do
+    output
+    |> TrustEvidence.from_run_output()
+    |> maybe_put_review_decision(run_attempt, opts)
+  end
 
-  defp trust_evidence(_slice_result), do: nil
+  defp trust_evidence(_slice_result, _run_attempt, _opts), do: nil
+
+  # m4b2.4: the review signal joins the trust evidence ONLY when reviewer_aggregation is enabled,
+  # so runs that don't require a review are unaffected (loop_integrity). When required, an absent
+  # review is :not_assessed — TrustScore then refuses to auto-accept (never trustworthy-by-default).
+  defp maybe_put_review_decision(evidence, run_attempt, opts) do
+    if reviewer_aggregation_enabled?(opts) do
+      Map.put(evidence, :review_decision, review_decision_for(run_attempt.id))
+    else
+      evidence
+    end
+  end
+
+  defp review_decision_for(run_attempt_id) do
+    run_attempt_id
+    |> reviews_for()
+    |> Enum.sort_by(& &1.reviewed_at, {:desc, DateTime})
+    |> List.first()
+    |> case do
+      nil -> :not_assessed
+      review -> review.decision
+    end
+  end
 
   # M3 isolation: reset the shared workspace tree to the last accepted commit (HEAD)
   # before a slice runs, discarding any uncommitted changes a prior PARKED slice left
