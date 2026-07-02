@@ -1,5 +1,31 @@
 # Conveyor — ROADMAP (v2)
 
+> **🟢 Execution update (2026-07-02).** A focused improvement program is under
+> way, driven off the beads backlog and mapped onto the milestones below; where
+> it disagrees with older blocks, **this block wins.** It groups the open work
+> into epics:
+>
+> - **trust-reviewer** → the **M4 remainder**: independent adversarial review on
+>   the live gate (`reviewer_aggregation` carved out of the static-gate wiring
+>   task; a gauntlet-static-mutants task covers the deferred static mutants).
+> - **negotiated-scope** → **ADR-26 activation for scope** (the `dr1m.4` family)
+>   plus the empirical dogfood fixes (`8mnx`/`dxgw`) — stop parking correct work
+>   on out-of-scope-path friction.
+> - **rework-intel** → the **M6 remainder**: convergence-sentinel / no-progress
+>   detection, retry-feedback quality, and transient-failure classification.
+> - **prose-to-plan** → the **M5 remainder**: content-aware `Decomposer`,
+>   author→import, and bulk approve.
+> - **containment-complete** → **D1 #2/#5**: hermetic gate rerun and the egress
+>   allowlist.
+> - **never-lie** → an **M0-spirit honesty sweep**: exit codes, AGENTS.md
+>   threading, config truth, and board reconciliation.
+> - **banked proof** → `bd50`/`gexs` re-scoped plus `9z4r.2` (the M1/M3 exit
+>   evidence).
+>
+> Deliberately still unfiled from the M6 remainder: the GC sweeper (ADR-10),
+> morning-digest wiring (`a3hf.1.1`), and `EmergencyStop`/`BudgetReservations`
+> enforcement (`a3hf.2.1.x`, CLI-first steer applied).
+
 > **🟢 Execution update (2026-06-25).** Seven PRs have landed on `main` since
 > the 2026-06-23 snapshot below (which ended at PR #19 / M4). They move **M5**
 > and **M6** off "untouched"; where that older snapshot disagrees with this
