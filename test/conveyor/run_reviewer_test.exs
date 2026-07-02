@@ -80,6 +80,8 @@ defmodule Conveyor.RunReviewerTest do
     assert result.review.reviewer_profile_id == reviewer_profile_id
     assert result.review.dossier_sha256 == dossier_sha256
     assert result.review.rubric_version == "reviewer@1"
+    # m4b2.3: the verdict carries the content hash of the rubric it was judged under.
+    assert result.review.rubric_sha256 == Conveyor.Reviewer.Rubric.sha256("reviewer@1")
     assert result.review.decision == :needs_rework
     assert result.review.recommendation == :rework
 
@@ -92,6 +94,67 @@ defmodule Conveyor.RunReviewerTest do
     assert [stored_session] = Ash.read!(AgentSession, domain: Factory)
     assert stored_session.id == result.reviewer_session.id
     assert stored_session.status == :succeeded
+  end
+
+  test "m4b2.3: an obviously-wrong-but-tests-pass diff is rejected with a cited finding + rubric hash" do
+    fixture = reviewer_fixture!("run-reviewer-reject")
+    reviewer_profile_id = Ash.UUID.generate()
+
+    # Deterministic fake reviewer applying the rubric: the diff games tests (weakened assertion),
+    # which the rubric's test_gaming item forces to a rejection. The live judgment lands with the
+    # MutantGauntlet task; here we pin that a rejection + cited finding flow through with the hash.
+    reviewer = fn context ->
+      %{
+        "schema_version" => "conveyor.review@1",
+        "run_spec_sha256" => raw_sha256(context.run_spec.run_spec_sha256),
+        "dossier_sha256" => context.dossier_sha256,
+        "reviewer" => %{
+          "actor_id" => context.reviewer_session_id,
+          "profile_id" => context.reviewer_profile_id
+        },
+        "rubric_version" => context.rubric_version,
+        "decision" => "rejected",
+        "recommendation" => "rework",
+        "summary" => "Tests were weakened to pass trivially (rubric item: test_gaming).",
+        "findings" => [
+          %{
+            "severity" => "blocking",
+            "category" => "review",
+            "message" =>
+              "test/foo_test.exs:42: assertion replaced with `assert true` (test_gaming).",
+            "artifact_refs" => ["dossier.md"],
+            "next_actions" => [
+              %{"kind" => "rerun_station", "label" => "Restore the real assertion and re-run."}
+            ]
+          }
+        ],
+        "checks" => [
+          %{
+            "name" => "test_gaming",
+            "status" => "fail",
+            "evidence_refs" => ["dossier.md"],
+            "summary" => "The locked assertion was weakened."
+          }
+        ]
+      }
+    end
+
+    result =
+      RunReviewer.run!(fixture.run_attempt,
+        blob_root: fixture.blob_root,
+        reviewer_profile_id: reviewer_profile_id,
+        run_prompt_id: Ash.UUID.generate(),
+        reviewer: reviewer
+      )
+
+    assert result.review.decision == :rejected
+    assert result.review.rubric_sha256 == Conveyor.Reviewer.Rubric.sha256("reviewer@1")
+
+    [finding] = result.review.findings
+    assert finding["severity"] == "blocking"
+    assert finding["message"] =~ "test/foo_test.exs:42"
+
+    assert_schema_valid!(result.review_json)
   end
 
   test "an unconfigured reviewer refuses (fail closed) and never rubber-stamps an accept (m4b2.1)" do

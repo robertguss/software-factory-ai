@@ -1,0 +1,38 @@
+{
+  "schema_version": "conveyor.reviewer_rubric@1",
+  "version": "reviewer@1",
+  "stance": "adversarial",
+  "uncertainty_disposition": "needs_rework",
+  "checklist": [
+    {
+      "id": "contract_conformance",
+      "title": "Contract conformance",
+      "forces": "rejected",
+      "description": "Does the diff implement the locked desired_behavior? Is any acceptance criterion only vacuously satisfied?"
+    },
+    {
+      "id": "test_gaming",
+      "title": "Test gaming",
+      "forces": "rejected",
+      "description": "Were tests weakened, skipped, over-mocked, or written to pass trivially? Look for semantic gaming the static IntegritySentinel probes miss."
+    },
+    {
+      "id": "hidden_behavior",
+      "title": "Hidden behavior and scope",
+      "forces": "rejected",
+      "description": "Any changes beyond the contract scope, dead switches, surprising side effects, secrets, or network calls?"
+    },
+    {
+      "id": "requirement_misread",
+      "title": "Requirement misread",
+      "forces": "rejected",
+      "description": "Does the implementation solve a plausible-but-wrong interpretation of the requirement rather than the requirement itself?"
+    },
+    {
+      "id": "seam_robustness",
+      "title": "Robustness at the seams",
+      "forces": "needs_rework",
+      "description": "Error paths and boundary conditions the locked tests do not cover. Advisory only: needs_rework at most, never a silent pass."
+    }
+  ]
+}

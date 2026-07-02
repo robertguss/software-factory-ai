@@ -19,6 +19,7 @@ defmodule Conveyor.Jobs.RunReviewer do
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.RunSpec
   alias Conveyor.Factory.Validations.ReviewerActorSeparation
+  alias Conveyor.Reviewer.Rubric
 
   defmodule Result do
     @moduledoc false
@@ -55,6 +56,7 @@ defmodule Conveyor.Jobs.RunReviewer do
     reviewer_profile_id = Keyword.get(opts, :reviewer_profile_id) || Ash.UUID.generate()
     run_prompt_id = Keyword.get(opts, :run_prompt_id) || Ash.UUID.generate()
     rubric_version = Keyword.get(opts, :rubric_version, @rubric_version)
+    rubric_sha256 = rubric_sha256_for(rubric_version)
     dossier = read_dossier!(run_attempt, opts)
     now = DateTime.utc_now(:microsecond)
 
@@ -79,7 +81,8 @@ defmodule Conveyor.Jobs.RunReviewer do
           run_spec: run_spec,
           reviewer_profile_id: reviewer_profile_id,
           reviewer_session_id: reviewer_session.id,
-          rubric_version: rubric_version
+          rubric_version: rubric_version,
+          rubric_sha256: rubric_sha256
         })
 
       validate_review_json!(review_json, run_spec, dossier.sha256, reviewer_profile_id)
@@ -93,6 +96,7 @@ defmodule Conveyor.Jobs.RunReviewer do
             reviewer_profile_id: reviewer_profile_id,
             review_kind: Keyword.get(opts, :review_kind, :general),
             rubric_version: review_json["rubric_version"],
+            rubric_sha256: rubric_sha256,
             dossier_sha256: dossier.sha256,
             reviewed_at: now,
             decision: atom!(review_json["decision"]),
@@ -122,6 +126,14 @@ defmodule Conveyor.Jobs.RunReviewer do
 
         reraise error, __STACKTRACE__
     end
+  end
+
+  # The verdict is stamped with the hash of the rubric it was judged under (m4b2.3). A version
+  # with no committed artifact (e.g. a bespoke test rubric) has no hash — nil, not a crash.
+  defp rubric_sha256_for(version) do
+    Rubric.sha256(version)
+  rescue
+    File.Error -> nil
   end
 
   defp create_reviewer_session!(run_attempt, reviewer_profile_id, run_prompt_id, now, opts) do

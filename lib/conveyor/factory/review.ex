@@ -35,6 +35,9 @@ defmodule Conveyor.Factory.Review do
     end
 
     attribute :rubric_version, :string, allow_nil?: false, public?: true
+    # m4b2.3: content hash of the rubric artifact the verdict was judged under, so a review is
+    # auditable against the exact rubric used. Nil for reviews recorded before the rubric landed.
+    attribute :rubric_sha256, :string, public?: true
     attribute :dossier_sha256, :string, allow_nil?: false, public?: true
     attribute :reviewed_at, :utc_datetime_usec, allow_nil?: false, public?: true
 
