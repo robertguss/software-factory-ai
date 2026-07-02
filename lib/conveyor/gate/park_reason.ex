@@ -20,10 +20,17 @@ defmodule Conveyor.Gate.ParkReason do
 
   require Logger
 
-  @named [:weak_acceptance_tests, :no_behavior_change, :missing_signal]
+  # :scope_denied is a policy-deny park (nyrl.2), set explicitly by the scope-amendment path — NOT
+  # derived from trust evidence, so it has no `from_gate_evidence`/`from_signal` clause.
+  @named [:weak_acceptance_tests, :no_behavior_change, :missing_signal, :scope_denied]
   @default :unclassified
 
-  @type t :: :weak_acceptance_tests | :no_behavior_change | :missing_signal | :unclassified
+  @type t ::
+          :weak_acceptance_tests
+          | :no_behavior_change
+          | :missing_signal
+          | :scope_denied
+          | :unclassified
 
   @spec values() :: [t()]
   def values, do: @named ++ [@default]

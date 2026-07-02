@@ -63,5 +63,8 @@ defmodule Conveyor.Gate.ParkReasonTest do
     assert :weak_acceptance_tests in ParkReason.values()
     assert :no_behavior_change in ParkReason.values()
     assert :missing_signal in ParkReason.values()
+
+    # nyrl.2: scope-amendment deny reason joins the taxonomy (set explicitly, not trust-derived).
+    assert :scope_denied in ParkReason.values()
   end
 end
