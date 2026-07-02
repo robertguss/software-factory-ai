@@ -62,6 +62,9 @@ defmodule Conveyor.Evidence.VerificationRerunner do
     VerificationSuite
     |> Ash.read!(domain: Factory)
     |> Enum.filter(&(&1.slice_id == slice_id and &1.suite_kind in @suite_kinds))
+    # Deterministic evidence order: canonical suite_kind sequence, then key. `Ash.read!`
+    # has no ORDER BY, so raw DB row order is unstable across runs (ccsv).
+    |> Enum.sort_by(&{Enum.find_index(@suite_kinds, fn k -> k == &1.suite_kind end), &1.key})
   end
 
   defp reproducibility(agent_result, gate_result) do

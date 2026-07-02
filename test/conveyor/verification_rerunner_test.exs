@@ -95,6 +95,46 @@ defmodule Conveyor.VerificationRerunnerTest do
            |> get_in(["attempts", Access.at(0), "tests", Access.at(0), "name"]) == "accepts patch"
   end
 
+  test "returns suites in a deterministic suite_kind order regardless of insertion order", %{
+    project: project,
+    run_spec: run_spec,
+    slice: slice
+  } do
+    # Insert acceptance FIRST, baseline SECOND — deterministic ordering must still put
+    # baseline_regression before acceptance_locked (evidence order can't depend on DB rows).
+    Ash.create!(
+      VerificationSuite,
+      suite_attrs(project.id, slice.id, :acceptance_locked, [
+        command_spec("acceptance", ["mix", "test", "acceptance"], result_format: "tap")
+      ]),
+      domain: Factory
+    )
+
+    Ash.create!(
+      VerificationSuite,
+      suite_attrs(project.id, slice.id, :baseline_regression, [
+        command_spec("baseline", ["mix", "test"], result_format: "json")
+      ]),
+      domain: Factory
+    )
+
+    result =
+      VerificationRerunner.run!(run_spec,
+        runner: fn
+          %{"key" => "baseline"} ->
+            %{exit_code: 0, stdout: Jason.encode!(%{tests: [%{id: "base-1", status: "passed"}]})}
+
+          %{"key" => "acceptance"} ->
+            %{exit_code: 0, stdout: "ok 1 - accepts patch\n"}
+        end
+      )
+
+    assert Enum.map(result.suites, & &1["suite_kind"]) == [
+             "baseline_regression",
+             "acceptance_locked"
+           ]
+  end
+
   test "classifies repeated mixed outcomes as quarantined flakes", %{
     project: project,
     run_spec: run_spec,
