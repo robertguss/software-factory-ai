@@ -66,6 +66,10 @@ defmodule Conveyor.Gate.TrustScore do
   }
   @default_thresholds %{auto_accept: 0.9}
 
+  @doc "The static component weights (a3hf.1.2.1: the read-model shows each signal's weight)."
+  @spec default_weights() :: %{atom() => float()}
+  def default_weights, do: @default_weights
+
   @doc """
   Evaluate the calibrated trust of a passed gate verdict from recorded evidence.
 
