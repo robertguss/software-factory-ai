@@ -524,7 +524,9 @@ defmodule Conveyor.AttemptLoop do
     actor = Keyword.get(opts, :actor, "attempt-loop")
 
     synthesis =
-      final_attempt |> slice_for_attempt!() |> synthesize_rework!(gate, slice_result, actor)
+      final_attempt
+      |> slice_for_attempt!()
+      |> synthesize_rework!(gate, slice_result, actor, final_attempt.attempt_no + 1)
 
     prior_findings = synthesis.prior_findings
     log_threaded_findings(final_attempt, prior_findings)
@@ -544,8 +546,12 @@ defmodule Conveyor.AttemptLoop do
     )
   end
 
-  defp synthesize_rework!(slice, gate, slice_result, actor) do
-    ReworkSynthesizer.synthesize(slice, gate, actor: actor, output: slice_output(slice_result))
+  defp synthesize_rework!(slice, gate, slice_result, actor, next_attempt_no) do
+    ReworkSynthesizer.synthesize(slice, gate,
+      actor: actor,
+      output: slice_output(slice_result),
+      attempt_no: next_attempt_no
+    )
   end
 
   defp slice_output(%{output: output}) when is_map(output), do: output

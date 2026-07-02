@@ -66,11 +66,82 @@ defmodule Conveyor.RecoveryReworkSynthesizerTest do
     assert result.prior_findings["green_acceptance_criteria"] == ["AC-GREEN"]
   end
 
+  test "escalates the retry feedback per the declared ladder rung (rt6k.4)" do
+    gate = failing_gate()
+
+    slice_a = slice_fixture!()
+    persist_brief!(slice_a)
+    baseline = ReworkSynthesizer.synthesize(slice_a, gate, actor: "gate", attempt_no: 2)
+
+    slice_b = slice_fixture!()
+    persist_brief!(slice_b)
+    escalated = ReworkSynthesizer.synthesize(slice_b, gate, actor: "gate", attempt_no: 3)
+
+    # attempt 2 (first retry) — baseline rung, no change-of-approach directive
+    assert baseline.prior_findings["feedback_rung"] == "baseline_feedback"
+    refute baseline.agent_brief.desired_behavior =~ ~r/reconsider|change strategy/i
+
+    # attempt 3+ — escalated rung carries the explicit "reconsider, do not repeat" directive
+    assert escalated.prior_findings["feedback_rung"] == "escalated_feedback"
+    assert escalated.agent_brief.desired_behavior =~ ~r/reconsider/i
+    assert escalated.agent_brief.desired_behavior =~ ~r/do not repeat/i
+
+    # both rungs keep the baseline feedback (trusted findings) — escalation is additive
+    assert escalated.agent_brief.desired_behavior =~ "trusted repair input"
+  end
+
+  defp failing_gate do
+    %Gate.Result{
+      status: :failed,
+      passed?: false,
+      stages: [],
+      findings: [
+        %{
+          "category" => "acceptance_mapping",
+          "severity" => "blocking",
+          "stage" => "verify",
+          "message" => "AC-FAIL was not met.",
+          "acceptance_criterion_id" => "AC-FAIL",
+          "evidence_status" => "not_met"
+        }
+      ],
+      gate_result_attrs: %{}
+    }
+  end
+
+  defp persist_brief!(slice) do
+    Ash.create!(
+      AgentBrief,
+      %{
+        slice_id: slice.id,
+        version: 1,
+        current_behavior: "The endpoint returns incomplete data.",
+        desired_behavior: "The endpoint returns stable task data.",
+        key_interfaces: ["GET /tasks"],
+        out_of_scope: ["Authentication"],
+        acceptance_criteria: [criterion("AC-FAIL"), criterion("AC-GREEN")],
+        required_tests: [%{"ref" => "test/tasks_test.exs"}],
+        verification_commands: [command_spec()],
+        non_goals: ["Bulk exports"],
+        locked_at: DateTime.utc_now(:microsecond),
+        locked_by: "planner",
+        contract_sha256: digest("brief-v1-#{slice.id}")
+      },
+      domain: Factory
+    )
+  end
+
   defp slice_fixture! do
+    tag = System.unique_integer([:positive])
+
     project =
       Ash.create!(
         Project,
-        %{name: "Rework sample", local_path: "/tmp/rework-sample", default_branch: "main"},
+        %{
+          name: "Rework sample #{tag}",
+          local_path: "/tmp/rework-sample-#{tag}",
+          default_branch: "main"
+        },
         domain: Factory
       )
 

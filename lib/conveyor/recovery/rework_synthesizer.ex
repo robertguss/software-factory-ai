@@ -7,6 +7,7 @@ defmodule Conveyor.Recovery.ReworkSynthesizer do
   alias Conveyor.Factory.AgentBrief
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
+  alias Conveyor.Recovery.FeedbackLadder
   alias Conveyor.Recovery.ReworkContext
 
   defmodule Result do
@@ -31,6 +32,7 @@ defmodule Conveyor.Recovery.ReworkSynthesizer do
     failed_ids = failed_acceptance_ids(findings)
     green_ids = acceptance_ids(prior_brief) -- failed_ids
     rework_context = ReworkContext.build(Keyword.get(opts, :output), opts)
+    rung = FeedbackLadder.rung(Keyword.get(opts, :attempt_no))
 
     prior_findings = %{
       "schema_version" => "conveyor.prior_findings@1",
@@ -38,19 +40,20 @@ defmodule Conveyor.Recovery.ReworkSynthesizer do
       "green_acceptance_criteria" => green_ids,
       "findings" => findings,
       "failing_test_excerpt" => rework_context["failing_test_excerpt"],
-      "prior_diff_summary" => rework_context["prior_diff_summary"]
+      "prior_diff_summary" => rework_context["prior_diff_summary"],
+      "feedback_rung" => rung.name
     }
 
-    agent_brief = create_delta_brief!(slice, prior_brief, prior_findings, opts)
+    agent_brief = create_delta_brief!(slice, prior_brief, prior_findings, rung, opts)
     %Result{agent_brief: agent_brief, prior_brief: prior_brief, prior_findings: prior_findings}
   end
 
-  defp create_delta_brief!(slice, prior_brief, prior_findings, opts) do
+  defp create_delta_brief!(slice, prior_brief, prior_findings, rung, opts) do
     attrs = %{
       slice_id: slice.id,
       version: next_version(slice.id),
       current_behavior: prior_brief.current_behavior,
-      desired_behavior: desired_behavior(prior_brief, prior_findings),
+      desired_behavior: desired_behavior(prior_brief, prior_findings, rung),
       key_interfaces: prior_brief.key_interfaces,
       out_of_scope: prior_brief.out_of_scope,
       risk: prior_brief.risk,
@@ -70,7 +73,7 @@ defmodule Conveyor.Recovery.ReworkSynthesizer do
     Ash.create!(AgentBrief, Map.put(attrs, :contract_sha256, contract_sha256), domain: Factory)
   end
 
-  defp desired_behavior(prior_brief, prior_findings) do
+  defp desired_behavior(prior_brief, prior_findings, rung) do
     failed = prior_findings["failed_acceptance_criteria"]
     green = prior_findings["green_acceptance_criteria"]
 
@@ -84,12 +87,17 @@ defmodule Conveyor.Recovery.ReworkSynthesizer do
     ]
     |> Kernel.++(context_section("Failing test excerpt", prior_findings["failing_test_excerpt"]))
     |> Kernel.++(context_section("Prior attempt changes", prior_findings["prior_diff_summary"]))
+    |> Kernel.++(rung_directives(rung))
     |> Enum.join("\n")
   end
 
   # Bounded/redacted rework context (rt6k.2) is trusted repair input; append it only when present.
   defp context_section(_label, content) when content in [nil, ""], do: []
   defp context_section(label, content), do: ["", "#{label}:", content]
+
+  # rt6k.4: the escalated rung adds "change your approach" directives; the baseline adds none.
+  defp rung_directives(%{directives: []}), do: []
+  defp rung_directives(%{directives: directives}), do: ["" | directives]
 
   defp typed_findings(%Gate.Result{findings: findings}), do: normalize_findings(findings)
   defp typed_findings(%{findings: findings}), do: normalize_findings(findings)
