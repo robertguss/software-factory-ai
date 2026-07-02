@@ -67,6 +67,10 @@ defmodule Conveyor.Planning.SerialDriver do
   @default_slice_wall_clock_ms 3_600_000
   @default_run_wall_clock_ms 28_800_000
 
+  # Work-edge kinds (9z4r.1). Both are string- and atom-shaped depending on the graph source.
+  @blocking_kinds ["execution_hard", :execution_hard]
+  @ordering_kinds @blocking_kinds ++ ["integration_order", :integration_order]
+
   defmodule Result do
     @moduledoc """
     Serial driver execution result.
@@ -93,8 +97,9 @@ defmodule Conveyor.Planning.SerialDriver do
     # Dedup so a duplicated slice id can't run (and accept-commit) twice — do_topo
     # keeps duplicates and a slice has no self-edge to block its own re-run.
     selected_slice_ids = input |> list(:selected_slice_ids) |> Enum.uniq()
-    edges = work_edges(work_graph, selected_slice_ids)
-    order = do_topo(selected_slice_ids, edges, [])
+    order = do_topo(selected_slice_ids, ordering_edges(work_graph, selected_slice_ids), [])
+    # `edges` threads the skip cascade only — execution_hard, not integration_order (9z4r.1).
+    edges = blocking_edges(work_graph, selected_slice_ids)
 
     # M3 skip-and-continue: a parked/failed slice no longer HALTS the run. We carry
     # on over the dep subgraph — independent slices still run; a parked slice's
@@ -133,8 +138,8 @@ defmodule Conveyor.Planning.SerialDriver do
     opts = Keyword.put(opts, :run_id, run_id)
     work_graph = value(input, :work_graph) || input
     selected_slice_ids = input |> list(:selected_slice_ids) |> Enum.uniq()
-    edges = work_edges(work_graph, selected_slice_ids)
-    order = do_topo(selected_slice_ids, edges, [])
+    order = do_topo(selected_slice_ids, ordering_edges(work_graph, selected_slice_ids), [])
+    edges = blocking_edges(work_graph, selected_slice_ids)
     reaper = build_reaper(opts)
     ledger = run_ledger_context(input, opts)
 
@@ -943,20 +948,32 @@ defmodule Conveyor.Planning.SerialDriver do
     end
   end
 
-  # The execution_hard edges among the selected slices — used both to order the run
-  # (do_topo) and to compute skip cascades (blocking_predecessors), so skip follows
-  # the SAME edge kind that defines ordering (the one-hop==transitive-closure proof
-  # only holds for that kind). execution_hard means "B's code depends on A", which is
-  # what justifies skipping B when A parks; integration_order is a softer "integrate
-  # after" constraint that does not imply a build dependency, so it is intentionally
-  # excluded here. The ordering gap for integration_order is pre-existing; both are
-  # tracked for reconciliation in br 9z4r.1.
-  defp work_edges(work_graph, selected_slice_ids) do
+  # 9z4r.1 splits ordering from skipping. Both edge kinds fix run order (do_topo), but only
+  # execution_hard drives the skip cascade (blocking_predecessors).
+  #
+  # Ordering edges: execution_hard AND integration_order. Both mean "A runs before B" — a topo
+  # constraint. integration_order is a softer "integrate B after A" that still pins their order,
+  # so without it two integration_order-only slices were left to declaration order (the
+  # pre-existing ordering gap).
+  defp ordering_edges(work_graph, selected_slice_ids) do
+    edges_of_kind(work_graph, selected_slice_ids, @ordering_kinds)
+  end
+
+  # Blocking edges: execution_hard ONLY. execution_hard means "B's code depends on A", which is
+  # what justifies skipping B when A parks. integration_order does not imply a build dependency,
+  # so an integration_order-only dependent of a parked slice is still built independently.
+  # blocking_edges ⊆ ordering_edges, so the one-hop==transitive-closure skip proof still holds:
+  # every execution_hard predecessor is still ordered before its dependent.
+  defp blocking_edges(work_graph, selected_slice_ids) do
+    edges_of_kind(work_graph, selected_slice_ids, @blocking_kinds)
+  end
+
+  defp edges_of_kind(work_graph, selected_slice_ids, kinds) do
     selected = MapSet.new(selected_slice_ids)
 
     work_graph
     |> list(:work_dependencies)
-    |> Enum.filter(&(value(&1, :kind) in ["execution_hard", :execution_hard]))
+    |> Enum.filter(&(value(&1, :kind) in kinds))
     |> Enum.filter(&(value(&1, :from) in selected and value(&1, :to) in selected))
   end
 

@@ -181,6 +181,75 @@ defmodule Conveyor.PlanningSerialDriverTest do
     assert result.report["passed_count"] == 2
   end
 
+  test "integration_order edges order the run even though they never trigger a skip (9z4r.1)" do
+    send_to = self()
+
+    result =
+      SerialDriver.run!(
+        %{
+          work_graph: work_graph_integration_order(),
+          # declared Y-before-X; the integration_order edge X->Y must still run X first.
+          selected_slice_ids: ["Y", "X"]
+        },
+        rework: false,
+        assemble_run_spec: fn slice_key, _g -> %{id: "rs:#{slice_key}", slice_key: slice_key} end,
+        create_run_attempt: fn rs -> %{id: "at:#{rs.slice_key}", run_spec: rs} end,
+        run_slice: fn attempt ->
+          %{status: :succeeded, output: %{}, slice_key: attempt.run_spec.slice_key}
+        end,
+        run_gate: fn _rs, _attempt, _slice_result -> %{passed?: true, findings: []} end,
+        finalize_gate: fn _gate, _rs, attempt ->
+          %{run_attempt: Map.put(attempt, :outcome, :accepted)}
+        end,
+        advance_workspace_base: fn rs, slice_key, _f ->
+          send(send_to, {:advanced, rs.slice_key, slice_key})
+          :ok
+        end
+      )
+
+    assert result.status == :passed
+    assert Enum.map(result.events, & &1["slice_id"]) == ["X", "Y"]
+  end
+
+  test "an integration_order predecessor parking does NOT skip its dependent (9z4r.1)" do
+    result =
+      SerialDriver.run!(
+        %{
+          work_graph: work_graph_integration_order(),
+          selected_slice_ids: ["X", "Y"]
+        },
+        rework: false,
+        assemble_run_spec: fn slice_key, _g -> %{id: "rs:#{slice_key}", slice_key: slice_key} end,
+        create_run_attempt: fn rs -> %{id: "at:#{rs.slice_key}", run_spec: rs} end,
+        run_slice: fn attempt ->
+          %{status: :succeeded, output: %{}, slice_key: attempt.run_spec.slice_key}
+        end,
+        run_gate: fn
+          %{slice_key: "X"}, _attempt, _slice_result ->
+            %{passed?: false, findings: [%{"category" => "acceptance_locked_failed"}]}
+
+          _rs, _attempt, _slice_result ->
+            %{passed?: true, findings: []}
+        end,
+        finalize_gate: fn
+          %{passed?: true}, _rs, attempt ->
+            %{run_attempt: Map.put(attempt, :outcome, :accepted)}
+
+          %{passed?: false}, _rs, attempt ->
+            %{run_attempt: Map.put(attempt, :outcome, :needs_rework)}
+        end,
+        advance_workspace_base: fn _rs, _slice_key, _f -> :ok end
+      )
+
+    assert result.status == :partial
+    by_id = Map.new(result.events, &{&1["slice_id"], &1})
+
+    assert by_id["X"]["status"] == "parked"
+    # Y only integration_order-depends on X (a softer "integrate after", not a code dependency),
+    # so X parking must NOT skip Y — Y is built independently and passes.
+    assert by_id["Y"]["status"] == "passed"
+  end
+
   test "parks a slice when interrogation raises a blocking question" do
     result =
       SerialDriver.run!(
@@ -360,6 +429,21 @@ defmodule Conveyor.PlanningSerialDriverTest do
       "work_dependencies" => [
         %{"from" => "A1", "to" => "A2", "kind" => "execution_hard"},
         %{"from" => "B1", "to" => "B2", "kind" => "execution_hard"}
+      ]
+    }
+  end
+
+  # X --(integration_order)--> Y: Y integrates after X (ordering), but Y's code does NOT depend
+  # on X's (no execution_hard edge), so parking X must not skip Y (9z4r.1).
+  defp work_graph_integration_order do
+    %{
+      "schema_version" => "conveyor.work_graph@2",
+      "slices" => [
+        %{"stable_key" => "X", "title" => "Ex"},
+        %{"stable_key" => "Y", "title" => "Why"}
+      ],
+      "work_dependencies" => [
+        %{"from" => "X", "to" => "Y", "kind" => "integration_order"}
       ]
     }
   end
