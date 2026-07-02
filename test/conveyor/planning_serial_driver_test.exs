@@ -3,6 +3,14 @@ defmodule Conveyor.PlanningSerialDriverTest do
 
   alias Conveyor.Planning.SerialDriver
 
+  test "a run that executes zero slices reports :partial, never a false :passed (22r6)" do
+    result = SerialDriver.run!(%{work_graph: work_graph(), selected_slice_ids: []}, rework: false)
+
+    assert result.events == []
+    # An empty run accepted nothing; `:passed` would make `conveyor.run` exit 0.
+    assert result.status == :partial
+  end
+
   test "runs selected slices in execution-hard topological order and records pilot events" do
     send_to = self()
 

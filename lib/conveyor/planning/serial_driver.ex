@@ -200,6 +200,10 @@ defmodule Conveyor.Planning.SerialDriver do
 
   # All-passed => :passed; any park/skip => :partial (the run advanced but did not
   # complete every slice). The run never bails early — the whole order is processed.
+  # A run that executed ZERO slices accepted nothing, so it is never :passed (22r6) —
+  # otherwise `Enum.all?([], _)` vacuously reports success and `conveyor.run` exits 0.
+  defp run_status([]), do: :partial
+
   defp run_status(events) do
     if Enum.all?(events, &(&1["status"] == "passed")), do: :passed, else: :partial
   end
