@@ -13,6 +13,9 @@ defmodule Conveyor.AgentRunner.AdapterBase do
   `AgentSession` paths; they were moved here verbatim, with no behavior change.
   """
 
+  require Logger
+
+  alias Conveyor.AgentRunner.FailureClass
   alias Conveyor.AgentRunner.PatchCapture
   alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
@@ -23,11 +26,52 @@ defmodule Conveyor.AgentRunner.AdapterBase do
   # instead of the whole plan hanging forever (M2).
   @agent_timeout_exit_code 124
 
+  # rt6k.6: bounded backoff-retry for TRANSIENT infra failures (5xx/429/refused/timeout).
+  # Infra outcomes are retried in-place — absorbed at this seam, so they never return to the
+  # AttemptLoop as a consumed attempt. WORK outcomes (the agent ran, even badly) return
+  # immediately. Small bounded backoff keeps total added wall-clock well under the run reaper.
+  @infra_retry_cap 2
+  @base_backoff_ms 500
+
   # Watchdog around the blocking agent exec. Runs it in a Task; on timeout, brutally
   # shuts the Task down (closing the System.cmd port, which terminates the child) and
   # reports a timeout (empty stdout, exit #{@agent_timeout_exit_code}) so the loop treats
-  # the slice as a failed attempt instead of hanging the unattended run.
+  # the slice as a failed attempt instead of hanging the unattended run. Transient infra
+  # failures are retried here (rt6k.6) rather than burning an attempt.
   def run_with_timeout(exec, prompt, ws_path, opts, timeout_ms) do
+    run_with_infra_retry(exec, prompt, ws_path, opts, timeout_ms, 0)
+  end
+
+  defp run_with_infra_retry(exec, prompt, ws_path, opts, timeout_ms, retry_index) do
+    {stdout, exit_code} = run_once_with_timeout(exec, prompt, ws_path, opts, timeout_ms)
+    cap = Keyword.get(opts, :infra_retry_cap, @infra_retry_cap)
+
+    case FailureClass.classify(%{exit_code: exit_code, output: stdout}) do
+      {:infra, class} when retry_index < cap ->
+        delay = backoff_ms(retry_index)
+
+        Logger.warning(
+          "agent infra retry: class=#{class} adapter=#{adapter_label(opts)} " <>
+            "retry=#{retry_index + 1}/#{cap} backoff_ms=#{delay} exit_code=#{exit_code}"
+        )
+
+        sleep(delay, opts)
+        run_with_infra_retry(exec, prompt, ws_path, opts, timeout_ms, retry_index + 1)
+
+      {:infra, class} ->
+        Logger.warning(
+          "agent infra retry cap exhausted: class=#{class} adapter=#{adapter_label(opts)} " <>
+            "after #{cap} retries — failing the attempt (infra_error)"
+        )
+
+        {stdout, exit_code}
+
+      :work ->
+        {stdout, exit_code}
+    end
+  end
+
+  defp run_once_with_timeout(exec, prompt, ws_path, opts, timeout_ms) do
     task = Task.async(fn -> exec.(prompt, ws_path, opts) end)
 
     case Task.yield(task, timeout_ms) || Task.shutdown(task, :brutal_kill) do
@@ -35,6 +79,14 @@ defmodule Conveyor.AgentRunner.AdapterBase do
       _ -> {"", @agent_timeout_exit_code}
     end
   end
+
+  # Exponential backoff with a fixed jitter fraction (no Date/rand dependency in the hot path
+  # of tests — the sleep fn is injectable via opts[:sleep_fn] so tests run instantly).
+  defp backoff_ms(retry_index), do: @base_backoff_ms * Integer.pow(2, retry_index)
+
+  defp sleep(delay, opts), do: Keyword.get(opts, :sleep_fn, &Process.sleep/1).(delay)
+
+  defp adapter_label(opts), do: Keyword.get(opts, :adapter, "agent")
 
   def capture_patch(workspace, opts, blob_opts) do
     case Keyword.get(opts, :run_attempt_id) do
