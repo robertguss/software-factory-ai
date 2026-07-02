@@ -23,11 +23,11 @@ defmodule Conveyor.Planning.SerialDriver do
     TestPack
   }
 
-  alias Conveyor.Ledger
   alias Conveyor.Gate
   alias Conveyor.Gate.Finalizer
   alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
+  alias Conveyor.Ledger
   alias Conveyor.Planning.PilotExecution
   alias Conveyor.Planning.RunReconciliation
   alias Conveyor.Planning.RunReconstruction
@@ -163,15 +163,10 @@ defmodule Conveyor.Planning.SerialDriver do
     |> Enum.reduce({[], MapSet.new(), initial_agent_ran}, fn {slice_key, sequence},
                                                              {events, blocked, agent_ran?} ->
       {event, ran_now?} =
-        cond do
-          Map.has_key?(resumed, slice_key) ->
-            {Map.fetch!(resumed, slice_key), false}
-
-          true ->
-            case blocking_predecessors(slice_key, edges, blocked) do
-              [] -> run_one_guarded!(slice_key, work_graph, sequence, agent_ran?, opts, reaper)
-              blockers -> {skipped_event(slice_key, sequence, blockers), false}
-            end
+        if Map.has_key?(resumed, slice_key) do
+          {Map.fetch!(resumed, slice_key), false}
+        else
+          run_or_skip!(slice_key, edges, blocked, work_graph, sequence, agent_ran?, opts, reaper)
         end
 
       unless Map.has_key?(resumed, slice_key), do: commit_slice_outcome!(ledger, event)
@@ -182,6 +177,13 @@ defmodule Conveyor.Planning.SerialDriver do
       {events ++ [event], next_blocked, agent_ran? or ran_now?}
     end)
     |> elem(0)
+  end
+
+  defp run_or_skip!(slice_key, edges, blocked, work_graph, sequence, agent_ran?, opts, reaper) do
+    case blocking_predecessors(slice_key, edges, blocked) do
+      [] -> run_one_guarded!(slice_key, work_graph, sequence, agent_ran?, opts, reaper)
+      blockers -> {skipped_event(slice_key, sequence, blockers), false}
+    end
   end
 
   defp build_result(order, events) do
