@@ -9,6 +9,8 @@ defmodule Conveyor.Jobs.RunReviewer do
 
   use Oban.Worker, queue: :gate, max_attempts: 1
 
+  require Logger
+
   alias Conveyor.Artifacts.BlobStore
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentSession
@@ -32,7 +34,6 @@ defmodule Conveyor.Jobs.RunReviewer do
   end
 
   @schema_path Path.expand("../../../docs/schemas/conveyor.review@1.json", __DIR__)
-  @schema_version "conveyor.review@1"
   @rubric_version "reviewer@1"
 
   @impl Oban.Worker
@@ -62,12 +63,16 @@ defmodule Conveyor.Jobs.RunReviewer do
       {:error, message} -> raise ArgumentError, message
     end
 
+    # Fail closed, never rubber-stamp: an unconfigured reviewer must refuse, not accept
+    # (m4b2.1). Resolved after the separation check so its error still surfaces first.
+    reviewer = configured_reviewer!(opts)
+
     reviewer_session =
       create_reviewer_session!(run_attempt, reviewer_profile_id, run_prompt_id, now, opts)
 
     try do
       review_json =
-        reviewer!(opts).(%{
+        reviewer.(%{
           dossier: dossier.content,
           dossier_sha256: dossier.sha256,
           run_attempt: run_attempt,
@@ -155,31 +160,23 @@ defmodule Conveyor.Jobs.RunReviewer do
     %{content: blob.content, sha256: raw_sha256(blob.sha256)}
   end
 
-  defp reviewer!(opts), do: Keyword.get(opts, :reviewer, &default_review/1)
+  # No default reviewer: an unconfigured review must fail closed (m4b2.1). Silently
+  # returning an "accepted" verdict would be the project's #1 anti-pattern — an
+  # unmeasured signal laundered into trust. Callers must pass an explicit :reviewer.
+  defp configured_reviewer!(opts) do
+    case Keyword.get(opts, :reviewer) do
+      fun when is_function(fun, 1) ->
+        fun
 
-  defp default_review(context) do
-    %{
-      "schema_version" => @schema_version,
-      "run_spec_sha256" => raw_sha256(context.run_spec.run_spec_sha256),
-      "dossier_sha256" => context.dossier_sha256,
-      "reviewer" => %{
-        "actor_id" => context.reviewer_session_id,
-        "profile_id" => context.reviewer_profile_id
-      },
-      "rubric_version" => context.rubric_version,
-      "decision" => "accepted",
-      "recommendation" => "merge",
-      "summary" => "Recorded dossier evidence is present for independent review.",
-      "findings" => [],
-      "checks" => [
-        %{
-          "name" => "dossier_digest",
-          "status" => "pass",
-          "evidence_refs" => ["dossier.md"],
-          "summary" => "Dossier bytes matched the recorded digest."
-        }
-      ]
-    }
+      _unconfigured ->
+        Logger.warning(
+          "RunReviewer invoked with no :reviewer configured; refusing to produce a review " <>
+            "(fail closed — never rubber-stamp an unmeasured accept)."
+        )
+
+        raise ArgumentError,
+              "RunReviewer requires an explicit :reviewer; refusing to fail open with a rubber-stamp accept"
+    end
   end
 
   defp validate_review_json!(review_json, run_spec, dossier_sha256, reviewer_profile_id) do

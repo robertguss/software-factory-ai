@@ -94,16 +94,49 @@ defmodule Conveyor.RunReviewerTest do
     assert stored_session.status == :succeeded
   end
 
-  test "default reviewer emits an accepted review tied to the dossier digest" do
-    fixture = reviewer_fixture!("run-reviewer-default")
+  test "an unconfigured reviewer refuses (fail closed) and never rubber-stamps an accept (m4b2.1)" do
+    import ExUnit.CaptureLog
 
-    result = RunReviewer.run!(fixture.run_attempt, blob_root: fixture.blob_root)
+    fixture = reviewer_fixture!("run-reviewer-unconfigured")
 
-    assert result.review.decision == :accepted
-    assert result.review.recommendation == :merge
-    assert result.review.dossier_sha256 == BlobStore.sha256(fixture.dossier)
-    assert result.review_json["dossier_sha256"] == result.review.dossier_sha256
-    assert_schema_valid!(result.review_json)
+    log =
+      capture_log(fn ->
+        assert_raise ArgumentError, ~r/refusing to fail open/, fn ->
+          RunReviewer.run!(fixture.run_attempt, blob_root: fixture.blob_root)
+        end
+      end)
+
+    assert log =~ "no :reviewer configured"
+    # No review artifact of any kind — an unmeasured review is never trust.
+    assert [] = Ash.read!(Review, domain: Factory)
+  end
+
+  test "ReviewerAggregation fails closed on a not_assessed review (m4b2.1)" do
+    review = %{
+      review_kind: :general,
+      reviewer_profile_id: "reviewer-1",
+      rubric_version: "reviewer@1",
+      dossier_sha256: "dossier-abc",
+      decision: "not_assessed"
+    }
+
+    result =
+      Conveyor.Gate.Stages.ReviewerAggregation.run(%{
+        required_review_kinds: [:general],
+        reviews: [review],
+        reviewer_health: [],
+        dossier_sha256: "dossier-abc"
+      })
+
+    assert result.status == :failed
+    assert Enum.any?(result.findings, &(&1["category"] == "review_decision_not_accepted"))
+  end
+
+  test "no code path in the reviewer job constructs an accepted decision (m4b2.1 design law)" do
+    source = File.read!("lib/conveyor/jobs/run_reviewer.ex")
+
+    refute source =~ ~s("decision" => "accepted"),
+           "RunReviewer must not hardcode an accepted decision — an unconfigured review must fail closed"
   end
 
   test "rejects malformed reviewer output and records failed reviewer session" do
