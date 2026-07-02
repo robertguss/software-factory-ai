@@ -97,7 +97,8 @@ defmodule Conveyor.Stations.Implementer do
     run_prompt =
       PromptBuilder.build!(run_attempt.slice_id,
         context_pack: context_pack,
-        prior_findings: get(input, "prior_findings")
+        prior_findings: get(input, "prior_findings"),
+        agents_md_body: agents_md_excerpt(get(input, "workspace_path"))
       )
 
     Ash.create!(
@@ -143,6 +144,30 @@ defmodule Conveyor.Stations.Implementer do
         budget_policy: %{},
         autonomy_ceiling: 2
       }
+  end
+
+  # uh2g: thread the project's AGENTS.md into the prompt's bounded-trust "Project
+  # Instructions" section. Missing file keeps the honest no-excerpt notice; a large
+  # file is deterministically head-truncated so the prompt stays bounded and replayable.
+  @agents_md_char_budget 8_000
+  @no_agents_md "No AGENTS.md excerpt was provided."
+
+  defp agents_md_excerpt(nil), do: @no_agents_md
+
+  defp agents_md_excerpt(workspace_path) do
+    case File.read(Path.join(workspace_path, "AGENTS.md")) do
+      {:ok, content} -> bound_agents_md(content)
+      {:error, _reason} -> @no_agents_md
+    end
+  end
+
+  defp bound_agents_md(content) do
+    if String.length(content) <= @agents_md_char_budget do
+      content
+    else
+      String.slice(content, 0, @agents_md_char_budget) <>
+        "\n\n…[AGENTS.md truncated to #{@agents_md_char_budget} chars]"
+    end
   end
 
   defp get(input, key), do: Map.get(input, key) || Map.get(input, String.to_atom(key))

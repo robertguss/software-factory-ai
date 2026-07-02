@@ -46,6 +46,80 @@ defmodule Conveyor.StationsImplementerTest do
     assert prompt.body =~ "Fake runner writes deterministic output."
   end
 
+  test "threads the workspace AGENTS.md excerpt into the implementer prompt (uh2g)" do
+    fixture = fixture!("implementer-agents-md")
+
+    File.write!(
+      Path.join(fixture.workspace_path, "AGENTS.md"),
+      "# Repo rules\n\nUse tabs, never spaces.\n"
+    )
+
+    assert {:ok, _output} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "adapter" => "Conveyor.AgentRunner.Fake"
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    [session] = Ash.read!(AgentSession, domain: Factory)
+    prompt = Ash.get!(RunPrompt, session.run_prompt_id, domain: Factory)
+
+    assert prompt.body =~ "Use tabs, never spaces."
+    refute prompt.body =~ "No AGENTS.md excerpt was provided."
+  end
+
+  test "falls back to the no-excerpt notice when the workspace has no AGENTS.md (uh2g)" do
+    fixture = fixture!("implementer-no-agents-md")
+
+    assert {:ok, _output} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "adapter" => "Conveyor.AgentRunner.Fake"
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    [session] = Ash.read!(AgentSession, domain: Factory)
+    prompt = Ash.get!(RunPrompt, session.run_prompt_id, domain: Factory)
+
+    assert prompt.body =~ "No AGENTS.md excerpt was provided."
+  end
+
+  test "bounds a large AGENTS.md to the byte budget with a truncation marker (uh2g)" do
+    fixture = fixture!("implementer-huge-agents-md")
+    huge = "PROJECT RULE\n" <> String.duplicate("x", 50_000)
+    File.write!(Path.join(fixture.workspace_path, "AGENTS.md"), huge)
+
+    assert {:ok, _output} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "adapter" => "Conveyor.AgentRunner.Fake"
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    [session] = Ash.read!(AgentSession, domain: Factory)
+    prompt = Ash.get!(RunPrompt, session.run_prompt_id, domain: Factory)
+
+    assert prompt.body =~ "PROJECT RULE"
+    assert prompt.body =~ "AGENTS.md truncated"
+    # The excerpt itself never carries the full 50KB payload into the prompt.
+    refute prompt.body =~ String.duplicate("x", 20_000)
+  end
+
   test "input prior_findings render the Prior Trusted Findings section into the prompt" do
     fixture = fixture!("implementer-prior-findings")
 
