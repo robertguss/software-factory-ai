@@ -510,6 +510,9 @@ defmodule Conveyor.Planning.SerialDriver do
   defp rework_enabled?(opts), do: Keyword.get(opts, :rework, true) == true
 
   defp rework_gate_label(false, %{status: :amendment_proposed}), do: "contract_amendment_proposed"
+
+  # rt6k.7: a provider outage parks distinctly so triage separates "provider down" from "work hard".
+  defp rework_gate_label(false, %{status: :infra_error}), do: "infra_error"
   defp rework_gate_label(false, _loop_result), do: "eventual_pending"
 
   defp rework_gate_label(true, loop_result) do

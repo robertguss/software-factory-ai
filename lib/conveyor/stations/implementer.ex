@@ -50,13 +50,16 @@ defmodule Conveyor.Stations.Implementer do
           content_ref: raw.diff_ref
         }
 
-        {:ok,
-         %{
-           "adapter" => inspect(adapter),
-           "diff_ref" => raw.diff_ref,
-           "patch_set_id" => raw.metadata["patch_set_id"],
-           artifacts: [artifact]
-         }}
+        output =
+          %{
+            "adapter" => inspect(adapter),
+            "diff_ref" => raw.diff_ref,
+            "patch_set_id" => raw.metadata["patch_set_id"],
+            artifacts: [artifact]
+          }
+          |> maybe_put_output("infra_error", raw.metadata["infra_error"])
+
+        {:ok, output}
 
       {:error, reason} ->
         {:error, {:agent_failed, reason}}
@@ -73,6 +76,9 @@ defmodule Conveyor.Stations.Implementer do
 
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp maybe_put_output(output, _key, nil), do: output
+  defp maybe_put_output(output, key, value), do: Map.put(output, key, value)
 
   # Reference/test-only: pick the canned patch for THIS attempt from an attempt-keyed
   # map (string keys survive the run_spec JSON round-trip), falling back to the single

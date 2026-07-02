@@ -88,4 +88,40 @@ defmodule Conveyor.PlanningRunResumeTest do
     assert result.status == :passed
     refute_received {:ran, _}
   end
+
+  test "rt6k.7: a committed infra_error slice reconstructs from the ledger and is not re-run" do
+    send_to = self()
+
+    infra_outcome = %{
+      "run_id" => "run-x",
+      "slice_id" => "SLICE-001",
+      "sequence" => 1,
+      "status" => "parked",
+      "gate_result" => "infra_error",
+      "run_attempt_outcome" => "needs_rework",
+      "findings" => []
+    }
+
+    result =
+      SerialDriver.resume!(
+        "run-x",
+        %{work_graph: work_graph(), selected_slice_ids: ["SLICE-001"]},
+        rework: true,
+        outcomes: %{"SLICE-001" => infra_outcome},
+        assemble_run_spec: fn key, _g -> %{id: "rs:#{key}", slice_key: key} end,
+        create_run_attempt: fn rs -> %{id: "at", run_spec: rs} end,
+        run_slice: fn at ->
+          send(send_to, {:ran, at.run_spec.slice_key})
+          %{status: :succeeded, output: %{}}
+        end,
+        run_gate: fn _rs, _at, _sr -> %{passed?: true, findings: []} end,
+        finalize_gate: fn _g, _rs, at -> %{run_attempt: Map.put(at, :outcome, :accepted)} end,
+        advance_workspace_base: fn _rs, _key, _f -> nil end
+      )
+
+    # The infra-parked slice is reused verbatim from the committed stream — no double retry
+    # after the crash (the provider outage was already an evidenced abstention).
+    assert [%{"slice_id" => "SLICE-001", "gate_result" => "infra_error"}] = result.events
+    refute_received {:ran, "SLICE-001"}
+  end
 end

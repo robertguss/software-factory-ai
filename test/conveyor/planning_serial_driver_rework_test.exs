@@ -170,6 +170,58 @@ defmodule Conveyor.Planning.SerialDriverReworkTest do
     assert RunAttempt |> Ash.read!(domain: Factory) |> Enum.count(&(&1.slice_id == slice.id)) == 1
   end
 
+  test "rt6k.7: a provider outage parks the slice as infra_error through the full pipeline" do
+    fixture = fixture!("serial-infra")
+    slice = Map.fetch!(fixture.slices_by_stable_key, @slice)
+
+    result =
+      SerialDriver.run!(
+        %{work_graph: fixture.work_graph, selected_slice_ids: [@slice]},
+        slices_by_stable_key: fixture.slices_by_stable_key,
+        run_spec_opts: [plan_path: @plan_path, blob_root: fixture.blob_root],
+        actor: "serial-infra-test",
+        rework: true,
+        max_attempts: 3,
+        # The slice output carries an exhausted-infra marker (as the adapter would emit it).
+        run_slice: fn _attempt ->
+          %{
+            status: :succeeded,
+            output: %{
+              "verification_result" => %{},
+              "infra_error" => %{"class" => "provider_unavailable", "retries" => 2}
+            }
+          }
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result -> gate_result(false, []) end,
+        finalize_gate: fn _gate, _run_spec, attempt ->
+          %{
+            run_attempt:
+              Ash.update!(attempt, %{status: :needs_rework, outcome: :needs_rework},
+                domain: Factory
+              )
+          }
+        end,
+        advance_workspace_base: fn _r, _s, _f -> :ok end
+      )
+
+    # The provider outage parks the slice DISTINCTLY (not rework-exhaustion) and, being a
+    # single-slice plan, isolates the failure as :partial — without burning the retry budget.
+    assert result.status == :partial
+    [event] = result.events
+    assert event["status"] == "parked"
+    assert event["gate_result"] == "infra_error"
+    assert RunAttempt |> Ash.read!(domain: Factory) |> Enum.count(&(&1.slice_id == slice.id)) == 1
+
+    # The typed infra_error is on the ledger for triage/digest (provider down, not work hard).
+    infra_event =
+      Conveyor.Factory.LedgerEvent
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.type == "attempt.infra_error"))
+
+    assert infra_event.payload["class"] == "provider_unavailable"
+    assert infra_event.payload["retries"] == 2
+  end
+
   defp gate_result(passed?, findings) do
     %Gate.Result{
       status: if(passed?, do: :passed, else: :failed),

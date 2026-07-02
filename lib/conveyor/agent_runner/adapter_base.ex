@@ -38,6 +38,10 @@ defmodule Conveyor.AgentRunner.AdapterBase do
   # reports a timeout (empty stdout, exit #{@agent_timeout_exit_code}) so the loop treats
   # the slice as a failed attempt instead of hanging the unattended run. Transient infra
   # failures are retried here (rt6k.6) rather than burning an attempt.
+  # Returns `{stdout, exit_code, infra_meta}`. `infra_meta` is nil for a work outcome (the agent
+  # ran, even badly) and a `%{"class" => class, "retries" => n}` map ONLY when transient infra
+  # failures exhausted the retry cap (rt6k.7) — the caller surfaces that as a typed infra_error
+  # rather than a consumed rework attempt.
   def run_with_timeout(exec, prompt, ws_path, opts, timeout_ms) do
     run_with_infra_retry(exec, prompt, ws_path, opts, timeout_ms, 0)
   end
@@ -64,10 +68,10 @@ defmodule Conveyor.AgentRunner.AdapterBase do
             "after #{cap} retries — failing the attempt (infra_error)"
         )
 
-        {stdout, exit_code}
+        {stdout, exit_code, %{"class" => to_string(class), "retries" => retry_index}}
 
       :work ->
-        {stdout, exit_code}
+        {stdout, exit_code, nil}
     end
   end
 

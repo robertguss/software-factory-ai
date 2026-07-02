@@ -58,51 +58,92 @@ defmodule Conveyor.AttemptLoop do
     gate = run_gate!(run_spec, attempt, slice_result, opts)
     finalization = finalize_gate!(gate, run_spec, attempt, slice_result, opts)
     final_attempt = final_attempt(finalization, attempt)
-    attempt_event = attempt_event(final_attempt, gate)
     attempts = attempts ++ [final_attempt]
-    events = events ++ [attempt_event]
-
-    fingerprint = FailureFingerprint.compute(gate)
-    sentinel = sentinel_decision(final_attempt, slice_result, prev_fingerprint, fingerprint)
+    events = events ++ [attempt_event(final_attempt, gate)]
 
     cond do
       final_attempt.outcome in @terminal_outcomes ->
         result(final_attempt.outcome, attempts, events)
 
-      final_attempt.outcome == :needs_rework and match?({:park, _}, sentinel) ->
-        sentinel_park(
-          final_attempt,
-          sentinel,
-          prev_fingerprint,
-          fingerprint,
-          attempts,
-          events,
-          opts
-        )
-
-      final_attempt.outcome == :needs_rework and
-          AttemptBudget.retry_allowed?(budget, length(attempts)) ->
-        retry_attempt =
-          prepare_retry!(final_attempt, run_spec, gate, slice_result, budget, attempts, opts)
-
-        rung = AttemptBudget.rung_for_retry(budget, retry_attempt.attempt_no)
-        event = escalation_event!(final_attempt, retry_attempt, gate, rung, opts)
-
-        loop(
-          retry_attempt,
-          budget,
-          attempts,
-          events ++ [escalation_event(event)],
-          fingerprint,
-          opts
-        )
-
       final_attempt.outcome == :needs_rework ->
-        on_budget_exhausted(final_attempt, attempts, events, opts)
+        handle_rework(final_attempt, %{
+          run_spec: run_spec,
+          gate: gate,
+          slice_result: slice_result,
+          budget: budget,
+          attempts: attempts,
+          events: events,
+          prev_fingerprint: prev_fingerprint,
+          fingerprint: FailureFingerprint.compute(gate),
+          opts: opts
+        })
 
       true ->
         result(:failed, attempts, events)
     end
+  end
+
+  # Decide what a needs-rework attempt becomes, cheapest-abstention first: infra outage (not the
+  # work), then convergence stall / no-progress, then a real retry, then budget exhaustion.
+  defp handle_rework(final_attempt, state) do
+    sentinel =
+      sentinel_decision(
+        final_attempt,
+        state.slice_result,
+        state.prev_fingerprint,
+        state.fingerprint
+      )
+
+    infra_error = infra_error_from(state.slice_result)
+
+    cond do
+      # Transient infra exhausted its retries (rt6k.7): the provider was down. Park with a typed
+      # reason distinct from rework-exhaustion, before consuming a retry.
+      infra_error != nil ->
+        infra_park(final_attempt, infra_error, state.attempts, state.events, state.opts)
+
+      match?({:park, _}, sentinel) ->
+        sentinel_park(
+          final_attempt,
+          sentinel,
+          state.prev_fingerprint,
+          state.fingerprint,
+          state.attempts,
+          state.events,
+          state.opts
+        )
+
+      AttemptBudget.retry_allowed?(state.budget, length(state.attempts)) ->
+        retry_rework(final_attempt, state)
+
+      true ->
+        on_budget_exhausted(final_attempt, state.attempts, state.events, state.opts)
+    end
+  end
+
+  defp retry_rework(final_attempt, state) do
+    retry_attempt =
+      prepare_retry!(
+        final_attempt,
+        state.run_spec,
+        state.gate,
+        state.slice_result,
+        state.budget,
+        state.attempts,
+        state.opts
+      )
+
+    rung = AttemptBudget.rung_for_retry(state.budget, retry_attempt.attempt_no)
+    event = escalation_event!(final_attempt, retry_attempt, state.gate, rung, state.opts)
+
+    loop(
+      retry_attempt,
+      state.budget,
+      state.attempts,
+      state.events ++ [escalation_event(event)],
+      state.fingerprint,
+      state.opts
+    )
   end
 
   # Convergence sentinel (rt6k.3): only meaningful for a rework outcome. Empty diff => no
@@ -137,6 +178,59 @@ defmodule Conveyor.AttemptLoop do
     summary = convergence_summary_event(ledger_event, reason, fingerprint)
     base = result(:convergence_parked, attempts, events ++ [summary])
     %Result{base | report: Map.put(base.report, "sentinel_park", reason)}
+  end
+
+  # rt6k.7: an infra-exhausted attempt surfaces as slice output metadata (adapter -> station).
+  defp infra_error_from(%{output: output}) when is_map(output) do
+    case output["infra_error"] do
+      %{} = infra -> infra
+      _other -> nil
+    end
+  end
+
+  defp infra_error_from(_slice_result), do: nil
+
+  defp infra_park(final_attempt, infra_error, attempts, events, opts) do
+    ledger_event = infra_error_event!(final_attempt, infra_error, opts)
+    class = infra_error["class"]
+
+    Logger.warning(
+      "attempt parked as infra_error: class=#{class} retries=#{infra_error["retries"]} " <>
+        "slice=#{final_attempt.slice_id} — provider failure, not consuming a rework attempt"
+    )
+
+    summary = infra_summary_event(ledger_event, infra_error)
+    base = result(:infra_error, attempts, events ++ [summary])
+    %Result{base | report: Map.put(base.report, "infra_error_class", class)}
+  end
+
+  defp infra_error_event!(final_attempt, infra_error, opts) do
+    project = project_for_attempt!(final_attempt)
+    actor = Keyword.get(opts, :actor, "attempt-loop")
+
+    Ledger.write!(%{
+      project_id: project.id,
+      slice_id: final_attempt.slice_id,
+      run_attempt_id: final_attempt.id,
+      idempotency_key: "infra_error:#{final_attempt.id}",
+      type: "attempt.infra_error",
+      payload: %{
+        "actor" => actor,
+        "run_attempt_id" => final_attempt.id,
+        "attempt_no" => final_attempt.attempt_no,
+        "class" => infra_error["class"],
+        "retries" => infra_error["retries"]
+      }
+    })
+  end
+
+  defp infra_summary_event(%LedgerEvent{} = event, infra_error) do
+    %{
+      "status" => "infra_error",
+      "infra_error_class" => infra_error["class"],
+      "retries" => infra_error["retries"],
+      "ledger_event_id" => event.id
+    }
   end
 
   defp convergence_event!(final_attempt, reason, prev_fingerprint, fingerprint, opts) do

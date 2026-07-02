@@ -548,6 +548,49 @@ defmodule Conveyor.AttemptLoopTest do
     assert retry_brief.desired_behavior =~ "lib/foo.ex"
   end
 
+  test "rt6k.7: an exhausted-infra attempt parks as infra_error, not a consumed rework" do
+    fixture = attempt_fixture!()
+    send_to = self()
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        # Budget would allow retries; infra failure must NOT consume them — it is not the work.
+        max_attempts: 3,
+        actor: "attempt-loop-test",
+        run_slice: fn attempt ->
+          send(send_to, {:run_slice, attempt.attempt_no})
+
+          %{
+            status: :succeeded,
+            output: %{
+              "verification_result" => %{},
+              "infra_error" => %{"class" => "provider_unavailable", "retries" => 2}
+            }
+          }
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          gate_result(false, [%{"category" => "verification_failed", "stage" => "verify"}])
+        end,
+        finalize_gate: &finalize_needs_rework/3
+      )
+
+    assert result.status == :infra_error
+    assert result.report["infra_error_class"] == "provider_unavailable"
+    assert result.report["attempt_count"] == 1
+    assert_received {:run_slice, 1}
+    refute_received {:run_slice, 2}
+
+    # Sentinel/triage reconstructs the infra park from the ledger.
+    event =
+      LedgerEvent
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.type == "attempt.infra_error"))
+
+    assert event.payload["class"] == "provider_unavailable"
+    assert event.payload["retries"] == 2
+  end
+
   defp finalize_needs_rework(_gate, _run_spec, attempt) do
     %{
       run_attempt:

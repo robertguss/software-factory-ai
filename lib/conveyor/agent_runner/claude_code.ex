@@ -108,7 +108,7 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
     timeout_ms = Keyword.get(opts, :agent_timeout_ms, @default_agent_timeout_ms)
     started = System.monotonic_time(:millisecond)
 
-    {stdout, exit_code} =
+    {stdout, exit_code, infra_error} =
       AdapterBase.run_with_timeout(exec, run_prompt.body, ws_path, opts, timeout_ms)
 
     latency_ms = max(System.monotonic_time(:millisecond) - started, 0)
@@ -172,6 +172,7 @@ defmodule Conveyor.AgentRunner.ClaudeCode do
         "model" => Keyword.get(opts, :claude_code_model, default_model()),
         "exit_code" => exit_code,
         "is_error" => is_error,
+        "infra_error" => infra_error,
         "usage" => usage,
         # shared-base persistence key (AdapterBase.update_agent_session!); carries the
         # provider-reported total_cost_usd from the result event.

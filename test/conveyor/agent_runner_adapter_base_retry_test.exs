@@ -30,24 +30,30 @@ defmodule Conveyor.AgentRunner.AdapterBaseRetryTest do
     {exec, pid} =
       scripted([{"529 overloaded_error", 1}, {"529 overloaded_error", 1}, {"diff --git a/x", 0}])
 
-    assert {"diff --git a/x", 0} = AdapterBase.run_with_timeout(exec, "p", "/ws", opts(), 5_000)
+    assert {"diff --git a/x", 0, nil} =
+             AdapterBase.run_with_timeout(exec, "p", "/ws", opts(), 5_000)
+
     assert calls(pid) == 3
   end
 
-  test "persistent infra failure returns after the retry cap is exhausted" do
+  test "persistent infra failure returns a typed infra_error after the retry cap is exhausted" do
     {exec, pid} = scripted([{"503 Service Unavailable", 1}])
 
-    assert {"503 Service Unavailable", 1} =
+    assert {"503 Service Unavailable", 1, infra} =
              AdapterBase.run_with_timeout(exec, "p", "/ws", opts(), 5_000)
+
+    # rt6k.7: the exhausted infra outcome carries its class + retry count for the loop to park on.
+    assert is_binary(infra["class"])
+    assert infra["retries"] == 2
 
     # initial call + 2 retries (default cap)
     assert calls(pid) == 3
   end
 
-  test "a work outcome (bad diff) is never retried" do
+  test "a work outcome (bad diff) is never retried and carries no infra metadata" do
     {exec, pid} = scripted([{"assertion failed: expected 2 got 3", 1}])
 
-    assert {"assertion failed: expected 2 got 3", 1} =
+    assert {"assertion failed: expected 2 got 3", 1, nil} =
              AdapterBase.run_with_timeout(exec, "p", "/ws", opts(), 5_000)
 
     assert calls(pid) == 1
@@ -55,7 +61,7 @@ defmodule Conveyor.AgentRunner.AdapterBaseRetryTest do
 
   test "a clean success is not retried" do
     {exec, pid} = scripted([{"ok", 0}])
-    assert {"ok", 0} = AdapterBase.run_with_timeout(exec, "p", "/ws", opts(), 5_000)
+    assert {"ok", 0, nil} = AdapterBase.run_with_timeout(exec, "p", "/ws", opts(), 5_000)
     assert calls(pid) == 1
   end
 

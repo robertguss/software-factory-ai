@@ -19,7 +19,7 @@ defmodule Conveyor.AgentRunner.AdapterBaseTest do
   describe "run_with_timeout/5 (watchdog)" do
     test "returns the exec result when it finishes within the budget" do
       exec = fn _prompt, _ws, _opts -> {"done", 0} end
-      assert AdapterBase.run_with_timeout(exec, "p", "/tmp", [], 1_000) == {"done", 0}
+      assert AdapterBase.run_with_timeout(exec, "p", "/tmp", [], 1_000) == {"done", 0, nil}
     end
 
     test "bounds a hung exec: a slow fun returns a timeout (exit 124), never hangs" do
@@ -28,8 +28,19 @@ defmodule Conveyor.AgentRunner.AdapterBaseTest do
         {"", 0}
       end
 
+      # A timeout is transient infra: retried at the seam (rt6k.6) then, when exhausted, returned
+      # as a typed infra_error (rt6k.7). sleep_fn is stubbed so the backoff does not add wall-clock.
       started = System.monotonic_time(:millisecond)
-      assert AdapterBase.run_with_timeout(slow_exec, "p", "/tmp", [], 100) == {"", 124}
+
+      assert {"", 124, %{"class" => "timeout", "retries" => 2}} =
+               AdapterBase.run_with_timeout(
+                 slow_exec,
+                 "p",
+                 "/tmp",
+                 [sleep_fn: fn _ -> :ok end],
+                 100
+               )
+
       assert System.monotonic_time(:millisecond) - started < 5_000
     end
   end
