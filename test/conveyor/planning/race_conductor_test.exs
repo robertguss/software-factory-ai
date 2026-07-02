@@ -62,5 +62,50 @@ defmodule Conveyor.Planning.RaceConductorTest do
       run_fn = fn c -> %{id: c.id, passed?: true, score: 0.93, cost: 5} end
       assert {:winner, %{id: :only}, _} = RaceConductor.race([%{id: :only}], run_fn)
     end
+
+    test "a candidate that crashes becomes a failed result, never crashing the race (dr1m.3.1)" do
+      candidates = [%{id: :boom}, %{id: :good, score: 0.9}]
+
+      run_fn = fn
+        %{id: :boom} -> raise "candidate blew up"
+        c -> %{id: c.id, passed?: true, score: c.score, cost: 10}
+      end
+
+      assert {:winner, %{id: :good}, results} = RaceConductor.race(candidates, run_fn)
+      assert length(results) == 2
+
+      boom = Enum.find(results, &(&1.id == :boom))
+      refute boom.passed?
+      assert Map.has_key?(boom, :error)
+    end
+
+    test "a candidate that exceeds the timeout is killed and marked failed, not fatal (dr1m.3.1)" do
+      candidates = [%{id: :slow}, %{id: :fast, score: 0.9}]
+
+      run_fn = fn
+        %{id: :slow} = c ->
+          Process.sleep(5_000)
+          %{id: c.id, passed?: true, score: 1.0, cost: 1}
+
+        c ->
+          %{id: c.id, passed?: true, score: c.score, cost: 10}
+      end
+
+      assert {:winner, %{id: :fast}, results} =
+               RaceConductor.race(candidates, run_fn, timeout: 50)
+
+      slow = Enum.find(results, &(&1.id == :slow))
+      refute slow.passed?
+      assert slow.error == :timeout
+    end
+
+    test "all candidates crash -> :no_winner with failed results (dr1m.3.1)" do
+      candidates = [%{id: :a}, %{id: :b}]
+      run_fn = fn _c -> raise "always fails" end
+
+      assert {:no_winner, results} = RaceConductor.race(candidates, run_fn)
+      assert length(results) == 2
+      assert Enum.all?(results, &(&1.passed? == false))
+    end
   end
 end
