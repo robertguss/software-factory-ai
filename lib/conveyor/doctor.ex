@@ -22,6 +22,7 @@ defmodule Conveyor.Doctor do
     postgres_check = Keyword.get(opts, :postgres_check, &default_postgres_check/1)
     git_command = Keyword.get(opts, :git_command, &System.cmd/3)
     docker_command = Keyword.get(opts, :docker_command, &System.cmd/3)
+    adapter = resolve_adapter(opts)
 
     {config, findings} = load_config(project_path)
 
@@ -31,8 +32,10 @@ defmodule Conveyor.Doctor do
       |> Kernel.++(check_oban())
       |> Kernel.++(check_postgres(postgres_check))
       |> Kernel.++(check_docker(executable?))
+      |> Kernel.++(check_agent_backend(adapter, executable?, docker_command))
       |> Kernel.++(check_toolchain_profiles(executable?, docker_command))
       |> Kernel.++(check_sandbox_constraints(executable?, docker_command))
+      |> Kernel.++(check_policy_toml(project_path))
       |> Kernel.++(check_git(project_path, executable?))
       |> Kernel.++(check_sample_repo(project_path, config, executable?, git_command))
       |> Kernel.++(check_project_files(project_path, config))
@@ -237,6 +240,116 @@ defmodule Conveyor.Doctor do
           )
         ]
     end
+  end
+
+  # mmxr.4 (never-lie): validate the ACTIVE agent backend's prereqs, not a stale vendor. The default
+  # is contained Claude Code (PRs #39/#40); `--adapter`/`config :conveyor, :agent_adapter` selects
+  # another. Codex prereqs are only checked when codex is the selected backend.
+  @spec resolve_adapter(keyword()) :: String.t()
+  defp resolve_adapter(opts) do
+    (Keyword.get(opts, :adapter) || Application.get_env(:conveyor, :agent_adapter, "claude_code"))
+    |> to_string()
+  end
+
+  defp check_agent_backend("codex", executable?, _docker_command) do
+    require_cli(
+      executable?,
+      "codex",
+      "Codex is the selected agent backend but the `codex` CLI is not installed",
+      "Install the Codex CLI and log in, or select another agent backend"
+    )
+  end
+
+  defp check_agent_backend(_claude_code, executable?, docker_command) do
+    cli =
+      require_cli(
+        executable?,
+        "claude",
+        "Claude Code is the default agent backend but the `claude` CLI is not installed",
+        "Install Claude Code and authenticate (claude login)"
+      )
+
+    cli ++ check_agent_image(executable?, docker_command)
+  end
+
+  defp require_cli(executable?, command, message, action_label) do
+    if executable?.(command),
+      do: [],
+      else: [failure(String.to_atom("agent_backend_#{command}"), message, action_label)]
+  end
+
+  # The contained backend needs its prebuilt image; a warning (buildable on-demand), matching the
+  # toolchain-profile image check rather than hard-failing a first run before the build step.
+  defp check_agent_image(executable?, docker_command) do
+    case Application.get_env(:conveyor, :agent_container_image) do
+      nil ->
+        [
+          warning(
+            :agent_image,
+            "No agent container image is configured; the contained backend cannot run",
+            "Set `config :conveyor, :agent_container_image`"
+          )
+        ]
+
+      image when is_binary(image) ->
+        if executable?.("docker"), do: agent_image_finding(image, docker_command), else: []
+    end
+  end
+
+  defp agent_image_finding(image, docker_command) do
+    case docker_command.("docker", ["image", "inspect", image], stderr_to_stdout: true) do
+      {_output, 0} ->
+        []
+
+      {_output, _nonzero} ->
+        [
+          warning(
+            :agent_image,
+            "Agent container image #{image} is not present locally; the contained backend needs it",
+            "docker build -t #{image} toolchains/agent-image"
+          )
+        ]
+    end
+  end
+
+  # a7kf tie-in: a malformed policy TOML must be caught pre-flight, not at slice 1 of a night run.
+  defp check_policy_toml(project_path) do
+    project_path
+    |> Path.join(".conveyor/policies/*.toml")
+    |> Path.wildcard()
+    |> Enum.flat_map(&policy_toml_finding/1)
+  end
+
+  defp policy_toml_finding(path) do
+    case File.read(path) do
+      {:ok, content} -> policy_toml_parse_finding(path, content)
+      {:error, _posix} -> []
+    end
+  end
+
+  defp policy_toml_parse_finding(path, content) do
+    case decode_policy_toml(content) do
+      {:ok, _decoded} ->
+        []
+
+      {:error, reason} ->
+        [
+          failure(
+            :policy_toml,
+            "Policy file #{Path.basename(path)} is not valid TOML: #{reason}",
+            "Fix the TOML syntax in #{path}"
+          )
+        ]
+    end
+  end
+
+  defp decode_policy_toml(content) do
+    case TomlElixir.decode(content) do
+      {:ok, decoded} -> {:ok, decoded}
+      {:error, reason} -> {:error, inspect(reason)}
+    end
+  rescue
+    error -> {:error, Exception.message(error)}
   end
 
   defp check_sandbox_constraints(executable?, docker_command) do

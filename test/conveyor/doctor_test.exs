@@ -10,7 +10,7 @@ defmodule Conveyor.DoctorTest do
 
     result =
       Doctor.run(project_path,
-        executable?: executable?(["docker", "git"]),
+        executable?: executable?(["docker", "git", "claude"]),
         docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
@@ -18,6 +18,81 @@ defmodule Conveyor.DoctorTest do
     assert result.status == :passed, inspect(result.findings)
     refute Enum.any?(result.findings, &(&1.severity == :failure))
     assert Enum.any?(result.findings, &(&1.check == :pi and &1.severity == :warning))
+  end
+
+  # --- mmxr.4: active-adapter + containment + policy-TOML prereqs -------------
+
+  test "fails when the default (claude_code) agent backend CLI is absent" do
+    project_path = scaffold_project!()
+
+    result =
+      Doctor.run(project_path,
+        executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
+        postgres_check: fn _config -> :ok end
+      )
+
+    assert_failed(result, :agent_backend_claude)
+  end
+
+  test "checks codex prereqs (not claude) when codex is the selected adapter" do
+    project_path = scaffold_project!()
+
+    # codex selected + present: no claude requirement, no agent-backend failure
+    passing =
+      Doctor.run(project_path,
+        adapter: "codex",
+        executable?: executable?(["docker", "git", "codex"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
+        postgres_check: fn _config -> :ok end
+      )
+
+    refute Enum.any?(
+             passing.findings,
+             &(&1.check in [:agent_backend_claude, :agent_backend_codex])
+           )
+
+    # codex selected + absent: codex is the failing prereq
+    failing =
+      Doctor.run(project_path,
+        adapter: "codex",
+        executable?: executable?(["docker", "git"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
+        postgres_check: fn _config -> :ok end
+      )
+
+    assert_failed(failing, :agent_backend_codex)
+  end
+
+  test "fails when a policy TOML file is malformed (a7kf: caught pre-flight, not at slice 1)" do
+    project_path = scaffold_project!()
+    policies_dir = Path.join(project_path, ".conveyor/policies")
+    File.mkdir_p!(policies_dir)
+    File.write!(Path.join(policies_dir, "broken.toml"), "this is = = not valid toml [[[")
+
+    result =
+      Doctor.run(project_path,
+        executable?: executable?(["docker", "git", "claude"]),
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
+        postgres_check: fn _config -> :ok end
+      )
+
+    assert_failed(result, :policy_toml)
+  end
+
+  test "warns (does not fail) when the agent container image is not present locally" do
+    project_path = scaffold_project!()
+
+    result =
+      Doctor.run(project_path,
+        executable?: executable?(["docker", "git", "claude"]),
+        # docker_info returns nonzero for `docker image inspect` -> image absent
+        docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
+        postgres_check: fn _config -> :ok end
+      )
+
+    assert Enum.any?(result.findings, &(&1.check == :agent_image and &1.severity == :warning))
+    refute Enum.any?(result.findings, &(&1.check == :agent_image and &1.severity == :failure))
   end
 
   test "fails when Docker is missing" do
@@ -41,7 +116,7 @@ defmodule Conveyor.DoctorTest do
 
     result =
       Doctor.run(project_path,
-        executable?: executable?(["docker", "git"]),
+        executable?: executable?(["docker", "git", "claude"]),
         docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> {:error, :econnrefused} end
       )
@@ -58,7 +133,7 @@ defmodule Conveyor.DoctorTest do
 
     result =
       Doctor.run(project_path,
-        executable?: executable?(["docker", "git"]),
+        executable?: executable?(["docker", "git", "claude"]),
         docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
@@ -80,7 +155,7 @@ defmodule Conveyor.DoctorTest do
 
     result =
       Doctor.run(project_path,
-        executable?: executable?(["docker", "git"]),
+        executable?: executable?(["docker", "git", "claude"]),
         docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
@@ -97,7 +172,7 @@ defmodule Conveyor.DoctorTest do
 
     result =
       Doctor.run(project_path,
-        executable?: executable?(["docker", "git"]),
+        executable?: executable?(["docker", "git", "claude"]),
         docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
@@ -113,7 +188,7 @@ defmodule Conveyor.DoctorTest do
 
     result =
       Doctor.run(project_path,
-        executable?: executable?(["docker", "git"]),
+        executable?: executable?(["docker", "git", "claude"]),
         docker_command: docker_info(["name=seccomp,profile=builtin", "name=rootless"]),
         postgres_check: fn _config -> :ok end
       )
@@ -129,7 +204,7 @@ defmodule Conveyor.DoctorTest do
 
     result =
       Doctor.run(project_path,
-        executable?: executable?(["docker", "git"]),
+        executable?: executable?(["docker", "git", "claude"]),
         docker_command: docker_info(["name=apparmor"]),
         postgres_check: fn _config -> :ok end
       )
