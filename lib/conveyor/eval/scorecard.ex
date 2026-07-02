@@ -1,10 +1,9 @@
 defmodule Conveyor.Eval.Scorecard do
   @moduledoc """
   Versioned, deterministic projection that aggregates every eval suite's metrics
-  into one glanceable, CI-gating report (idea #9). Mirrors
-  `Conveyor.Battery.ReleaseReport`: a map carrying a `"schema_version"` token plus
-  a structured `"canonical_blockers"` list so a prose summary can never hide a
-  blocker.
+  into one glanceable, CI-gating report (idea #9): a map carrying a
+  `"schema_version"` token plus a structured `"canonical_blockers"` list so a
+  prose summary can never hide a blocker.
 
   Each eval suite writes its metrics (`conveyor.eval_metric@1`) to
   `eval/scorecards/inputs/*.json`; `build/2` ingests them into one

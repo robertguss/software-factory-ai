@@ -15,17 +15,9 @@ defmodule Conveyor.ConductorSupervisorTest do
 
   @worker_modules [
     Conveyor.Jobs.RunSlice,
-    Conveyor.Jobs.BaselineHealth,
-    Conveyor.Jobs.AcceptanceCalibration,
-    Conveyor.Jobs.ContextScout,
-    Conveyor.Jobs.RunImplementer,
-    Conveyor.Jobs.RecordEvidence,
     Conveyor.Jobs.RunReviewer,
     Conveyor.Jobs.RunGate,
-    Conveyor.Jobs.RunGateCanary,
-    Conveyor.Jobs.ReconcileStaleEffects,
-    Conveyor.Jobs.ReapSandboxes,
-    Conveyor.Jobs.ProjectArtifacts
+    Conveyor.Jobs.ReconcileStaleEffects
   ]
 
   test "conductor supervisor starts the named phase 1 skeleton services" do

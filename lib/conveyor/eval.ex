@@ -15,7 +15,7 @@ defmodule Conveyor.Eval do
       migration aliases only). See `docs/schemas/CANONICALIZATION.md` + ADR-04.
     * **Reports** — versioned, deterministic maps carrying a `"schema_version"`
       token plus structured blocker lists, so a prose summary can never hide a
-      blocker (mirror `Conveyor.Battery.ReleaseReport`).
+      blocker.
     * **Data** — committed datasets live under `eval/` (`corpora/`, `cassettes/`,
       `scorecards/`); generated scorecard inputs under `eval/scorecards/inputs/`.
 
