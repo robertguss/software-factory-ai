@@ -37,7 +37,11 @@ draft ─(conveyor.task.lock)→ locked ─(conveyor.task.approve)→ approved �
 
 4. **Approve each task** with `mix conveyor.task.approve`. Approval is the
    human's explicit authorization; it is separate from lock so a reviewer can
-   inspect the compiled contract before signing off.
+   inspect the compiled contract before signing off. To lock + approve a whole
+   plan at once, use `mix conveyor.plan.approve PLAN_ID` — it runs the plan-lint
+   gate first (refusing a lint-failing plan with findings, never
+   rubber-stamping), prints a per-slice summary, then locks and approves every
+   drafted slice; add `--yes` to skip the confirmation.
 
 5. **Run by plan id** (not a file path):
    `mix conveyor.run <plan-id> --workspace <ws>`.
