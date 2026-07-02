@@ -197,6 +197,9 @@ defmodule Conveyor.GateFinalizerTest do
     finalized = Finalizer.finalize!(result, ctx)
 
     assert finalized.trust_score.band == :abstain
+    # a3hf.1.3.1: present-but-weak signals match no named reason -> safe default, persisted.
+    assert finalized.park_reason == :unclassified
+    assert get_by_id!(GateResult, finalized.gate_result.id).park_reason == "unclassified"
     # the verdict is durably persisted on the gate result (jsonb -> string keys)
     assert get_by_id!(GateResult, finalized.gate_result.id).trust_score["band"] == "abstain"
     assert get_by_id!(RunAttempt, context.run_attempt.id).status == :gated
@@ -228,6 +231,9 @@ defmodule Conveyor.GateFinalizerTest do
     finalized = Finalizer.finalize!(result, ctx)
 
     assert finalized.trust_score.band == :abstain
+    # a3hf.1.3.1: the missing calibration signal is a typed :missing_signal park reason.
+    assert finalized.park_reason == :missing_signal
+    assert get_by_id!(GateResult, finalized.gate_result.id).park_reason == "missing_signal"
     assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
     assert get_by_id!(Slice, context.slice.id).state == :parked
     assert Ash.read!(CodeProvenanceEdge, domain: Factory) == []
@@ -252,6 +258,9 @@ defmodule Conveyor.GateFinalizerTest do
     finalized = Finalizer.finalize!(result, ctx)
 
     assert finalized.trust_score.band == :abstain
+    # a3hf.1.3.1: acceptance green-on-base (calibration :invalid) is typed :weak_acceptance_tests.
+    assert finalized.park_reason == :weak_acceptance_tests
+    assert get_by_id!(GateResult, finalized.gate_result.id).park_reason == "weak_acceptance_tests"
     assert get_by_id!(RunAttempt, context.run_attempt.id).outcome == :abstained
     assert get_by_id!(Slice, context.slice.id).state == :parked
   end

@@ -41,6 +41,10 @@ defmodule Conveyor.Factory.GateResult do
     # thresholds / policy_digest so abstentions are durable and queryable.
     attribute :trust_score, :map, public?: true
 
+    # a3hf.1.3.1: typed park-reason (Conveyor.Gate.ParkReason) when a passed gate abstained and the
+    # slice parked. Nullable — only abstain/park results carry one. Durable home for the inbox.
+    attribute :park_reason, :string, public?: true
+
     # enjh: insertion time so multiple verdicts per attempt resolve by recency
     # (conveyor.show + ParkedQueue pick the most recent), not by arbitrary uuid id.
     create_timestamp :created_at

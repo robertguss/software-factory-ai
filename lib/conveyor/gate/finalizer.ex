@@ -10,6 +10,7 @@ defmodule Conveyor.Gate.Finalizer do
   alias Conveyor.Factory.RunAttempt
   alias Conveyor.Factory.Slice
   alias Conveyor.Gate
+  alias Conveyor.Gate.ParkReason
   alias Conveyor.Gate.TrustScore
   alias Conveyor.Genome.BackEdge
   alias Conveyor.RunAttemptLifecycle
@@ -20,7 +21,8 @@ defmodule Conveyor.Gate.Finalizer do
   def finalize!(%Gate.Result{} = result, context, opts \\ []) when is_map(context) do
     actor = Keyword.get(opts, :actor, "gate")
     trust = trust_score(result, context)
-    gate_result = persist_gate_result!(result, trust)
+    park_reason = park_reason_for(result, trust, context)
+    gate_result = persist_gate_result!(result, trust, park_reason)
     run_attempt = run_attempt!(context)
     slice = slice!(context, run_attempt)
     project = project!(context, slice)
@@ -32,7 +34,7 @@ defmodule Conveyor.Gate.Finalizer do
         # verified-pass provenance is minted. Opt-in: only fires when the conductor
         # supplied `:trust_evidence`, so existing pass paths are unchanged.
         result.passed? and abstain?(trust) ->
-          {abstain_gate!(run_attempt, slice, actor), %{}}
+          {abstain_gate!(run_attempt, slice, actor, park_reason), %{}}
 
         result.passed? ->
           {pass_gate!(run_attempt, slice, actor), emit_pass_outputs!(context, gate_result, actor)}
@@ -48,8 +50,17 @@ defmodule Conveyor.Gate.Finalizer do
       incident: Map.get(transition, :incident)
     }
     |> maybe_put(:trust_score, trust)
+    |> maybe_put(:park_reason, park_reason)
     |> Map.merge(pass_outputs)
   end
+
+  # a3hf.1.3.1: classify a gate abstain into the typed park-reason taxonomy from its recorded trust
+  # evidence. Only a passed-but-abstained gate parks, so every other outcome carries no reason.
+  defp park_reason_for(%Gate.Result{passed?: true}, %{band: :abstain}, context) do
+    context |> value(:trust_evidence) |> ParkReason.from_gate_evidence()
+  end
+
+  defp park_reason_for(_result, _trust, _context), do: nil
 
   # ADR-23: calibrated trust of a passed gate. Returns nil (no opinion) when the
   # conductor supplied no `:trust_evidence`, leaving the legacy pass path intact.
@@ -65,7 +76,7 @@ defmodule Conveyor.Gate.Finalizer do
   defp abstain?(%{band: :abstain}), do: true
   defp abstain?(_trust), do: false
 
-  defp abstain_gate!(run_attempt, slice, actor) do
+  defp abstain_gate!(run_attempt, slice, actor, park_reason) do
     run_attempt =
       transition_run_attempt(run_attempt, :gate, actor,
         reason: "gate passed but trust score abstained",
@@ -77,7 +88,7 @@ defmodule Conveyor.Gate.Finalizer do
         slice,
         :park,
         actor,
-        "gate passed but not calibrated-confident; parked for human review"
+        "gate passed but not calibrated-confident; parked for human review (#{park_reason})"
       )
 
     %{run_attempt: run_attempt, slice: slice}
@@ -94,13 +105,14 @@ defmodule Conveyor.Gate.Finalizer do
     }
   end
 
-  defp persist_gate_result!(result, trust) do
+  defp persist_gate_result!(result, trust, park_reason) do
     attrs =
       result.gate_result_attrs
       |> Map.put_new(:level, :slice)
       |> Map.put(:passed, result.passed?)
       |> Map.put(:stages, Enum.map(result.stages, &stage_result_map/1))
       |> maybe_put(:trust_score, trust)
+      |> maybe_put(:park_reason, park_reason && Atom.to_string(park_reason))
 
     Ash.create!(GateResult, attrs, domain: Factory)
   end
