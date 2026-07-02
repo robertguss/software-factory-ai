@@ -115,6 +115,11 @@ config :conveyor, Conveyor.ContextScout,
   excerpt_max_files: 5,
   excerpt_max_bytes: 1200
 
+# m4b2.4: gates the reviewer_aggregation stage into the live gate stage list. Default OFF so
+# hermetic/$0 paths stay at the 7 M4 stages and no run requires a review until the reviewer
+# producer is invoked in the loop; flip to true (with the producer wired) to require review.
+config :conveyor, :reviewer_aggregation, enabled: false
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

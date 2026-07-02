@@ -18,6 +18,8 @@ defmodule Conveyor.Planning.SerialDriver do
     PatchSet,
     Plan,
     Project,
+    Review,
+    ReviewerHealth,
     RunAttempt,
     Slice,
     TestPack
@@ -630,13 +632,35 @@ defmodule Conveyor.Planning.SerialDriver do
           |> Map.merge(default_gate_context(run_spec, run_attempt, slice_result))
           |> Map.merge(extra_gate_context(run_spec, run_attempt, slice_result, opts))
 
+        # gate_stages default is config-gated (m4b2.4): reviewer_aggregation joins the live stage
+        # list only when the reviewer producer is configured ON, so hermetic paths stay at 7.
         RunGate.run_gate_only!(
           context,
-          Keyword.get(opts, :gate_stages, @default_gate_stages),
+          Keyword.get(opts, :gate_stages, gate_stages(opts)),
           gate_code_sha256: Keyword.get(opts, :gate_code_sha256, digest("gate")),
           policy_sha256: run_spec.policy_sha256,
           contract_lock_sha256: run_spec.contract_lock_sha256
         )
+    end
+  end
+
+  # m4b2.4: reviewer_aggregation joins the live stage list only when enabled (per-run opt or
+  # `config :conveyor, :reviewer_aggregation, enabled: true`). Default OFF keeps hermetic/$0 paths
+  # at the 7 M4 stages; ON makes an independent review REQUIRED, so a slice with no accepted review
+  # parks (fail closed).
+  @doc false
+  def gate_stages(opts) do
+    if reviewer_aggregation_enabled?(opts) do
+      @default_gate_stages ++ [Conveyor.Gate.Stages.ReviewerAggregation]
+    else
+      @default_gate_stages
+    end
+  end
+
+  defp reviewer_aggregation_enabled?(opts) do
+    case Keyword.get(opts, :reviewer_aggregation) do
+      nil -> Application.get_env(:conveyor, :reviewer_aggregation, [])[:enabled] == true
+      enabled -> enabled == true
     end
   end
 
@@ -653,11 +677,25 @@ defmodule Conveyor.Planning.SerialDriver do
       evidence: evidence,
       head_tree_sha256: gate_head_tree_sha256(run_spec),
       patch_set: patch_set,
+      # m4b2.4: the independent-review signal for the reviewer_aggregation stage. Loaded always
+      # (cheap) but only consumed when the stage is enabled; absence => the stage fails closed.
+      reviews: reviews_for(run_attempt.id),
+      reviewer_health: reviewer_health_records(),
       security_findings: value(slice_result.output, :security_findings, []),
       test_pack: contract.test_pack
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
+  end
+
+  defp reviews_for(run_attempt_id) do
+    Review
+    |> Ash.read!(domain: Factory)
+    |> Enum.filter(&(&1.run_attempt_id == run_attempt_id))
+  end
+
+  defp reviewer_health_records do
+    Ash.read!(ReviewerHealth, domain: Factory)
   end
 
   # M4-E producer for workspace_integrity: a non-mutating head-tree digest of the live
