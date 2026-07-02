@@ -1,6 +1,33 @@
-# Conveyor — ROADMAP (v2)
+# Conveyor — ROADMAP (v3 — reset)
 
-> **🟢 Execution update (2026-07-02).** A focused improvement program is under
+> **🔴 THE RESET (2026-07-02) — this block wins over everything below.**
+> Owner-ratified reset; full charter in [`docs/RESET.md`](docs/RESET.md).
+> Recovery point: git tag `pre-reset`.
+>
+> - **Identity:** Conveyor is Robert's personal overnight software factory —
+>   he hands it a real plan at night, a trust gate decides what merges, he
+>   wakes to verified work. Width-1 serial is the product, not a phase.
+> - **New exit bar (replaces §4):** _Conveyor built the first real target
+>   overnight, and Robert merged it._ First target: a greenfield personal
+>   project (Python or Elixir). Day-job code only after staged trust **and
+>   written employer policy clearance**.
+> - **Cut (not deferred):** Track B / M7 cross-slice fleet + Oban substrate;
+>   the five-stack toolchain matrix; OSS-facing work; the speculative eval
+>   empire (gate-honesty chain stays).
+> - **Demand-driven remainders:** former M4/M5/M6 remainder items are built
+>   only when a real run parks on their absence — no speculative wiring.
+> - **Standing rule:** _no bead without a run_ — beads come only from explicit
+>   owner intent or a gap observed in a real run. AI never files beads from
+>   its own ideas.
+> - **Executed on reset day:** `implement-all-beads-prompt.md` deleted;
+>   backlog amnesty (all open/deferred beads closed as archived hypotheses);
+>   test-only ghost modules deleted green-gated.
+>
+> The blocks below are preserved as history and remain useful as an honest map
+> of what exists; where they prescribe direction, this block supersedes them.
+
+> **⚪ SUPERSEDED by the reset above — preserved as history.** **Execution
+> update (2026-07-02).** A focused improvement program is under
 > way, driven off the beads backlog and mapped onto the milestones below; where
 > it disagrees with older blocks, **this block wins.** It groups the open work
 > into epics:

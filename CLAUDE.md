@@ -69,6 +69,9 @@ therefore unmeasured, not inferred.
   commands.
 - If implementation work has no bead, create one with
   `br create --actor "$ACTOR"` or add a clarifying comment before proceeding.
+- **No bead without a run (docs/RESET.md):** beads may be filed only from
+  explicit owner intent or from a gap observed in a real Conveyor run. AI
+  agents must never file beads from their own improvement ideas.
 - Run `br dep cycles --json` when touching issue dependencies; cycles must be
   empty.
 - After issue changes, run `br sync --flush-only`; `br` never commits git
@@ -89,6 +92,8 @@ therefore unmeasured, not inferred.
   project contract surface and has deeper instructions.
 - This project is greenfield and is in active development. You must never write
   "backward compatibility" code or anything for "legacy" features.
+- Do not file speculative factory-improvement beads or build features ahead of
+  demand; work must trace to a real run or the owner (see `docs/RESET.md`).
 
 ## COMMANDS
 
