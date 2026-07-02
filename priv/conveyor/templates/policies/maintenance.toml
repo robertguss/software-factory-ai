@@ -1,7 +1,7 @@
 [policy]
 name = "maintenance"
 profile = "maintenance"
-autonomy_ceiling = "L0"
+autonomy_ceiling = "L0"  # ADVISORY: not enforced on the default (Claude Code) run path (see docs/audits/config-surface-truth.md)
 network = "none"
 future_gated = true
 
@@ -24,7 +24,6 @@ denylist = [
 
 [policy.env]
 allowlist = []
-deny_production_secrets = true
-
+deny_production_secrets = true  # ADVISORY: not enforced; only [policy.env].allowlist is read
 [policy.budget]
 max_tool_calls = 0

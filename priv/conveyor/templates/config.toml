@@ -1,36 +1,47 @@
+# ---------------------------------------------------------------------------
+# ADVISORY: this file scaffolds and DOCUMENTS a Conveyor project. At runtime the
+# source of truth is the approved plan contract + DB resources, not this file.
+# Keys tagged "# ADVISORY: not enforced at runtime" are parsed and validated but
+# do NOT change a `mix conveyor.run`. See docs/audits/config-surface-truth.md
+# (bead never-lie-mmxr.1) for the full per-key verdict + evidence.
+# ---------------------------------------------------------------------------
+
 [project]
 name = "sample_tasks"
 repo_path = "."
 default_branch = "main"
 dev_branch = "conveyor/dev"
-default_autonomy_level = "L1"
+default_autonomy_level = "L1"    # ADVISORY: not enforced at runtime (the run reads the DB Project's autonomy level)
 policies_dir = ".conveyor/policies"
-prompts_dir = ".conveyor/prompts"
-runs_dir = ".conveyor/runs"
-blobs_dir = ".conveyor/blobs"
+prompts_dir = ".conveyor/prompts"  # ADVISORY: not enforced at runtime (see the .conveyor/prompts advisory)
+runs_dir = ".conveyor/runs"        # ADVISORY: not enforced at runtime (run artifacts use fixed paths / CLI opts)
+blobs_dir = ".conveyor/blobs"      # ADVISORY: not enforced at runtime (blob root is a CLI opt / default)
 quality_adapter = "noop"
 
 [[project.command_specs]]
+# command_specs DOCUMENT the project's verification commands (rendered into
+# AGENTS.md). The commands a run actually executes come from the plan contract,
+# not this table; the fields tagged below are parsed but never consumed here.
 key = "pytest"
 argv = ["pytest", "-q"]
-cwd = "."
+cwd = "."                          # ADVISORY: not enforced at runtime
 profile = "verify"
 required = true
-timeout_ms = 120000
+timeout_ms = 120000                # ADVISORY: not enforced at runtime
 network = "none"
-env_allowlist = ["PYTHONPATH"]
-output_limit_bytes = 2000000
-result_format = "junit"
-result_adapter = "Conveyor.TestResultAdapter.JUnit"
+env_allowlist = ["PYTHONPATH"]     # ADVISORY: not enforced at runtime
+output_limit_bytes = 2000000       # ADVISORY: not enforced at runtime
+result_format = "junit"            # ADVISORY: not enforced at runtime
+result_adapter = "Conveyor.TestResultAdapter.JUnit"  # ADVISORY: not enforced at runtime
 
 [[project.command_specs]]
 key = "format"
 argv = ["ruff", "format", "--check", "."]
-cwd = "."
+cwd = "."                          # ADVISORY: not enforced at runtime
 profile = "verify"
 required = false
-timeout_ms = 120000
+timeout_ms = 120000                # ADVISORY: not enforced at runtime
 network = "none"
-env_allowlist = []
-output_limit_bytes = 1000000
-result_format = "stdout"
+env_allowlist = []                 # ADVISORY: not enforced at runtime
+output_limit_bytes = 1000000       # ADVISORY: not enforced at runtime
+result_format = "stdout"           # ADVISORY: not enforced at runtime

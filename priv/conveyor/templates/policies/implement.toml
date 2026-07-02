@@ -1,7 +1,7 @@
 [policy]
 name = "implement"
 profile = "implement"
-autonomy_ceiling = "L1"
+autonomy_ceiling = "L1"  # ADVISORY: not enforced on the default (Claude Code) run path (see docs/audits/config-surface-truth.md)
 network = "none"
 
 allowlist = [
@@ -22,4 +22,4 @@ denylist = [
 
 [policy.env]
 allowlist = ["MIX_ENV", "PYTHONPATH"]
-deny_production_secrets = true
+deny_production_secrets = true  # ADVISORY: not enforced; only [policy.env].allowlist is read

@@ -1,3 +1,9 @@
+<!-- ADVISORY — reference only. Editing this file does NOT change agent behavior:
+     the production implementer prompt is compiled into Conveyor and built from
+     the DB RunPrompt, not loaded from .conveyor/prompts/. Operator prompt
+     overrides are tracked as a follow-up. See docs/audits/config-surface-truth.md
+     (bead never-lie-mmxr.1). -->
+
 # Role
 
 You are the implementer for exactly one Conveyor Slice.
