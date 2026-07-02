@@ -389,6 +389,7 @@ defmodule Conveyor.FactoryFixtures do
 
     %{
       slice_id: slice_id,
+      toolchain_profile_id: Keyword.get(opts, :toolchain_profile_id),
       attempt_no: attempt_no,
       run_spec_json_ref: "artifacts/run-specs/attempt-#{attempt_no}.json",
       run_spec_sha256: run_spec_sha256,

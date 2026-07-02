@@ -2,7 +2,11 @@ defmodule Conveyor.Verification.CommandSuiteRunnerTest do
   @moduledoc "tt6v.1: generic verification_result producer + verify-station dispatch through the seam."
   use Conveyor.DataCase, async: false
 
+  import Conveyor.FactoryFixtures
+
+  alias Conveyor.Factory
   alias Conveyor.Factory.Policy
+  alias Conveyor.Factory.ToolchainProfile
   alias Conveyor.Sandbox.Runner
   alias Conveyor.Stations.Verify
   alias Conveyor.Verification.CommandSuiteRunner
@@ -44,14 +48,15 @@ defmodule Conveyor.Verification.CommandSuiteRunnerTest do
     assert result["status"] == "failed"
   end
 
-  test "verify station dispatches to the generic seam on verification_engine=command (tt6v.1)", %{
-    ws: ws,
-    blob: blob
-  } do
+  test "verify station dispatches to the generic seam for a non-python language (tt6v.1/tt6v.2)",
+       %{
+         ws: ws,
+         blob: blob
+       } do
     input = %{
       "workspace_path" => ws,
       "blob_root" => blob,
-      "verification_engine" => "command",
+      "language" => "elixir",
       "policy" => policy(),
       "exec" => ok_exec("ok\n"),
       "plan" => %{"verification_commands" => [cmd(["echo", "ok"])]}
@@ -65,6 +70,44 @@ defmodule Conveyor.Verification.CommandSuiteRunnerTest do
     assert [%{"suite_kind" => "acceptance_locked"}] = verification_result["suites"]
     # the station still produces its integrity verdict over the generic result
     assert output["integrity_verdict"]
+  end
+
+  test "resolves language from the run's toolchain profile — no input override (tt6v.2 round-trip)",
+       %{
+         ws: ws,
+         blob: blob
+       } do
+    profile =
+      Ash.create!(
+        ToolchainProfile,
+        %{
+          key: "elixir-runner",
+          language: "elixir",
+          env_prep: "elixir_mix",
+          default_result_format: "junit",
+          image_ref: "ghcr.io/conveyor/elixir-runner:2026-07-02",
+          image_digest: "sha256:elixir"
+        },
+        domain: Factory
+      )
+
+    %{run_attempt: run_attempt} =
+      create_artifact_run!(toolchain_profile_id: profile.id, blob_root: blob)
+
+    context = %{run_attempt: %{run_spec_id: run_attempt.run_spec_id}}
+
+    input = %{
+      "workspace_path" => ws,
+      "blob_root" => blob,
+      "policy" => policy(),
+      "exec" => ok_exec("ok\n"),
+      "plan" => %{"verification_commands" => [cmd(["echo", "ok"])]}
+    }
+
+    # No "language" key: the elixir profile linked to the run must route to the generic seam.
+    assert {:ok, output} = Verify.run(input, context)
+    assert [%{"suite_kind" => "acceptance_locked"}] = output["verification_result"]["suites"]
+    assert output["verification_status"] == "passed"
   end
 
   defp cmd(argv) do

@@ -7,6 +7,8 @@ defmodule Conveyor.Doctor do
   alias Conveyor.Config.ProjectConfig
   alias Conveyor.Doctor.Finding
   alias Conveyor.Doctor.Result
+  alias Conveyor.Factory
+  alias Conveyor.Factory.ToolchainProfile
   alias Conveyor.Sandbox.DockerProfile
 
   @type executable_fun :: (String.t() -> boolean())
@@ -29,6 +31,7 @@ defmodule Conveyor.Doctor do
       |> Kernel.++(check_oban())
       |> Kernel.++(check_postgres(postgres_check))
       |> Kernel.++(check_docker(executable?))
+      |> Kernel.++(check_toolchain_profiles(executable?, docker_command))
       |> Kernel.++(check_sandbox_constraints(executable?, docker_command))
       |> Kernel.++(check_git(project_path, executable?))
       |> Kernel.++(check_sample_repo(project_path, config, executable?, git_command))
@@ -195,6 +198,44 @@ defmodule Conveyor.Doctor do
       []
     else
       [failure(:docker, "Docker is not reachable or not installed", "Install or start Docker")]
+    end
+  end
+
+  # tt6v.2: each declared toolchain profile's pinned image must be present locally (reproducibility
+  # identity — "passes here, fails there" is exactly what pinned per-language images prevent). A
+  # missing image is a warning, not a failure: the :local backend does not need it, and it is
+  # pullable. Skipped when docker is absent (check_docker already reports that) or the DB is
+  # unreadable (check_postgres reports that).
+  defp check_toolchain_profiles(executable?, docker_command) do
+    if executable?.("docker") do
+      Enum.flat_map(toolchain_profiles(), &profile_image_finding(&1, docker_command))
+    else
+      []
+    end
+  end
+
+  defp toolchain_profiles do
+    Ash.read!(ToolchainProfile, domain: Factory)
+  rescue
+    _error -> []
+  end
+
+  defp profile_image_finding(profile, docker_command) do
+    case docker_command.("docker", ["image", "inspect", profile.image_ref],
+           stderr_to_stdout: true
+         ) do
+      {_output, 0} ->
+        []
+
+      {_output, _nonzero} ->
+        [
+          warning(
+            :toolchain_profile_image,
+            "Toolchain profile #{profile.key} (#{profile.language}) image #{profile.image_ref} " <>
+              "is not present locally",
+            "docker pull #{profile.image_ref}"
+          )
+        ]
     end
   end
 
@@ -539,4 +580,13 @@ defmodule Conveyor.Doctor do
   end
 
   defp warning(check, message), do: %Finding{check: check, severity: :warning, message: message}
+
+  defp warning(check, message, action_label) do
+    %Finding{
+      check: check,
+      severity: :warning,
+      message: message,
+      next_actions: [%NextAction{label: action_label, command: action_label}]
+    }
+  end
 end

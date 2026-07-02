@@ -6,8 +6,11 @@ defmodule Conveyor.Stations.Verify do
   alias Conveyor.Eval.{ToolchainRunner, Workspace}
   alias Conveyor.Factory
   alias Conveyor.Factory.Policy
+  alias Conveyor.Factory.RunSpec
+  alias Conveyor.Factory.ToolchainProfile
   alias Conveyor.Gate.IntegrityEvidence
   alias Conveyor.Verification.CommandSuiteRunner
+  alias Conveyor.Verification.EngineDispatch
 
   @impl Conveyor.Station
   def run(input, context) do
@@ -36,15 +39,41 @@ defmodule Conveyor.Stations.Verify do
      }}
   end
 
-  # tt6v.1: the verify station runs verification through one of two engines behind the same
-  # station output. The default is the pytest-specific ToolchainRunner (python profile — the
-  # sample-python path is unchanged). `verification_engine: "command"` opts into the generic
-  # CommandSuiteRunner, which executes the slice's locked command_specs (any language) via the
-  # trusted CommandRunner/ToolExecutor policy path. Language-driven dispatch is tt6v.2.
+  # tt6v.1/tt6v.2: the verify station runs verification through one of two engines behind the same
+  # station output, chosen by the toolchain profile's language (EngineDispatch). python (and the
+  # absent/default case) use the pytest-specific ToolchainRunner — the sample-python path is
+  # unchanged; any other language uses the generic CommandSuiteRunner, which executes the slice's
+  # locked command_specs via the trusted CommandRunner/ToolExecutor policy path.
   defp verification_result(input, context) do
-    case get(input, "verification_engine") do
-      "command" -> generic_verification_result(input, context)
-      _pytest -> pytest_verification_result(input)
+    case EngineDispatch.engine_for(language_for(input, context)) do
+      :command -> generic_verification_result(input, context)
+      :pytest -> pytest_verification_result(input)
+    end
+  end
+
+  # Language resolves from an explicit input override (tests / assembly), else the profile linked to
+  # the run (run_attempt -> run_spec -> toolchain_profile), else python.
+  defp language_for(input, context) do
+    get(input, "language") || profile_language(context) || "python"
+  end
+
+  defp profile_language(%{run_attempt: %{run_spec_id: run_spec_id}})
+       when is_binary(run_spec_id) do
+    with %RunSpec{toolchain_profile_id: profile_id} when is_binary(profile_id) <-
+           get_record(RunSpec, run_spec_id),
+         %ToolchainProfile{language: language} <- get_record(ToolchainProfile, profile_id) do
+      language
+    else
+      _ -> nil
+    end
+  end
+
+  defp profile_language(_context), do: nil
+
+  defp get_record(resource, id) do
+    case Ash.get(resource, id, domain: Factory) do
+      {:ok, record} -> record
+      _ -> nil
     end
   end
 

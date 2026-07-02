@@ -25,6 +25,27 @@ defmodule Conveyor.Factory.ToolchainProfile do
       public? true
     end
 
+    # tt6v.2: the runner identity. `language` drives the verify-station engine dispatch (python ->
+    # the pytest ToolchainRunner specialization; any other -> the generic CommandSuiteRunner seam);
+    # `env_prep` and `default_result_format` are the profile's execution identity.
+    attribute :language, :string do
+      allow_nil? false
+      default "python"
+      public? true
+    end
+
+    attribute :env_prep, :string do
+      allow_nil? false
+      default "python_venv"
+      public? true
+    end
+
+    attribute :default_result_format, :string do
+      allow_nil? false
+      default "junit"
+      public? true
+    end
+
     attribute :image_ref, :string do
       allow_nil? false
       public? true

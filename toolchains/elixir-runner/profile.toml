@@ -1,0 +1,15 @@
+# tt6v.2: elixir toolchain profile — the per-language identity the verify station dispatches on
+# (language "elixir" -> generic CommandSuiteRunner seam). image_digest is filled when the image is
+# built and pushed (tt6v.3); the REPLACE_AT_BUILD sentinel makes it explicit this is unbuilt.
+[toolchain_profile]
+key = "elixir-runner"
+language = "elixir"
+env_prep = "elixir_mix"
+default_result_format = "junit"
+image_ref = "ghcr.io/conveyor/elixir-runner:2026-07-02"
+image_digest = "sha256:REPLACE_AT_BUILD"
+dependency_lock_refs = ["mix.lock"]
+
+[toolchain_profile.cache_policy]
+mode = "read_only"
+roots = ["/root/.hex", "/root/.mix"]
