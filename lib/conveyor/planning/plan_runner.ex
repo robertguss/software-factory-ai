@@ -12,6 +12,9 @@ defmodule Conveyor.Planning.PlanRunner do
   alias Conveyor.Factory.{Epic, Plan, Project, Slice}
   alias Conveyor.Planning.SerialDriver
   alias Conveyor.Planning.WorkGraphBuilder
+  alias Conveyor.Policy.Profiles
+
+  require Logger
 
   defmodule UnapprovedError do
     @moduledoc "Raised when `conveyor run <plan-id>` is asked to execute an unapproved graph (R5)."
@@ -71,6 +74,7 @@ defmodule Conveyor.Planning.PlanRunner do
     slices = plan_slices(Enum.map(epics, & &1.id))
 
     enforce_approved!(slices)
+    load_workspace_policies!(opts, project)
 
     slices_by_stable_key = Map.new(slices, &{&1.stable_key, &1})
     selected_slice_ids = Enum.map(slices, & &1.stable_key)
@@ -99,6 +103,22 @@ defmodule Conveyor.Planning.PlanRunner do
       serial_result: serial_result,
       work_graph: work_graph
     }
+  end
+
+  # a7kf: make workspace policy TOML load-bearing at runtime. Before this the
+  # scaffolded `.conveyor/policies/*.toml` were inert — the implementer fell back to
+  # the DB or a hardcoded policy. Load them (upsert into DB Policy) at run start when
+  # the workspace declares a policy dir; absent dir keeps prior behavior. load_dir!
+  # fails closed on an incomplete/invalid profile set — a bad policy must stop the run.
+  defp load_workspace_policies!(opts, project) do
+    policy_dir =
+      (Keyword.get(opts, :workspace_path) || project.local_path)
+      |> Path.join(".conveyor/policies")
+
+    if File.dir?(policy_dir) do
+      loaded = Profiles.load_dir!(policy_dir)
+      Logger.info("Loaded #{length(loaded)} workspace policy profiles from #{policy_dir}")
+    end
   end
 
   defp plan_epics(plan_id) do

@@ -4,6 +4,7 @@ defmodule Conveyor.Planning.PlanRunnerDbTest do
   alias Conveyor.Factory
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.Plan
+  alias Conveyor.Factory.Policy
   alias Conveyor.Factory.Project
   alias Conveyor.Planning.PlanRunner
   alias Conveyor.TaskGraph
@@ -87,6 +88,34 @@ defmodule Conveyor.Planning.PlanRunnerDbTest do
     assert Map.keys(opts[:slices_by_stable_key]) |> Enum.sort() == ["SLICE-001", "SLICE-002"]
     assert result.serial_result.status == :passed
     assert result.plan.id == plan.id
+  end
+
+  test "loads workspace .conveyor/policies/*.toml into DB Policy at run start (a7kf)", %{
+    plan: plan,
+    epic: epic
+  } do
+    a = TaskGraph.create_task(%{epic_id: epic.id, title: "A"})
+    TaskGraph.approve_task(a.id)
+
+    workspace = Path.join(System.tmp_dir!(), "a7kf-ws-#{System.unique_integer([:positive])}")
+    policy_dir = Path.join(workspace, ".conveyor/policies")
+    File.mkdir_p!(policy_dir)
+    on_exit(fn -> File.rm_rf!(workspace) end)
+
+    templates = Application.app_dir(:conveyor, ["priv", "conveyor", "templates", "policies"])
+
+    for file <- File.ls!(templates) do
+      File.cp!(Path.join(templates, file), Path.join(policy_dir, file))
+    end
+
+    PlanRunner.run_plan!(plan.id, workspace_path: workspace, actor: "test")
+
+    implement =
+      Policy |> Ash.read!(domain: Factory) |> Enum.find(&(&1.profile == :implement))
+
+    # The workspace toml's allowlist reached the DB (not the empty code fallback).
+    assert implement
+    assert "mix test" in implement.allowlist
   end
 
   defp digest(label), do: "sha256:" <> Base.encode16(:crypto.hash(:sha256, label), case: :lower)
