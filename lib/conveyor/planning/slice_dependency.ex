@@ -79,6 +79,7 @@ defmodule Conveyor.Planning.SliceDependency do
     }
   end
 
+  @spec path(map(), term(), term(), MapSet.t()) :: [term()] | nil
   defp path(_adjacency, current, target, _seen) when current == target, do: [current]
 
   defp path(adjacency, current, target, seen) do

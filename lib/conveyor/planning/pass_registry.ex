@@ -8,6 +8,7 @@ defmodule Conveyor.Planning.PassRegistry do
   defmodule Context do
     @moduledoc "Restricted pass context."
     defstruct [:inputs, :selectors]
+    @type t :: %__MODULE__{}
   end
 
   defmodule Result do
@@ -21,6 +22,8 @@ defmodule Conveyor.Planning.PassRegistry do
       :registry,
       :authority_effect
     ]
+
+    @type t :: %__MODULE__{}
   end
 
   @spec new() :: %__MODULE__{}

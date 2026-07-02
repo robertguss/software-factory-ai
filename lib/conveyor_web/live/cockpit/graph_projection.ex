@@ -577,6 +577,7 @@ defmodule ConveyorWeb.Live.Cockpit.GraphProjection do
     |> Enum.count(&(Map.get(state_map, &1) == :skipped))
   end
 
+  @spec reachable_downstream(String.t(), map(), MapSet.t()) :: MapSet.t()
   defp reachable_downstream(id, ctx, seen) do
     ctx.downstream
     |> Map.get(id, [])

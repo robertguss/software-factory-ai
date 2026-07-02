@@ -9,6 +9,7 @@ defmodule Conveyor.Planning.Decomposer do
   defmodule Result do
     @moduledoc "Decomposition candidate set."
     defstruct [:candidates]
+    @type t :: %__MODULE__{}
   end
 
   @spec propose(map(), keyword()) :: Result.t()

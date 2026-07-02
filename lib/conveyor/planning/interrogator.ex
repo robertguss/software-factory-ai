@@ -27,6 +27,8 @@ defmodule Conveyor.Planning.Interrogator do
       :covered_finding_refs,
       :completeness
     ]
+
+    @type t :: %__MODULE__{}
   end
 
   defmodule Question do

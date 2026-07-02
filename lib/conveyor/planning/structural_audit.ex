@@ -23,6 +23,7 @@ defmodule Conveyor.Planning.StructuralAudit do
 
     @enforce_keys [:status, :findings]
     defstruct [:status, :findings]
+    @type t :: %__MODULE__{}
   end
 
   # The canonical set of rule keys `audit/1` can emit. Exposed as the single

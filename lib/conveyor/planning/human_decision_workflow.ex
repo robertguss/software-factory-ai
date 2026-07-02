@@ -15,6 +15,7 @@ defmodule Conveyor.Planning.HumanDecisionWorkflow do
 
     @enforce_keys [:lifecycle, :human_decisions, :planning_spec, :prior_interrogation_refs]
     defstruct [:lifecycle, :human_decisions, :planning_spec, :prior_interrogation_refs]
+    @type t :: %__MODULE__{}
   end
 
   @spec apply_answers(RevisionLifecycle.t(), struct(), [map()], keyword()) :: Result.t()

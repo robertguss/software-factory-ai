@@ -20,6 +20,8 @@ defmodule Conveyor.Planning.Scout do
       :extractor_failures,
       :invented_impact?
     ]
+
+    @type t :: %__MODULE__{}
   end
 
   @spec run(map()) :: Result.t()

@@ -257,6 +257,7 @@ defmodule Conveyor.TaskGraph do
     reachable?(to_id, from_id, edges, MapSet.new())
   end
 
+  @spec reachable?(term(), term(), [term()], MapSet.t()) :: boolean()
   defp reachable?(current, target, _edges, _seen) when current == target, do: true
 
   defp reachable?(current, target, edges, seen) do
