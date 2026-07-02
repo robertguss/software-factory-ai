@@ -520,6 +520,9 @@ defmodule Conveyor.Planning.SerialDriver do
 
   # rt6k.7: a provider outage parks distinctly so triage separates "provider down" from "work hard".
   defp rework_gate_label(false, %{status: :infra_error}), do: "infra_error"
+
+  # nyrl.2: a denied scope amendment parks with its own reason (not blind rework-exhaustion).
+  defp rework_gate_label(false, %{status: :scope_denied}), do: "scope_denied"
   defp rework_gate_label(false, _loop_result), do: "eventual_pending"
 
   defp rework_gate_label(true, loop_result) do

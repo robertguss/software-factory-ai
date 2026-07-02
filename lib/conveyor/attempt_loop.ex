@@ -7,6 +7,7 @@ defmodule Conveyor.AttemptLoop do
 
   alias Conveyor.AttemptBudget
   alias Conveyor.Factory
+  alias Conveyor.Factory.DiffPolicy
   alias Conveyor.Factory.Epic
   alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
@@ -19,11 +20,13 @@ defmodule Conveyor.AttemptLoop do
   alias Conveyor.Gate.TrustEvidence
   alias Conveyor.Jobs.RunGate
   alias Conveyor.Ledger
+  alias Conveyor.NegotiatedScope.ScopeAmendment
   alias Conveyor.Planning.StructuralAudit
   alias Conveyor.Recovery.AmendmentRouter
   alias Conveyor.Recovery.ConvergenceSentinel
   alias Conveyor.Recovery.FailureFingerprint
   alias Conveyor.Recovery.ReworkSynthesizer
+  alias Conveyor.Recovery.ScopeAmendmentEvaluator
   alias Conveyor.RunAttemptLifecycle
   alias Conveyor.RunSlice
   alias Conveyor.RunSpecForge
@@ -102,6 +105,12 @@ defmodule Conveyor.AttemptLoop do
       infra_error != nil ->
         infra_park(final_attempt, infra_error, state.attempts, state.events, state.opts)
 
+      # nyrl.2: an out-of-scope diff is a scope NEGOTIATION, not a plain retry. The deterministic
+      # evaluator grants (widen + re-run under the amended contract) or denies (park scope_denied).
+      # Config-gated + only when a retry slot exists, so the default loop is unchanged.
+      scope_amendment_applicable?(final_attempt, state) ->
+        handle_scope_amendment(final_attempt, state)
+
       match?({:park, _}, sentinel) ->
         sentinel_park(
           final_attempt,
@@ -145,6 +154,137 @@ defmodule Conveyor.AttemptLoop do
       state.opts
     )
   end
+
+  # --- nyrl.2 scope amendment ------------------------------------------------
+
+  # Applicable only when: scope negotiation is enabled, the gate blocked on out_of_scope_path, and a
+  # retry slot remains (a grant re-runs, consuming a budgeted attempt — the anti-thrash bound).
+  defp scope_amendment_applicable?(_final_attempt, state) do
+    scope_amendment_enabled?(state.opts) and
+      out_of_scope_paths(state.gate) != [] and
+      AttemptBudget.retry_allowed?(state.budget, length(state.attempts))
+  end
+
+  defp scope_amendment_enabled?(opts) do
+    case Keyword.get(opts, :scope_amendment) do
+      nil -> Application.get_env(:conveyor, :scope_amendment, [])[:enabled] == true
+      enabled -> enabled == true
+    end
+  end
+
+  defp handle_scope_amendment(final_attempt, state) do
+    diff_policy = current_diff_policy!(final_attempt.slice_id)
+    request = build_scope_request(out_of_scope_paths(state.gate), diff_policy, state)
+
+    case ScopeAmendmentEvaluator.evaluate(request) do
+      {:grant, grant} ->
+        amended_sha =
+          ScopeAmendment.apply_grant!(final_attempt, diff_policy, grant, actor: actor(state.opts))
+
+        Logger.info(
+          "Scope amendment GRANTED slice=#{final_attempt.slice_id} " <>
+            "paths=#{Enum.join(grant.added_globs, ",")}"
+        )
+
+        retry_rework(final_attempt, %{
+          state
+          | opts: Keyword.put(state.opts, :diff_policy_sha256, amended_sha)
+        })
+
+      {:deny, denial} ->
+        scope_denied_park(final_attempt, denial, state)
+    end
+  end
+
+  # The offending paths from the diff-scope gate finding (nyrl.2 reads only the blocking violations;
+  # always_allowed grants are info-level notes, not out_of_scope_path).
+  defp out_of_scope_paths(%Gate.Result{} = gate) do
+    gate.findings
+    |> Enum.filter(&(&1["category"] == "out_of_scope_path"))
+    |> Enum.flat_map(&(&1["paths"] || []))
+    |> Enum.uniq()
+  end
+
+  defp build_scope_request(offending, %DiffPolicy{} = diff_policy, state) do
+    %{
+      offending_paths: offending,
+      allowed_path_globs: diff_policy.allowed_path_globs || [],
+      protected_path_globs: diff_policy.protected_path_globs || [],
+      allowlist_globs: Keyword.get(state.opts, :scope_allowlist, scope_allowlist(diff_policy)),
+      max_extra_files:
+        Keyword.get(state.opts, :max_amendment_files, default_max_amendment_files()),
+      rationale: scope_rationale(state.slice_result)
+    }
+  end
+
+  # The eligible-for-grant patterns default to the profile's always-allowed classes (a project that
+  # declares no amendment allowlist can grant nothing — fail closed).
+  defp scope_allowlist(%DiffPolicy{always_allowed_path_classes: classes}) when is_list(classes) do
+    Enum.flat_map(classes, &(&1["globs"] || []))
+  end
+
+  defp scope_allowlist(_diff_policy), do: []
+
+  defp default_max_amendment_files do
+    Application.get_env(:conveyor, :scope_amendment, [])[:max_extra_files] || 2
+  end
+
+  # The agent's stated rationale (audit-only; the evaluator never decides on it). Optional — a run
+  # that supplies none evaluates with nil (the prompt-protocol field is a later refinement).
+  defp scope_rationale(%{output: output}) when is_map(output), do: output["scope_rationale"]
+  defp scope_rationale(_slice_result), do: nil
+
+  defp current_diff_policy!(slice_id) do
+    slice = get_by_id!(Slice, slice_id)
+    policies = Ash.read!(DiffPolicy, domain: Factory)
+
+    Enum.find(policies, &(&1.id == slice.diff_policy_id)) ||
+      Enum.find(policies, &(&1.slice_id == slice_id))
+  end
+
+  defp scope_denied_park(final_attempt, denial, state) do
+    ledger_event = scope_denied_event!(final_attempt, denial, state.opts)
+
+    Logger.warning(
+      "Scope amendment DENIED slice=#{final_attempt.slice_id}: #{denial.violated_bound} " <>
+        "paths=#{Enum.join(denial.offending, ",")}"
+    )
+
+    summary = scope_denied_summary(ledger_event, denial)
+    result(:scope_denied, state.attempts, state.events ++ [summary])
+  end
+
+  defp scope_denied_event!(final_attempt, denial, opts) do
+    project = project_for_attempt!(final_attempt)
+
+    Ledger.write!(%{
+      project_id: project.id,
+      slice_id: final_attempt.slice_id,
+      run_attempt_id: final_attempt.id,
+      idempotency_key: "scope.amendment_denied:#{final_attempt.id}",
+      type: "scope.amendment_denied",
+      payload: %{
+        "actor" => actor(opts),
+        "park_reason" => "scope_denied",
+        "violated_bound" => Atom.to_string(denial.violated_bound),
+        "offending_paths" => denial.offending,
+        "detail" => denial.detail
+      }
+    })
+  end
+
+  defp scope_denied_summary(%LedgerEvent{} = event, denial) do
+    %{
+      "status" => "scope_denied",
+      "park_reason" => "scope_denied",
+      "finding_categories" => ["scope_denied"],
+      "violated_bound" => Atom.to_string(denial.violated_bound),
+      "offending_paths" => denial.offending,
+      "ledger_event_id" => event.id
+    }
+  end
+
+  defp actor(opts), do: Keyword.get(opts, :actor, "attempt-loop")
 
   # Convergence sentinel (rt6k.3): only meaningful for a rework outcome. Empty diff => no
   # progress; identical failure fingerprint to the prior attempt => convergence stall.
@@ -428,7 +568,9 @@ defmodule Conveyor.AttemptLoop do
       nil ->
         RunSpecForge.forge_retry!(final_attempt, run_spec,
           rung: rung,
-          prior_findings: prior_findings
+          prior_findings: prior_findings,
+          # nyrl.2: a granted amendment widened the DiffPolicy; thread its sha (else preserved).
+          diff_policy_sha256: Keyword.get(opts, :diff_policy_sha256)
         )
     end
   end

@@ -34,7 +34,9 @@ defmodule Conveyor.RunSpecForge do
         prompt_template_version: prior_spec.prompt_template_version,
         agent_profile_snapshot: agent_profile_snapshot(prior_spec, rung),
         policy_sha256: prior_spec.policy_sha256,
-        diff_policy_sha256: prior_spec.diff_policy_sha256,
+        # nyrl.2: a granted amendment threads the widened DiffPolicy's sha; nil/absent preserves it.
+        diff_policy_sha256:
+          Keyword.get(opts, :diff_policy_sha256) || prior_spec.diff_policy_sha256,
         test_pack_sha256: prior_spec.test_pack_sha256,
         station_plan: station_plan,
         station_plan_sha256: Conveyor.CanonicalJson.digest(station_plan),

@@ -677,7 +677,9 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     |> Enum.sort()
   end
 
-  defp diff_policy_sha256(%DiffPolicy{} = diff_policy) do
+  # Public (nyrl.2): the scope-amendment path digests a freshly-minted widened DiffPolicy this way.
+  @doc false
+  def diff_policy_sha256(%DiffPolicy{} = diff_policy) do
     ContractEvolution.digest_value(%{
       "allowed_path_globs" => diff_policy.allowed_path_globs,
       "protected_path_globs" => diff_policy.protected_path_globs,

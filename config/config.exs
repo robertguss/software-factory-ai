@@ -115,6 +115,11 @@ config :conveyor, Conveyor.ContextScout,
   excerpt_max_files: 5,
   excerpt_max_bytes: 1200
 
+# nyrl.2: gates the in-loop scope-amendment negotiation. Default OFF so an out-of-scope diff retries
+# as before; ON lets the deterministic evaluator grant (widen + re-run) or deny (park scope_denied).
+# max_extra_files caps how many files one amendment may add.
+config :conveyor, :scope_amendment, enabled: false, max_extra_files: 2
+
 # m4b2.4: gates the reviewer_aggregation stage into the live gate stage list. Default OFF so
 # hermetic/$0 paths stay at the 7 M4 stages and no run requires a review until the reviewer
 # producer is invoked in the loop; flip to true (with the producer wired) to require review.
