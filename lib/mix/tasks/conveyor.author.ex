@@ -2,7 +2,7 @@ defmodule Mix.Tasks.Conveyor.Author do
   @moduledoc """
   Draft a `conveyor.plan@1` from a paragraph of intent (ADR-27 Plan Foundry / M5).
 
-      mix conveyor.author "INTENT" [--out PATH]
+      mix conveyor.author "INTENT" [--out PATH] [--import [--workspace-path DIR]]
 
   Drives `Conveyor.Planning.PlanFoundry.draft/2` (the deterministic spine: an injectable
   Drafter -> StructuralAudit -> interrogation). Writes the drafted plan to `--out`
@@ -15,7 +15,9 @@ defmodule Mix.Tasks.Conveyor.Author do
   use Mix.Task
 
   alias Conveyor.CLI.ExitCodes
+  alias Conveyor.PlanContract
   alias Conveyor.Planning.Author
+  alias Conveyor.Planning.PlanImporter
 
   @shortdoc "Draft a Conveyor plan from a statement of intent"
 
@@ -30,14 +32,18 @@ defmodule Mix.Tasks.Conveyor.Author do
            draft_opts: draft_opts()
          ) do
       {:ok, %{plan: plan, path: path}} ->
-        emit(%{
-          "status" => "drafted",
-          "out" => path,
-          "requirement_count" => length(Map.get(plan, "requirements", [])),
-          "acceptance_criteria_count" => length(Map.get(plan, "acceptance_criteria", []))
-        })
+        if opts[:import] do
+          import_draft(path, opts)
+        else
+          emit(%{
+            "status" => "drafted",
+            "out" => path,
+            "requirement_count" => length(Map.get(plan, "requirements", [])),
+            "acceptance_criteria_count" => length(Map.get(plan, "acceptance_criteria", []))
+          })
 
-        exit_fun().(ExitCodes.fetch!(:success))
+          exit_fun().(ExitCodes.fetch!(:success))
+        end
 
       {:needs_clarification, questions} ->
         emit(%{
@@ -55,8 +61,62 @@ defmodule Mix.Tasks.Conveyor.Author do
     end
   end
 
+  # aaun.2: when the audited draft is schema-valid AND decomposed, hand it straight to the DB
+  # via the SAME code path as `mix conveyor.plan.import` (PlanContract.load + PlanImporter),
+  # then print the created IDs and the follow-up approve command. --import is impossible when
+  # the draft is not runnable (no slices) — it refuses rather than writing a half-plan.
+  defp import_draft(path, opts) do
+    case PlanContract.load(path) do
+      {:ok, result} ->
+        if decomposed?(result.contract) do
+          imported = PlanImporter.import_result!(result, import_opts(opts))
+
+          emit(%{
+            "status" => "imported",
+            "out" => path,
+            "project_id" => imported.project.id,
+            "plan_id" => imported.plan.id,
+            "epic_id" => imported.epic.id,
+            "slice_count" => map_size(imported.slices_by_stable_key),
+            "next" => "mix conveyor.plan.approve #{imported.plan.id}"
+          })
+
+          exit_fun().(ExitCodes.fetch!(:success))
+        else
+          emit(%{
+            "status" => "not_decomposed",
+            "out" => path,
+            "error" =>
+              "draft has no slices — run the decomposer or hand-finish the JSON before --import"
+          })
+
+          exit_fun().(ExitCodes.fetch!(:plan_or_readiness_blocked))
+        end
+
+      {:error, %PlanContract.Error{} = error} ->
+        emit(%{"status" => "import_failed", "out" => path, "error" => error.message})
+        exit_fun().(ExitCodes.fetch!(:malformed_artifact_or_schema_failure))
+    end
+  end
+
+  defp decomposed?(contract) do
+    case Map.get(contract, "slices") do
+      [_ | _] -> true
+      _ -> false
+    end
+  end
+
+  defp import_opts(opts) do
+    case opts[:workspace_path] do
+      nil -> []
+      path -> [workspace_path: path]
+    end
+  end
+
   defp parse_opts!(args) do
-    {opts, positional, invalid} = OptionParser.parse(args, strict: [out: :string])
+    {opts, positional, invalid} =
+      OptionParser.parse(args, strict: [out: :string, import: :boolean, workspace_path: :string])
+
     if invalid != [], do: Mix.raise(usage())
     {opts, positional}
   end
