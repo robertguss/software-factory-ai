@@ -6,6 +6,7 @@ defmodule Conveyor.Planning.SerialDriver do
   alias Conveyor.AttemptLoop
   alias Conveyor.CanonicalJson
   alias Conveyor.ContractEvolution
+  alias Conveyor.EmergencyStop.Store, as: EmergencyStopStore
   alias Conveyor.Factory
 
   alias Conveyor.Factory.{
@@ -414,6 +415,34 @@ defmodule Conveyor.Planning.SerialDriver do
   defp run_one!(slice_key, work_graph, sequence, reset?, opts) do
     single_slice_graph = single_slice_graph!(work_graph, slice_key)
 
+    # a3hf.2.1.4: an engaged emergency stop halts each remaining slice at this safe point (before
+    # any assemble/spend), so a mid-run budget breach that tripped the stop stops the whole run.
+    if emergency_stopped?(opts) do
+      {emergency_stop_event(slice_key, sequence), false}
+    else
+      run_or_interrogate!(slice_key, single_slice_graph, sequence, reset?, opts)
+    end
+  end
+
+  defp emergency_stopped?(opts) do
+    case Keyword.get(opts, :project_id) do
+      nil -> false
+      project_id -> EmergencyStopStore.engaged?(:project, project_id)
+    end
+  end
+
+  defp emergency_stop_event(slice_key, sequence) do
+    %{
+      "slice_id" => slice_key,
+      "sequence" => sequence,
+      "status" => "parked",
+      "gate_result" => "emergency_stopped",
+      "run_attempt_outcome" => :parked,
+      "findings" => ["emergency_stop", "emergency_stop_active"]
+    }
+  end
+
+  defp run_or_interrogate!(slice_key, single_slice_graph, sequence, reset?, opts) do
     case interrogate_slice(slice_key, single_slice_graph, sequence, opts) do
       {:park, event} ->
         {event, false}

@@ -8,8 +8,20 @@ defmodule Conveyor.Stations.Implementer do
   alias Conveyor.AgentRunner
   alias Conveyor.AgentRunner.ClaudeCode
   alias Conveyor.Budget.ReservationGate
+  alias Conveyor.EmergencyStop.Store, as: EmergencyStopStore
   alias Conveyor.Factory
-  alias Conveyor.Factory.{AgentSession, ContextPack, Policy, RunBudget, RunPrompt}
+
+  alias Conveyor.Factory.{
+    AgentSession,
+    ContextPack,
+    Epic,
+    Plan,
+    Policy,
+    RunBudget,
+    RunPrompt,
+    Slice
+  }
+
   alias Conveyor.PromptBuilder
 
   @impl Conveyor.Station
@@ -52,7 +64,29 @@ defmodule Conveyor.Stations.Implementer do
       "Budget reservation refused before spend: run_attempt=#{run_attempt.id} reason=#{reason}"
     )
 
+    # a3hf.2.1.4: an envelope breach durably trips the project's emergency stop, so the halt is
+    # recorded and blocks restart rather than being a silent per-attempt refusal.
+    trip_emergency_stop!(run_attempt)
     {:error, {:budget_refused, reason}}
+  end
+
+  defp trip_emergency_stop!(run_attempt) do
+    project_id = project_id_for(run_attempt)
+
+    EmergencyStopStore.trip!(:project, project_id,
+      project_id: project_id,
+      run_attempt_id: run_attempt.id,
+      slice_id: run_attempt.slice_id,
+      actor: "budget-guard",
+      reason: "budget_envelope_breach",
+      trace_id: run_attempt.trace_id
+    )
+  end
+
+  defp project_id_for(run_attempt) do
+    slice = Ash.get!(Slice, run_attempt.slice_id, domain: Factory)
+    epic = Ash.get!(Epic, slice.epic_id, domain: Factory)
+    Ash.get!(Plan, epic.plan_id, domain: Factory).project_id
   end
 
   defp do_run(input, context) do

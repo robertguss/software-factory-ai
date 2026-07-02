@@ -6,6 +6,7 @@ defmodule Conveyor.StationsImplementerTest do
   alias Conveyor.Factory.AgentSession
   alias Conveyor.Factory.ContextPack
   alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.LedgerEvent
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.RunAttempt
@@ -65,6 +66,15 @@ defmodule Conveyor.StationsImplementerTest do
 
     # refused BEFORE spending: no agent session was created (the adapter never ran)
     assert [] = Ash.read!(AgentSession, domain: Factory)
+
+    # a3hf.2.1.4: the breach durably tripped the emergency stop
+    assert [engaged] =
+             LedgerEvent
+             |> Ash.read!(domain: Factory)
+             |> Enum.filter(&(&1.type == "emergency_stop.engaged"))
+
+    assert engaged.payload["schema_version"] == "conveyor.emergency_stop_state@1"
+    assert engaged.payload["reason"] == "budget_envelope_breach"
   end
 
   test "proceeds when the run budget still has envelope remaining (a3hf.2.1.3)" do
