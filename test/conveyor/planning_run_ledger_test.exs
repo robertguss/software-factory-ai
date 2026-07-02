@@ -18,7 +18,12 @@ defmodule Conveyor.PlanningRunLedgerTest do
     project =
       Ash.create!(
         Project,
-        %{name: "Ledger Test", local_path: "/tmp/none", default_branch: "main", default_autonomy_level: 3},
+        %{
+          name: "Ledger Test",
+          local_path: "/tmp/none",
+          default_branch: "main",
+          default_autonomy_level: 3
+        },
         domain: Factory
       )
 
@@ -38,7 +43,9 @@ defmodule Conveyor.PlanningRunLedgerTest do
       )
 
     epic =
-      Ash.create!(Epic, %{plan_id: plan.id, title: "Ledger epic", description: "x"}, domain: Factory)
+      Ash.create!(Epic, %{plan_id: plan.id, title: "Ledger epic", description: "x"},
+        domain: Factory
+      )
 
     slices_by_stable_key =
       ["SLICE-001", "SLICE-002"]
@@ -70,7 +77,9 @@ defmodule Conveyor.PlanningRunLedgerTest do
     %{
       "schema_version" => "conveyor.work_graph@2",
       "slices" => [%{"stable_key" => "SLICE-001"}, %{"stable_key" => "SLICE-002"}],
-      "work_dependencies" => [%{"from" => "SLICE-001", "to" => "SLICE-002", "kind" => "execution_hard"}]
+      "work_dependencies" => [
+        %{"from" => "SLICE-001", "to" => "SLICE-002", "kind" => "execution_hard"}
+      ]
     }
   end
 

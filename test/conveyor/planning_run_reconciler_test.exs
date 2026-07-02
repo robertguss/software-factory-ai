@@ -11,7 +11,12 @@ defmodule Conveyor.PlanningRunReconcilerTest do
     project =
       Ash.create!(
         Project,
-        %{name: "Recon", local_path: "/tmp/none", default_branch: "main", default_autonomy_level: 3},
+        %{
+          name: "Recon",
+          local_path: "/tmp/none",
+          default_branch: "main",
+          default_autonomy_level: 3
+        },
         domain: Factory
       )
 

@@ -59,7 +59,8 @@ defmodule Conveyor.Planning.RunReconciler do
 
     acc =
       lifecycle_events_by_run()
-      |> Enum.reduce(%{resumed: [], parked: [], complete: 0, failed: []}, fn {run_id, events}, acc ->
+      |> Enum.reduce(%{resumed: [], parked: [], complete: 0, failed: []}, fn {run_id, events},
+                                                                             acc ->
         route(run_id, events, cap, resume, acc)
       end)
 
@@ -141,7 +142,9 @@ defmodule Conveyor.Planning.RunReconciler do
     RunAttempt
     |> Ash.read!(domain: Factory)
     |> Enum.filter(&(&1.status == :running))
-    |> Enum.each(&RunAttemptLifecycle.transition!(&1, :mark_stale, reason: "orphaned by interrupted run"))
+    |> Enum.each(
+      &RunAttemptLifecycle.transition!(&1, :mark_stale, reason: "orphaned by interrupted run")
+    )
   end
 
   defp push(acc, key, value), do: Map.update!(acc, key, &[value | &1])

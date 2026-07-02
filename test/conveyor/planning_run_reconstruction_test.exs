@@ -5,7 +5,9 @@ defmodule Conveyor.PlanningRunReconstructionTest do
   alias Conveyor.Planning.RunReconstruction.ResumeState
 
   defp outcome(slice_id, sequence, status),
-    do: {slice_id, %{"run_id" => "r", "slice_id" => slice_id, "sequence" => sequence, "status" => status}}
+    do:
+      {slice_id,
+       %{"run_id" => "r", "slice_id" => slice_id, "sequence" => sequence, "status" => status}}
 
   defp reconstruct(order, outcomes),
     do: RunReconstruction.reconstruct("r", order, outcomes: Map.new(outcomes))
