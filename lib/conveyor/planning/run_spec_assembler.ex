@@ -20,6 +20,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     TestPack
   }
 
+  alias Conveyor.Planning.ScopeCap
   alias Conveyor.Planning.WorkGraphToStationPlan
   alias Conveyor.Readiness
 
@@ -318,7 +319,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
           slice_id: slice.id,
           allowed_path_globs: allowed_path_globs,
           protected_path_globs: protected_path_globs,
-          max_files_changed: max(length(allowed_path_globs), 1),
+          max_files_changed: ScopeCap.max_files_changed(length(allowed_path_globs)),
           dependency_changes_allowed: false,
           migrations_allowed: false,
           generated_files_allowed: false,

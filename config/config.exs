@@ -96,6 +96,15 @@ config :inertia,
   camelize_props: false,
   ssr: false
 
+# Per-slice diff-scope cap derivation (nyrl.3): max_files_changed is the slice's
+# declared scope + always-allowed-class headroom + margin, never a flat global.
+# max_declared_files bounds how large a single slice may declare before plan-lint
+# flags it as authored-bloated.
+config :conveyor, Conveyor.Planning.ScopeCap,
+  always_allowed_headroom: 3,
+  scope_margin: 1,
+  max_declared_files: 12
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

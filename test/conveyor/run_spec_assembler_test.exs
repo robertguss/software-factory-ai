@@ -14,6 +14,7 @@ defmodule Conveyor.RunSpecAssemblerTest do
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.Slice
   alias Conveyor.Planning.RunSpecAssembler
+  alias Conveyor.Planning.ScopeCap
 
   test "locks tests/**, strips the locked test out of allowed, and budgets only the source set" do
     slice = assemble_with_likely_files!(["src/foo.py", "tests/test_foo.py"])
@@ -27,8 +28,9 @@ defmodule Conveyor.RunSpecAssemblerTest do
     assert "src/foo.py" in diff_policy.allowed_path_globs
     refute "tests/test_foo.py" in diff_policy.allowed_path_globs
 
-    # (3) the budget counts only the stripped allowed set (1 source file), never the locked test.
-    assert diff_policy.max_files_changed == 1
+    # (3) the budget is DERIVED from the stripped allowed set (1 source file) — never the locked
+    # test — plus the always-allowed headroom + margin (nyrl.3).
+    assert diff_policy.max_files_changed == ScopeCap.max_files_changed(1)
 
     # (4) invariant: no path appears in both allowed and protected.
     assert disjoint?(diff_policy)
@@ -38,9 +40,10 @@ defmodule Conveyor.RunSpecAssemblerTest do
     slice = assemble_with_likely_files!(["src/foo.py", "src/bar.py"])
     diff_policy = default_diff_policy!(slice.id)
 
-    # No spurious shrink: every source file is still allowed and the budget is unchanged.
+    # No spurious shrink: every source file is still allowed and the budget derives from the
+    # full 2-file allowed set (nyrl.3: declared scope + headroom + margin).
     assert diff_policy.allowed_path_globs == ["src/foo.py", "src/bar.py"]
-    assert diff_policy.max_files_changed == 2
+    assert diff_policy.max_files_changed == ScopeCap.max_files_changed(2)
 
     # tests/** is still locked even when the slice never named a test file.
     assert "tests/**" in diff_policy.protected_path_globs

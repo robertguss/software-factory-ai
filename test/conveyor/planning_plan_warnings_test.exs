@@ -86,5 +86,20 @@ defmodule Conveyor.Planning.PlanWarningsTest do
     assert Enum.all?(warnings, &(&1.severity == :warning))
   end
 
+  test "a slice declaring more files than the profile bound produces a scope_exceeds_bound warning" do
+    bloated = %{
+      "stable_key" => "BIG",
+      "status" => "active",
+      "likely_files" => Enum.map(1..20, &"lib/f#{&1}.ex")
+    }
+
+    work_graph = %{"slices" => [bloated], "dependencies" => []}
+
+    warning =
+      Enum.find(PlanWarnings.warn(%{}, work_graph), &(&1.rule_key == "scope_exceeds_bound"))
+
+    assert warning.subject_key == "BIG"
+  end
+
   defp rule_keys(warnings), do: Enum.map(warnings, & &1.rule_key)
 end

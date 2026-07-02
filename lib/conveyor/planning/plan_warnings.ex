@@ -9,6 +9,7 @@ defmodule Conveyor.Planning.PlanWarnings do
   contract gate lives in `Conveyor.Planning.PlanLint`.
   """
 
+  alias Conveyor.Planning.ScopeCap
   alias Conveyor.Planning.SliceDependency
   alias Conveyor.Planning.StructuralAudit
 
@@ -16,7 +17,29 @@ defmodule Conveyor.Planning.PlanWarnings do
 
   @spec warn(map(), map()) :: [map()]
   def warn(contract, work_graph \\ %{}) when is_map(contract) and is_map(work_graph) do
-    graph_warnings(work_graph) ++ acceptance_warnings(contract) ++ interface_warnings(contract)
+    graph_warnings(work_graph) ++
+      scope_bound_warnings(work_graph) ++
+      acceptance_warnings(contract) ++ interface_warnings(contract)
+  end
+
+  # nyrl.3: a slice whose declared scope already exceeds the profile bound is an authoring
+  # smell surfaced BEFORE the run, not a 2am park.
+  defp scope_bound_warnings(work_graph) do
+    work_graph
+    |> list("slices")
+    |> Enum.filter(fn slice ->
+      ScopeCap.over_declared_bound?(length(list(slice, "likely_files")))
+    end)
+    |> Enum.map(fn slice ->
+      key = value(slice, "stable_key")
+      declared = length(list(slice, "likely_files"))
+
+      warning(
+        "scope_exceeds_bound",
+        key,
+        "Slice #{key} declares #{declared} files, over the #{ScopeCap.max_declared_files()}-file bound — split it."
+      )
+    end)
   end
 
   defp graph_warnings(work_graph) do
