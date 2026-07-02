@@ -4,16 +4,16 @@ defmodule Conveyor.Stations.Verify do
   use Conveyor.Station, station: "verify"
 
   alias Conveyor.Eval.{ToolchainRunner, Workspace}
+  alias Conveyor.Factory
+  alias Conveyor.Factory.Policy
   alias Conveyor.Gate.IntegrityEvidence
+  alias Conveyor.Verification.CommandSuiteRunner
 
   @impl Conveyor.Station
-  def run(input, _context) do
-    workspace_path = get(input, "workspace_path")
-    plan = get(input, "plan")
+  def run(input, context) do
     backend = backend(get(input, "backend"))
 
-    verification_result =
-      ToolchainRunner.verification_result(workspace_path, plan, runner_opts(input))
+    verification_result = verification_result(input, context)
 
     artifact = %{
       kind: "verification_result",
@@ -35,6 +35,61 @@ defmodule Conveyor.Stations.Verify do
        artifacts: [artifact]
      }}
   end
+
+  # tt6v.1: the verify station runs verification through one of two engines behind the same
+  # station output. The default is the pytest-specific ToolchainRunner (python profile — the
+  # sample-python path is unchanged). `verification_engine: "command"` opts into the generic
+  # CommandSuiteRunner, which executes the slice's locked command_specs (any language) via the
+  # trusted CommandRunner/ToolExecutor policy path. Language-driven dispatch is tt6v.2.
+  defp verification_result(input, context) do
+    case get(input, "verification_engine") do
+      "command" -> generic_verification_result(input, context)
+      _pytest -> pytest_verification_result(input)
+    end
+  end
+
+  defp pytest_verification_result(input) do
+    ToolchainRunner.verification_result(
+      get(input, "workspace_path"),
+      get(input, "plan"),
+      runner_opts(input)
+    )
+  end
+
+  defp generic_verification_result(input, context) do
+    workspace_path = get(input, "workspace_path")
+    policy = get(input, "policy") || resolve_policy!(context)
+    commands = (get(input, "plan") || %{})["verification_commands"] || []
+
+    CommandSuiteRunner.verification_result(
+      commands,
+      workspace_path,
+      policy,
+      command_opts(input, context)
+    )
+  end
+
+  defp command_opts(input, context) do
+    [
+      blob_root: get(input, "blob_root"),
+      run_attempt_id: run_attempt_id(context),
+      project_id: get(input, "project_id")
+    ]
+    |> maybe_put(:exec, get(input, "exec"))
+    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+  end
+
+  # The verify profile's Policy loaded for this run (fail closed — generic verification cannot run
+  # without a policy to check its argv against). Tests pass `policy` directly in the input.
+  defp resolve_policy!(_context) do
+    Policy
+    |> Ash.read!(domain: Factory)
+    |> Enum.find(&(&1.profile == :verify)) ||
+      raise ArgumentError, "no :verify Policy loaded for generic verification (tt6v.1)"
+  end
+
+  defp run_attempt_id(%{run_attempt: %{id: id}}), do: id
+  defp run_attempt_id(_context), do: nil
 
   # Backend/network/docker_image/source_root flow from the station input so the
   # production loop stays :local by default (unchanged) and the live demo can opt
