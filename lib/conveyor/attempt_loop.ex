@@ -21,6 +21,8 @@ defmodule Conveyor.AttemptLoop do
   alias Conveyor.Ledger
   alias Conveyor.Planning.StructuralAudit
   alias Conveyor.Recovery.AmendmentRouter
+  alias Conveyor.Recovery.ConvergenceSentinel
+  alias Conveyor.Recovery.FailureFingerprint
   alias Conveyor.Recovery.ReworkSynthesizer
   alias Conveyor.RunAttemptLifecycle
   alias Conveyor.RunSlice
@@ -47,10 +49,10 @@ defmodule Conveyor.AttemptLoop do
   def run_to_done!(run_attempt_or_id, opts \\ []) do
     attempt = run_attempt!(run_attempt_or_id)
     budget = AttemptBudget.new(opts)
-    loop(attempt, budget, [], [], opts)
+    loop(attempt, budget, [], [], nil, opts)
   end
 
-  defp loop(%RunAttempt{} = attempt, budget, attempts, events, opts) do
+  defp loop(%RunAttempt{} = attempt, budget, attempts, events, prev_fingerprint, opts) do
     run_spec = get_by_id!(RunSpec, attempt.run_spec_id)
     slice_result = run_slice!(attempt, opts)
     gate = run_gate!(run_spec, attempt, slice_result, opts)
@@ -60,22 +62,130 @@ defmodule Conveyor.AttemptLoop do
     attempts = attempts ++ [final_attempt]
     events = events ++ [attempt_event]
 
+    fingerprint = FailureFingerprint.compute(gate)
+    sentinel = sentinel_decision(final_attempt, slice_result, prev_fingerprint, fingerprint)
+
     cond do
       final_attempt.outcome in @terminal_outcomes ->
         result(final_attempt.outcome, attempts, events)
+
+      final_attempt.outcome == :needs_rework and match?({:park, _}, sentinel) ->
+        sentinel_park(
+          final_attempt,
+          sentinel,
+          prev_fingerprint,
+          fingerprint,
+          attempts,
+          events,
+          opts
+        )
 
       final_attempt.outcome == :needs_rework and
           AttemptBudget.retry_allowed?(budget, length(attempts)) ->
         retry_attempt = prepare_retry!(final_attempt, run_spec, gate, budget, attempts, opts)
         rung = AttemptBudget.rung_for_retry(budget, retry_attempt.attempt_no)
         event = escalation_event!(final_attempt, retry_attempt, gate, rung, opts)
-        loop(retry_attempt, budget, attempts, events ++ [escalation_event(event)], opts)
+
+        loop(
+          retry_attempt,
+          budget,
+          attempts,
+          events ++ [escalation_event(event)],
+          fingerprint,
+          opts
+        )
 
       final_attempt.outcome == :needs_rework ->
         on_budget_exhausted(final_attempt, attempts, events, opts)
 
       true ->
         result(:failed, attempts, events)
+    end
+  end
+
+  # Convergence sentinel (rt6k.3): only meaningful for a rework outcome. Empty diff => no
+  # progress; identical failure fingerprint to the prior attempt => convergence stall.
+  defp sentinel_decision(%{outcome: :needs_rework}, slice_result, prev_fingerprint, fingerprint) do
+    ConvergenceSentinel.decide(%{
+      diff_empty?: diff_empty?(slice_result),
+      prev_fingerprint: prev_fingerprint,
+      current_fingerprint: fingerprint
+    })
+  end
+
+  defp sentinel_decision(_final_attempt, _slice_result, _prev_fingerprint, _fingerprint),
+    do: :continue
+
+  defp sentinel_park(
+         final_attempt,
+         {:park, reason},
+         prev_fingerprint,
+         fingerprint,
+         attempts,
+         events,
+         opts
+       ) do
+    ledger_event = convergence_event!(final_attempt, reason, prev_fingerprint, fingerprint, opts)
+
+    Logger.warning(
+      "Convergence sentinel parked slice #{final_attempt.slice_id}: #{reason} " <>
+        "(fingerprint=#{fingerprint}, attempts=#{length(attempts)})"
+    )
+
+    summary = convergence_summary_event(ledger_event, reason, fingerprint)
+    base = result(:convergence_parked, attempts, events ++ [summary])
+    %Result{base | report: Map.put(base.report, "sentinel_park", reason)}
+  end
+
+  defp convergence_event!(final_attempt, reason, prev_fingerprint, fingerprint, opts) do
+    project = project_for_attempt!(final_attempt)
+    actor = Keyword.get(opts, :actor, "attempt-loop")
+
+    Ledger.write!(%{
+      project_id: project.id,
+      slice_id: final_attempt.slice_id,
+      run_attempt_id: final_attempt.id,
+      idempotency_key: "convergence_parked:#{final_attempt.id}:#{reason}",
+      type: "attempt.convergence_parked",
+      payload: %{
+        "actor" => actor,
+        "run_attempt_id" => final_attempt.id,
+        "attempt_no" => final_attempt.attempt_no,
+        "reason" => reason,
+        "current_fingerprint" => fingerprint,
+        "previous_fingerprint" => prev_fingerprint
+      }
+    })
+  end
+
+  defp convergence_summary_event(%LedgerEvent{} = event, reason, fingerprint) do
+    %{
+      "status" => "convergence_parked",
+      "sentinel_reason" => reason,
+      "current_fingerprint" => fingerprint,
+      "previous_fingerprint" => event.payload["previous_fingerprint"],
+      "ledger_event_id" => event.id
+    }
+  end
+
+  # An attempt made no progress when it changed no files. Only park on an explicit empty
+  # changed-file list; an unknown/absent signal is conservatively treated as progress.
+  defp diff_empty?(%{output: output}) when is_map(output) do
+    case changed_files(output) do
+      files when is_list(files) -> files == []
+      :unknown -> false
+    end
+  end
+
+  defp diff_empty?(_slice_result), do: false
+
+  defp changed_files(output) do
+    patch_set = output["patch_set"]
+
+    cond do
+      is_list(output["changed_files"]) -> output["changed_files"]
+      is_map(patch_set) and is_list(patch_set["changed_files"]) -> patch_set["changed_files"]
+      true -> :unknown
     end
   end
 

@@ -218,14 +218,16 @@ defmodule Conveyor.AttemptLoopTest do
           send(send_to, {:run_slice, attempt.attempt_no})
           %{status: :succeeded, output: %{"verification_result" => %{}}}
         end,
-        run_gate: fn _run_spec, _attempt, _slice_result ->
+        # Distinct failure each attempt (non-convergent) so the convergence sentinel does not
+        # fire and the loop exhausts the budget the plain way.
+        run_gate: fn _run_spec, attempt, _slice_result ->
           gate_result(false, [
             %{
               "category" => "acceptance_mapping",
               "severity" => "blocking",
               "stage" => "verify",
-              "message" => "AC-003 was not met.",
-              "acceptance_criterion_id" => "AC-003",
+              "message" => "AC not met.",
+              "acceptance_criterion_id" => "AC-00#{attempt.attempt_no}",
               "evidence_status" => "not_met"
             }
           ])
@@ -368,6 +370,100 @@ defmodule Conveyor.AttemptLoopTest do
 
     assert_received {:run_slice, 1}
     refute_received {:run_slice, 2}
+  end
+
+  test "convergence sentinel parks on the same failure twice, before exhausting the budget" do
+    fixture = attempt_fixture!()
+    send_to = self()
+
+    finding = %{
+      "category" => "acceptance_mapping",
+      "severity" => "blocking",
+      "stage" => "verify",
+      "message" => "AC-003 was not met.",
+      "acceptance_criterion_id" => "AC-003",
+      "evidence_status" => "not_met"
+    }
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        # Budget of 3 would allow more attempts; the sentinel must stop at 2.
+        max_attempts: 3,
+        actor: "attempt-loop-test",
+        run_slice: fn attempt ->
+          send(send_to, {:run_slice, attempt.attempt_no})
+
+          %{
+            status: :succeeded,
+            output: %{"verification_result" => %{}, "changed_files" => ["a.ex"]}
+          }
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result -> gate_result(false, [finding]) end,
+        finalize_gate: fn _gate, _run_spec, attempt ->
+          Ash.update!(fixture.slice, %{state: :needs_rework}, domain: Factory)
+
+          %{
+            run_attempt:
+              Ash.update!(
+                attempt,
+                %{status: :needs_rework, outcome: :needs_rework, failure_category: "gate_failed"},
+                domain: Factory
+              )
+          }
+        end
+      )
+
+    assert result.status == :convergence_parked
+    assert result.report["sentinel_park"] == "convergence_stall"
+    assert result.report["attempt_count"] == 2
+    assert_received {:run_slice, 1}
+    assert_received {:run_slice, 2}
+    refute_received {:run_slice, 3}
+
+    # Sentinel state reconstructs from the ledger: both fingerprints + reason recorded.
+    event =
+      LedgerEvent
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.type == "attempt.convergence_parked"))
+
+    assert event.payload["reason"] == "convergence_stall"
+    assert is_binary(event.payload["current_fingerprint"])
+    assert event.payload["current_fingerprint"] == event.payload["previous_fingerprint"]
+  end
+
+  test "convergence sentinel parks an empty-diff attempt immediately with no_progress" do
+    fixture = attempt_fixture!()
+    send_to = self()
+
+    result =
+      AttemptLoop.run_to_done!(
+        fixture.run_attempt,
+        max_attempts: 3,
+        actor: "attempt-loop-test",
+        run_slice: fn attempt ->
+          send(send_to, {:run_slice, attempt.attempt_no})
+          %{status: :succeeded, output: %{"verification_result" => %{}, "changed_files" => []}}
+        end,
+        run_gate: fn _run_spec, _attempt, _slice_result ->
+          gate_result(false, [%{"category" => "acceptance_mapping", "stage" => "verify"}])
+        end,
+        finalize_gate: &finalize_needs_rework/3
+      )
+
+    assert result.status == :convergence_parked
+    assert result.report["sentinel_park"] == "no_progress"
+    assert result.report["attempt_count"] == 1
+    assert_received {:run_slice, 1}
+    refute_received {:run_slice, 2}
+
+    event =
+      LedgerEvent
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.type == "attempt.convergence_parked"))
+
+    assert event.payload["reason"] == "no_progress"
+    assert event.payload["previous_fingerprint"] == nil
   end
 
   defp finalize_needs_rework(_gate, _run_spec, attempt) do
