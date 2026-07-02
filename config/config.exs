@@ -105,6 +105,11 @@ config :conveyor, Conveyor.Planning.ScopeCap,
   scope_margin: 1,
   max_declared_files: 12
 
+# rt6k.2: per-section byte budgets for the redacted rework context injected into retry prompts.
+config :conveyor, Conveyor.Recovery.ReworkContext,
+  test_excerpt_bytes: 6144,
+  diff_summary_bytes: 4096
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

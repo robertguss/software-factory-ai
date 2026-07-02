@@ -466,6 +466,88 @@ defmodule Conveyor.AttemptLoopTest do
     assert event.payload["previous_fingerprint"] == nil
   end
 
+  test "rt6k.2: the retry brief carries the failing-test excerpt and the prior changed-file list" do
+    fixture = attempt_fixture!()
+
+    verification_result = %{
+      "suites" => [
+        %{
+          "commands" => [
+            %{
+              "stdout" => "1 test, 1 failure",
+              "attempts" => [
+                %{
+                  "tests" => [
+                    %{
+                      "id" => "test/foo_test.exs:12",
+                      "status" => "failed",
+                      "message" => "Assertion failed: expected :ok"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    finding = %{
+      "category" => "acceptance_mapping",
+      "severity" => "blocking",
+      "stage" => "verify",
+      "message" => "AC-003 was not met.",
+      "acceptance_criterion_id" => "AC-003",
+      "evidence_status" => "not_met"
+    }
+
+    AttemptLoop.run_to_done!(
+      fixture.run_attempt,
+      max_attempts: 2,
+      actor: "attempt-loop-test",
+      run_slice: fn attempt ->
+        vr = if attempt.attempt_no == 1, do: verification_result, else: %{}
+
+        %{
+          status: :succeeded,
+          output: %{"verification_result" => vr, "changed_files" => ["lib/foo.ex"]}
+        }
+      end,
+      run_gate: fn _run_spec, attempt, _slice_result ->
+        if attempt.attempt_no == 1, do: gate_result(false, [finding]), else: gate_result(true, [])
+      end,
+      finalize_gate: fn gate, _run_spec, attempt ->
+        if gate.passed? do
+          %{
+            run_attempt:
+              Ash.update!(attempt, %{status: :gated, outcome: :accepted}, domain: Factory)
+          }
+        else
+          Ash.update!(fixture.slice, %{state: :needs_rework}, domain: Factory)
+
+          %{
+            run_attempt:
+              Ash.update!(
+                attempt,
+                %{status: :needs_rework, outcome: :needs_rework, failure_category: "gate_failed"},
+                domain: Factory
+              )
+          }
+        end
+      end
+    )
+
+    retry_brief =
+      AgentBrief
+      |> Ash.read!(domain: Factory)
+      |> Enum.filter(&(&1.slice_id == fixture.slice.id))
+      |> Enum.max_by(& &1.version)
+
+    assert retry_brief.desired_behavior =~ "Assertion failed: expected :ok"
+    assert retry_brief.desired_behavior =~ "test/foo_test.exs:12"
+    assert retry_brief.desired_behavior =~ "lib/foo.ex"
+  end
+
   defp finalize_needs_rework(_gate, _run_spec, attempt) do
     %{
       run_attempt:

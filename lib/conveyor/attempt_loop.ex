@@ -82,7 +82,9 @@ defmodule Conveyor.AttemptLoop do
 
       final_attempt.outcome == :needs_rework and
           AttemptBudget.retry_allowed?(budget, length(attempts)) ->
-        retry_attempt = prepare_retry!(final_attempt, run_spec, gate, budget, attempts, opts)
+        retry_attempt =
+          prepare_retry!(final_attempt, run_spec, gate, slice_result, budget, attempts, opts)
+
         rung = AttemptBudget.rung_for_retry(budget, retry_attempt.attempt_no)
         event = escalation_event!(final_attempt, retry_attempt, gate, rung, opts)
 
@@ -284,9 +286,12 @@ defmodule Conveyor.AttemptLoop do
     |> Enum.sort()
   end
 
-  defp prepare_retry!(final_attempt, run_spec, gate, budget, attempts, opts) do
+  defp prepare_retry!(final_attempt, run_spec, gate, slice_result, budget, attempts, opts) do
     actor = Keyword.get(opts, :actor, "attempt-loop")
-    synthesis = final_attempt |> slice_for_attempt!() |> synthesize_rework!(gate, actor)
+
+    synthesis =
+      final_attempt |> slice_for_attempt!() |> synthesize_rework!(gate, slice_result, actor)
+
     prior_findings = synthesis.prior_findings
     log_threaded_findings(final_attempt, prior_findings)
     mark_ready!(final_attempt, actor)
@@ -305,9 +310,12 @@ defmodule Conveyor.AttemptLoop do
     )
   end
 
-  defp synthesize_rework!(slice, gate, actor) do
-    ReworkSynthesizer.synthesize(slice, gate, actor: actor)
+  defp synthesize_rework!(slice, gate, slice_result, actor) do
+    ReworkSynthesizer.synthesize(slice, gate, actor: actor, output: slice_output(slice_result))
   end
+
+  defp slice_output(%{output: output}) when is_map(output), do: output
+  defp slice_output(_slice_result), do: nil
 
   defp mark_ready!(final_attempt, actor) do
     final_attempt
