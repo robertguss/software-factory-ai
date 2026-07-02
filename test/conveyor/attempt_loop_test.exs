@@ -257,6 +257,82 @@ defmodule Conveyor.AttemptLoopTest do
     refute_received {:run_slice, 3}
   end
 
+  test "threads the synthesized prior findings into the retry RunSpec and logs the count" do
+    import ExUnit.CaptureLog
+
+    prior_level = Logger.level()
+    Logger.configure(level: :info)
+    on_exit(fn -> Logger.configure(level: prior_level) end)
+
+    fixture = attempt_fixture!()
+
+    finding = %{
+      "category" => "acceptance_mapping",
+      "severity" => "blocking",
+      "stage" => "verify",
+      "message" => "AC-003 was not met.",
+      "acceptance_criterion_id" => "AC-003",
+      "evidence_status" => "not_met",
+      "path" => "test/br_insight_test.exs"
+    }
+
+    log =
+      capture_log(fn ->
+        result =
+          AttemptLoop.run_to_done!(
+            fixture.run_attempt,
+            max_attempts: 2,
+            actor: "attempt-loop-test",
+            run_slice: fn _attempt ->
+              %{status: :succeeded, output: %{"verification_result" => %{}}}
+            end,
+            run_gate: fn _run_spec, attempt, _slice_result ->
+              if attempt.attempt_no == 1,
+                do: gate_result(false, [finding]),
+                else: gate_result(true, [])
+            end,
+            finalize_gate: fn gate, _run_spec, attempt ->
+              if gate.passed? do
+                %{
+                  run_attempt:
+                    Ash.update!(attempt, %{status: :gated, outcome: :accepted}, domain: Factory)
+                }
+              else
+                rework =
+                  Ash.update!(
+                    attempt,
+                    %{
+                      status: :needs_rework,
+                      outcome: :needs_rework,
+                      failure_category: "gate_failed"
+                    },
+                    domain: Factory
+                  )
+
+                Ash.update!(fixture.slice, %{state: :needs_rework}, domain: Factory)
+                %{run_attempt: rework}
+              end
+            end
+          )
+
+        assert result.status == :accepted
+      end)
+
+    retry =
+      RunAttempt
+      |> Ash.read!(domain: Factory)
+      |> Enum.find(&(&1.slice_id == fixture.slice.id and &1.attempt_no == 2))
+
+    retry_spec = Ash.get!(RunSpec, retry.run_spec_id, domain: Factory)
+    implement = Enum.find(retry_spec.station_plan["stations"], &(&1["key"] == "implement"))
+    threaded = implement["input"]["prior_findings"]
+
+    assert threaded["failed_acceptance_criteria"] == ["AC-003"]
+    assert Enum.any?(threaded["findings"], &(&1["message"] == "AC-003 was not met."))
+    assert log =~ "prior findings"
+    assert log =~ "count=1"
+  end
+
   test "stops on a terminal outcome on attempt 1 without retrying" do
     fixture = attempt_fixture!()
     send_to = self()

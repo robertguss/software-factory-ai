@@ -46,6 +46,43 @@ defmodule Conveyor.StationsImplementerTest do
     assert prompt.body =~ "Fake runner writes deterministic output."
   end
 
+  test "input prior_findings render the Prior Trusted Findings section into the prompt" do
+    fixture = fixture!("implementer-prior-findings")
+
+    prior_findings = %{
+      "schema_version" => "conveyor.prior_findings@1",
+      "failed_acceptance_criteria" => ["AC-1"],
+      "green_acceptance_criteria" => [],
+      "findings" => [
+        %{
+          "stage" => "test_execution",
+          "message" => "AC-1 assertion failed in the runner",
+          "path" => "test/fake_runner_test.exs"
+        }
+      ]
+    }
+
+    assert {:ok, _output} =
+             Implementer.run(
+               %{
+                 "workspace_path" => fixture.workspace_path,
+                 "base_commit" => fixture.base_commit,
+                 "blob_root" => fixture.blob_root,
+                 "context_pack_id" => fixture.context_pack.id,
+                 "adapter" => "Conveyor.AgentRunner.Fake",
+                 "prior_findings" => prior_findings
+               },
+               %{run_attempt: fixture.run_attempt}
+             )
+
+    [session] = Ash.read!(AgentSession, domain: Factory)
+    prompt = Ash.get!(RunPrompt, session.run_prompt_id, domain: Factory)
+
+    assert prompt.body =~ "# Prior Trusted Findings"
+    assert prompt.body =~ "AC-1 assertion failed in the runner"
+    assert prompt.body =~ "test/fake_runner_test.exs"
+  end
+
   test "AE1: input with no adapter defaults to Claude Code (injected exec, no real CLI)" do
     fixture = fixture!("implementer-default-cc")
     test_pid = self()

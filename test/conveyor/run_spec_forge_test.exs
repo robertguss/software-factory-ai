@@ -22,6 +22,31 @@ defmodule Conveyor.RunSpecForgeTest do
     {fixture.run_attempt, spec}
   end
 
+  # The artifact fixture only carries an "artifact" station; a real retry forges from a
+  # plan with an implement station. forge_retry! reads the prior in-memory, so override
+  # the station_plan on the fixture spec (id unchanged -> still matches the fixture attempt).
+  defp implement_prior(label) do
+    {attempt, spec} = prior(label)
+
+    station = fn key ->
+      %{
+        "key" => key,
+        "input" => %{"run_spec_sha256" => spec.run_spec_sha256},
+        "output" => %{"run_spec_sha256" => spec.run_spec_sha256}
+      }
+    end
+
+    prior_spec = %{
+      spec
+      | station_plan: %{
+          "schema_version" => "conveyor.station_plan@1",
+          "stations" => [station.("implement"), station.("verify")]
+        }
+    }
+
+    {attempt, prior_spec}
+  end
+
   test "forges the next attempt's spec, preserving slice/base and bumping attempt_no" do
     {attempt, spec} = prior("forge-bump")
 
@@ -60,6 +85,39 @@ defmodule Conveyor.RunSpecForgeTest do
       assert station["input"]["run_spec_sha256"] == forged.run_spec_sha256
       assert station["output"]["run_spec_sha256"] == forged.run_spec_sha256
     end
+  end
+
+  test "threads prior_findings into the implement station input only, and omits it when absent" do
+    {attempt, spec} = implement_prior("forge-findings")
+
+    prior_findings = %{
+      "schema_version" => "conveyor.prior_findings@1",
+      "failed_acceptance_criteria" => ["AC-1"],
+      "green_acceptance_criteria" => [],
+      "findings" => [
+        %{
+          "stage" => "test_execution",
+          "message" => "AC-1 test failed",
+          "path" => "test/a_test.exs"
+        }
+      ]
+    }
+
+    forged = RunSpecForge.forge_retry!(attempt, spec, prior_findings: prior_findings)
+    stations = forged.station_plan["stations"]
+
+    implement = Enum.find(stations, &(&1["key"] == "implement"))
+    assert implement["input"]["prior_findings"] == prior_findings
+
+    for station <- stations, station["key"] != "implement" do
+      refute Map.has_key?(station["input"], "prior_findings")
+    end
+
+    # No findings -> no prior_findings key (first-retry parity). Bump the attempt_no so
+    # the retry digest differs from the run above (same prior, new content-addressed spec).
+    bare = RunSpecForge.forge_retry!(%{attempt | attempt_no: attempt.attempt_no + 4}, spec)
+    bare_implement = Enum.find(bare.station_plan["stations"], &(&1["key"] == "implement"))
+    refute Map.has_key?(bare_implement["input"], "prior_findings")
   end
 
   test "raises when the prior spec does not belong to the prior attempt" do

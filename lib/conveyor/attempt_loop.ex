@@ -3,6 +3,8 @@ defmodule Conveyor.AttemptLoop do
   Width-1 multi-attempt conductor for a single Slice.
   """
 
+  require Logger
+
   alias Conveyor.AttemptBudget
   alias Conveyor.Factory
   alias Conveyor.Factory.Epic
@@ -174,13 +176,23 @@ defmodule Conveyor.AttemptLoop do
 
   defp prepare_retry!(final_attempt, run_spec, gate, budget, attempts, opts) do
     actor = Keyword.get(opts, :actor, "attempt-loop")
-    final_attempt |> slice_for_attempt!() |> synthesize_rework!(gate, actor)
+    synthesis = final_attempt |> slice_for_attempt!() |> synthesize_rework!(gate, actor)
+    prior_findings = synthesis.prior_findings
+    log_threaded_findings(final_attempt, prior_findings)
     mark_ready!(final_attempt, actor)
 
     rung = AttemptBudget.rung_for_retry(budget, length(attempts) + 1)
-    retry_spec = forge_retry_run_spec!(final_attempt, run_spec, rung, opts)
+    retry_spec = forge_retry_run_spec!(final_attempt, run_spec, rung, prior_findings, opts)
 
     create_retry_attempt!(final_attempt, retry_spec, opts)
+  end
+
+  defp log_threaded_findings(final_attempt, prior_findings) do
+    count = prior_findings |> Map.get("findings", []) |> length()
+
+    Logger.info(
+      "Threaded prior findings into retry for slice #{final_attempt.slice_id} (count=#{count})"
+    )
   end
 
   defp synthesize_rework!(slice, gate, actor) do
@@ -196,10 +208,16 @@ defmodule Conveyor.AttemptLoop do
     )
   end
 
-  defp forge_retry_run_spec!(final_attempt, run_spec, rung, opts) do
+  defp forge_retry_run_spec!(final_attempt, run_spec, rung, prior_findings, opts) do
     case Keyword.get(opts, :forge_run_spec) do
-      fun when is_function(fun, 3) -> fun.(final_attempt, run_spec, rung)
-      nil -> RunSpecForge.forge_retry!(final_attempt, run_spec, rung: rung)
+      fun when is_function(fun, 3) ->
+        fun.(final_attempt, run_spec, rung)
+
+      nil ->
+        RunSpecForge.forge_retry!(final_attempt, run_spec,
+          rung: rung,
+          prior_findings: prior_findings
+        )
     end
   end
 

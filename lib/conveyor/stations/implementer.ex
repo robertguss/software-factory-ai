@@ -93,7 +93,12 @@ defmodule Conveyor.Stations.Implementer do
 
   defp create_agent_session!(run_attempt, input) do
     context_pack = context_pack!(get(input, "context_pack_id"))
-    run_prompt = PromptBuilder.build!(run_attempt.slice_id, context_pack: context_pack)
+
+    run_prompt =
+      PromptBuilder.build!(run_attempt.slice_id,
+        context_pack: context_pack,
+        prior_findings: get(input, "prior_findings")
+      )
 
     Ash.create!(
       AgentSession,
