@@ -110,6 +110,11 @@ config :conveyor, Conveyor.Recovery.ReworkContext,
   test_excerpt_bytes: 6144,
   diff_summary_bytes: 4096
 
+# aabq.1: budget for the scout's redacted file excerpts (top-K source files, head bytes each).
+config :conveyor, Conveyor.ContextScout,
+  excerpt_max_files: 5,
+  excerpt_max_bytes: 1200
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

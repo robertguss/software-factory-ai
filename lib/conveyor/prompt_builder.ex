@@ -182,6 +182,9 @@ defmodule Conveyor.PromptBuilder do
     Relevant files:
     #{json_block(attrs.context_pack.relevant_files)}
 
+    File excerpts:
+    #{excerpts_block(file_excerpts(attrs.context_pack))}
+
     Key interfaces:
     #{bullet_list(attrs.context_pack.key_interfaces)}
 
@@ -235,7 +238,8 @@ defmodule Conveyor.PromptBuilder do
       )
     ] ++
       prior_findings_sources(attrs) ++
-      repo_file_sources(attrs.context_pack) ++ code_quality_sources(attrs.context_pack)
+      repo_file_sources(attrs.context_pack) ++
+      excerpt_sources(attrs.context_pack) ++ code_quality_sources(attrs.context_pack)
   end
 
   defp prior_findings_section(nil), do: ""
@@ -272,6 +276,16 @@ defmodule Conveyor.PromptBuilder do
     Enum.map(context_pack.relevant_files, fn file ->
       path = file["path"] || file[:path] || "unknown"
       source(:repo_file, :untrusted, path, file)
+    end)
+  end
+
+  # aabq.1: each excerpt is UNTRUSTED repo content — registered like any other repo_file source so
+  # the instruction-authority boundary (ADR-07) covers the injected bytes, not just the file list.
+  defp excerpt_sources(context_pack) do
+    context_pack
+    |> file_excerpts()
+    |> Enum.map(fn excerpt ->
+      source(:repo_file, :untrusted, "excerpt:#{excerpt["path"] || excerpt[:path]}", excerpt)
     end)
   end
 
@@ -316,6 +330,18 @@ defmodule Conveyor.PromptBuilder do
   defp bullet_list(items), do: Enum.map_join(items, "\n", &"- #{&1}")
 
   defp json_block(value), do: "```json\n#{Jason.encode!(value, pretty: true)}\n```"
+
+  defp file_excerpts(context_pack), do: Map.get(context_pack, :file_excerpts) || []
+
+  defp excerpts_block([]), do: "- none"
+
+  defp excerpts_block(excerpts) do
+    Enum.map_join(excerpts, "\n\n", fn excerpt ->
+      path = excerpt["path"] || excerpt[:path]
+      suffix = if excerpt["truncated"] || excerpt[:truncated], do: " (truncated)", else: ""
+      "## #{path}#{suffix}\n```\n#{excerpt["excerpt"] || excerpt[:excerpt]}\n```"
+    end)
+  end
 
   defp slice!(%Slice{} = slice), do: slice
 

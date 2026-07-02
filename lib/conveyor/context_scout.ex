@@ -3,6 +3,8 @@ defmodule Conveyor.ContextScout do
   Builds cited, read-only context packs for implementation slices.
   """
 
+  require Logger
+
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentBrief
   alias Conveyor.Factory.ContextPack
@@ -12,8 +14,15 @@ defmodule Conveyor.ContextScout do
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.Requirement
   alias Conveyor.Factory.Slice
+  alias Conveyor.Security.Redactor
 
   @scout_version "context-scout@1"
+
+  # aabq.1 excerpt budget. Code defaults; overridable in one config place
+  # (config :conveyor, Conveyor.ContextScout, ...) or per-call opts. Kept deliberately small —
+  # excerpts are an interface anchor, not a repo dump; the tool-using agent reads more itself.
+  @default_excerpt_max_files 5
+  @default_excerpt_max_bytes 1200
   @excluded_dirs MapSet.new([
                    ".conveyor",
                    ".git",
@@ -34,6 +43,7 @@ defmodule Conveyor.ContextScout do
     brief = context.agent_brief
     existing_tests = existing_tests(brief, files)
     relevant_files = relevant_files(context, files, existing_tests)
+    file_excerpts = file_excerpts(relevant_files, context.project.local_path, opts)
     suggested_validation = suggested_validation(brief, context.project)
     risks = risks(context)
 
@@ -44,6 +54,7 @@ defmodule Conveyor.ContextScout do
         scout_version: Keyword.get(opts, :scout_version, @scout_version),
         confidence: confidence(relevant_files, existing_tests, suggested_validation),
         relevant_files: relevant_files,
+        file_excerpts: file_excerpts,
         key_interfaces: key_interfaces(brief),
         existing_tests: existing_tests,
         risks: risks,
@@ -117,6 +128,71 @@ defmodule Conveyor.ContextScout do
     |> Enum.concat(config_candidates(files))
     |> Enum.uniq_by(& &1["path"])
     |> Enum.take(8)
+  end
+
+  # aabq.1: bounded, redacted, interface-bearing excerpts for the top-K source files. v1 takes the
+  # file HEAD (module head + first signatures) up to a byte budget — a deterministic anchor; the
+  # per-language signature extraction is aabq.2. Order follows relevant_files (already
+  # deterministic) so prompt digests stay replayable. Repo content is UNTRUSTED, so it is redacted.
+  defp file_excerpts(relevant_files, project_root, opts) do
+    {max_files, max_bytes} = excerpt_config(opts)
+    root = Path.expand(project_root)
+
+    relevant_files
+    |> Enum.filter(&source_file?(&1["path"]))
+    |> Enum.take(max_files)
+    |> Enum.flat_map(&build_excerpt(&1["path"], root, max_bytes))
+  end
+
+  defp build_excerpt(path, root, max_bytes) do
+    case File.read(Path.join(root, path)) do
+      {:ok, content} ->
+        {head, truncated?} = truncate_utf8(content, max_bytes)
+        redacted = Redactor.redact!(head, source: path).content
+
+        if truncated? do
+          Logger.info("context_scout: excerpt truncated for #{path} (> #{max_bytes} bytes)")
+        end
+
+        [
+          %{
+            "path" => path,
+            "excerpt" => redacted,
+            "truncated" => truncated?,
+            "bytes" => byte_size(redacted)
+          }
+        ]
+
+      {:error, _reason} ->
+        []
+    end
+  end
+
+  defp excerpt_config(opts) do
+    env = Application.get_env(:conveyor, __MODULE__, [])
+
+    max_files =
+      Keyword.get(opts, :excerpt_max_files) || Keyword.get(env, :excerpt_max_files) ||
+        @default_excerpt_max_files
+
+    max_bytes =
+      Keyword.get(opts, :excerpt_max_bytes) || Keyword.get(env, :excerpt_max_bytes) ||
+        @default_excerpt_max_bytes
+
+    {max_files, max_bytes}
+  end
+
+  # Deterministic head truncation on a UTF-8 boundary (never splits a multibyte codepoint).
+  defp truncate_utf8(content, max_bytes) when byte_size(content) <= max_bytes,
+    do: {content, false}
+
+  defp truncate_utf8(content, max_bytes),
+    do: {valid_prefix(binary_part(content, 0, max_bytes)), true}
+
+  defp valid_prefix(binary) do
+    if String.valid?(binary),
+      do: binary,
+      else: valid_prefix(binary_part(binary, 0, byte_size(binary) - 1))
   end
 
   defp source_candidates(files, slice, nil) do

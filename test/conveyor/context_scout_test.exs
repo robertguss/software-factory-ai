@@ -4,6 +4,10 @@ defmodule Conveyor.ContextScoutTest do
   alias Conveyor.ContextScout
   alias Conveyor.Factory
   alias Conveyor.Factory.ContextPack
+  alias Conveyor.Factory.Epic
+  alias Conveyor.Factory.Plan
+  alias Conveyor.Factory.Project
+  alias Conveyor.Factory.Slice
   alias Conveyor.SampleTasksSeed
 
   @base_commit String.duplicate("a", 40)
@@ -54,6 +58,97 @@ defmodule Conveyor.ContextScoutTest do
 
     assert pack.slice_id == seed.slice.id
     assert pack.code_quality_refs == ["artifacts/quality/baseline.json"]
+  end
+
+  test "includes bounded, redacted, deterministic excerpts for top-K source files (aabq.1)", %{
+    seed: seed
+  } do
+    pack = ContextScout.run!(seed.slice)
+
+    excerpt = Enum.find(pack.file_excerpts, &(&1["path"] == "tasks_service/main.py"))
+    assert excerpt, "expected an excerpt for main.py in #{inspect(pack.file_excerpts)}"
+    assert is_binary(excerpt["excerpt"]) and excerpt["excerpt"] != ""
+    assert excerpt["bytes"] == byte_size(excerpt["excerpt"])
+    # only source files get excerpts (no configs/tests dumped verbatim)
+    assert Enum.all?(
+             pack.file_excerpts,
+             &(Path.extname(&1["path"]) in ~w(.ex .exs .js .jsx .py .ts .tsx))
+           )
+
+    # deterministic: a second scout of the same tree yields byte-identical excerpts (replayable).
+    assert ContextScout.run!(seed.slice).file_excerpts == pack.file_excerpts
+  end
+
+  test "excerpts honor the byte budget and truncate deterministically (aabq.1)", %{seed: seed} do
+    pack = ContextScout.run!(seed.slice, excerpt_max_files: 2, excerpt_max_bytes: 40)
+
+    assert length(pack.file_excerpts) <= 2
+    assert Enum.all?(pack.file_excerpts, &(&1["bytes"] <= 40))
+    assert Enum.any?(pack.file_excerpts, & &1["truncated"])
+  end
+
+  test "a planted secret never leaks into an excerpt (aabq.1)" do
+    # Isolated temp workspace — never mutate the committed sample tree.
+    root = Path.join(System.tmp_dir!(), "scout-secret-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(Path.join(root, "svc"))
+    File.write!(Path.join(root, "svc/app.py"), "# key AKIAIOSFODNN7EXAMPLE\nprint('hi')\n")
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    slice = temp_project_slice!(root, ["svc/app.py"])
+    pack = ContextScout.run!(slice)
+    excerpt = Enum.find(pack.file_excerpts, &(&1["path"] == "svc/app.py"))
+
+    assert excerpt, "expected an excerpt for svc/app.py in #{inspect(pack.file_excerpts)}"
+    refute excerpt["excerpt"] =~ "AKIAIOSFODNN7EXAMPLE"
+    assert excerpt["excerpt"] =~ "REDACTED"
+  end
+
+  # A minimal project→plan→epic→slice pointing at `root`, with `likely_files` so the scout selects
+  # the fixture file. No AgentBrief (source selection falls back to likely_files).
+  defp temp_project_slice!(root, likely_files) do
+    project =
+      Ash.create!(
+        Project,
+        %{
+          name: "scout-temp",
+          local_path: root,
+          default_branch: "main",
+          default_autonomy_level: 2
+        },
+        domain: Factory
+      )
+
+    plan =
+      Ash.create!(
+        Plan,
+        %{
+          project_id: project.id,
+          title: "scout temp",
+          intent: "scout",
+          source_document: "t",
+          normalized_contract: %{"goal" => "t"},
+          contract_sha256: "sha256:t",
+          status: :handoff_ready
+        },
+        domain: Factory
+      )
+
+    epic = Ash.create!(Epic, %{plan_id: plan.id, title: "e", description: "d"}, domain: Factory)
+
+    Ash.create!(
+      Slice,
+      %{
+        epic_id: epic.id,
+        title: "s",
+        position: 1,
+        risk: "medium",
+        autonomy_level: "L2",
+        source_refs: [],
+        likely_files: likely_files,
+        conflict_domains: []
+      },
+      domain: Factory
+    )
   end
 
   defp assert_relevant_file(pack, path, reason_terms) do

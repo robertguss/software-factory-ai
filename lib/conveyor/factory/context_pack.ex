@@ -23,6 +23,9 @@ defmodule Conveyor.Factory.ContextPack do
     attribute :scout_version, :string, allow_nil?: false, public?: true
     attribute :confidence, :decimal, allow_nil?: false, public?: true
     attribute :relevant_files, {:array, :map}, allow_nil?: false, default: [], public?: true
+    # aabq.1: bounded, redacted, interface-bearing content excerpts for the top-K source files.
+    # Each entry: %{"path", "excerpt", "truncated", "bytes"}. Rendered under the untrusted banner.
+    attribute :file_excerpts, {:array, :map}, allow_nil?: false, default: [], public?: true
     attribute :key_interfaces, {:array, :string}, allow_nil?: false, default: [], public?: true
     attribute :existing_tests, {:array, :string}, allow_nil?: false, default: [], public?: true
     attribute :risks, {:array, :string}, allow_nil?: false, default: [], public?: true
