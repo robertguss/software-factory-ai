@@ -13,6 +13,7 @@ defmodule Conveyor.RunSpecAssemblerTest do
   alias Conveyor.Factory.Plan
   alias Conveyor.Factory.Project
   alias Conveyor.Factory.Slice
+  alias Conveyor.Gate.Stages.DiffScope
   alias Conveyor.Planning.RunSpecAssembler
   alias Conveyor.Planning.ScopeCap
 
@@ -50,6 +51,53 @@ defmodule Conveyor.RunSpecAssemblerTest do
     assert disjoint?(diff_policy)
   end
 
+  test "nyrl.1.1: scope classes declared in .conveyor/config.toml reach the DiffPolicy and DiffScope honors them" do
+    local_path = temp_dir!()
+    File.mkdir_p!(Path.join(local_path, ".conveyor"))
+    File.write!(Path.join([local_path, ".conveyor", "config.toml"]), scope_config_toml())
+
+    slice = assemble_with_likely_files!(["src/foo.py"], local_path)
+    diff_policy = default_diff_policy!(slice.id)
+
+    # (round-trip) the declared class landed on the synthesized DiffPolicy.
+    assert %{"name" => "docs", "globs" => ["docs/**"]} in diff_policy.always_allowed_path_classes
+
+    # (end-to-end) DiffScope grants docs/readme.md — outside allowed_path_globs but in the
+    # declared class — so it is not a blocking out-of-scope violation.
+    result =
+      DiffScope.run(%{
+        patch_set: %{changed_files: ["src/foo.py", "docs/readme.md"], patch_sha256: "sha256:x"},
+        diff_policy: diff_policy
+      })
+
+    assert result.status == :passed
+    refute Enum.any?(result.findings, &(&1["severity"] == "blocking"))
+  end
+
+  defp scope_config_toml do
+    """
+    [project]
+    name = "scope_sample"
+    repo_path = "."
+    default_branch = "main"
+    default_autonomy_level = "L1"
+    policies_dir = ".conveyor/policies"
+    prompts_dir = ".conveyor/prompts"
+    runs_dir = ".conveyor/runs"
+    blobs_dir = ".conveyor/blobs"
+    quality_adapter = "noop"
+
+    [[project.command_specs]]
+    key = "pytest"
+    argv = ["pytest", "-q"]
+    profile = "verify"
+
+    [[project.always_allowed_path_classes]]
+    name = "docs"
+    globs = ["docs/**"]
+    """
+  end
+
   defp disjoint?(%DiffPolicy{} = diff_policy) do
     MapSet.disjoint?(
       MapSet.new(diff_policy.allowed_path_globs),
@@ -68,11 +116,15 @@ defmodule Conveyor.RunSpecAssemblerTest do
   # public seam that reaches the private `create_default_diff_policy!/1`. Returns the slice so the
   # caller can read back its synthesized DiffPolicy. `base_commit` is supplied explicitly so no git
   # workspace is needed (assemble! never executes stations; it only lowers + persists the spec).
-  defp assemble_with_likely_files!(likely_files) do
+  defp assemble_with_likely_files!(likely_files, local_path \\ nil) do
     project =
       Ash.create!(
         Project,
-        %{name: "DiffPolicy sample", local_path: temp_dir!(), default_branch: "main"},
+        %{
+          name: "DiffPolicy sample",
+          local_path: local_path || temp_dir!(),
+          default_branch: "main"
+        },
         domain: Factory
       )
 

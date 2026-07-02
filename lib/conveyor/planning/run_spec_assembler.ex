@@ -44,7 +44,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     contract =
       slice
       |> ensure_contract_ready!(context, work_graph, opts)
-      |> Map.put(:diff_policy, ensure_diff_policy!(slice, opts))
+      |> Map.put(:diff_policy, ensure_diff_policy!(slice, context, opts))
 
     workspace_path = Keyword.get(opts, :workspace_path, context.project.local_path)
     base_commit = Keyword.get_lazy(opts, :base_commit, fn -> git_head!(workspace_path) end)
@@ -280,13 +280,28 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     end
   end
 
-  defp ensure_diff_policy!(slice, opts) do
+  defp ensure_diff_policy!(slice, context, opts) do
     case Keyword.get(opts, :diff_policy) do
       %DiffPolicy{} = diff_policy ->
         diff_policy
 
       nil ->
-        latest_diff_policy(slice) || create_default_diff_policy!(slice)
+        latest_diff_policy(slice) ||
+          create_default_diff_policy!(slice, always_allowed_classes(context, opts))
+    end
+  end
+
+  # nyrl.1.1: a project declares extra always-allowed scope classes in .conveyor/config.toml;
+  # they populate DiffPolicy.always_allowed_path_classes so the DiffScope gate honours them.
+  # Absent/invalid config falls back to none — the shipped classes still apply in the stage.
+  defp always_allowed_classes(context, opts) do
+    Keyword.get(opts, :always_allowed_path_classes) || load_scope_classes(context.project)
+  end
+
+  defp load_scope_classes(project) do
+    case Conveyor.Config.load(Conveyor.Config.default_path(project.local_path)) do
+      {:ok, config} -> config.always_allowed_path_classes
+      {:error, _reason} -> []
     end
   end
 
@@ -302,7 +317,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
     |> List.first()
   end
 
-  defp create_default_diff_policy!(%Slice{} = slice) do
+  defp create_default_diff_policy!(%Slice{} = slice, always_allowed_path_classes) do
     # Defense-in-depth: tests/ is never agent-editable (AGENTS.md), so it is LOCKED into
     # protected_path_globs and STRIPPED from allowed_path_globs — a path may never appear in
     # both. `tests/**` (the matcher's `**` spans `/`, so it also covers tests/golden/digest.md)
@@ -319,6 +334,7 @@ defmodule Conveyor.Planning.RunSpecAssembler do
           slice_id: slice.id,
           allowed_path_globs: allowed_path_globs,
           protected_path_globs: protected_path_globs,
+          always_allowed_path_classes: always_allowed_path_classes,
           max_files_changed: ScopeCap.max_files_changed(length(allowed_path_globs)),
           dependency_changes_allowed: false,
           migrations_allowed: false,

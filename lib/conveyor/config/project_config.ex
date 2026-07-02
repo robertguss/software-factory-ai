@@ -18,6 +18,7 @@ defmodule Conveyor.Config.ProjectConfig do
           quality_adapter: String.t(),
           sample_repo_path: String.t() | nil,
           sample_base_ref: String.t() | nil,
+          always_allowed_path_classes: [%{String.t() => term()}],
           command_specs: [CommandSpec.t()]
         }
 
@@ -45,5 +46,6 @@ defmodule Conveyor.Config.ProjectConfig do
             quality_adapter: nil,
             sample_repo_path: nil,
             sample_base_ref: nil,
+            always_allowed_path_classes: [],
             command_specs: []
 end

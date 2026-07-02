@@ -120,6 +120,69 @@ defmodule Conveyor.ConfigTest do
     assert config.sample_base_ref == "60426b147bd2b752dc03710f75e740f81bb5e3ee"
   end
 
+  test "parses optional always-allowed scope classes (nyrl.1.1)" do
+    path =
+      write_config!("""
+      [project]
+      name = "sample_tasks"
+      repo_path = "."
+      default_branch = "main"
+      default_autonomy_level = "L1"
+      policies_dir = ".conveyor/policies"
+      prompts_dir = ".conveyor/prompts"
+      runs_dir = ".conveyor/runs"
+      blobs_dir = ".conveyor/blobs"
+      quality_adapter = "noop"
+
+      [[project.command_specs]]
+      key = "pytest"
+      argv = ["pytest", "-q"]
+      profile = "verify"
+
+      [[project.always_allowed_path_classes]]
+      name = "docs"
+      globs = ["docs/**", "**/README.md"]
+      """)
+
+    assert {:ok, %ProjectConfig{} = config} = Config.load(path)
+
+    assert config.always_allowed_path_classes == [
+             %{"name" => "docs", "globs" => ["docs/**", "**/README.md"]}
+           ]
+  end
+
+  test "defaults always-allowed scope classes to none when absent" do
+    assert {:ok, %ProjectConfig{always_allowed_path_classes: []}} = Config.load(@sample_config)
+  end
+
+  test "rejects a scope class missing its globs" do
+    path =
+      write_config!("""
+      [project]
+      name = "sample_tasks"
+      repo_path = "."
+      default_branch = "main"
+      default_autonomy_level = "L1"
+      policies_dir = ".conveyor/policies"
+      prompts_dir = ".conveyor/prompts"
+      runs_dir = ".conveyor/runs"
+      blobs_dir = ".conveyor/blobs"
+      quality_adapter = "noop"
+
+      [[project.command_specs]]
+      key = "pytest"
+      argv = ["pytest", "-q"]
+      profile = "verify"
+
+      [[project.always_allowed_path_classes]]
+      name = "docs"
+      """)
+
+    assert {:error,
+            %ValidationError{path: ["project", "always_allowed_path_classes", "0", "globs"]}} =
+             Config.load(path)
+  end
+
   test "builds the default project config path" do
     assert Config.default_path("/repo") == "/repo/.conveyor/config.toml"
   end

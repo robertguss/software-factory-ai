@@ -47,7 +47,8 @@ defmodule Conveyor.Config do
          {:ok, prompts_dir} <- required_string(project, ["project", "prompts_dir"]),
          {:ok, runs_dir} <- required_string(project, ["project", "runs_dir"]),
          {:ok, blobs_dir} <- required_string(project, ["project", "blobs_dir"]),
-         {:ok, quality_adapter} <- required_string(project, ["project", "quality_adapter"]) do
+         {:ok, quality_adapter} <- required_string(project, ["project", "quality_adapter"]),
+         {:ok, scope_classes} <- validate_scope_classes(project) do
       {:ok,
        %ProjectConfig{
          name: name,
@@ -62,6 +63,7 @@ defmodule Conveyor.Config do
          quality_adapter: quality_adapter,
          sample_repo_path: optional_string_value(project, "sample_repo_path"),
          sample_base_ref: optional_string_value(project, "sample_base_ref"),
+         always_allowed_path_classes: scope_classes,
          command_specs: parsed_commands
        }}
     end
@@ -155,6 +157,53 @@ defmodule Conveyor.Config do
   defp validate_command_spec(_command_spec, index) do
     {:error,
      ValidationError.invalid(["project", "command_specs", Integer.to_string(index)], "table")}
+  end
+
+  # Optional [[project.always_allowed_path_classes]] (nyrl.1.1): named path classes a project
+  # declares as always in-scope for the DiffScope gate. Absent => none.
+  defp validate_scope_classes(project) do
+    case Map.fetch(project, "always_allowed_path_classes") do
+      :error ->
+        {:ok, []}
+
+      {:ok, classes} when is_list(classes) ->
+        reduce_scope_classes(classes)
+
+      {:ok, _other} ->
+        {:error, ValidationError.invalid(["project", "always_allowed_path_classes"], "list")}
+    end
+  end
+
+  defp reduce_scope_classes(classes) do
+    classes
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, []}, fn {class, index}, {:ok, acc} ->
+      case validate_scope_class(class, index) do
+        {:ok, parsed} -> {:cont, {:ok, [parsed | acc]}}
+        {:error, error} -> {:halt, {:error, error}}
+      end
+    end)
+    |> case do
+      {:ok, parsed} -> {:ok, Enum.reverse(parsed)}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  defp validate_scope_class(class, index) when is_map(class) do
+    root = ["project", "always_allowed_path_classes", Integer.to_string(index)]
+
+    with {:ok, name} <- required_string(class, root ++ ["name"]),
+         {:ok, globs} <- required_string_list(class, root ++ ["globs"]) do
+      {:ok, %{"name" => name, "globs" => globs}}
+    end
+  end
+
+  defp validate_scope_class(_class, index) do
+    {:error,
+     ValidationError.invalid(
+       ["project", "always_allowed_path_classes", Integer.to_string(index)],
+       "table"
+     )}
   end
 
   defp required_map(map, path), do: required_value(map, path, &is_map/1, "table")
