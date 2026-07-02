@@ -71,6 +71,16 @@ defmodule Conveyor.Factory.DiffPolicy do
     attribute :notes, :string do
       public? true
     end
+
+    # nyrl.1: path CLASSES always in scope for any slice because touching them is the normal
+    # mechanical consequence of in-scope work (e.g. package export barrels). Extends the shipped
+    # conservative set enforced in the DiffScope stage. Entry: %{"name" => ..., "globs" => [..]}.
+    # Protected paths and locked tests are never granted (protected beats allowed).
+    attribute :always_allowed_path_classes, {:array, :map} do
+      allow_nil? false
+      default []
+      public? true
+    end
   end
 
   relationships do

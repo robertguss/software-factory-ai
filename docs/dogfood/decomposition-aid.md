@@ -30,9 +30,18 @@ failure modes to author around:
   mechanical consequence of in-scope work, but you don't know _which_ barrel
   until the code exists. Enumerating them per-slice in `likely_files` is brittle
   busywork. This is the `8mnx` finding: the gate blocked a correct public-API
-  edit that wasn't in `likely_files`. The policy-level **always-allowed path
-  classes** (Negotiated Scope epic) cover these deterministically — declare the
-  class in the project policy profile rather than guessing per slice.
+  edit that wasn't in `likely_files`. The **always-allowed path classes**
+  (`nyrl.1`) cover these deterministically. The `DiffScope` stage ships a
+  conservative default class — `package_barrels` (`**/__init__.py`,
+  `**/index.ts`, `**/index.js`, `**/lib.rs`, `**/mod.rs`) — and a project
+  extends it via `DiffPolicy.always_allowed_path_classes`
+  (`[%{"name" => …, "globs" => […]}]`). A file matching a class is not flagged
+  `out_of_scope_path` and is recorded in gate evidence as `always_allowed_path`
+  (`path X allowed via class Y`) — never a silent grant. Two guardrails:
+  **protected paths beat allowed** (a class can never whitelist `tests/**` or a
+  locked contract surface), and class grants are **not exempt from the size
+  caps** (`max_files_changed`/`max_lines_added` still apply, so a barrel can't
+  smuggle logic).
 - **`likely_files` is a scope declaration, not a wish list.** List the files the
   slice is expected to touch; keep it tight. Over-broad `likely_files` weakens
   the scope signal; too-narrow parks correct work.

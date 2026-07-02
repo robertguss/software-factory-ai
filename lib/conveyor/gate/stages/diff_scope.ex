@@ -7,6 +7,17 @@ defmodule Conveyor.Gate.Stages.DiffScope do
 
   alias Conveyor.Gate.StageResult
 
+  # nyrl.1: shipped conservative always-allowed classes. Editing a package export barrel is the
+  # normal mechanical consequence of in-scope work but is unpredictable at authoring time (8mnx).
+  # A project profile extends this via DiffPolicy.always_allowed_path_classes. Protected paths and
+  # locked tests are NEVER granted (precedence handled in split_out_of_scope/3).
+  @shipped_always_allowed_classes [
+    %{
+      "name" => "package_barrels",
+      "globs" => ["**/__init__.py", "**/index.ts", "**/index.js", "**/lib.rs", "**/mod.rs"]
+    }
+  ]
+
   @impl true
   def run(context, _opts \\ []) do
     patch_set = value(context, :patch_set)
@@ -28,10 +39,20 @@ defmodule Conveyor.Gate.Stages.DiffScope do
 
   defp findings(patch_set, diff_policy) do
     files = value(patch_set, :changed_files) || []
+    allowed_globs = value(diff_policy, :allowed_path_globs) || []
+    protected_globs = value(diff_policy, :protected_path_globs) || []
+
+    # Files outside the declared allow-list, split into always-allowed class grants vs. true
+    # violations. A protected path is never granted — protected beats allowed (nyrl.1 precedence).
+    out_of_scope =
+      if allowed_globs == [], do: [], else: Enum.reject(files, &matches_any?(&1, allowed_globs))
+
+    {grants, violations} =
+      split_out_of_scope(out_of_scope, always_allowed_classes(diff_policy), protected_globs)
 
     []
-    |> check_allowed_paths(files, value(diff_policy, :allowed_path_globs) || [])
-    |> check_protected_paths(files, value(diff_policy, :protected_path_globs) || [])
+    |> check_out_of_scope(violations)
+    |> check_protected_paths(files, protected_globs)
     |> check_max("max_files_changed", length(files), value(diff_policy, :max_files_changed))
     |> check_max(
       "max_lines_added",
@@ -67,21 +88,55 @@ defmodule Conveyor.Gate.Stages.DiffScope do
       "public_api_change",
       &public_api_path?/1
     )
+    |> prepend_grant_notes(grants)
   end
 
-  defp check_allowed_paths(findings, _files, []), do: findings
+  defp check_out_of_scope(findings, []), do: findings
 
-  defp check_allowed_paths(findings, files, allowed_globs) do
-    unexpected = Enum.reject(files, &matches_any?(&1, allowed_globs))
+  defp check_out_of_scope(findings, violations) do
+    [
+      finding("out_of_scope_path", "Changed files are outside allowed_path_globs.", violations)
+      | findings
+    ]
+  end
 
-    if unexpected == [] do
-      findings
-    else
-      [
-        finding("out_of_scope_path", "Changed files are outside allowed_path_globs.", unexpected)
-        | findings
-      ]
-    end
+  # Split out-of-scope paths into always-allowed class grants vs. true violations. A protected
+  # path is never granted (protected beats allowed); it stays a violation and protected_path_change
+  # fires separately. Grants carry {path, class_name} for the gate-evidence note.
+  defp split_out_of_scope(paths, classes, protected_globs) do
+    {grants, violations} =
+      Enum.reduce(paths, {[], []}, fn path, {grants, violations} ->
+        class = not matches_any?(path, protected_globs) && class_name_for(path, classes)
+
+        if class do
+          {[{path, class} | grants], violations}
+        else
+          {grants, [path | violations]}
+        end
+      end)
+
+    {Enum.reverse(grants), Enum.reverse(violations)}
+  end
+
+  defp always_allowed_classes(diff_policy),
+    do:
+      @shipped_always_allowed_classes ++ (value(diff_policy, :always_allowed_path_classes) || [])
+
+  defp class_name_for(path, classes) do
+    Enum.find_value(classes, fn class ->
+      if matches_any?(path, class["globs"] || []), do: class["name"]
+    end)
+  end
+
+  defp prepend_grant_notes(findings, grants), do: Enum.map(grants, &grant_note/1) ++ findings
+
+  defp grant_note({path, class_name}) do
+    %{
+      "category" => "always_allowed_path",
+      "severity" => "info",
+      "message" => "#{path} allowed via class #{class_name}.",
+      "paths" => [path]
+    }
   end
 
   defp check_protected_paths(findings, files, protected_globs) do
@@ -156,8 +211,10 @@ defmodule Conveyor.Gate.Stages.DiffScope do
     %{"category" => category, "severity" => "blocking", "message" => message, "paths" => paths}
   end
 
-  defp status([]), do: :passed
-  defp status(_findings), do: :failed
+  # Only blocking findings fail the stage; always-allowed grant notes are info-level evidence.
+  defp status(findings) do
+    if Enum.any?(findings, &(&1["severity"] == "blocking")), do: :failed, else: :passed
+  end
 
   defp value(nil, _key), do: nil
 

@@ -143,4 +143,109 @@ defmodule Conveyor.GateStagesScopeTest do
     assert result.passed?
     assert Enum.map(result.stages, & &1.status) == [:passed, :passed]
   end
+
+  # nyrl.1: always-allowed scope classes (package barrels & co.)
+
+  test "diff scope allows a barrel file outside likely_files via the shipped class (8mnx)" do
+    result =
+      DiffScope.run(%{
+        patch_set: %PatchSet{
+          patch_ref: "patches/attempt.patch",
+          patch_sha256: "sha256:patch",
+          changed_files: ["src/loader.py", "src/pkg/__init__.py"],
+          lines_added: 20,
+          lines_deleted: 2
+        },
+        diff_policy: %DiffPolicy{
+          allowed_path_globs: ["src/loader.py"],
+          protected_path_globs: [],
+          max_files_changed: 5,
+          max_lines_added: 100,
+          max_lines_deleted: 100
+        }
+      })
+
+    assert result.status == :passed
+    refute "out_of_scope_path" in Enum.map(result.findings, & &1["category"])
+
+    grant = Enum.find(result.findings, &(&1["category"] == "always_allowed_path"))
+    assert grant["severity"] == "info"
+    assert grant["message"] =~ "src/pkg/__init__.py"
+    assert grant["message"] =~ "package_barrels"
+  end
+
+  test "diff scope: protected paths beat always-allowed classes (precedence)" do
+    result =
+      DiffScope.run(%{
+        patch_set: %PatchSet{
+          patch_ref: "patches/attempt.patch",
+          patch_sha256: "sha256:patch",
+          changed_files: ["tests/pkg/__init__.py"],
+          lines_added: 5,
+          lines_deleted: 0
+        },
+        diff_policy: %DiffPolicy{
+          allowed_path_globs: ["src/**"],
+          protected_path_globs: ["tests/**"],
+          max_files_changed: 5,
+          max_lines_added: 100,
+          max_lines_deleted: 100
+        }
+      })
+
+    assert result.status == :failed
+    categories = Enum.map(result.findings, & &1["category"])
+    assert "protected_path_change" in categories
+    assert "out_of_scope_path" in categories
+    refute "always_allowed_path" in categories
+  end
+
+  test "diff scope: a class grant is not exempt from size caps (smuggle guard)" do
+    result =
+      DiffScope.run(%{
+        patch_set: %PatchSet{
+          patch_ref: "patches/attempt.patch",
+          patch_sha256: "sha256:patch",
+          changed_files: ["src/loader.py", "src/pkg/__init__.py"],
+          lines_added: 500,
+          lines_deleted: 0
+        },
+        diff_policy: %DiffPolicy{
+          allowed_path_globs: ["src/loader.py"],
+          protected_path_globs: [],
+          max_files_changed: 5,
+          max_lines_added: 100,
+          max_lines_deleted: 100
+        }
+      })
+
+    assert result.status == :failed
+    assert "max_lines_added" in Enum.map(result.findings, & &1["category"])
+  end
+
+  test "diff scope honors an always-allowed class declared on the DiffPolicy (round-trip)" do
+    result =
+      DiffScope.run(%{
+        patch_set: %PatchSet{
+          patch_ref: "patches/attempt.patch",
+          patch_sha256: "sha256:patch",
+          changed_files: ["src/x.ex", "docs/readme.md"],
+          lines_added: 10,
+          lines_deleted: 0
+        },
+        diff_policy: %DiffPolicy{
+          allowed_path_globs: ["src/x.ex"],
+          protected_path_globs: [],
+          always_allowed_path_classes: [%{"name" => "docs", "globs" => ["docs/**"]}],
+          max_files_changed: 5,
+          max_lines_added: 100,
+          max_lines_deleted: 100
+        }
+      })
+
+    assert result.status == :passed
+    grant = Enum.find(result.findings, &(&1["category"] == "always_allowed_path"))
+    assert grant["message"] =~ "docs/readme.md"
+    assert grant["message"] =~ "class docs"
+  end
 end
