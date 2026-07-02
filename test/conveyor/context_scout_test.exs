@@ -103,6 +103,49 @@ defmodule Conveyor.ContextScoutTest do
     assert excerpt["excerpt"] =~ "REDACTED"
   end
 
+  test "selects a non-Python entrypoint language-neutrally and hands off its signature (aabq.2)" do
+    root = Path.join(System.tmp_dir!(), "scout-lang-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(root)
+    File.write!(Path.join(root, "server.js"), "export function handler(req) {\n  return req\n}\n")
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    slice = temp_project_slice!(root, [])
+    # brief with an HTTP-verb interface hint drives the entrypoint heuristic (no likely_files)
+    brief_with_interfaces!(slice, ["GET /orders"])
+
+    pack = ContextScout.run!(slice)
+    paths = Enum.map(pack.relevant_files, & &1["path"])
+
+    # server.js is picked by stem, not a hardcoded *.py name (de-Python-bias).
+    assert "server.js" in paths, "expected server.js selected, got #{inspect(paths)}"
+
+    excerpt = Enum.find(pack.file_excerpts, &(&1["path"] == "server.js"))
+    assert excerpt["excerpt"] =~ "export function handler"
+  end
+
+  defp brief_with_interfaces!(slice, key_interfaces) do
+    Ash.create!(
+      Conveyor.Factory.AgentBrief,
+      %{
+        slice_id: slice.id,
+        version: 1,
+        current_behavior: "none",
+        desired_behavior: "handle orders",
+        key_interfaces: key_interfaces,
+        out_of_scope: [],
+        risk: "medium",
+        acceptance_criteria: [],
+        required_tests: [],
+        verification_commands: [],
+        non_goals: [],
+        locked_at: DateTime.utc_now(:microsecond),
+        locked_by: "planner",
+        contract_sha256: "sha256:brief"
+      },
+      domain: Factory
+    )
+  end
+
   # A minimal project→plan→epic→slice pointing at `root`, with `likely_files` so the scout selects
   # the fixture file. No AgentBrief (source selection falls back to likely_files).
   defp temp_project_slice!(root, likely_files) do

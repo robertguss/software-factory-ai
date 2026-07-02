@@ -5,6 +5,7 @@ defmodule Conveyor.ContextScout do
 
   require Logger
 
+  alias Conveyor.ContextScout.Signatures
   alias Conveyor.Factory
   alias Conveyor.Factory.AgentBrief
   alias Conveyor.Factory.ContextPack
@@ -130,10 +131,10 @@ defmodule Conveyor.ContextScout do
     |> Enum.take(8)
   end
 
-  # aabq.1: bounded, redacted, interface-bearing excerpts for the top-K source files. v1 takes the
-  # file HEAD (module head + first signatures) up to a byte budget — a deterministic anchor; the
-  # per-language signature extraction is aabq.2. Order follows relevant_files (already
-  # deterministic) so prompt digests stay replayable. Repo content is UNTRUSTED, so it is redacted.
+  # aabq.1/aabq.2: bounded, redacted, interface-bearing excerpts for the top-K source files —
+  # per-language signatures (Signatures.extract), falling back to the file head, byte-capped. Order
+  # follows relevant_files (already deterministic) so prompt digests stay replayable. Repo content
+  # is UNTRUSTED, so it is redacted.
   defp file_excerpts(relevant_files, project_root, opts) do
     {max_files, max_bytes} = excerpt_config(opts)
     root = Path.expand(project_root)
@@ -147,8 +148,8 @@ defmodule Conveyor.ContextScout do
   defp build_excerpt(path, root, max_bytes) do
     case File.read(Path.join(root, path)) do
       {:ok, content} ->
-        {head, truncated?} = truncate_utf8(content, max_bytes)
-        redacted = Redactor.redact!(head, source: path).content
+        {raw, truncated?} = interface_or_head(content, path, max_bytes)
+        redacted = Redactor.redact!(raw, source: path).content
 
         if truncated? do
           Logger.info("context_scout: excerpt truncated for #{path} (> #{max_bytes} bytes)")
@@ -165,6 +166,15 @@ defmodule Conveyor.ContextScout do
 
       {:error, _reason} ->
         []
+    end
+  end
+
+  # aabq.2: prefer the interface-bearing signatures for the file's language; fall back to the file
+  # head when the language is unknown or has no extractable signatures. Both are byte-capped.
+  defp interface_or_head(content, path, max_bytes) do
+    case Signatures.extract(content, path) do
+      nil -> truncate_utf8(content, max_bytes)
+      signatures -> truncate_utf8(signatures, max_bytes)
     end
   end
 
@@ -230,13 +240,18 @@ defmodule Conveyor.ContextScout do
     end
   end
 
+  # Language-neutral entrypoint/router and model file stems (aabq.2, de-Python-bias). Matched on the
+  # basename stem across any source extension, not hardcoded *.py names.
+  @entrypoint_stems ~w(main app server router routes index)
+  @model_stems ~w(model models schema schemas task tasks entity entities domain)
+
   defp interface_candidates(files, interface_text) do
     Enum.flat_map(files, fn path ->
       cond do
         source_file?(path) and route_or_model_file?(path, interface_text) ->
           [source_reason(path, "Defines key router/model behavior for #{interface_text}")]
 
-        source_file?(path) and String.contains?(path, "main.") ->
+        source_file?(path) and entrypoint_file?(path) ->
           [source_reason(path, "Likely application entrypoint and API router")]
 
         true ->
@@ -248,16 +263,20 @@ defmodule Conveyor.ContextScout do
   defp route_or_model_file?(path, interface_text) do
     endpoint_hint? = Regex.match?(~r/\b(GET|POST|PATCH|PUT|DELETE)\b/, interface_text)
     model_hint? = String.contains?(interface_text, ".")
-    basename = Path.basename(path)
+    stem = file_stem(path)
 
-    (endpoint_hint? and basename in ["main.py", "app.py", "router.py", "routes.py"]) or
-      (model_hint? and Regex.match?(~r/(model|schema|task|main)\./, basename))
+    (endpoint_hint? and stem in @entrypoint_stems) or
+      (model_hint? and stem in (@entrypoint_stems ++ @model_stems))
   end
+
+  defp entrypoint_file?(path), do: file_stem(path) in @entrypoint_stems
+
+  defp file_stem(path), do: path |> Path.basename() |> Path.rootname() |> String.downcase()
 
   defp source_reason(path, prefix) do
     reason =
       cond do
-        String.contains?(path, "main.") ->
+        entrypoint_file?(path) ->
           "#{prefix}; names the API router and task model/state surface"
 
         Regex.match?(~r/(model|schema|task)/, path) ->
